@@ -43,8 +43,8 @@ type VideoResultResponse struct {
 		CreateTime   string `json:"create_time"`
 		ModifyTime   string `json:"modify_time"`
 		Style        string `json:"style"`
-		Seed         int    `json:"seed"`
-		Size         string `json:"size"`
+		Seed int         `json:"seed"`
+		Size interface{} `json:"size"`
 	} `json:"Resp"`
 }
 
