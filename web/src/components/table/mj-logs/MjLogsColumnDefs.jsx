@@ -251,11 +251,13 @@ function renderStatus(type, t) {
         </Tag>
       );
     case 'SUBMITTED':
+    case 'QUEUED':
       return (
         <Tag color='yellow' shape='circle' prefixIcon={<Clock size={14} />}>
           {t('队列中')}
         </Tag>
       );
+    case '':
     case 'IN_PROGRESS':
       return (
         <Tag color='blue' shape='circle' prefixIcon={<Loader size={14} />}>
