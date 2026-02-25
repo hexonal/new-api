@@ -210,6 +210,19 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
 	}
 
+	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
+	if len(info.ParamOverride) > 0 {
+		bodyBytes, readErr := io.ReadAll(requestBody)
+		if readErr != nil {
+			return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
+		}
+		bodyBytes, err = relaycommon.ApplyParamOverride(bodyBytes, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
+		}
+		requestBody = bytes.NewReader(bodyBytes)
+	}
+
 	// 9. 发送请求
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
