@@ -126,7 +126,7 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	ov.Model = info.OriginModelName
 	c.JSON(http.StatusOK, ov)
 
-	return ycResp.Data.ID, responseBody, nil
+	return ycResp.ID, responseBody, nil
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
@@ -180,9 +180,9 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	}
 
 	ti := &relaycommon.TaskInfo{
-		TaskID: result.Data.ID,
+		TaskID: result.ID,
 	}
-	switch result.Data.Status {
+	switch result.Status {
 	case StatusQueued:
 		ti.Status = model.TaskStatusQueued
 		ti.Progress = taskcommon.ProgressQueued
@@ -192,8 +192,8 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	case StatusSuccess:
 		ti.Status = model.TaskStatusSuccess
 		ti.Progress = taskcommon.ProgressComplete
-		if len(result.Data.URLs) > 0 {
-			ti.Url = result.Data.URLs[0]
+		if len(result.URLs) > 0 {
+			ti.Url = result.URLs[0]
 		}
 	case StatusFailed:
 		ti.Status = model.TaskStatusFailure
@@ -217,8 +217,8 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	}
 
 	openAIVideo := originTask.ToOpenAIVideo()
-	if len(ycResult.Data.URLs) > 0 {
-		openAIVideo.SetMetadata("url", ycResult.Data.URLs[0])
+	if len(ycResult.URLs) > 0 {
+		openAIVideo.SetMetadata("url", ycResult.URLs[0])
 	}
 	if ycResult.Code != 0 {
 		openAIVideo.Error = &dto.OpenAIVideoError{

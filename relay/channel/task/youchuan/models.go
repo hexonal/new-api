@@ -7,17 +7,20 @@ type DiffusionRequest struct {
 	Text string `json:"text"`
 }
 
-// YouchuanResponse is the common response structure for both submit and query.
+// YouchuanResponse is the flat response structure from the Youchuan API.
+// Used for both submit and query endpoints.
 type YouchuanResponse struct {
+	ID      string   `json:"id"`
+	Text    string   `json:"text"`
+	URLs    []string `json:"urls"`
+	Status  int      `json:"status"`
+	Comment string   `json:"comment"`
+	Seed    int      `json:"seed"`
+	Cost    any      `json:"cost"`
+	Audits  any      `json:"audits"`
+	// Error fields (when code != 0)
 	Code    int    `json:"code"`
 	Message string `json:"message"`
-	Data    struct {
-		ID     string   `json:"id"`
-		Status int      `json:"status"`
-		URLs   []string `json:"urls"`
-		Cost   float64  `json:"cost"`
-		Audit  int      `json:"audit"`
-	} `json:"data"`
 }
 
 // 悠船任务状态
