@@ -19,6 +19,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -237,6 +238,10 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) (any, error) {
 	dr := &DiffusionRequest{
 		Text: strings.TrimSpace(req.Prompt),
+	}
+	// 设置回调 URL：悠船 API 没有查询端点，只能通过 callback 获取结果
+	if serverAddr := system_setting.ServerAddress; serverAddr != "" {
+		dr.Callback = serverAddr + "/youchuan/notify"
 	}
 	if err := taskcommon.UnmarshalMetadata(req.Metadata, dr); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")

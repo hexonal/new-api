@@ -4,7 +4,8 @@ package youchuan
 // Fields discovered through API testing — the API uses protobuf underneath,
 // so only fields defined in the proto schema are accepted.
 type DiffusionRequest struct {
-	Text string `json:"text"`
+	Text     string `json:"text"`
+	Callback string `json:"callback,omitempty"`
 }
 
 // YouchuanResponse is the flat response structure from the Youchuan API.
