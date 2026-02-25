@@ -43,9 +43,10 @@ var ModelList = []string{
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
-	ChannelType int
-	apiKey      string
-	baseURL     string
+	ChannelType   int
+	apiKey        string
+	baseURL       string
+	hasImageInput bool
 }
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
@@ -55,13 +56,28 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
-	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	taskErr := relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	if taskErr != nil {
+		return taskErr
+	}
+	// Detect image-to-video: check Image field or img_id in metadata
+	if v, exists := c.Get("task_request"); exists {
+		if req, ok := v.(relaycommon.TaskSubmitReq); ok {
+			if req.Image != "" || len(req.Images) > 0 {
+				a.hasImageInput = true
+			}
+			if imgID, ok := req.Metadata["img_id"]; ok && imgID != nil {
+				a.hasImageInput = true
+			}
+		}
+	}
+	return nil
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	// 默认走文生视频；图生视频（有 image/img_id）走 img endpoint
+	// 默认走文生视频；有图片引用时走图生视频
 	endpoint := TextToVideoEndpoint
-	if info.Action == constant.TaskActionGenerate {
+	if a.hasImageInput {
 		endpoint = ImageToVideoEndpoint
 	}
 	return fmt.Sprintf("%s%s", a.baseURL, endpoint), nil
