@@ -30,9 +30,9 @@ const (
 )
 
 var ModelList = []string{
-	"yc_imagine",
-	"yc_variation",
-	"yc_upscale",
+	"mj_imagine",
+	"mj_variation",
+	"mj_upscale",
 }
 
 
