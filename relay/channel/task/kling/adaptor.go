@@ -178,8 +178,10 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	req := v.(relaycommon.TaskSubmitReq)
 
-	// Image generation uses a separate payload structure
-	if info.Action == constant.TaskActionImageGenerate {
+	// Auto-detect image generation by model name (for unified /v1/video/generations entry)
+	if strings.Contains(info.UpstreamModelName, "image") || info.Action == constant.TaskActionImageGenerate {
+		info.Action = constant.TaskActionImageGenerate
+		c.Set("action", constant.TaskActionImageGenerate)
 		imgBody, err := a.convertToImageGenPayload(&req, info)
 		if err != nil {
 			return nil, err
