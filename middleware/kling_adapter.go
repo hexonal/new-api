@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -13,6 +14,9 @@ import (
 
 func KlingRequestConvert() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		isImageGen := strings.HasPrefix(path, "/kling/v1/images/generations")
+
 		var originalReq map[string]interface{}
 		if err := common.UnmarshalBodyReusable(c, &originalReq); err != nil {
 			c.Next()
@@ -38,10 +42,13 @@ func KlingRequestConvert() func(c *gin.Context) {
 			return
 		}
 
-		// Rewrite request body and path
+		// Rewrite request body and path — route through unified task relay
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 		c.Request.URL.Path = "/v1/video/generations"
-		if image, ok := originalReq["image"]; !ok || image == "" {
+
+		if isImageGen {
+			c.Set("action", constant.TaskActionImageGenerate)
+		} else if image, ok := originalReq["image"]; !ok || image == "" {
 			c.Set("action", constant.TaskActionTextGenerate)
 		}
 
