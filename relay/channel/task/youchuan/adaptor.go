@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -207,6 +208,25 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		ti.Progress = taskcommon.ProgressQueued
 	}
 	return ti, nil
+}
+
+func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error) {
+	var ycResult YouchuanResponse
+	if err := common.Unmarshal(originTask.Data, &ycResult); err != nil {
+		return nil, errors.Wrap(err, "unmarshal youchuan task data failed")
+	}
+
+	openAIVideo := originTask.ToOpenAIVideo()
+	if len(ycResult.Data.URLs) > 0 {
+		openAIVideo.SetMetadata("url", ycResult.Data.URLs[0])
+	}
+	if ycResult.Code != 0 {
+		openAIVideo.Error = &dto.OpenAIVideoError{
+			Message: ycResult.Message,
+			Code:    strconv.Itoa(ycResult.Code),
+		}
+	}
+	return common.Marshal(openAIVideo)
 }
 
 // ── helpers ──────────────────────────────────────────────────────
