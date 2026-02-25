@@ -189,6 +189,16 @@ export const CHANNEL_OPTIONS = [
     color: 'blue',
     label: 'Codex (OpenAI OAuth)',
   },
+  {
+    value: 58,
+    color: 'orange',
+    label: '悠船',
+  },
+  {
+    value: 59,
+    color: 'purple',
+    label: 'PixVerse',
+  },
 ];
 
 export const MODEL_TABLE_PAGE_SIZE = 10;
