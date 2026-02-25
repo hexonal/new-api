@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -26,7 +25,6 @@ const (
 	ChannelName       = "youchuan"
 	DiffusionEndpoint = "/v1/tob/diffusion"
 	TaskQueryEndpoint = "/v1/tob/task"
-	DefaultVersion    = "v6.1"
 )
 
 var ModelList = []string{
@@ -214,55 +212,15 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 // ── helpers ──────────────────────────────────────────────────────
 
 // convertToRequestPayload converts the generic TaskSubmitReq to a Youchuan DiffusionRequest.
-// Parses MJ-style parameters from the prompt (--v, --ar, etc.).
+// The prompt is passed through as-is (including any MJ-style --v, --ar parameters)
+// since the Youchuan API handles MJ parameter parsing internally.
 func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) (any, error) {
-	prompt := req.Prompt
-	version := DefaultVersion
-	aspectRatio := ""
-
-	// Parse MJ-style parameters from prompt
-	prompt, params := parseMJParams(prompt)
-
-	if v, ok := params["v"]; ok {
-		version = "v" + v
-	}
-	if v, ok := params["version"]; ok {
-		version = "v" + v
-	}
-	if ar, ok := params["ar"]; ok {
-		aspectRatio = ar
-	}
-	if ar, ok := params["aspect"]; ok {
-		aspectRatio = ar
-	}
-
-	// Pass through size field as aspect_ratio if not already set from prompt params
-	if req.Size != "" && aspectRatio == "" {
-		aspectRatio = req.Size
-	}
-
 	dr := &DiffusionRequest{
-		Text:        strings.TrimSpace(prompt),
-		Version:     version,
-		AspectRatio: aspectRatio,
+		Text: strings.TrimSpace(req.Prompt),
 	}
 	if err := taskcommon.UnmarshalMetadata(req.Metadata, dr); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
 	return dr, nil
-}
-
-// parseMJParams extracts --key value parameters from a MJ-style prompt.
-// Returns the cleaned prompt and a map of extracted parameters.
-var mjParamRegex = regexp.MustCompile(`--(\w+)\s+(\S+)`)
-
-func parseMJParams(prompt string) (string, map[string]string) {
-	params := make(map[string]string)
-	matches := mjParamRegex.FindAllStringSubmatch(prompt, -1)
-	for _, m := range matches {
-		params[m[1]] = m[2]
-	}
-	cleaned := mjParamRegex.ReplaceAllString(prompt, "")
-	return strings.TrimSpace(cleaned), params
 }
 

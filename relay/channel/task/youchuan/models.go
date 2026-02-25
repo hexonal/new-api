@@ -1,12 +1,10 @@
 package youchuan
 
 // DiffusionRequest is the request body for /v1/tob/diffusion (text-to-image).
+// Fields discovered through API testing — the API uses protobuf underneath,
+// so only fields defined in the proto schema are accepted.
 type DiffusionRequest struct {
-	Text        string `json:"text"`
-	Version     string `json:"version,omitempty"`
-	AspectRatio string `json:"aspect_ratio,omitempty"`
-	Mode        string `json:"mode,omitempty"`
-	CallbackURL string `json:"callback_url,omitempty"`
+	Text string `json:"text"`
 }
 
 // YouchuanResponse is the common response structure for both submit and query.
