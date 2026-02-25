@@ -41,6 +41,8 @@ func SetVideoRouter(router *gin.Engine) {
 		klingV1Router.GET("/videos/image2video/:task_id", controller.RelayTaskFetch)
 		klingV1Router.POST("/images/generations", controller.RelayTask)
 		klingV1Router.GET("/images/generations/:task_id", controller.RelayTaskFetch)
+		klingV1Router.POST("/images/omni-image", controller.RelayTask)
+		klingV1Router.GET("/images/omni-image/:task_id", controller.RelayTaskFetch)
 	}
 
 	// Jimeng official API routes - direct mapping to official API format

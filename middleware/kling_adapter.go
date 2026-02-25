@@ -15,7 +15,7 @@ import (
 func KlingRequestConvert() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
-		isImageGen := strings.HasPrefix(path, "/kling/v1/images/generations")
+		isImageGen := strings.HasPrefix(path, "/kling/v1/images/")
 
 		var originalReq map[string]interface{}
 		if err := common.UnmarshalBodyReusable(c, &originalReq); err != nil {

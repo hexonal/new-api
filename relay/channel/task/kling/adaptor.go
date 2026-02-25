@@ -142,7 +142,7 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	var path string
 	switch info.Action {
 	case constant.TaskActionImageGenerate:
-		path = "/v1/images/generations"
+		path = "/v1/images/omni-image"
 	case constant.TaskActionGenerate:
 		path = "/v1/videos/image2video"
 	default:
@@ -255,7 +255,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	var path string
 	switch action {
 	case constant.TaskActionImageGenerate:
-		path = "/v1/images/generations"
+		path = "/v1/images/omni-image"
 	case constant.TaskActionGenerate:
 		path = "/v1/videos/image2video"
 	default:
