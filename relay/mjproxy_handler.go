@@ -504,7 +504,14 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		}
 	}
 
-	midjResponseWithStatus, responseBody, err := service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL)
+	var midjResponseWithStatus *dto.MidjourneyResponseWithStatusCode
+	var responseBody []byte
+	channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
+	if channelType == constant.ChannelTypeYouchuan {
+		midjResponseWithStatus, responseBody, err = service.DoYouchuanMjRequest(c, midjRequest, baseURL)
+	} else {
+		midjResponseWithStatus, responseBody, err = service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL)
+	}
 	if err != nil {
 		return &midjResponseWithStatus.Response
 	}

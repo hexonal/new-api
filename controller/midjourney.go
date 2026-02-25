@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
@@ -77,6 +79,13 @@ func UpdateMidjourneyTaskBulk() {
 				}
 				continue
 			}
+			// ── 悠船渠道：逐任务查询 ──
+			if midjourneyChannel.Type == constant.ChannelTypeYouchuan {
+				pollYouchuanMjTasks(ctx, midjourneyChannel, taskIds, taskM)
+				continue
+			}
+
+			// ── 标准 MJ proxy 批量查询 ──
 			requestUrl := fmt.Sprintf("%s/mj/task/list-by-condition", *midjourneyChannel.BaseURL)
 
 			body, _ := json.Marshal(map[string]any{
@@ -302,4 +311,138 @@ func GetUserMidjourney(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(items)
 	common.ApiSuccess(c, pageInfo)
+}
+
+// pollYouchuanMjTasks 逐任务查询悠船接口，更新 midjourneys 表。
+// 回调是主通道，此轮询作为兜底，两者通过 CAS (UpdateWithStatus) 避免冲突。
+func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []string, taskM map[string]*model.Midjourney) {
+	parts := strings.SplitN(ch.Key, "|", 2)
+	if len(parts) != 2 {
+		logger.LogError(ctx, fmt.Sprintf("youchuan poll: invalid key format for channel %d", ch.Id))
+		return
+	}
+	appKey := strings.TrimSpace(parts[0])
+	secret := strings.TrimSpace(parts[1])
+
+	for _, mjId := range taskIds {
+		task, ok := taskM[mjId]
+		if !ok {
+			continue
+		}
+		// 已完成的任务跳过
+		if task.Status == "SUCCESS" || task.Status == "FAILURE" {
+			continue
+		}
+
+		url := fmt.Sprintf("%s/v1/tob/task/%s", *ch.BaseURL, mjId)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: create request error: %v", err))
+			continue
+		}
+		reqCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		req = req.WithContext(reqCtx)
+		req.Header.Set("x-youchuan-app", appKey)
+		req.Header.Set("x-youchuan-secret", secret)
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := service.GetHttpClient().Do(req)
+		if err != nil {
+			cancel()
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: request error for %s: %v", mjId, err))
+			continue
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel()
+		if err != nil {
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: read body error for %s: %v", mjId, err))
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: status %d for %s, body: %s", resp.StatusCode, mjId, string(respBody)))
+			continue
+		}
+
+		// 解析悠船响应
+		var ycResp struct {
+			ID      string   `json:"id"`
+			URLs    []string `json:"urls"`
+			Status  int      `json:"status"`
+			Comment string   `json:"comment"`
+			Code    int      `json:"code"`
+			Message string   `json:"message"`
+		}
+		if err := json.Unmarshal(respBody, &ycResp); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: unmarshal error for %s: %v", mjId, err))
+			continue
+		}
+
+		// 状态映射
+		preStatus := task.Status
+		now := time.Now().UnixNano() / int64(time.Millisecond)
+		needUpdate := false
+
+		switch ycResp.Status {
+		case 0: // StatusQueued
+			if task.Progress != "0%" {
+				task.Progress = "0%"
+				needUpdate = true
+			}
+		case 1: // StatusProcessing
+			if task.Status != "" || task.Progress != "50%" {
+				task.Status = ""
+				task.Progress = "50%"
+				if task.StartTime == 0 {
+					task.StartTime = now
+				}
+				needUpdate = true
+			}
+		case 2: // StatusSuccess
+			task.Status = "SUCCESS"
+			task.Progress = "100%"
+			if len(ycResp.URLs) > 0 {
+				task.ImageUrl = ycResp.URLs[0]
+			}
+			task.FinishTime = now
+			needUpdate = true
+		case 3, 4: // StatusFailed, StatusAuditFail
+			task.Status = "FAILURE"
+			task.Progress = "100%"
+			task.FailReason = ycResp.Comment
+			if task.FailReason == "" {
+				task.FailReason = ycResp.Message
+			}
+			task.FinishTime = now
+			needUpdate = true
+		}
+
+		if !needUpdate {
+			continue
+		}
+
+		won, err := task.UpdateWithStatus(preStatus)
+		if err != nil {
+			logger.LogError(ctx, fmt.Sprintf("youchuan poll: update error for %s: %v", mjId, err))
+			continue
+		}
+		if won && task.Status == "FAILURE" && task.Quota != 0 {
+			err = model.IncreaseUserQuota(task.UserId, task.Quota, false)
+			if err != nil {
+				logger.LogError(ctx, fmt.Sprintf("youchuan poll: refund error for %s: %v", mjId, err))
+			}
+			model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+				UserId:    task.UserId,
+				LogType:   model.LogTypeRefund,
+				Content:   "",
+				ChannelId: task.ChannelId,
+				ModelName: service.CovertMjpActionToModelName(task.Action),
+				Quota:     task.Quota,
+				Other: map[string]any{
+					"task_id": mjId,
+					"reason":  "构图失败",
+				},
+			})
+		}
+	}
 }

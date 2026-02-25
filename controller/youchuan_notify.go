@@ -18,6 +18,9 @@ import (
 // RelayYouchuanNotify 处理悠船 callback 回调。
 // 悠船 API 没有任务查询端点，只通过提交时传入的 callback URL 推送结果。
 // 此路由无需 TokenAuth，由悠船服务器直接调用。
+//
+// 查询顺序：先查 midjourneys 表（MJ relay 路径新数据），
+// 再查 tasks 表（旧 task relay 路径数据），保持向后兼容。
 func RelayYouchuanNotify(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -37,6 +40,12 @@ func RelayYouchuanNotify(c *gin.Context) {
 		return
 	}
 
+	// ── 先尝试 midjourneys 表（MJ relay 路径的新数据）──
+	if handleYouchuanMjNotify(c, &ycResp) {
+		return
+	}
+
+	// ── 回退到 tasks 表（旧 task relay 路径的数据）──
 	platform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeYouchuan))
 	task, exist, err := model.GetTaskByPlatformAndUpstreamID(platform, ycResp.ID)
 	if err != nil {
@@ -98,8 +107,78 @@ func RelayYouchuanNotify(c *gin.Context) {
 	if task.Status == model.TaskStatusFailure && task.Quota != 0 {
 		service.RefundTaskQuota(c, task, task.FailReason)
 	}
-	// SUCCESS 时保持预扣额度（悠船使用 BaseBilling，无需差额结算）
 
 	logger.LogInfo(c, "youchuan notify: task "+task.TaskID+" updated to "+string(task.Status))
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// handleYouchuanMjNotify 尝试在 midjourneys 表中查找并更新任务。
+// 返回 true 表示已处理（无论成功或失败），调用者不需要继续处理。
+func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) bool {
+	mjTask := model.GetByOnlyMJId(ycResp.ID)
+	if mjTask == nil {
+		return false // midjourneys 表没找到，让调用者继续查 tasks 表
+	}
+
+	preStatus := mjTask.Status
+	now := time.Now().UnixNano() / int64(time.Millisecond)
+
+	switch ycResp.Status {
+	case youchuan.StatusSuccess:
+		mjTask.Status = "SUCCESS"
+		mjTask.Progress = "100%"
+		if len(ycResp.URLs) > 0 {
+			mjTask.ImageUrl = ycResp.URLs[0]
+		}
+		mjTask.FinishTime = now
+	case youchuan.StatusFailed, youchuan.StatusAuditFail:
+		mjTask.Status = "FAILURE"
+		mjTask.Progress = "100%"
+		mjTask.FailReason = ycResp.Comment
+		mjTask.FinishTime = now
+	case youchuan.StatusProcessing:
+		mjTask.Status = ""
+		mjTask.Progress = "50%"
+		if mjTask.StartTime == 0 {
+			mjTask.StartTime = now
+		}
+	case youchuan.StatusQueued:
+		mjTask.Progress = "0%"
+	}
+
+	won, err := mjTask.UpdateWithStatus(preStatus)
+	if err != nil {
+		logger.LogError(c, "youchuan notify(mj): update failed: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
+		return true
+	}
+	if !won {
+		logger.LogWarn(c, "youchuan notify(mj): task "+mjTask.MjId+" already transitioned, skip")
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "note": "already processed"})
+		return true
+	}
+
+	// 失败退款
+	if mjTask.Status == "FAILURE" && mjTask.Quota != 0 {
+		err = model.IncreaseUserQuota(mjTask.UserId, mjTask.Quota, false)
+		if err != nil {
+			logger.LogError(c, "youchuan notify(mj): refund failed: "+err.Error())
+		}
+		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+			UserId:    mjTask.UserId,
+			LogType:   model.LogTypeRefund,
+			Content:   "",
+			ChannelId: mjTask.ChannelId,
+			ModelName: service.CovertMjpActionToModelName(mjTask.Action),
+			Quota:     mjTask.Quota,
+			Other: map[string]any{
+				"task_id": mjTask.MjId,
+				"reason":  mjTask.FailReason,
+			},
+		})
+	}
+
+	logger.LogInfo(c, "youchuan notify(mj): task "+mjTask.MjId+" updated to "+mjTask.Status)
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	return true
 }
