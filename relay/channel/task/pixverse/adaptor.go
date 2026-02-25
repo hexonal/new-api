@@ -27,9 +27,10 @@ const (
 	TextToVideoEndpoint  = "/openapi/v2/video/text/generate"
 	ImageToVideoEndpoint = "/openapi/v2/video/img/generate"
 	VideoResultEndpoint  = "/openapi/v2/video/result"
-	DefaultModel         = "v5.5"
-	DefaultDuration      = 5
-	DefaultQuality       = "720p"
+	DefaultModel       = "v5.5"
+	DefaultDuration    = 5
+	DefaultQuality     = "720p"
+	DefaultAspectRatio = "16:9"
 )
 
 var ModelList = []string{
@@ -241,10 +242,15 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 		modelName = DefaultModel
 	}
 
+	aspectRatio := req.Size
+	if aspectRatio == "" {
+		aspectRatio = DefaultAspectRatio
+	}
+
 	t2v := &TextToVideoRequest{
 		Prompt:      req.Prompt,
 		Model:       modelName,
-		AspectRatio: req.Size,
+		AspectRatio: aspectRatio,
 		Duration:    taskcommon.DefaultInt(req.Duration, DefaultDuration),
 		Quality:     DefaultQuality,
 	}
