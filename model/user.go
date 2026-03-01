@@ -1037,3 +1037,9 @@ func RootUserExists() bool {
 	}
 	return true
 }
+
+func GetUserByUsername(username string) (*User, error) {
+	var user User
+	err := DB.Where("username = ?", username).First(&user).Error
+	return &user, err
+}

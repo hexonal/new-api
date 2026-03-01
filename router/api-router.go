@@ -364,5 +364,15 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
 		}
+
+		operatorRoute := apiRouter.Group("/operator")
+		operatorRoute.Use(middleware.OperatorAuth())
+		{
+			operatorRoute.POST("/provision", controller.OperatorProvision)
+			operatorRoute.POST("/quota", controller.OperatorQuota)
+			operatorRoute.PUT("/group", controller.OperatorGroup)
+			operatorRoute.PUT("/models", controller.OperatorModels)
+			operatorRoute.POST("/disable", controller.OperatorDisable)
+		}
 	}
 }

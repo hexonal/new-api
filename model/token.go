@@ -460,3 +460,7 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 
 	return len(tokens), nil
 }
+
+func (token *Token) InsertWithTx(tx *gorm.DB) error {
+	return tx.Create(token).Error
+}
