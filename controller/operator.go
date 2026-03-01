@@ -40,6 +40,7 @@ type operatorProvisionRequest struct {
 	TokenName          string   `json:"token_name"`
 	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
 	ModelLimits        []string `json:"model_limits"`
+	Remark             string   `json:"remark"`
 }
 
 func OperatorProvision(c *gin.Context) {
@@ -120,6 +121,10 @@ func OperatorProvision(c *gin.Context) {
 		}
 		common.ApiError(c, err)
 		return
+	}
+
+	if req.Remark != "" {
+		model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("Operator API provisioned user: %s", req.Remark))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
