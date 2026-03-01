@@ -87,6 +87,15 @@ func OperatorProvision(c *gin.Context) {
 		}
 		userId = cleanUser.Id
 
+		// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
+		// explicitly set the requested quota if provided.
+		if req.Quota > 0 {
+			if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
+				Update("quota", req.Quota).Error; err != nil {
+				return err
+			}
+		}
+
 		cleanToken := model.Token{
 			UserId:             cleanUser.Id,
 			Name:               req.TokenName,
