@@ -123,13 +123,21 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 
 	claudeRequest := dto.ClaudeRequest{
 		Model:         textRequest.Model,
-		MaxTokens:     textRequest.GetMaxTokens(),
 		StopSequences: nil,
 		Temperature:   textRequest.Temperature,
-		TopP:          textRequest.TopP,
-		TopK:          textRequest.TopK,
-		Stream:        textRequest.Stream,
 		Tools:         claudeTools,
+	}
+	if maxTokens := textRequest.GetMaxTokens(); maxTokens > 0 {
+		claudeRequest.MaxTokens = common.GetPointer(maxTokens)
+	}
+	if textRequest.TopP != nil {
+		claudeRequest.TopP = common.GetPointer(*textRequest.TopP)
+	}
+	if textRequest.TopK != nil {
+		claudeRequest.TopK = common.GetPointer(*textRequest.TopK)
+	}
+	if textRequest.IsStream(nil) {
+		claudeRequest.Stream = common.GetPointer(true)
 	}
 
 	// 处理 tool_choice 和 parallel_tool_calls
@@ -140,8 +148,9 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		}
 	}
 
-	if claudeRequest.MaxTokens == 0 {
-		claudeRequest.MaxTokens = uint(model_setting.GetClaudeSettings().GetDefaultMaxTokens(textRequest.Model))
+	if claudeRequest.MaxTokens == nil || *claudeRequest.MaxTokens == 0 {
+		defaultMaxTokens := uint(model_setting.GetClaudeSettings().GetDefaultMaxTokens(textRequest.Model))
+		claudeRequest.MaxTokens = &defaultMaxTokens
 	}
 
 	if baseModel, effortLevel, ok := reasoning.TrimEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
@@ -151,24 +160,24 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 			Type: "adaptive",
 		}
 		claudeRequest.OutputConfig = json.RawMessage(fmt.Sprintf(`{"effort":"%s"}`, effortLevel))
-		claudeRequest.TopP = 0
+		claudeRequest.TopP = common.GetPointer[float64](0)
 		claudeRequest.Temperature = common.GetPointer[float64](1.0)
 	} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled &&
 		strings.HasSuffix(textRequest.Model, "-thinking") {
 
 		// 因为BudgetTokens 必须大于1024
-		if claudeRequest.MaxTokens < 1280 {
-			claudeRequest.MaxTokens = 1280
+		if claudeRequest.MaxTokens == nil || *claudeRequest.MaxTokens < 1280 {
+			claudeRequest.MaxTokens = common.GetPointer[uint](1280)
 		}
 
 		// BudgetTokens 为 max_tokens 的 80%
 		claudeRequest.Thinking = &dto.Thinking{
 			Type:         "enabled",
-			BudgetTokens: common.GetPointer[int](int(float64(claudeRequest.MaxTokens) * model_setting.GetClaudeSettings().ThinkingAdapterBudgetTokensPercentage)),
+			BudgetTokens: common.GetPointer[int](int(float64(*claudeRequest.MaxTokens) * model_setting.GetClaudeSettings().ThinkingAdapterBudgetTokensPercentage)),
 		}
 		// TODO: 临时处理
 		// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#important-considerations-when-using-extended-thinking
-		claudeRequest.TopP = 0
+		claudeRequest.TopP = common.GetPointer[float64](0)
 		claudeRequest.Temperature = common.GetPointer[float64](1.0)
 		if !model_setting.ShouldPreserveThinkingSuffix(textRequest.Model) {
 			claudeRequest.Model = strings.TrimSuffix(textRequest.Model, "-thinking")
@@ -241,6 +250,9 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		}
 		if message.Role == "assistant" && message.ToolCalls != nil {
 			fmtMessage.ToolCalls = message.ToolCalls
+			if message.IsStringContent() && message.StringContent() == "" {
+				fmtMessage.SetNullContent()
+			}
 		}
 		if lastMessage.Role == message.Role && lastMessage.Role != "tool" {
 			if lastMessage.IsStringContent() && message.IsStringContent() {
@@ -249,7 +261,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 				formatMessages = formatMessages[:len(formatMessages)-1]
 			}
 		}
-		if fmtMessage.Content == nil {
+		if fmtMessage.Content == nil && !(message.Role == "assistant" && message.ToolCalls != nil) {
 			fmtMessage.SetStringContent("...")
 		}
 		formatMessages = append(formatMessages, fmtMessage)
@@ -364,9 +376,9 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 				if message.ToolCalls != nil {
 					for _, toolCall := range message.ParseToolCalls() {
 						inputObj := make(map[string]any)
-						if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &inputObj); err != nil {
+						if err := common.UnmarshalJsonStr(toolCall.Function.Arguments, &inputObj); err != nil {
 							common.SysLog("tool call function arguments is not a map[string]any: " + fmt.Sprintf("%v", toolCall.Function.Arguments))
-							continue
+							inputObj = map[string]any{}
 						}
 						claudeMediaMessages = append(claudeMediaMessages, dto.ClaudeMediaMessage{
 							Type:  "tool_use",
@@ -439,11 +451,17 @@ func StreamResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.ChatCo
 			choice.Delta.Content = claudeResponse.Delta.Text
 			switch claudeResponse.Delta.Type {
 			case "input_json_delta":
+				arguments := "{}"
+				if claudeResponse.Delta.PartialJson != nil {
+					if partial := strings.TrimSpace(*claudeResponse.Delta.PartialJson); partial != "" {
+						arguments = partial
+					}
+				}
 				tools = append(tools, dto.ToolCallResponse{
 					Type:  "function",
 					Index: common.GetPointer(fcIdx),
 					Function: dto.FunctionResponse{
-						Arguments: *claudeResponse.Delta.PartialJson,
+						Arguments: arguments,
 					},
 				})
 			case "signature_delta":
