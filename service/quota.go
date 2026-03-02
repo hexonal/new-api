@@ -556,6 +556,10 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 			if err != nil {
 				common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 			}
+
+			remainingQuota := relayInfo.UserQuota - consumeQuota
+			SendFeishuQuotaNotify(relayInfo.UserId, relayInfo.UserEmail, remainingQuota, threshold)
+			SendOperatorCallback(relayInfo.UserId, relayInfo.TokenKey, remainingQuota, threshold)
 		}
 	})
 }
