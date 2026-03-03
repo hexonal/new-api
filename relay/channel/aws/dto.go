@@ -37,6 +37,10 @@ func formatRequest(requestBody io.Reader, requestHeader http.Header) (*AwsClaude
 		return nil, err
 	}
 	awsClaudeRequest.AnthropicVersion = "bedrock-2023-05-31"
+	// AWS Bedrock rejects arbitrary client-provided beta flags; clear any
+	// value decoded from the request body and only allow values explicitly
+	// set via the request header (which itself is filtered by SetupRequestHeader).
+	awsClaudeRequest.AnthropicBeta = nil
 
 	// check header anthropic-beta
 	anthropicBetaValues := requestHeader.Get("anthropic-beta")
