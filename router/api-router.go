@@ -369,6 +369,7 @@ func SetApiRouter(router *gin.Engine) {
 		operatorRoute.Use(middleware.OperatorAuth())
 		{
 			operatorRoute.POST("/provision", controller.OperatorProvision)
+			operatorRoute.POST("/tokens", controller.OperatorTokens)
 			operatorRoute.POST("/quota", controller.OperatorQuota)
 			operatorRoute.PUT("/group", controller.OperatorGroup)
 			operatorRoute.PUT("/models", controller.OperatorModels)

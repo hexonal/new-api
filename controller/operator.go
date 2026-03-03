@@ -43,6 +43,26 @@ type operatorProvisionRequest struct {
 	Remark             string   `json:"remark"`
 }
 
+func isDuplicateError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "UNIQUE") || strings.Contains(msg, "uni_")
+}
+
+func buildProvisionToken(userId int, tokenKey string, req operatorProvisionRequest) model.Token {
+	return model.Token{
+		UserId:             userId,
+		Name:               req.TokenName,
+		Key:                tokenKey,
+		Status:             common.TokenStatusEnabled,
+		CreatedTime:        common.GetTimestamp(),
+		AccessedTime:       common.GetTimestamp(),
+		ExpiredTime:        -1,
+		UnlimitedQuota:     true,
+		ModelLimitsEnabled: req.ModelLimitsEnabled,
+		ModelLimits:        strings.Join(req.ModelLimits, ","),
+	}
+}
+
 func OperatorProvision(c *gin.Context) {
 	var req operatorProvisionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -54,6 +74,7 @@ func OperatorProvision(c *gin.Context) {
 		common.ApiErrorMsg(c, "username is required")
 		return
 	}
+
 	if req.Group == "" {
 		req.Group = "default"
 	}
@@ -66,61 +87,56 @@ func OperatorProvision(c *gin.Context) {
 
 	tokenKey, err := common.GenerateKey()
 	if err != nil {
-		common.ApiErrorMsg(c, "failed to generate token key")
+		common.ApiError(c, err)
 		return
 	}
 
-	var userId int
-	err = model.DB.Transaction(func(tx *gorm.DB) error {
-		cleanUser := model.User{
-			Username:    req.Username,
-			DisplayName: req.DisplayName,
-			Password:    req.Password,
-			Group:       req.Group,
-			Status:      common.UserStatusEnabled,
-			Role:        common.RoleCommonUser,
-		}
-		if req.Quota > 0 {
-			cleanUser.Quota = req.Quota
-		}
-		if err := cleanUser.InsertWithTx(tx, 0); err != nil {
-			return err
-		}
-		userId = cleanUser.Id
+	// Check user existence first to decide whether to create the user or reuse it.
+	var existingUser model.User
+	userExists := model.DB.Where("username = ?", req.Username).First(&existingUser).Error == nil
 
-		// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
-		// explicitly set the requested quota if provided.
-		if req.Quota > 0 {
-			if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
-				Update("quota", req.Quota).Error; err != nil {
+	var userId int
+
+	if !userExists {
+		// Normal path: new user — create user + token in one transaction.
+		err := model.DB.Transaction(func(tx *gorm.DB) error {
+			cleanUser := model.User{
+				Username:    req.Username,
+				DisplayName: req.DisplayName,
+				Password:    req.Password,
+				Group:       req.Group,
+				Status:      common.UserStatusEnabled,
+				Role:        common.RoleCommonUser,
+			}
+			if err := cleanUser.InsertWithTx(tx, 0); err != nil {
 				return err
 			}
-		}
+			userId = cleanUser.Id
 
-		cleanToken := model.Token{
-			UserId:             cleanUser.Id,
-			Name:               req.TokenName,
-			Key:                tokenKey,
-			Status:             common.TokenStatusEnabled,
-			CreatedTime:        common.GetTimestamp(),
-			AccessedTime:       common.GetTimestamp(),
-			ExpiredTime:        -1,
-			UnlimitedQuota:     true,
-			ModelLimitsEnabled: req.ModelLimitsEnabled,
-			ModelLimits:        strings.Join(req.ModelLimits, ","),
-		}
-		return cleanToken.InsertWithTx(tx)
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "uni_") {
-			c.JSON(http.StatusConflict, gin.H{
-				"success": false,
-				"message": "username already exists",
-			})
+			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
+			// explicitly set the requested quota if provided.
+			if req.Quota > 0 {
+				if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
+					Update("quota", req.Quota).Error; err != nil {
+					return err
+				}
+			}
+
+			t := buildProvisionToken(cleanUser.Id, tokenKey, req)
+			return t.InsertWithTx(tx)
+		})
+		if err != nil {
+			common.ApiError(c, err)
 			return
 		}
-		common.ApiError(c, err)
-		return
+	} else {
+		// User already exists — add a new token to the existing user.
+		userId = existingUser.Id
+		t := buildProvisionToken(existingUser.Id, tokenKey, req)
+		if err := t.Insert(); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	}
 
 	if req.Remark != "" {
@@ -133,6 +149,73 @@ func OperatorProvision(c *gin.Context) {
 		"data": gin.H{
 			"user_id": userId,
 			"sk":      "sk-" + tokenKey,
+		},
+	})
+}
+
+// --- Tokens ---
+
+type operatorTokensRequest struct {
+	Username string `json:"username"`
+}
+
+type operatorTokenItem struct {
+	SK                 string   `json:"sk"`
+	Name               string   `json:"name"`
+	Status             int      `json:"status"`
+	CreatedTime        int64    `json:"created_time"`
+	ExpiredTime        int64    `json:"expired_time"`
+	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
+	ModelLimits        []string `json:"model_limits"`
+}
+
+func OperatorTokens(c *gin.Context) {
+	var req operatorTokensRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Username = strings.TrimSpace(req.Username)
+	if req.Username == "" {
+		common.ApiErrorMsg(c, "username is required")
+		return
+	}
+
+	var user model.User
+	if err := model.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		common.ApiErrorMsg(c, "user not found")
+		return
+	}
+
+	var tokens []model.Token
+	if err := model.DB.Where("user_id = ?", user.Id).Order("id desc").Find(&tokens).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	items := make([]operatorTokenItem, 0, len(tokens))
+	for _, t := range tokens {
+		var modelLimits []string
+		if t.ModelLimits != "" {
+			modelLimits = strings.Split(t.ModelLimits, ",")
+		}
+		items = append(items, operatorTokenItem{
+			SK:                 "sk-" + t.Key,
+			Name:               t.Name,
+			Status:             t.Status,
+			CreatedTime:        t.CreatedTime,
+			ExpiredTime:        t.ExpiredTime,
+			ModelLimitsEnabled: t.ModelLimitsEnabled,
+			ModelLimits:        modelLimits,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"user_id": user.Id,
+			"tokens":  items,
 		},
 	})
 }
