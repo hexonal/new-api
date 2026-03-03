@@ -57,6 +57,7 @@ export default defineConfig({
   ],
   optimizeDeps: {
     force: true,
+    exclude: ['antd'],
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
@@ -66,6 +67,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      external: ['antd'],
       output: {
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
