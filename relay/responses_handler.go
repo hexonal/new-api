@@ -24,7 +24,19 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	info.InitChannelMeta(c)
 	if info.RelayMode == relayconstant.RelayModeResponsesCompact {
 		switch info.ApiType {
-		case appconstant.APITypeOpenAI, appconstant.APITypeCodex:
+		case appconstant.APITypeCodex:
+			// Codex channels always support compact
+		case appconstant.APITypeOpenAI:
+			// Only actual OpenAI API supports /v1/responses/compact;
+			// generic OpenAI-compatible providers (type 1 with custom base_url) do not.
+			if !strings.Contains(info.ChannelBaseUrl, "api.openai.com") {
+				return types.NewErrorWithStatusCode(
+					fmt.Errorf("endpoint /v1/responses/compact is not supported by this OpenAI-compatible channel (base_url: %s); only api.openai.com and Codex channels support it", info.ChannelBaseUrl),
+					types.ErrorCodeInvalidRequest,
+					http.StatusBadRequest,
+					types.ErrOptionWithSkipRetry(),
+				)
+			}
 		default:
 			return types.NewErrorWithStatusCode(
 				fmt.Errorf("unsupported endpoint %q for api type %d", "/v1/responses/compact", info.ApiType),
@@ -70,6 +82,40 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+
+	// For responses/compact on channels that don't natively support it
+	// (e.g. generic OpenAI-compatible providers), fall back to chat completions.
+	if info.RelayMode == relayconstant.RelayModeResponsesCompact &&
+		info.ApiType == appconstant.APITypeOpenAI &&
+		!isNativeResponsesCompactSupported(info) {
+		compactReq, ok := info.Request.(*dto.OpenAIResponsesCompactionRequest)
+		if !ok {
+			return types.NewError(
+				fmt.Errorf("expected OpenAIResponsesCompactionRequest for compact fallback, got %T", info.Request),
+				types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry(),
+			)
+		}
+		usage, newApiErr := responsesCompactViaChatCompletions(c, info, adaptor, compactReq)
+		if newApiErr != nil {
+			return newApiErr
+		}
+
+		originModelName := info.OriginModelName
+		originPriceData := info.PriceData
+
+		_, priceErr := helper.ModelPriceHelper(c, info, info.GetEstimatePromptTokens(), &types.TokenCountMeta{})
+		if priceErr != nil {
+			info.OriginModelName = originModelName
+			info.PriceData = originPriceData
+			return types.NewError(priceErr, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry())
+		}
+		postConsumeQuota(c, info, usage)
+
+		info.OriginModelName = originModelName
+		info.PriceData = originPriceData
+		return nil
+	}
+
 	var requestBody io.Reader
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 		storage, err := common.GetBodyStorage(c)
