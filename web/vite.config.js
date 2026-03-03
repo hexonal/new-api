@@ -27,6 +27,7 @@ const { vitePluginSemi } = pkg;
 export default defineConfig({
   resolve: {
     alias: {
+      'antd': path.resolve(__dirname, './src/shims/antd.js'),
       '@': path.resolve(__dirname, './src'),
     },
   },
@@ -63,7 +64,6 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['antd'],
       output: {
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
