@@ -374,3 +374,44 @@ func OperatorDisable(c *gin.Context) {
 		"message": "",
 	})
 }
+
+// --- DisableUser ---
+
+type operatorDisableUserRequest struct {
+	Username string `json:"username"`
+}
+
+func OperatorDisableUser(c *gin.Context) {
+	var req operatorDisableUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Username = strings.TrimSpace(req.Username)
+	if req.Username == "" {
+		common.ApiErrorMsg(c, "username is required")
+		return
+	}
+
+	var user model.User
+	if err := model.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		common.ApiErrorMsg(c, "user not found")
+		return
+	}
+
+	if user.Role >= common.RoleAdminUser {
+		common.ApiErrorMsg(c, "cannot disable admin or root user")
+		return
+	}
+
+	user.Status = common.UserStatusDisabled
+	if err := user.Update(false); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
