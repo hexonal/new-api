@@ -27,7 +27,6 @@ const { vitePluginSemi } = pkg;
 export default defineConfig({
   resolve: {
     alias: {
-      'antd': path.resolve(__dirname, './src/shims/antd.js'),
       '@': path.resolve(__dirname, './src'),
     },
   },
@@ -54,7 +53,6 @@ export default defineConfig({
   ],
   optimizeDeps: {
     force: true,
-    exclude: ['antd'],
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
@@ -68,6 +66,7 @@ export default defineConfig({
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
           'semi-ui': ['@douyinfe/semi-icons', '@douyinfe/semi-ui'],
+          'antd': ['antd', '@lobehub/icons', '@lobehub/ui', 'antd-style'],
           tools: ['axios', 'history', 'marked'],
           'react-components': [
             'react-dropzone',
