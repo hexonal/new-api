@@ -1,0 +1,776 @@
+openapi: 3.1.0
+info:
+  title: Zcheap AI API
+  description: |
+    Zcheap AI 统一 API 网关，聚合多家 AI 供应商，提供文本对话、图像生成、视频生成、Midjourney 绘图等能力。
+
+    ## 认证
+    所有请求需携带 API Token：
+    ```
+    Authorization: Bearer <YOUR_TOKEN>
+    ```
+
+    ## 模型总览
+
+    | 类别 | 端点 | 模型数 |
+    |------|------|--------|
+    | 文本对话 | `/v1/chat/completions` | 31 |
+    | 图像生成 | `/v1/images/generations` | 1 |
+    | 视频生成 | `/v1/video/generations` + `/v1/videos/{task_id}` | 22 |
+    | Midjourney | `/mj/submit/imagine` 等 | 3 |
+
+  version: 1.0.0
+
+servers:
+  - url: https://zcheap.ai
+    description: Zec AI Gateway
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Chat
+    description: 文本对话（OpenAI 兼容格式）
+  - name: Images
+    description: 图像生成
+  - name: Video
+    description: 视频生成（异步任务制）
+  - name: Midjourney
+    description: Midjourney 绘图（MJ Proxy 格式）
+
+paths:
+  /v1/chat/completions:
+    post:
+      tags: [Chat]
+      summary: 创建对话补全
+      description: |
+        兼容 OpenAI Chat Completions API 格式。支持流式和非流式响应。
+
+        **可用模型（31 个）：**
+
+        | 供应商 | 模型 |
+        |--------|------|
+        | OpenAI | `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-5`, `gpt-5-mini`, `gpt-5.1`, `gpt-5.2` |
+        | Google | `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-3-pro-image-preview`⚡, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-flash-image`⚡, `gemini-2.0-flash`, `g3-pro-image-preview`⚡, `g2.5-flash-image`⚡ |
+        | 字节跳动 | `seed-1-8-251228`, `seed-2-0-mini-260215`, `seed-1-6-flash-250715`, `seed-1-6-250915`, `gpt-oss-120b-250805` |
+        | MiniMax | `MiniMax-Text-01`, `MiniMax-M1`, `MiniMax-M2`, `MiniMax-M2.1`, `MiniMax-M2.1-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed` |
+
+        > ⚡ 带 ⚡ 标记的模型支持对话式生图，返回内联 base64 图片。`g3-pro-image-preview` 和 `g2.5-flash-image` 为轻量级生图模型。MiniMax M 系列为推理模型，响应包含 `<think>` 思维链。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+            examples:
+              basic:
+                summary: 基础对话
+                value:
+                  model: gpt-4.1-mini
+                  messages:
+                    - role: user
+                      content: "Hello, how are you?"
+              stream:
+                summary: 流式对话
+                value:
+                  model: gemini-2.5-flash
+                  messages:
+                    - role: user
+                      content: "Write a short poem about AI"
+                  stream: true
+              image_gen:
+                summary: Gemini 对话式生图
+                value:
+                  model: gemini-3-pro-image-preview
+                  messages:
+                    - role: user
+                      content: "Generate a cute cat watercolor painting, output as image"
+              image_gen_lite:
+                summary: 轻量级对话式生图
+                value:
+                  model: g2.5-flash-image
+                  messages:
+                    - role: user
+                      content: "Draw a minimalist logo for a coffee shop"
+              minimax_reasoning:
+                summary: MiniMax 推理模型
+                value:
+                  model: MiniMax-M2.5
+                  messages:
+                    - role: user
+                      content: "Explain the difference between recursion and iteration"
+                  max_tokens: 2000
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+
+  /v1/images/generations:
+    post:
+      tags: [Images]
+      summary: 生成图像
+      description: |
+        兼容 OpenAI Images API 格式。
+
+        **可用模型：**
+        | 模型 | 供应商 | 说明 |
+        |------|--------|------|
+        | `seedream-5-0-260128` | 字节跳动 | 高质量图像生成，尺寸需 ≥ 3686400 像素（如 1920×1920） |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationRequest'
+            examples:
+              seedream:
+                summary: Seedream 生图
+                value:
+                  model: seedream-5-0-260128
+                  prompt: "a futuristic city at sunset"
+                  size: "1920x1920"
+                  n: 1
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationResponse'
+
+  /v1/video/generations:
+    post:
+      tags: [Video]
+      summary: 提交视频生成任务
+      description: |
+        统一视频生成端点（异步任务制）。提交后返回 `task_id`，通过 `/v1/videos/{task_id}` 轮询结果。（更新于 2026-02-26）
+
+        **可用模型（22 个）：**
+
+        | 供应商 | 模型 | 文生视频 | 图生视频 | 说明 |
+        |--------|------|:--------:|:--------:|------|
+        | 快手 | `kling-v1`, `kling-v1-6`, `kling-v2-master`, `kling-v2-1-master`, `kling-v2-6`, `kling-v2-5-turbo`, `kling-video-o1` | ✅ | ✅ | |
+        | Vidu | `viduq1` | ✅ | ✅ | |
+        | Vidu | `viduq2` | ✅ | ❌ | **仅文生视频** |
+        | Vidu | `viduq3-pro`, `viduq3-turbo` | ✅ | ✅ | |
+        | Vidu | `viduq2-pro`, `viduq2-turbo` | ❌ | ✅ | **仅图生视频**，必须传 `images` |
+        | 字节跳动 | `seedance-1-5-pro-251215`, `seedance-1-0-pro-fast-251015`, `seedance-1-0-pro-250528` | ✅ | ✅ | |
+        | MiniMax | `MiniMax-Hailuo-02`, `MiniMax-Hailuo-2.3` | ✅ | ✅ | |
+        | MiniMax | `MiniMax-Hailuo-2.3-Fast` | ❌ | ✅ | **仅图生视频**，需传 `metadata.first_frame_image` |
+        | PixVerse | `pixverse-v3.5`, `pixverse-v4`, `pixverse-v4.5`, `pixverse-v5`, `pixverse-v5.5`, `pixverse-v5.6` | ✅ | ❌ | 仅文生视频 |
+
+        > **⚠️ 仅图生视频模型：** `viduq2-pro`、`viduq2-turbo`、`MiniMax-Hailuo-2.3-Fast` 不支持纯文本提示，必须提供图片输入，否则上游返回错误。
+        >
+        > **⚠️ 仅文生视频模型：** `viduq2`、`pixverse-*` 不支持图片输入，传 `images` 会被上游拒绝。
+
+        **图生视频传参方式（因供应商而异）：**
+        - **Vidu**: 顶层 `images` 数组传图片 URL
+        - **Hailuo**: `metadata.first_frame_image` 传图片 URL
+        - **PixVerse**: `metadata.img_id` 传已上传的图片 ID（需先上传图片）
+        - **快手/字节跳动**: 顶层 `image` 字段传图片 URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoGenerationRequest'
+            examples:
+              text2video:
+                summary: 文生视频（通用）
+                value:
+                  model: viduq3-pro
+                  prompt: "A cat playing with a ball of yarn"
+              kling_img2video:
+                summary: 图生视频（快手 Kling）
+                value:
+                  model: kling-v2-master
+                  prompt: "A person slowly walking forward"
+                  image: "https://example.com/photo.jpeg"
+              vidu_img2video:
+                summary: 图生视频（Vidu） ⚠️ images 数组
+                value:
+                  model: viduq2-pro
+                  prompt: "A person slowly walking forward"
+                  images:
+                    - "https://example.com/photo.jpeg"
+              seedance_img2video:
+                summary: 图生视频（字节跳动 Seedance）
+                value:
+                  model: seedance-1-5-pro-251215
+                  prompt: "A person slowly walking forward"
+                  image: "https://example.com/photo.jpeg"
+              hailuo_img2video:
+                summary: 图生视频（Hailuo） ⚠️ metadata 传参
+                value:
+                  model: MiniMax-Hailuo-2.3
+                  prompt: "A person slowly walking forward"
+                  metadata:
+                    first_frame_image: "https://example.com/photo.jpeg"
+              hailuo_fast_img2video:
+                summary: 图生视频（Hailuo-2.3-Fast） ⚠️ 仅图生视频
+                value:
+                  model: MiniMax-Hailuo-2.3-Fast
+                  prompt: "A person slowly walking forward"
+                  metadata:
+                    first_frame_image: "https://example.com/photo.jpeg"
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                submitted:
+                  value:
+                    id: "task_abc123"
+                    task_id: "task_abc123"
+                    object: "video"
+                    model: "viduq3-pro"
+                    status: ""
+                    progress: 0
+                    created_at: 1772037755
+
+  /v1/videos/{task_id}:
+    get:
+      tags: [Video]
+      summary: 查询视频任务状态
+      description: |
+        轮询视频生成任务的状态和结果。
+
+        **状态流转：** `""` (submitted) → `in_progress` → `completed` / `failed`
+
+        当 `status` 为 `completed` 时，`metadata.url` 包含视频下载链接。
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 任务 ID（提交时返回的 `task_id`）
+      responses:
+        '200':
+          description: 任务状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                in_progress:
+                  summary: 处理中
+                  value:
+                    id: "task_abc123"
+                    object: "video"
+                    model: "viduq3-pro"
+                    status: "in_progress"
+                    progress: 50
+                    created_at: 1772037755
+                    completed_at: 1772037800
+                completed:
+                  summary: 已完成
+                  value:
+                    id: "task_abc123"
+                    object: "video"
+                    model: "viduq3-pro"
+                    status: "completed"
+                    progress: 100
+                    created_at: 1772037755
+                    completed_at: 1772037862
+                    metadata:
+                      url: "https://cdn.example.com/video.mp4"
+
+  /mj/submit/imagine:
+    post:
+      tags: [Midjourney]
+      summary: MJ 提交绘图任务
+      description: |
+        提交 Midjourney 绘图任务。支持标准 MJ Proxy 协议。
+
+        **可用模型：** `mj_imagine`（自动路由，无需指定 model）
+
+        提交后通过 `/mj/task/{task_id}/fetch` 轮询结果，或等待回调。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                  description: "MJ 提示词（支持 --ar、--v 等参数）"
+            examples:
+              basic:
+                summary: 基础绘图
+                value:
+                  prompt: "a cute cat watercolor style --ar 16:9"
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: "1=成功，其他=失败"
+                  result:
+                    type: string
+                    description: 任务 ID
+                  description:
+                    type: string
+              examples:
+                success:
+                  value:
+                    code: 1
+                    result: "task_id_123"
+                    description: "submitted"
+
+  /mj/submit/change:
+    post:
+      tags: [Midjourney]
+      summary: MJ 变换操作（放大/变体）
+      description: |
+        对已完成的 MJ 任务执行变换操作。
+
+        **可用模型：** `mj_upscale`（放大）、`mj_variation`（变体）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, taskId, index]
+              properties:
+                action:
+                  type: string
+                  enum: [UPSCALE, VARIATION, REROLL]
+                  description: 操作类型
+                taskId:
+                  type: string
+                  description: 原始任务 ID
+                index:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  description: 图片序号（1-4）
+            examples:
+              upscale:
+                summary: 放大第 1 张图
+                value:
+                  action: UPSCALE
+                  taskId: "task_id_123"
+                  index: 1
+              variation:
+                summary: 变体第 2 张图
+                value:
+                  action: VARIATION
+                  taskId: "task_id_123"
+                  index: 2
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: "1=成功，其他=失败"
+                  result:
+                    type: string
+                    description: 任务 ID
+                  description:
+                    type: string
+              examples:
+                success:
+                  value:
+                    code: 1
+                    result: "task_id_456"
+                    description: "submitted"
+
+  /mj/task/{task_id}/fetch:
+    get:
+      tags: [Midjourney]
+      summary: 查询 MJ 任务状态
+      description: |
+        查询 Midjourney 任务的进度和结果。
+
+        **状态流转：** `""` → `SUCCESS` / `FAILURE`
+
+        成功时 `imageUrl` 包含生成的图片 URL。
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MJ 任务 ID（提交时返回的 `result` 字段）
+      responses:
+        '200':
+          description: 任务状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mj_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: ["", "SUCCESS", "FAILURE"]
+                  progress:
+                    type: string
+                    example: "100%"
+                  imageUrl:
+                    type: string
+                  action:
+                    type: string
+                  failReason:
+                    type: string
+                  buttons:
+                    type: array
+                    items:
+                      type: object
+              examples:
+                success:
+                  value:
+                    mj_id: "task_id_123"
+                    status: "SUCCESS"
+                    progress: "100%"
+                    imageUrl: "https://cdn.example.com/mj-image.png"
+                    action: "IMAGINE"
+
+  /mj/image/{task_id}:
+    get:
+      tags: [Midjourney]
+      summary: MJ 图片代理
+      description: 代理获取 MJ 生成的图片（避免直接访问上游 CDN）。
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 图片内容
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: 图片二进制流（实际 Content-Type 为 image/png 或 image/jpeg）
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: "API Token（不带 sk- 前缀）"
+
+  schemas:
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: 模型名称
+          enum:
+            - gpt-4.1
+            - gpt-4.1-mini
+            - gpt-4.1-nano
+            - gpt-4o
+            - gpt-4o-mini
+            - gpt-5
+            - gpt-5-mini
+            - gpt-5.1
+            - gpt-5.2
+            - gemini-3-pro-preview
+            - gemini-3-flash-preview
+            - gemini-3-pro-image-preview
+            - gemini-2.5-pro
+            - gemini-2.5-flash
+            - gemini-2.5-flash-lite
+            - gemini-2.5-flash-image
+            - gemini-2.0-flash
+            - g3-pro-image-preview
+            - g2.5-flash-image
+            - seed-1-8-251228
+            - seed-2-0-mini-260215
+            - seed-1-6-flash-250715
+            - seed-1-6-250915
+            - gpt-oss-120b-250805
+            - MiniMax-Text-01
+            - MiniMax-M1
+            - MiniMax-M2
+            - MiniMax-M2.1
+            - MiniMax-M2.1-highspeed
+            - MiniMax-M2.5
+            - MiniMax-M2.5-highspeed
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role:
+                type: string
+                enum: [system, user, assistant]
+              content:
+                type: string
+        stream:
+          type: boolean
+          default: false
+          description: 是否启用流式响应
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+        max_tokens:
+          type: integer
+          description: 最大生成 token 数
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: chat.completion
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+              finish_reason:
+                type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+
+    ImageGenerationRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+          enum:
+            - seedream-5-0-260128
+        prompt:
+          type: string
+          description: 图像描述
+        size:
+          type: string
+          description: "图像尺寸（seedream 需 ≥ 3686400 像素，如 1920x1920）"
+          default: "1920x1920"
+        n:
+          type: integer
+          default: 1
+          description: 生成数量
+
+    ImageGenerationResponse:
+      type: object
+      properties:
+        created:
+          type: integer
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              b64_json:
+                type: string
+
+    VideoGenerationRequest:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+          description: |
+            视频模型名称。
+
+            **仅图生视频模型（不支持纯文本）：** `viduq2-pro`、`viduq2-turbo`、`MiniMax-Hailuo-2.3-Fast`
+
+            **仅文生视频模型（不支持图片输入）：** `pixverse-v3.5` ~ `pixverse-v5.6`
+          enum:
+            # 快手 Kling（文/图生视频）
+            - kling-v1
+            - kling-v1-6
+            - kling-v2-master
+            - kling-v2-1-master
+            - kling-v2-6
+            - kling-v2-5-turbo
+            - kling-video-o1
+            # Vidu（文/图生视频）
+            - viduq1
+            - viduq2
+            - viduq3-pro
+            - viduq3-turbo
+            # Vidu（⚠️ 仅图生视频，必须传 images）
+            - viduq2-pro
+            - viduq2-turbo
+            # 字节跳动 Seedance（文/图生视频）
+            - seedance-1-5-pro-251215
+            - seedance-1-0-pro-fast-251015
+            - seedance-1-0-pro-250528
+            # MiniMax Hailuo（文/图生视频）
+            - MiniMax-Hailuo-02
+            - MiniMax-Hailuo-2.3
+            # MiniMax Hailuo（⚠️ 仅图生视频，需传 metadata.first_frame_image）
+            - MiniMax-Hailuo-2.3-Fast
+            # PixVerse（仅文生视频）
+            - pixverse-v3.5
+            - pixverse-v4
+            - pixverse-v4.5
+            - pixverse-v5
+            - pixverse-v5.5
+            - pixverse-v5.6
+        prompt:
+          type: string
+          description: 视频描述
+        images:
+          type: array
+          items:
+            type: string
+          description: "图生视频：图片 URL 数组（Vidu 模型使用此字段）"
+        image:
+          type: string
+          description: "图生视频：单张图片 URL"
+        duration:
+          type: integer
+          description: 视频时长（秒）
+        size:
+          type: string
+          description: "分辨率（如 720p、1080p）"
+        metadata:
+          type: object
+          description: |
+            供应商特定参数。
+            - Hailuo 图生视频：`{"first_frame_image": "URL"}`
+            - PixVerse 图生视频：`{"img_id": "上传后的图片ID"}`
+          properties:
+            first_frame_image:
+              type: string
+              description: Hailuo 图生视频首帧图片 URL
+            img_id:
+              type: string
+              description: PixVerse 已上传的图片 ID
+
+    VideoTaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        task_id:
+          type: string
+        object:
+          type: string
+          example: video
+        model:
+          type: string
+        status:
+          type: string
+          enum: ["", "in_progress", "completed", "failed"]
+          description: "空字符串表示已提交待处理"
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: integer
+        completed_at:
+          type: integer
+        metadata:
+          type: object
+          properties:
+            url:
+              type: string
+              description: 视频下载链接（completed 时有值）
+
+    MjSubmitRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          description: "MJ 提示词（支持 --ar、--v 等参数）"
+
+    MjChangeRequest:
+      type: object
+      required: [action, taskId, index]
+      properties:
+        action:
+          type: string
+          enum: [UPSCALE, VARIATION, REROLL]
+        taskId:
+          type: string
+          description: 原始任务 ID
+        index:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: 图片序号（1-4）
+
+    MjSubmitResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: "1=成功，其他=失败"
+        result:
+          type: string
+          description: 任务 ID
+        description:
+          type: string
+
+    MjTaskResponse:
+      type: object
+      properties:
+        mj_id:
+          type: string
+        status:
+          type: string
+          enum: ["", "SUCCESS", "FAILURE"]
+        progress:
+          type: string
+          example: "100%"
+        imageUrl:
+          type: string
+        action:
+          type: string
+        failReason:
+          type: string
+        buttons:
+          type: array
+          items:
+            type: object
