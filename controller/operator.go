@@ -357,19 +357,14 @@ func OperatorDisable(c *gin.Context) {
 		return
 	}
 
-	user, _, err := resolveTargetUser(req.SK)
+	_, token, err := resolveTargetUser(req.SK)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 
-	if user.Role >= common.RoleAdminUser {
-		common.ApiErrorMsg(c, "cannot disable admin or root user")
-		return
-	}
-
-	user.Status = common.UserStatusDisabled
-	if err := user.Update(false); err != nil {
+	token.Status = common.TokenStatusDisabled
+	if err := token.Update(); err != nil {
 		common.ApiError(c, err)
 		return
 	}
