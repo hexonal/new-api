@@ -1,6 +1,7 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 COPY web/package.json .
 RUN npm install --legacy-peer-deps --no-audit --no-fund --loglevel=error
 COPY ./web .
