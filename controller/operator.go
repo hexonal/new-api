@@ -195,7 +195,7 @@ func OperatorTokens(c *gin.Context) {
 
 	items := make([]operatorTokenItem, 0, len(tokens))
 	for _, t := range tokens {
-		var modelLimits []string
+		modelLimits := make([]string, 0)
 		if t.ModelLimits != "" {
 			modelLimits = strings.Split(t.ModelLimits, ",")
 		}
