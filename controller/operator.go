@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -36,7 +39,7 @@ type operatorProvisionRequest struct {
 	DisplayName        string   `json:"display_name"`
 	Password           string   `json:"password"`
 	Group              string   `json:"group"`
-	Quota              int      `json:"quota"`
+	AmountUSD          float64  `json:"amount_usd"` // 充值金额（美元），1.0 = $1 = 500000 quota
 	TokenName          string   `json:"token_name"`
 	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
 	ModelLimits        []string `json:"model_limits"`
@@ -74,6 +77,10 @@ func OperatorProvision(c *gin.Context) {
 		common.ApiErrorMsg(c, "username is required")
 		return
 	}
+	if len(req.Username) > model.UserNameMaxLength {
+		common.ApiErrorMsg(c, fmt.Sprintf("username must be %d characters or less", model.UserNameMaxLength))
+		return
+	}
 
 	if req.Group == "" {
 		req.Group = "default"
@@ -83,6 +90,9 @@ func OperatorProvision(c *gin.Context) {
 	}
 	if req.DisplayName == "" {
 		req.DisplayName = req.Username
+	}
+	if len(req.DisplayName) > model.UserNameMaxLength {
+		req.DisplayName = req.DisplayName[:model.UserNameMaxLength]
 	}
 
 	tokenKey, err := common.GenerateKey()
@@ -114,10 +124,11 @@ func OperatorProvision(c *gin.Context) {
 			userId = cleanUser.Id
 
 			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
-			// explicitly set the requested quota if provided.
-			if req.Quota > 0 {
+			// explicitly set the requested quota if provided (converted from USD).
+			if req.AmountUSD > 0 {
+				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
 				if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
-					Update("quota", req.Quota).Error; err != nil {
+					Update("quota", quota).Error; err != nil {
 					return err
 				}
 			}
@@ -223,9 +234,10 @@ func OperatorTokens(c *gin.Context) {
 // --- Quota ---
 
 type operatorQuotaRequest struct {
-	SK     string `json:"sk"`
-	Quota  int    `json:"quota"`
-	Remark string `json:"remark"`
+	SK             string  `json:"sk"`
+	AmountUSD      float64 `json:"amount_usd"`      // 充值金额（美元），1.0 = $1 = 500000 quota
+	IdempotencyKey string  `json:"idempotency_key"` // 幂等 key，防止重复充值；24 小时内相同 key 只处理一次
+	Remark         string  `json:"remark"`
 }
 
 func OperatorQuota(c *gin.Context) {
@@ -234,10 +246,31 @@ func OperatorQuota(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if req.Quota <= 0 {
-		common.ApiErrorMsg(c, "quota must be greater than 0")
+	if req.AmountUSD <= 0 {
+		common.ApiErrorMsg(c, "amount_usd must be greater than 0")
 		return
 	}
+
+	// 幂等校验：相同 idempotency_key 在 24 小时内只处理一次
+	if req.IdempotencyKey != "" && common.RedisEnabled {
+		redisKey := "operator:quota:idem:" + req.IdempotencyKey
+		ok, err := common.RDB.SetNX(context.Background(), redisKey, "1", 24*time.Hour).Result()
+		if err != nil {
+			common.ApiError(c, fmt.Errorf("idempotency check failed: %w", err))
+			return
+		}
+		if !ok {
+			// 已处理过，直接返回成功（幂等）
+			c.JSON(http.StatusOK, gin.H{
+				"success":    true,
+				"message":    "already processed (idempotent)",
+				"idempotent": true,
+			})
+			return
+		}
+	}
+
+	quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
 
 	user, _, err := resolveTargetUser(req.SK)
 	if err != nil {
@@ -246,21 +279,25 @@ func OperatorQuota(c *gin.Context) {
 	}
 
 	previousQuota := user.Quota
-	if err := model.IncreaseUserQuota(user.Id, req.Quota, true); err != nil {
+	if err := model.IncreaseUserQuota(user.Id, quota, true); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 
-	if req.Remark != "" {
-		model.RecordLog(user.Id, model.LogTypeManage, fmt.Sprintf("Operator API charged %d quota: %s", req.Quota, req.Remark))
+	remark := req.Remark
+	if remark == "" {
+		remark = fmt.Sprintf("$%.4f", req.AmountUSD)
 	}
+	model.RecordLog(user.Id, model.LogTypeManage, fmt.Sprintf("Operator API charged %d quota (%s)", quota, remark))
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 		"data": gin.H{
 			"previous_quota": previousQuota,
-			"current_quota":  previousQuota + req.Quota,
+			"current_quota":  previousQuota + quota,
+			"quota_charged":  quota,
+			"amount_usd":     req.AmountUSD,
 		},
 	})
 }
