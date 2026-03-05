@@ -317,6 +317,36 @@ function renderDuration(submit_time, finishTime, t) {
   );
 }
 
+function normalizeImageSource(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((url) => typeof url === 'string')
+      .map((url) => url.trim())
+      .filter(Boolean);
+  }
+  if (typeof value !== 'string') {
+    return [];
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((url) => typeof url === 'string')
+          .map((url) => url.trim())
+          .filter(Boolean);
+      }
+    } catch (e) {
+      // Keep compatibility with malformed historical data.
+    }
+  }
+  return [trimmed];
+}
+
 export const getMjLogsColumns = ({
   t,
   COLUMN_KEYS,
@@ -427,9 +457,13 @@ export const getMjLogsColumns = ({
       title: t('结果图片'),
       dataIndex: 'image_url',
       render: (text, record, index) => {
-        const multiImageUrls = [record?.imageUrls, record?.urls]
-          .flatMap((urls) => (Array.isArray(urls) ? urls : []))
-          .filter((url) => typeof url === 'string' && url.trim() !== '');
+        const multiImageUrls = [
+          record?.image_urls,
+          record?.imageUrls,
+          record?.urls,
+        ]
+          .flatMap((value) => normalizeImageSource(value))
+          .filter((url, idx, arr) => arr.indexOf(url) === idx);
 
         const previewSource = multiImageUrls.length > 0 ? multiImageUrls : text;
 
