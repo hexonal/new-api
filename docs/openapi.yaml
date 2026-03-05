@@ -404,7 +404,10 @@ paths:
 
         **状态流转：** `""` → `SUCCESS` / `FAILURE`
 
-        成功时 `imageUrl` 包含生成的图片 URL。
+        成功时会返回两类图片字段：
+
+        - `urls`：完整图片列表（推荐，可能包含 2~4 张）
+        - `imageUrl`：首图地址（兼容旧客户端）
       parameters:
         - name: task_id
           in: path
@@ -430,6 +433,12 @@ paths:
                     example: "100%"
                   imageUrl:
                     type: string
+                    description: 首图地址（兼容字段）
+                  urls:
+                    type: array
+                    description: 完整图片列表（推荐读取）
+                    items:
+                      type: string
                   action:
                     type: string
                   failReason:
@@ -445,13 +454,21 @@ paths:
                     status: "SUCCESS"
                     progress: "100%"
                     imageUrl: "https://cdn.example.com/mj-image.png"
+                    urls:
+                      - "https://cdn.example.com/mj-image-1.png"
+                      - "https://cdn.example.com/mj-image-2.png"
+                      - "https://cdn.example.com/mj-image-3.png"
+                      - "https://cdn.example.com/mj-image-4.png"
                     action: "IMAGINE"
 
   /mj/image/{task_id}:
     get:
       tags: [Midjourney]
       summary: MJ 图片代理
-      description: 代理获取 MJ 生成的图片（避免直接访问上游 CDN）。
+      description: |
+        代理获取 MJ 生成的首图（`imageUrl` 对应）。
+
+        如需获取全部图片，请优先读取 `/mj/task/{task_id}/fetch` 返回的 `urls` 数组。
       parameters:
         - name: task_id
           in: path
@@ -766,6 +783,12 @@ components:
           example: "100%"
         imageUrl:
           type: string
+          description: 首图地址（兼容字段）
+        urls:
+          type: array
+          description: 完整图片列表（推荐读取）
+          items:
+            type: string
         action:
           type: string
         failReason:
