@@ -427,14 +427,20 @@ export const getMjLogsColumns = ({
       title: t('结果图片'),
       dataIndex: 'image_url',
       render: (text, record, index) => {
-        if (!text) {
+        const multiImageUrls = [record?.imageUrls, record?.urls]
+          .flatMap((urls) => (Array.isArray(urls) ? urls : []))
+          .filter((url) => typeof url === 'string' && url.trim() !== '');
+
+        const previewSource = multiImageUrls.length > 0 ? multiImageUrls : text;
+
+        if (!previewSource) {
           return t('无');
         }
         return (
           <Button
             size='small'
             onClick={() => {
-              openImageModal(text);
+              openImageModal(previewSource);
             }}
           >
             {t('查看图片')}

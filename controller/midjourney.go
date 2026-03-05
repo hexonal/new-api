@@ -148,6 +148,21 @@ func UpdateMidjourneyTaskBulk() {
 				task.StartTime = responseItem.StartTime
 				task.FinishTime = responseItem.FinishTime
 				task.ImageUrl = responseItem.ImageUrl
+				imageUrls := responseItem.Urls
+				if len(imageUrls) == 0 && responseItem.ImageUrl != "" {
+					imageUrls = []string{responseItem.ImageUrl}
+				}
+				if len(imageUrls) > 0 {
+					imageUrlsStr, err := json.Marshal(imageUrls)
+					if err != nil {
+						logger.LogError(ctx, fmt.Sprintf("序列化 ImageUrls 失败: %v", err))
+					} else {
+						task.ImageUrls = string(imageUrlsStr)
+					}
+					if task.ImageUrl == "" {
+						task.ImageUrl = imageUrls[0]
+					}
+				}
 				task.Status = responseItem.Status
 				task.FailReason = responseItem.FailReason
 				if responseItem.Properties != nil {
@@ -232,6 +247,16 @@ func checkMjTaskNeedUpdate(oldTask *model.Midjourney, newTask dto.MidjourneyDto)
 	}
 	if oldTask.ImageUrl != newTask.ImageUrl {
 		return true
+	}
+	newImageUrls := newTask.Urls
+	if len(newImageUrls) == 0 && newTask.ImageUrl != "" {
+		newImageUrls = []string{newTask.ImageUrl}
+	}
+	if len(newImageUrls) > 0 {
+		newImageUrlsStr, _ := json.Marshal(newImageUrls)
+		if oldTask.ImageUrls != string(newImageUrlsStr) {
+			return true
+		}
 	}
 	if oldTask.Status != newTask.Status {
 		return true
@@ -403,6 +428,11 @@ func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []strin
 			task.Progress = "100%"
 			if len(ycResp.URLs) > 0 {
 				task.ImageUrl = ycResp.URLs[0]
+				if imageUrls, err := json.Marshal(ycResp.URLs); err == nil {
+					task.ImageUrls = string(imageUrls)
+				} else {
+					logger.LogError(ctx, fmt.Sprintf("youchuan poll: marshal urls error for %s: %v", mjId, err))
+				}
 			}
 			task.FinishTime = now
 			needUpdate = true

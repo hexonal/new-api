@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -129,6 +130,11 @@ func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) b
 		mjTask.Progress = "100%"
 		if len(ycResp.URLs) > 0 {
 			mjTask.ImageUrl = ycResp.URLs[0]
+			if imageUrls, err := json.Marshal(ycResp.URLs); err == nil {
+				mjTask.ImageUrls = string(imageUrls)
+			} else {
+				logger.LogError(c, "youchuan notify(mj): marshal urls failed: "+err.Error())
+			}
 		}
 		mjTask.FinishTime = now
 	case youchuan.StatusFailed, youchuan.StatusAuditFail:

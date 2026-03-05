@@ -107,6 +107,19 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 	midjourneyTask.StartTime = midjRequest.StartTime
 	midjourneyTask.FinishTime = midjRequest.FinishTime
 	midjourneyTask.ImageUrl = midjRequest.ImageUrl
+	imageUrls := midjRequest.Urls
+	if len(imageUrls) == 0 && midjRequest.ImageUrl != "" {
+		imageUrls = []string{midjRequest.ImageUrl}
+	}
+	if len(imageUrls) > 0 {
+		imageUrlsStr, err := json.Marshal(imageUrls)
+		if err == nil {
+			midjourneyTask.ImageUrls = string(imageUrlsStr)
+		}
+		if midjourneyTask.ImageUrl == "" {
+			midjourneyTask.ImageUrl = imageUrls[0]
+		}
+	}
 	midjourneyTask.VideoUrl = midjRequest.VideoUrl
 	videoUrlsStr, _ := json.Marshal(midjRequest.VideoUrls)
 	midjourneyTask.VideoUrls = string(videoUrlsStr)
@@ -142,6 +155,15 @@ func coverMidjourneyTaskDto(c *gin.Context, originTask *model.Midjourney) (midjo
 	}
 	if originTask.VideoUrl != "" {
 		midjourneyTask.VideoUrl = originTask.VideoUrl
+	}
+	if originTask.ImageUrls != "" {
+		var imageUrls []string
+		if err := json.Unmarshal([]byte(originTask.ImageUrls), &imageUrls); err == nil && len(imageUrls) > 0 {
+			midjourneyTask.Urls = imageUrls
+		}
+	}
+	if len(midjourneyTask.Urls) == 0 && originTask.ImageUrl != "" {
+		midjourneyTask.Urls = []string{originTask.ImageUrl}
 	}
 	midjourneyTask.Status = originTask.Status
 	midjourneyTask.FailReason = originTask.FailReason
