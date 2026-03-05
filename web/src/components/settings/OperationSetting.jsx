@@ -78,6 +78,7 @@ const OperationSetting = () => {
     ConsumeCallbackEnabled: false,
     ConsumeCallbackUrl: '',
     ConsumeCallbackSecret: '',
+    ConsumeCallbackUserPrefixFilter: '',
     ConsumeCallbackRetryTimes: 3,
     ConsumeCallbackInitialBackoffMs: 200,
     ConsumeCallbackMaxBackoffMs: 5000,

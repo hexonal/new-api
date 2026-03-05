@@ -90,3 +90,31 @@ func TestIsConsumeCallbackRelayModeSupported(t *testing.T) {
 	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeAudioSpeech))
 	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeMidjourneyImagine))
 }
+
+func TestParseConsumeCallbackUserPrefixFilter(t *testing.T) {
+	filter := "  alpha_,\n beta-\r\n\nGamma\nalpha_  "
+	prefixes := parseConsumeCallbackUserPrefixFilter(filter)
+
+	assert.Equal(t, []string{"alpha_", "beta-", "Gamma"}, prefixes)
+}
+
+func TestShouldDispatchConsumeCallbackForUsername_EmptyFilterFallback(t *testing.T) {
+	assert.True(t, shouldDispatchConsumeCallbackForUsername("any-user", ""))
+	assert.True(t, shouldDispatchConsumeCallbackForUsername("any-user", " ,\n  \r\n"))
+}
+
+func TestShouldDispatchConsumeCallbackForUsername_PrefixMatch(t *testing.T) {
+	filter := "adm,\nteam-"
+
+	assert.True(t, shouldDispatchConsumeCallbackForUsername("adm001", filter))
+	assert.True(t, shouldDispatchConsumeCallbackForUsername("team-bot", filter))
+	assert.False(t, shouldDispatchConsumeCallbackForUsername("user01", filter))
+	assert.False(t, shouldDispatchConsumeCallbackForUsername("", filter))
+}
+
+func TestShouldDispatchConsumeCallbackForUsername_CaseSensitive(t *testing.T) {
+	filter := "Admin"
+
+	assert.True(t, shouldDispatchConsumeCallbackForUsername("AdminRoot", filter))
+	assert.False(t, shouldDispatchConsumeCallbackForUsername("adminRoot", filter))
+}

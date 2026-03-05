@@ -137,8 +137,11 @@ func quotaToAmountUSD(quota int) float64 {
 }
 
 func dispatchConsumeCallback(payload consumeCallbackPayload) {
-	enabled, callbackURL, secret := getConsumeCallbackOptions()
+	enabled, callbackURL, secret, usernamePrefixFilter := getConsumeCallbackOptions()
 	if !enabled || callbackURL == "" {
+		return
+	}
+	if !shouldDispatchConsumeCallbackForUserID(payload.UserID, usernamePrefixFilter) {
 		return
 	}
 
@@ -185,14 +188,79 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	}
 }
 
-func getConsumeCallbackOptions() (bool, string, string) {
+func getConsumeCallbackOptions() (bool, string, string, string) {
 	common.OptionMapRWMutex.RLock()
 	defer common.OptionMapRWMutex.RUnlock()
 
 	enabled := common.OptionMap["ConsumeCallbackEnabled"] == "true"
 	callbackURL := strings.TrimSpace(common.OptionMap["ConsumeCallbackUrl"])
 	secret := common.OptionMap["ConsumeCallbackSecret"]
-	return enabled, callbackURL, secret
+	usernamePrefixFilter := common.OptionMap["ConsumeCallbackUserPrefixFilter"]
+	return enabled, callbackURL, secret, usernamePrefixFilter
+}
+
+func shouldDispatchConsumeCallbackForUserID(userID int, rawPrefixFilter string) bool {
+	prefixes := parseConsumeCallbackUserPrefixFilter(rawPrefixFilter)
+	if len(prefixes) == 0 {
+		return true
+	}
+	if userID <= 0 {
+		return false
+	}
+
+	username, err := model.GetUsernameById(userID, false)
+	if err != nil {
+		common.SysError(fmt.Sprintf("consume callback prefix filter: failed to query username for user %d: %s", userID, err.Error()))
+		return false
+	}
+	return matchConsumeCallbackUsernamePrefixes(username, prefixes)
+}
+
+func shouldDispatchConsumeCallbackForUsername(username string, rawPrefixFilter string) bool {
+	prefixes := parseConsumeCallbackUserPrefixFilter(rawPrefixFilter)
+	if len(prefixes) == 0 {
+		return true
+	}
+	return matchConsumeCallbackUsernamePrefixes(username, prefixes)
+}
+
+func parseConsumeCallbackUserPrefixFilter(rawPrefixFilter string) []string {
+	normalized := strings.ReplaceAll(rawPrefixFilter, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.ReplaceAll(normalized, ",", "\n")
+
+	parts := strings.Split(normalized, "\n")
+	prefixes := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		prefix := strings.TrimSpace(part)
+		if prefix == "" {
+			continue
+		}
+		if _, exists := seen[prefix]; exists {
+			continue
+		}
+		seen[prefix] = struct{}{}
+		prefixes = append(prefixes, prefix)
+	}
+	return prefixes
+}
+
+func matchConsumeCallbackUsernamePrefixes(username string, prefixes []string) bool {
+	if len(prefixes) == 0 {
+		return true
+	}
+	normalizedUsername := strings.TrimSpace(username)
+	if normalizedUsername == "" {
+		return false
+	}
+	// Case-sensitive by design: prefix and username must match exactly by case.
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(normalizedUsername, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func maxInt(a int, b int) int {
