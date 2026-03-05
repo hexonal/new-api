@@ -153,6 +153,14 @@ func InitOptionMap() {
 	common.OptionMap["OperatorCallbackEnabled"] = "false"
 	common.OptionMap["OperatorCallbackUrl"] = ""
 	common.OptionMap["OperatorCallbackSecret"] = ""
+	common.OptionMap["ConsumeCallbackEnabled"] = common.OptionMap["OperatorCallbackEnabled"]
+	common.OptionMap["ConsumeCallbackUrl"] = common.OptionMap["OperatorCallbackUrl"]
+	common.OptionMap["ConsumeCallbackSecret"] = common.OptionMap["OperatorCallbackSecret"]
+	common.OptionMap["ConsumeCallbackRetryTimes"] = "3"
+	common.OptionMap["ConsumeCallbackInitialBackoffMs"] = "200"
+	common.OptionMap["ConsumeCallbackMaxBackoffMs"] = "5000"
+	common.OptionMap["ConsumeCallbackWorkerCount"] = "2"
+	common.OptionMap["ConsumeCallbackQueueCapacity"] = "256"
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -202,6 +210,7 @@ func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
+	syncConsumeCallbackOptionAliases(key, value)
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
@@ -465,6 +474,23 @@ func updateOptionMap(key string, value string) (err error) {
 		err = operation_setting.UpdatePayMethodsByJsonString(value)
 	}
 	return err
+}
+
+func syncConsumeCallbackOptionAliases(key, value string) {
+	switch key {
+	case "ConsumeCallbackEnabled":
+		common.OptionMap["OperatorCallbackEnabled"] = value
+	case "ConsumeCallbackUrl":
+		common.OptionMap["OperatorCallbackUrl"] = value
+	case "ConsumeCallbackSecret":
+		common.OptionMap["OperatorCallbackSecret"] = value
+	case "OperatorCallbackEnabled":
+		common.OptionMap["ConsumeCallbackEnabled"] = value
+	case "OperatorCallbackUrl":
+		common.OptionMap["ConsumeCallbackUrl"] = value
+	case "OperatorCallbackSecret":
+		common.OptionMap["ConsumeCallbackSecret"] = value
+	}
 }
 
 // handleConfigUpdate 处理分层配置更新，返回是否已处理

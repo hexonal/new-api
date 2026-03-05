@@ -426,7 +426,11 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage 
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
-	if err := service.SettleBilling(ctx, relayInfo, quota); err != nil {
+	if err := service.SettleBilling(ctx, relayInfo, quota, service.ConsumeCallbackUsage{
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		TotalTokens:      totalTokens,
+	}); err != nil {
 		logger.LogError(ctx, "error settling billing: "+err.Error())
 	}
 

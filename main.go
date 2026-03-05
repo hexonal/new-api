@@ -273,6 +273,9 @@ func InitResources() error {
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()
 
+	// Start reliable callback dispatcher (DB outbox + retry).
+	service.StartCallbackDispatcher()
+
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()
 

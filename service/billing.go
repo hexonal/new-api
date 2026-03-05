@@ -31,7 +31,12 @@ func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycom
 
 // SettleBilling 执行计费结算。如果 RelayInfo 上有 BillingSession 则通过 session 结算，
 // 否则回退到旧的 PostConsumeQuota 路径（兼容按次计费等场景）。
-func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuota int) error {
+func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuota int, usage ...ConsumeCallbackUsage) error {
+	callbackUsage := ConsumeCallbackUsage{}
+	if len(usage) > 0 {
+		callbackUsage = usage[0]
+	}
+
 	if relayInfo.Billing != nil {
 		preConsumed := relayInfo.Billing.GetPreConsumedQuota()
 		delta := actualQuota - preConsumed
@@ -66,13 +71,18 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 				checkAndSendQuotaNotify(relayInfo, actualQuota-preConsumed, preConsumed)
 			}
 		}
+
+		SendConsumeSettleCallback(relayInfo, actualQuota, callbackUsage)
 		return nil
 	}
 
 	// 回退：无 BillingSession 时使用旧路径
 	quotaDelta := actualQuota - relayInfo.FinalPreConsumedQuota
 	if quotaDelta != 0 {
-		return PostConsumeQuota(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true)
+		if err := PostConsumeQuota(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true); err != nil {
+			return err
+		}
 	}
+	SendConsumeSettleCallback(relayInfo, actualQuota, callbackUsage)
 	return nil
 }

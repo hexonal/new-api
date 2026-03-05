@@ -278,6 +278,8 @@ func migrateDB() error {
 		&SubscriptionOrder{},
 		&UserSubscription{},
 		&SubscriptionPreConsumeRecord{},
+		&CallbackEvent{},
+		&CallbackEventAttempt{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
 	)
@@ -326,6 +328,8 @@ func migrateDBFast() error {
 		{&SubscriptionOrder{}, "SubscriptionOrder"},
 		{&UserSubscription{}, "UserSubscription"},
 		{&SubscriptionPreConsumeRecord{}, "SubscriptionPreConsumeRecord"},
+		{&CallbackEvent{}, "CallbackEvent"},
+		{&CallbackEventAttempt{}, "CallbackEventAttempt"},
 		{&CustomOAuthProvider{}, "CustomOAuthProvider"},
 		{&UserOAuthBinding{}, "UserOAuthBinding"},
 	}

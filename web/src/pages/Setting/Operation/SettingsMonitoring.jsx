@@ -30,23 +30,33 @@ import {
 import { useTranslation } from 'react-i18next';
 import HttpStatusCodeRulesInput from '../../../components/settings/HttpStatusCodeRulesInput';
 
+const defaultInputs = {
+  ChannelDisableThreshold: '',
+  QuotaRemindThreshold: '',
+  AutomaticDisableChannelEnabled: false,
+  AutomaticEnableChannelEnabled: false,
+  AutomaticDisableKeywords: '',
+  AutomaticDisableStatusCodes: '401',
+  AutomaticRetryStatusCodes:
+    '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+  'monitor_setting.auto_test_channel_enabled': false,
+  'monitor_setting.auto_test_channel_minutes': 10,
+  ConsumeCallbackEnabled: false,
+  ConsumeCallbackUrl: '',
+  ConsumeCallbackSecret: '',
+  ConsumeCallbackRetryTimes: 3,
+  ConsumeCallbackInitialBackoffMs: 200,
+  ConsumeCallbackMaxBackoffMs: 5000,
+  ConsumeCallbackWorkerCount: 2,
+  ConsumeCallbackQueueCapacity: 256,
+};
+
 export default function SettingsMonitoring(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [inputs, setInputs] = useState({
-    ChannelDisableThreshold: '',
-    QuotaRemindThreshold: '',
-    AutomaticDisableChannelEnabled: false,
-    AutomaticEnableChannelEnabled: false,
-    AutomaticDisableKeywords: '',
-    AutomaticDisableStatusCodes: '401',
-    AutomaticRetryStatusCodes:
-      '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
-    'monitor_setting.auto_test_channel_enabled': false,
-    'monitor_setting.auto_test_channel_minutes': 10,
-  });
+  const [inputs, setInputs] = useState(defaultInputs);
   const refForm = useRef();
-  const [inputsRow, setInputsRow] = useState(inputs);
+  const [inputsRow, setInputsRow] = useState(defaultInputs);
   const parsedAutoDisableStatusCodes = parseHttpStatusCodeRules(
     inputs.AutomaticDisableStatusCodes || '',
   );
@@ -54,9 +64,71 @@ export default function SettingsMonitoring(props) {
     inputs.AutomaticRetryStatusCodes || '',
   );
 
+  const validateConsumeCallbackConfig = () => {
+    if (!inputs.ConsumeCallbackEnabled) {
+      return true;
+    }
+    const callbackUrl = (inputs.ConsumeCallbackUrl || '').trim();
+    if (!callbackUrl) {
+      showError(t('开启消费回调时，回调 URL 为必填项'));
+      return false;
+    }
+    try {
+      const parsedUrl = new URL(callbackUrl);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        throw new Error('invalid protocol');
+      }
+    } catch {
+      showError(t('回调 URL 必须是以 http:// 或 https:// 开头的有效地址'));
+      return false;
+    }
+
+    const retryTimes = Number(inputs.ConsumeCallbackRetryTimes);
+    const initialBackoffMs = Number(inputs.ConsumeCallbackInitialBackoffMs);
+    const maxBackoffMs = Number(inputs.ConsumeCallbackMaxBackoffMs);
+    const workerCount = Number(inputs.ConsumeCallbackWorkerCount);
+    const queueCapacity = Number(inputs.ConsumeCallbackQueueCapacity);
+
+    if (!Number.isFinite(retryTimes) || retryTimes < 0 || retryTimes > 20) {
+      showError(t('回调重试次数必须在 0 到 20 之间'));
+      return false;
+    }
+    if (
+      !Number.isFinite(initialBackoffMs) ||
+      initialBackoffMs < 50 ||
+      initialBackoffMs > 600000
+    ) {
+      showError(t('初始退避毫秒必须在 50 到 600000 之间'));
+      return false;
+    }
+    if (
+      !Number.isFinite(maxBackoffMs) ||
+      maxBackoffMs < initialBackoffMs ||
+      maxBackoffMs > 3600000
+    ) {
+      showError(t('最大退避毫秒必须大于等于初始退避毫秒，且不超过 3600000'));
+      return false;
+    }
+    if (!Number.isFinite(workerCount) || workerCount < 1 || workerCount > 64) {
+      showError(t('回调 Worker 数必须在 1 到 64 之间'));
+      return false;
+    }
+    if (
+      !Number.isFinite(queueCapacity) ||
+      queueCapacity < 1 ||
+      queueCapacity > 20000
+    ) {
+      showError(t('回调队列容量必须在 1 到 20000 之间'));
+      return false;
+    }
+
+    return true;
+  };
+
   function onSubmit() {
     const updateArray = compareObjects(inputs, inputsRow);
     if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
+    if (!validateConsumeCallbackConfig()) return;
     if (!parsedAutoDisableStatusCodes.ok) {
       const details =
         parsedAutoDisableStatusCodes.invalidTokens &&
@@ -81,6 +153,22 @@ export default function SettingsMonitoring(props) {
         const normalizedMap = {
           AutomaticDisableStatusCodes: parsedAutoDisableStatusCodes.normalized,
           AutomaticRetryStatusCodes: parsedAutoRetryStatusCodes.normalized,
+          ConsumeCallbackUrl: (inputs.ConsumeCallbackUrl || '').trim(),
+          ConsumeCallbackRetryTimes: String(
+            parseInt(inputs.ConsumeCallbackRetryTimes, 10),
+          ),
+          ConsumeCallbackInitialBackoffMs: String(
+            parseInt(inputs.ConsumeCallbackInitialBackoffMs, 10),
+          ),
+          ConsumeCallbackMaxBackoffMs: String(
+            parseInt(inputs.ConsumeCallbackMaxBackoffMs, 10),
+          ),
+          ConsumeCallbackWorkerCount: String(
+            parseInt(inputs.ConsumeCallbackWorkerCount, 10),
+          ),
+          ConsumeCallbackQueueCapacity: String(
+            parseInt(inputs.ConsumeCallbackQueueCapacity, 10),
+          ),
         };
         value = normalizedMap[item.key] ?? inputs[item.key];
       }
@@ -110,15 +198,17 @@ export default function SettingsMonitoring(props) {
   }
 
   useEffect(() => {
-    const currentInputs = {};
+    const currentInputs = structuredClone(defaultInputs);
     for (let key in props.options) {
-      if (Object.keys(inputs).includes(key)) {
+      if (Object.keys(defaultInputs).includes(key)) {
         currentInputs[key] = props.options[key];
       }
     }
+    // Secret 只写不回显，每次加载后清空输入框，避免暴露已保存值
+    currentInputs.ConsumeCallbackSecret = '';
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
-    refForm.current.setValues(currentInputs);
+    refForm.current?.setValues(currentInputs);
   }, [props.options]);
 
   return (
@@ -273,6 +363,150 @@ export default function SettingsMonitoring(props) {
                   autosize={{ minRows: 6, maxRows: 12 }}
                   onChange={(value) =>
                     setInputs({ ...inputs, AutomaticDisableKeywords: value })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'ConsumeCallbackEnabled'}
+                  label={t('启用消费回调')}
+                  extraText={t(
+                    '仅用于 openai/anthropic/responses 三类端点的消费事件；当用户消费后额度低于阈值时，向你配置的地址推送回调通知（可用于告警系统或工单系统）',
+                  )}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackEnabled: value,
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'ConsumeCallbackUrl'}
+                  label={t('回调 URL')}
+                  placeholder={t(
+                    '例如：https://ops.example.com/new-api/consume',
+                  )}
+                  extraText={t(
+                    '开启消费回调时必填，仅支持 http:// 或 https://',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackUrl: value,
+                    })
+                  }
+                  showClear
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'ConsumeCallbackSecret'}
+                  label={t('回调 Secret')}
+                  placeholder={t(
+                    '用于签名校验；留空表示不修改，且已保存值不会回显',
+                  )}
+                  type='password'
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackSecret: value,
+                    })
+                  }
+                  showClear
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'ConsumeCallbackRetryTimes'}
+                  label={t('回调重试次数')}
+                  min={0}
+                  max={20}
+                  step={1}
+                  extraText={t('异步推送失败后的最大重试次数（默认 3）')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackRetryTimes: parseInt(value, 10),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'ConsumeCallbackInitialBackoffMs'}
+                  label={t('初始退避毫秒')}
+                  min={50}
+                  max={600000}
+                  step={50}
+                  extraText={t('首次重试前等待时长（毫秒）')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackInitialBackoffMs: parseInt(value, 10),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'ConsumeCallbackMaxBackoffMs'}
+                  label={t('最大退避毫秒')}
+                  min={50}
+                  max={3600000}
+                  step={100}
+                  extraText={t('指数退避等待上限（毫秒）')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackMaxBackoffMs: parseInt(value, 10),
+                    })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'ConsumeCallbackWorkerCount'}
+                  label={t('回调 Worker 数')}
+                  min={1}
+                  max={64}
+                  step={1}
+                  extraText={t(
+                    '并发处理回调事件的 Worker 数量（修改后需重启服务生效）',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackWorkerCount: parseInt(value, 10),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'ConsumeCallbackQueueCapacity'}
+                  label={t('回调队列容量')}
+                  min={1}
+                  max={20000}
+                  step={1}
+                  extraText={t(
+                    '本地分发队列容量，队列越大占用内存越高（修改后需重启服务生效）',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ConsumeCallbackQueueCapacity: parseInt(value, 10),
+                    })
                   }
                 />
               </Col>
