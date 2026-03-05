@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
@@ -111,6 +112,13 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	// apply model-level header settings (e.g. ClaudeSettings.HeadersSettings).
 	// Channel-level header_override is applied separately in doAwsClientRequest.
 	model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
+	traceID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	if traceID == "" && info != nil {
+		traceID = strings.TrimSpace(info.RequestId)
+	}
+	if traceID != "" {
+		req.Set(common.TraceIdKey, traceID)
+	}
 	if a.ClientMode == ClientModeApiKey {
 		req.Set("Authorization", "Bearer "+info.ApiKey)
 	}

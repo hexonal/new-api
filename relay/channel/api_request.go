@@ -37,6 +37,16 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 			req.Set("Accept", "text/event-stream")
 		}
 	}
+	traceID := strings.TrimSpace(c.GetString(common2.RequestIdKey))
+	if traceID == "" {
+		traceID = strings.TrimSpace(c.Request.Header.Get(common2.TraceIdKey))
+	}
+	if traceID == "" && info != nil {
+		traceID = strings.TrimSpace(info.RequestId)
+	}
+	if traceID != "" {
+		req.Set(common2.TraceIdKey, traceID)
+	}
 }
 
 const clientHeaderPlaceholderPrefix = "{client_header:"

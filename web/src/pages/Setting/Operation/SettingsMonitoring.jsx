@@ -54,6 +54,9 @@ const normalizeConsumeCallbackUsernamePrefixes = (value) =>
     ),
   ).join(',');
 
+const normalizeBooleanOption = (value) =>
+  value === true || String(value).toLowerCase() === 'true';
+
 const defaultInputs = {
   ChannelDisableThreshold: '',
   QuotaRemindThreshold: '',
@@ -271,6 +274,9 @@ export default function SettingsMonitoring(props) {
     }
     // Secret 只写不回显，每次加载后清空输入框，避免暴露已保存值
     currentInputs.ConsumeCallbackSecret = '';
+    currentInputs.CallbackLogMaskSensitiveEnabled = normalizeBooleanOption(
+      currentInputs.CallbackLogMaskSensitiveEnabled,
+    );
     currentInputs.ConsumeCallbackUserPrefixFilter =
       normalizeConsumeCallbackUsernamePrefixes(
         currentInputs.ConsumeCallbackUserPrefixFilter,
