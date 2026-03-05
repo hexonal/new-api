@@ -297,3 +297,42 @@ func GetAllCallbackEvents(startIdx int, num int, queryParams CallbackEventQueryP
 	}
 	return events, total, nil
 }
+
+// CleanupCallbackEventsBefore removes old callback logs in terminal states.
+// It deletes attempts first, then callback events to keep records consistent.
+func CleanupCallbackEventsBefore(cutoffTimestamp int64) (deletedEvents int64, deletedAttempts int64, err error) {
+	if cutoffTimestamp <= 0 {
+		return 0, 0, nil
+	}
+	terminalStatuses := []string{
+		CallbackEventStatusSucceeded,
+		CallbackEventStatusDead,
+		CallbackEventStatusCancelled,
+	}
+
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var eventIDs []int64
+		if err := tx.Model(&CallbackEvent{}).
+			Where("created_at < ? AND status IN ?", cutoffTimestamp, terminalStatuses).
+			Pluck("id", &eventIDs).Error; err != nil {
+			return err
+		}
+		if len(eventIDs) == 0 {
+			return nil
+		}
+
+		attemptDeleteResult := tx.Where("event_id IN ?", eventIDs).Delete(&CallbackEventAttempt{})
+		if attemptDeleteResult.Error != nil {
+			return attemptDeleteResult.Error
+		}
+		deletedAttempts = attemptDeleteResult.RowsAffected
+
+		eventDeleteResult := tx.Where("id IN ?", eventIDs).Delete(&CallbackEvent{})
+		if eventDeleteResult.Error != nil {
+			return eventDeleteResult.Error
+		}
+		deletedEvents = eventDeleteResult.RowsAffected
+		return nil
+	})
+	return deletedEvents, deletedAttempts, err
+}

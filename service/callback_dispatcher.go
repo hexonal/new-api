@@ -258,27 +258,31 @@ func calculateCallbackBackoff(initialMs int, maxMs int, retryIndex int) time.Dur
 }
 
 func shouldRetryCallback(statusCode int, err error) bool {
-	if err != nil && statusCode == 0 {
+	// Any delivery failure should be retried until MaxRetries is exhausted.
+	// This keeps behavior deterministic and aligns with operator expectations.
+	if err != nil {
 		return true
 	}
-	switch statusCode {
-	case http.StatusRequestTimeout, http.StatusConflict, http.StatusTooEarly, http.StatusTooManyRequests:
+	if statusCode == 0 {
 		return true
 	}
-	return statusCode >= 500
+	return statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices
 }
 
 func buildCallbackErrorMessage(sendErr error, statusCode int, responseSnippet string) string {
+	if statusCode > 0 {
+		if strings.TrimSpace(responseSnippet) == "" {
+			return fmt.Sprintf("callback status=%d", statusCode)
+		}
+		return fmt.Sprintf("callback status=%d, body: %s", statusCode, strings.TrimSpace(responseSnippet))
+	}
 	if sendErr != nil {
 		return sendErr.Error()
 	}
 	if statusCode == 0 {
 		return "callback send failed: unknown error"
 	}
-	if responseSnippet == "" {
-		return fmt.Sprintf("unexpected status code: %d", statusCode)
-	}
-	return fmt.Sprintf("unexpected status code: %d, body: %s", statusCode, common.MaskSensitiveInfo(responseSnippet))
+	return "callback send failed: unknown error"
 }
 
 func (d *callbackDispatcher) sendEvent(event *model.CallbackEvent, attemptNo int) (int, string, error) {
@@ -326,7 +330,9 @@ func sendCallbackByWorker(ctx context.Context, url string, method string, header
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		return resp.StatusCode, snippet, nil
 	}
-	return resp.StatusCode, snippet, fmt.Errorf("worker callback status=%d", resp.StatusCode)
+	// Non-2xx response is still a completed HTTP call.
+	// Return status/snippet and let caller build unified error message.
+	return resp.StatusCode, snippet, nil
 }
 
 func sendCallbackDirect(ctx context.Context, url string, method string, headers map[string]string, body []byte) (int, string, error) {
@@ -353,5 +359,7 @@ func sendCallbackDirect(ctx context.Context, url string, method string, headers 
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		return resp.StatusCode, snippet, nil
 	}
-	return resp.StatusCode, snippet, fmt.Errorf("callback status=%d", resp.StatusCode)
+	// Non-2xx response is still a completed HTTP call.
+	// Return status/snippet and let caller build unified error message.
+	return resp.StatusCode, snippet, nil
 }

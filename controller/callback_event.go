@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -18,10 +21,20 @@ type callbackEventListItem struct {
 	EventType      string `json:"event_type"`
 	SinkType       string `json:"sink_type"`
 
-	RequestID   string `json:"request_id"`
-	UserID      int    `json:"user_id"`
-	TokenID     int    `json:"token_id"`
-	CallbackURL string `json:"callback_url"`
+	RequestID     string `json:"request_id"`
+	UserID        int    `json:"user_id"`
+	Username      string `json:"username"`
+	TokenID       int    `json:"token_id"`
+	TokenName     string `json:"token_name"`
+	TokenSK       string `json:"token_sk"`
+	TokenSKMasked string `json:"token_sk_masked"`
+	CallbackURL   string `json:"callback_url"`
+
+	RequestMethod  string `json:"request_method"`
+	RequestHeaders string `json:"request_headers"`
+	RequestBody    string `json:"request_body"`
+	ContentType    string `json:"content_type"`
+	BodySHA256     string `json:"body_sha256"`
 
 	Status       string `json:"status"`
 	AttemptCount int    `json:"attempt_count"`
@@ -78,8 +91,18 @@ func GetAllCallbackEvents(c *gin.Context) {
 		return
 	}
 
+	maskSensitive := isCallbackLogMaskSensitiveEnabled()
+	userMap, tokenMap := batchLoadCallbackEventIdentityMaps(events)
+
 	items := make([]*callbackEventListItem, 0, len(events))
 	for _, event := range events {
+		tokenInfo := tokenMap[event.TokenID]
+		tokenSK := normalizeSK(tokenInfo.Key)
+		tokenSKMasked := buildMaskedSK(tokenInfo.Key)
+		displayTokenSK := tokenSK
+		if maskSensitive {
+			displayTokenSK = tokenSKMasked
+		}
 		items = append(items, &callbackEventListItem{
 			ID:             event.ID,
 			EventID:        event.EventID,
@@ -89,8 +112,17 @@ func GetAllCallbackEvents(c *gin.Context) {
 			SinkType:       event.SinkType,
 			RequestID:      event.RequestID,
 			UserID:         event.UserID,
+			Username:       strings.TrimSpace(userMap[event.UserID]),
 			TokenID:        event.TokenID,
-			CallbackURL:    common.MaskSensitiveInfo(event.CallbackURL),
+			TokenName:      tokenInfo.Name,
+			TokenSK:        trimCallbackField(displayTokenSK, 128),
+			TokenSKMasked:  trimCallbackField(tokenSKMasked, 128),
+			CallbackURL:    trimCallbackFieldWithMask(event.CallbackURL, 2048, maskSensitive),
+			RequestMethod:  trimCallbackField(event.HTTPMethod, 16),
+			RequestHeaders: trimCallbackFieldWithMask(event.Headers, 16000, maskSensitive),
+			RequestBody:    trimCallbackFieldWithMask(event.Body, 32000, maskSensitive),
+			ContentType:    trimCallbackField(event.ContentType, 128),
+			BodySHA256:     trimCallbackField(event.BodySHA256, 128),
 			Status:         event.Status,
 			AttemptCount:   event.AttemptCount,
 			MaxRetries:     event.MaxRetries,
@@ -99,7 +131,7 @@ func GetAllCallbackEvents(c *gin.Context) {
 			LastAttemptAt:  event.LastAttemptAt,
 			SucceededAt:    event.SucceededAt,
 			LastHTTPStatus: event.LastHTTPStatus,
-			LastError:      trimAndMaskCallbackField(event.LastError, 1024),
+			LastError:      trimCallbackFieldWithMask(event.LastError, 8000, maskSensitive),
 			CreatedAt:      event.CreatedAt,
 			UpdatedAt:      event.UpdatedAt,
 		})
@@ -128,6 +160,7 @@ func GetCallbackEventAttempts(c *gin.Context) {
 	}
 
 	items := make([]*callbackEventAttemptItem, 0, len(attempts))
+	maskSensitive := isCallbackLogMaskSensitiveEnabled()
 	for _, attempt := range attempts {
 		items = append(items, &callbackEventAttemptItem{
 			ID:              attempt.ID,
@@ -137,8 +170,8 @@ func GetCallbackEventAttempts(c *gin.Context) {
 			FinishedAt:      attempt.FinishedAt,
 			HTTPStatus:      attempt.HTTPStatus,
 			Success:         attempt.Success,
-			Error:           trimAndMaskCallbackField(attempt.Error, 1024),
-			ResponseSnippet: trimAndMaskCallbackField(attempt.ResponseSnippet, 1024),
+			Error:           trimCallbackFieldWithMask(attempt.Error, 8000, maskSensitive),
+			ResponseSnippet: trimCallbackFieldWithMask(attempt.ResponseSnippet, 8000, maskSensitive),
 			NodeID:          attempt.NodeID,
 			CreatedAt:       attempt.CreatedAt,
 		})
@@ -147,8 +180,131 @@ func GetCallbackEventAttempts(c *gin.Context) {
 	common.ApiSuccess(c, items)
 }
 
-func trimAndMaskCallbackField(input string, maxLen int) string {
-	value := common.MaskSensitiveInfo(strings.TrimSpace(input))
+type callbackEventTokenInfo struct {
+	ID   int
+	Name string
+	Key  string
+}
+
+func batchLoadCallbackEventIdentityMaps(events []*model.CallbackEvent) (map[int]string, map[int]callbackEventTokenInfo) {
+	userIDs := make([]int, 0)
+	tokenIDs := make([]int, 0)
+	userSeen := map[int]struct{}{}
+	tokenSeen := map[int]struct{}{}
+	for _, event := range events {
+		if event == nil {
+			continue
+		}
+		if event.UserID > 0 {
+			if _, ok := userSeen[event.UserID]; !ok {
+				userSeen[event.UserID] = struct{}{}
+				userIDs = append(userIDs, event.UserID)
+			}
+		}
+		if event.TokenID > 0 {
+			if _, ok := tokenSeen[event.TokenID]; !ok {
+				tokenSeen[event.TokenID] = struct{}{}
+				tokenIDs = append(tokenIDs, event.TokenID)
+			}
+		}
+	}
+
+	userMap := map[int]string{}
+	if len(userIDs) > 0 {
+		for _, userID := range userIDs {
+			username, err := model.GetUsernameById(userID, false)
+			if err != nil {
+				common.SysError(fmt.Sprintf("callback events: load username failed: user_id=%d err=%s", userID, err.Error()))
+				continue
+			}
+			userMap[userID] = strings.TrimSpace(username)
+		}
+	}
+
+	tokenMap := map[int]callbackEventTokenInfo{}
+	if len(tokenIDs) > 0 {
+		for _, tokenID := range tokenIDs {
+			tokenInfo, err := getCallbackTokenInfoCached(tokenID)
+			if err != nil {
+				common.SysError(fmt.Sprintf("callback events: load token failed: token_id=%d err=%s", tokenID, err.Error()))
+				continue
+			}
+			tokenMap[tokenID] = tokenInfo
+		}
+	}
+
+	return userMap, tokenMap
+}
+
+func normalizeSK(rawKey string) string {
+	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	if key == "" {
+		return ""
+	}
+	return "sk-" + key
+}
+
+func buildMaskedSK(rawKey string) string {
+	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	if key == "" {
+		return ""
+	}
+	if len(key) <= 8 {
+		return "sk-" + key
+	}
+	return fmt.Sprintf("sk-%s***%s", key[:4], key[len(key)-4:])
+}
+
+func getCallbackTokenInfoCached(tokenID int) (callbackEventTokenInfo, error) {
+	if tokenID <= 0 {
+		return callbackEventTokenInfo{}, fmt.Errorf("invalid token id: %d", tokenID)
+	}
+	cacheKey := fmt.Sprintf("callback:event:token:%d", tokenID)
+	if common.RedisEnabled {
+		if raw, err := common.RedisGet(cacheKey); err == nil && strings.TrimSpace(raw) != "" {
+			var cached callbackEventTokenInfo
+			if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
+				return cached, nil
+			}
+		}
+	}
+
+	token, err := model.GetTokenById(tokenID)
+	if err != nil {
+		return callbackEventTokenInfo{}, err
+	}
+	info := callbackEventTokenInfo{
+		ID:   token.Id,
+		Name: strings.TrimSpace(token.Name),
+		Key:  strings.TrimSpace(token.Key),
+	}
+	if common.RedisEnabled {
+		if payload, marshalErr := json.Marshal(info); marshalErr == nil {
+			_ = common.RedisSet(cacheKey, string(payload), time.Duration(common.RedisKeyCacheSeconds())*time.Second)
+		}
+	}
+	return info, nil
+}
+
+func isCallbackLogMaskSensitiveEnabled() bool {
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	return common.OptionMap["CallbackLogMaskSensitiveEnabled"] == "true"
+}
+
+func trimCallbackField(input string, maxLen int) string {
+	value := strings.TrimSpace(input)
+	if maxLen <= 0 || len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen]
+}
+
+func trimCallbackFieldWithMask(input string, maxLen int, maskSensitive bool) string {
+	value := strings.TrimSpace(input)
+	if maskSensitive {
+		value = common.MaskSensitiveInfo(value)
+	}
 	if maxLen <= 0 || len(value) <= maxLen {
 		return value
 	}

@@ -93,6 +93,18 @@ const getDurationText = (startAt, endAt) => {
   return `${end - start}s`;
 };
 
+const formatJSONBlock = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return '-';
+  }
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return trimmed;
+  }
+};
+
 const CallbackLog = () => {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -310,6 +322,27 @@ const CallbackLog = () => {
         key: 'user_id',
         width: 90,
         render: (value) => value || '-',
+      },
+      {
+        title: t('用户名'),
+        dataIndex: 'username',
+        key: 'username',
+        width: 180,
+        render: (value) => value || '-',
+      },
+      {
+        title: t('目标 SK'),
+        dataIndex: 'token_sk',
+        key: 'token_sk',
+        width: 220,
+        render: (value, record) => {
+          const display = value || record?.token_sk_masked || '-';
+          return (
+            <Text ellipsis={{ showTooltip: true }} style={{ maxWidth: 200 }} copyable>
+              {display}
+            </Text>
+          );
+        },
       },
       {
         title: t('重试进度'),
@@ -580,6 +613,55 @@ const CallbackLog = () => {
           <Text type='secondary'>
             {t('事件 ID')}: {selectedEvent?.event_id || selectedEvent?.id || '-'}
           </Text>
+        </div>
+        <div className='mb-3'>
+          <Text type='secondary'>
+            {t('用户名')}: {selectedEvent?.username || '-'} · {t('目标 SK')}:{' '}
+            {selectedEvent?.token_sk || selectedEvent?.token_sk_masked || '-'}
+          </Text>
+        </div>
+        <div className='mb-3'>
+          <Text type='secondary'>
+            {t('回调地址')}: {selectedEvent?.callback_url || '-'} · {t('请求方式')}:{' '}
+            {selectedEvent?.request_method || 'POST'} · {t('内容类型')}:{' '}
+            {selectedEvent?.content_type || 'application/json'}
+          </Text>
+        </div>
+        <div className='mb-3'>
+          <Text strong>{t('发送请求头')}</Text>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 8,
+              background: 'var(--semi-color-fill-0)',
+              maxHeight: 180,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              fontSize: 12,
+            }}
+          >
+            {formatJSONBlock(selectedEvent?.request_headers)}
+          </pre>
+        </div>
+        <div className='mb-3'>
+          <Text strong>{t('发送内容')}</Text>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 8,
+              background: 'var(--semi-color-fill-0)',
+              maxHeight: 220,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              fontSize: 12,
+            }}
+          >
+            {formatJSONBlock(selectedEvent?.request_body)}
+          </pre>
         </div>
 
         {attemptsLoading ? (

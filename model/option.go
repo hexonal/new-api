@@ -163,6 +163,7 @@ func InitOptionMap() {
 	common.OptionMap["ConsumeCallbackMaxBackoffMs"] = "5000"
 	common.OptionMap["ConsumeCallbackWorkerCount"] = "2"
 	common.OptionMap["ConsumeCallbackQueueCapacity"] = "256"
+	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()

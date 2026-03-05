@@ -41,6 +41,7 @@ const consumeCallbackOptionKeys = new Set([
   'ConsumeCallbackMaxBackoffMs',
   'ConsumeCallbackWorkerCount',
   'ConsumeCallbackQueueCapacity',
+  'CallbackLogMaskSensitiveEnabled',
 ]);
 
 const normalizeConsumeCallbackUsernamePrefixes = (value) =>
@@ -73,6 +74,7 @@ const defaultInputs = {
   ConsumeCallbackMaxBackoffMs: 5000,
   ConsumeCallbackWorkerCount: 2,
   ConsumeCallbackQueueCapacity: 256,
+  CallbackLogMaskSensitiveEnabled: false,
 };
 
 export default function SettingsMonitoring(props) {
@@ -508,6 +510,24 @@ export default function SettingsMonitoring(props) {
                         setInputs({
                           ...inputs,
                           ConsumeCallbackUserPrefixFilter: value,
+                        })
+                      }
+                    />
+                  </Col>
+                  <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                    <Form.Switch
+                      field={'CallbackLogMaskSensitiveEnabled'}
+                      label={t('回调日志敏感信息脱敏')}
+                      extraText={t(
+                        '关闭后将显示完整 URL、错误与请求内容；建议仅在内部环境使用',
+                      )}
+                      size='default'
+                      checkedText='｜'
+                      uncheckedText='〇'
+                      onChange={(value) =>
+                        setInputs({
+                          ...inputs,
+                          CallbackLogMaskSensitiveEnabled: value,
                         })
                       }
                     />

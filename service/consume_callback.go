@@ -1,10 +1,12 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -27,7 +29,10 @@ type ConsumeCallbackUsage struct {
 type consumeCallbackPayload struct {
 	RequestID        string  `json:"request_id"`
 	UserID           int     `json:"user_id"`
+	Username         string  `json:"username"`
 	TokenID          int     `json:"token_id"`
+	TokenName        string  `json:"token_name"`
+	SK               string  `json:"sk"`
 	ModelName        string  `json:"model_name"`
 	ChannelID        int     `json:"channel_id"`
 	BillingSource    string  `json:"billing_source"`
@@ -81,10 +86,16 @@ func newConsumeCallbackPayload(
 	eventPhase string,
 ) consumeCallbackPayload {
 	normalizedUsage := normalizeConsumeUsage(usage)
+	normalizedUserID := maxInt(userID, 0)
+	normalizedTokenID := maxInt(tokenID, 0)
+	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID)
 	return consumeCallbackPayload{
 		RequestID:        requestID,
-		UserID:           maxInt(userID, 0),
-		TokenID:          maxInt(tokenID, 0),
+		UserID:           normalizedUserID,
+		Username:         username,
+		TokenID:          normalizedTokenID,
+		TokenName:        tokenName,
+		SK:               sk,
 		ModelName:        strings.TrimSpace(modelName),
 		ChannelID:        maxInt(channelID, 0),
 		BillingSource:    normalizeBillingSource(billingSource),
@@ -96,6 +107,60 @@ func newConsumeCallbackPayload(
 		Timestamp:        common.GetTimestamp(),
 		EventPhase:       strings.TrimSpace(eventPhase),
 	}
+}
+
+type consumeCallbackTokenIdentity struct {
+	Name string `json:"name"`
+	SK   string `json:"sk"`
+}
+
+func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, tokenName string, sk string) {
+	// Allow pure unit tests to run without requiring DB bootstrap.
+	if model.DB == nil {
+		return "", "", ""
+	}
+	if userID > 0 {
+		if u, err := model.GetUsernameById(userID, false); err == nil {
+			username = strings.TrimSpace(u)
+		} else {
+			common.SysError(fmt.Sprintf("consume callback: resolve username failed: user_id=%d err=%s", userID, err.Error()))
+		}
+	}
+
+	if tokenID > 0 {
+		cacheKey := fmt.Sprintf("consume:callback:token_identity:%d", tokenID)
+		if common.RedisEnabled {
+			if raw, err := common.RedisGet(cacheKey); err == nil && strings.TrimSpace(raw) != "" {
+				var cached consumeCallbackTokenIdentity
+				if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
+					return username, strings.TrimSpace(cached.Name), strings.TrimSpace(cached.SK)
+				}
+			}
+		}
+
+		token, err := model.GetTokenById(tokenID)
+		if err != nil {
+			common.SysError(fmt.Sprintf("consume callback: resolve token failed: token_id=%d err=%s", tokenID, err.Error()))
+			return username, "", ""
+		}
+		tokenName = strings.TrimSpace(token.Name)
+		rawKey := strings.TrimSpace(strings.TrimPrefix(token.Key, "sk-"))
+		if rawKey != "" {
+			sk = "sk-" + rawKey
+		}
+
+		if common.RedisEnabled {
+			payload, marshalErr := json.Marshal(consumeCallbackTokenIdentity{
+				Name: tokenName,
+				SK:   sk,
+			})
+			if marshalErr == nil {
+				_ = common.RedisSet(cacheKey, string(payload), time.Duration(common.RedisKeyCacheSeconds())*time.Second)
+			}
+		}
+	}
+
+	return username, tokenName, sk
 }
 
 func normalizeConsumeUsage(usage ConsumeCallbackUsage) ConsumeCallbackUsage {
