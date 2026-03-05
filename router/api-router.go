@@ -318,6 +318,13 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
 
+		callbackRoute := apiRouter.Group("/callback")
+		callbackRoute.Use(middleware.AdminAuth())
+		{
+			callbackRoute.GET("/events", controller.GetAllCallbackEvents)
+			callbackRoute.GET("/events/:id/attempts", controller.GetCallbackEventAttempts)
+		}
+
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())
 		{

@@ -64,6 +64,19 @@ type CallbackEvent struct {
 	UpdatedAt int64 `json:"updated_at" gorm:"type:bigint;not null;index"`
 }
 
+type CallbackEventQueryParams struct {
+	Source         string
+	SinkType       string
+	EventType      string
+	Status         string
+	RequestID      string
+	EventID        string
+	UserID         int
+	TokenID        int
+	StartTimestamp int64
+	EndTimestamp   int64
+}
+
 func (e *CallbackEvent) BeforeCreate(tx *gorm.DB) error {
 	now := common.GetTimestamp()
 	if e.CreatedAt == 0 {
@@ -230,4 +243,57 @@ func trimErrorForStorage(errMsg string) string {
 		return errMsg
 	}
 	return errMsg[:8000]
+}
+
+func GetAllCallbackEvents(startIdx int, num int, queryParams CallbackEventQueryParams) (events []*CallbackEvent, total int64, err error) {
+	tx := DB.Model(&CallbackEvent{})
+
+	if queryParams.Source != "" {
+		tx = tx.Where("source = ?", queryParams.Source)
+	}
+	if queryParams.SinkType != "" {
+		tx = tx.Where("sink_type = ?", queryParams.SinkType)
+	}
+	if queryParams.EventType != "" {
+		tx = tx.Where("event_type = ?", queryParams.EventType)
+	}
+	if queryParams.Status != "" {
+		tx = tx.Where("status = ?", queryParams.Status)
+	}
+	if queryParams.RequestID != "" {
+		tx = tx.Where("request_id = ?", queryParams.RequestID)
+	}
+	if queryParams.EventID != "" {
+		tx = tx.Where("event_id = ?", queryParams.EventID)
+	}
+	if queryParams.UserID > 0 {
+		tx = tx.Where("user_id = ?", queryParams.UserID)
+	}
+	if queryParams.TokenID > 0 {
+		tx = tx.Where("token_id = ?", queryParams.TokenID)
+	}
+	if queryParams.StartTimestamp > 0 {
+		tx = tx.Where("created_at >= ?", queryParams.StartTimestamp)
+	}
+	if queryParams.EndTimestamp > 0 {
+		tx = tx.Where("created_at <= ?", queryParams.EndTimestamp)
+	}
+
+	err = tx.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if num <= 0 {
+		num = common.ItemsPerPage
+	}
+	if startIdx < 0 {
+		startIdx = 0
+	}
+
+	err = tx.Order("id desc").Limit(num).Offset(startIdx).Find(&events).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return events, total, nil
 }

@@ -29,3 +29,24 @@ func (e *CallbackEventAttempt) BeforeCreate(tx *gorm.DB) error {
 func InsertCallbackEventAttempt(attempt *CallbackEventAttempt) error {
 	return DB.Create(attempt).Error
 }
+
+func GetCallbackEventAttempts(eventID int64, limit int) (attempts []*CallbackEventAttempt, err error) {
+	if eventID <= 0 {
+		return []*CallbackEventAttempt{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	err = DB.Model(&CallbackEventAttempt{}).
+		Where("event_id = ?", eventID).
+		Order("attempt_no desc, id desc").
+		Limit(limit).
+		Find(&attempts).Error
+	if err != nil {
+		return nil, err
+	}
+	return attempts, nil
+}
