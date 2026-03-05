@@ -79,9 +79,8 @@ func UpdateMidjourneyTaskBulk() {
 				}
 				continue
 			}
-			// ── 悠船渠道：逐任务查询 ──
+			// ── 悠船渠道：仅依赖 callback 更新，不做轮询（上游无任务查询端点）──
 			if midjourneyChannel.Type == constant.ChannelTypeYouchuan {
-				pollYouchuanMjTasks(ctx, midjourneyChannel, taskIds, taskM)
 				continue
 			}
 
