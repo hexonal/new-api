@@ -16,6 +16,9 @@ type callbackEventEnqueueRequest struct {
 	RequestID      string
 	UserID         int
 	TokenID        int
+	Username       string
+	TokenName      string
+	TokenSK        string
 	CallbackURL    string
 	HTTPMethod     string
 	Headers        map[string]string
@@ -46,23 +49,26 @@ func enqueuePersistentCallbackEvent(req callbackEventEnqueueRequest) error {
 	}
 
 	event := &model.CallbackEvent{
-		EventID:        common.GetUUID(),
-		IdempotencyKey: idempotencyKey,
-		Source:         strings.TrimSpace(req.Source),
-		EventType:      strings.TrimSpace(req.EventType),
-		SinkType:       strings.TrimSpace(req.SinkType),
-		RequestID:      strings.TrimSpace(req.RequestID),
-		UserID:         req.UserID,
-		TokenID:        req.TokenID,
-		CallbackURL:    callbackURL,
-		HTTPMethod:     normalizeCallbackMethod(req.HTTPMethod),
-		Headers:        string(headersJSON),
-		ContentType:    normalizeContentType(req.ContentType),
-		Body:           string(payload),
-		BodySHA256:     hex.EncodeToString(common.Sha256Raw(payload)),
-		Status:         model.CallbackEventStatusPending,
-		MaxRetries:     getCallbackDispatchConfig().RetryTimes,
-		NextRetryAt:    common.GetTimestamp(),
+		EventID:           common.GetUUID(),
+		IdempotencyKey:    idempotencyKey,
+		Source:            strings.TrimSpace(req.Source),
+		EventType:         strings.TrimSpace(req.EventType),
+		SinkType:          strings.TrimSpace(req.SinkType),
+		RequestID:         strings.TrimSpace(req.RequestID),
+		UserID:            req.UserID,
+		TokenID:           req.TokenID,
+		UsernameSnapshot:  trimSnapshotField(strings.TrimSpace(req.Username), 64),
+		TokenNameSnapshot: trimSnapshotField(strings.TrimSpace(req.TokenName), 100),
+		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(req.TokenSK), 128),
+		CallbackURL:       callbackURL,
+		HTTPMethod:        normalizeCallbackMethod(req.HTTPMethod),
+		Headers:           string(headersJSON),
+		ContentType:       normalizeContentType(req.ContentType),
+		Body:              string(payload),
+		BodySHA256:        hex.EncodeToString(common.Sha256Raw(payload)),
+		Status:            model.CallbackEventStatusPending,
+		MaxRetries:        getCallbackDispatchConfig().RetryTimes,
+		NextRetryAt:       common.GetTimestamp(),
 	}
 
 	if event.MaxRetries < 0 {
@@ -114,6 +120,21 @@ func normalizeContentType(contentType string) string {
 		return "application/json"
 	}
 	return contentType
+}
+
+func normalizeSnapshotSK(rawSK string) string {
+	key := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSK), "sk-"))
+	if key == "" {
+		return ""
+	}
+	return "sk-" + key
+}
+
+func trimSnapshotField(value string, maxLen int) string {
+	if maxLen <= 0 || len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen]
 }
 
 func isDuplicateEventInsertError(err error) bool {

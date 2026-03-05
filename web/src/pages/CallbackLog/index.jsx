@@ -38,7 +38,7 @@ import CardPro from '../../components/common/ui/CardPro';
 import CardTable from '../../components/common/ui/CardTable';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { ITEMS_PER_PAGE } from '../../constants';
-import { API, showError, timestamp2string } from '../../helpers';
+import { API, showError, showWarning, timestamp2string } from '../../helpers';
 import { createCardProPagination } from '../../helpers/utils';
 
 const { Text } = Typography;
@@ -240,6 +240,10 @@ const CallbackLog = () => {
       );
     } catch (error) {
       console.error(error);
+      if (error?.response?.status === 404) {
+        showWarning(t('重试明细暂不可用，服务可能刚更新，请稍后重试'));
+        return;
+      }
       showError(error?.message || t('获取重试明细失败'));
     } finally {
       setAttemptsLoading(false);

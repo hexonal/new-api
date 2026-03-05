@@ -36,15 +36,20 @@ type CallbackEvent struct {
 	EventType      string `json:"event_type" gorm:"type:varchar(64);not null;index"`
 	SinkType       string `json:"sink_type" gorm:"type:varchar(24);not null;uniqueIndex:idx_sink_idempotency,priority:1;index"`
 
-	RequestID   string `json:"request_id" gorm:"type:varchar(64);index"`
-	UserID      int    `json:"user_id" gorm:"index"`
-	TokenID     int    `json:"token_id" gorm:"index"`
-	CallbackURL string `json:"callback_url" gorm:"type:text;not null"`
-	HTTPMethod  string `json:"http_method" gorm:"type:varchar(8);not null;default:'POST'"`
-	Headers     string `json:"headers" gorm:"type:text;not null;default:'{}'"`
-	ContentType string `json:"content_type" gorm:"type:varchar(64);not null;default:'application/json'"`
-	Body        string `json:"body" gorm:"type:text;not null"`
-	BodySHA256  string `json:"body_sha256" gorm:"type:char(64);not null"`
+	RequestID string `json:"request_id" gorm:"type:varchar(64);index"`
+	UserID    int    `json:"user_id" gorm:"index"`
+	TokenID   int    `json:"token_id" gorm:"index"`
+	// Snapshot fields preserve identity at event creation time.
+	// They avoid extra joins and remain stable if user/token metadata changes later.
+	UsernameSnapshot  string `json:"username_snapshot" gorm:"type:varchar(64);not null;default:'';index"`
+	TokenNameSnapshot string `json:"token_name_snapshot" gorm:"type:varchar(100);not null;default:''"`
+	TokenSKSnapshot   string `json:"token_sk_snapshot" gorm:"type:varchar(128);not null;default:''"`
+	CallbackURL       string `json:"callback_url" gorm:"type:text;not null"`
+	HTTPMethod        string `json:"http_method" gorm:"type:varchar(8);not null;default:'POST'"`
+	Headers           string `json:"headers" gorm:"type:text;not null;default:'{}'"`
+	ContentType       string `json:"content_type" gorm:"type:varchar(64);not null;default:'application/json'"`
+	Body              string `json:"body" gorm:"type:text;not null"`
+	BodySHA256        string `json:"body_sha256" gorm:"type:char(64);not null"`
 
 	Status       string `json:"status" gorm:"type:varchar(16);not null;index:idx_callback_status_next,priority:1;index:idx_callback_status_locked,priority:1"`
 	AttemptCount int    `json:"attempt_count" gorm:"type:int;not null;default:0"`

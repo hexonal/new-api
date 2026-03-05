@@ -97,8 +97,21 @@ func GetAllCallbackEvents(c *gin.Context) {
 	items := make([]*callbackEventListItem, 0, len(events))
 	for _, event := range events {
 		tokenInfo := tokenMap[event.TokenID]
-		tokenSK := normalizeSK(tokenInfo.Key)
-		tokenSKMasked := buildMaskedSK(tokenInfo.Key)
+		username := strings.TrimSpace(event.UsernameSnapshot)
+		if username == "" {
+			username = strings.TrimSpace(userMap[event.UserID])
+		}
+
+		tokenName := strings.TrimSpace(event.TokenNameSnapshot)
+		if tokenName == "" {
+			tokenName = strings.TrimSpace(tokenInfo.Name)
+		}
+
+		tokenSK := normalizeSK(event.TokenSKSnapshot)
+		if tokenSK == "" {
+			tokenSK = normalizeSK(tokenInfo.Key)
+		}
+		tokenSKMasked := buildMaskedSK(tokenSK)
 		displayTokenSK := tokenSK
 		if maskSensitive {
 			displayTokenSK = tokenSKMasked
@@ -112,9 +125,9 @@ func GetAllCallbackEvents(c *gin.Context) {
 			SinkType:       event.SinkType,
 			RequestID:      event.RequestID,
 			UserID:         event.UserID,
-			Username:       strings.TrimSpace(userMap[event.UserID]),
+			Username:       username,
 			TokenID:        event.TokenID,
-			TokenName:      tokenInfo.Name,
+			TokenName:      tokenName,
 			TokenSK:        trimCallbackField(displayTokenSK, 128),
 			TokenSKMasked:  trimCallbackField(tokenSKMasked, 128),
 			CallbackURL:    trimCallbackFieldWithMask(event.CallbackURL, 2048, maskSensitive),
@@ -195,13 +208,14 @@ func batchLoadCallbackEventIdentityMaps(events []*model.CallbackEvent) (map[int]
 		if event == nil {
 			continue
 		}
-		if event.UserID > 0 {
+		if event.UserID > 0 && strings.TrimSpace(event.UsernameSnapshot) == "" {
 			if _, ok := userSeen[event.UserID]; !ok {
 				userSeen[event.UserID] = struct{}{}
 				userIDs = append(userIDs, event.UserID)
 			}
 		}
-		if event.TokenID > 0 {
+		tokenSnapshotMissing := strings.TrimSpace(event.TokenNameSnapshot) == "" || strings.TrimSpace(event.TokenSKSnapshot) == ""
+		if event.TokenID > 0 && tokenSnapshotMissing {
 			if _, ok := tokenSeen[event.TokenID]; !ok {
 				tokenSeen[event.TokenID] = struct{}{}
 				tokenIDs = append(tokenIDs, event.TokenID)
