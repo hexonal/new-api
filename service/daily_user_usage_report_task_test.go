@@ -1,11 +1,13 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDurationUntilNextDailyUserUsageReport(t *testing.T) {
@@ -18,7 +20,7 @@ func TestDurationUntilNextDailyUserUsageReport(t *testing.T) {
 	assert.Equal(t, 24*time.Hour, got)
 }
 
-func TestFormatDailyUserUsageReportFeishuText(t *testing.T) {
+func TestBuildDailyUserUsageReportFeishuCard(t *testing.T) {
 	report := &model.DailyUserUsageReport{
 		Date:           "2026-03-08",
 		Prefixes:       []string{"ima_"},
@@ -32,9 +34,25 @@ func TestFormatDailyUserUsageReportFeishuText(t *testing.T) {
 		},
 	}
 
-	text := formatDailyUserUsageReportFeishuText(report)
-	assert.Contains(t, text, "Date: 2026-03-08")
-	assert.Contains(t, text, "Prefixes: ima_")
-	assert.Contains(t, text, "1. ima_a | messages=7 | tokens=2000 | amount=$4.560000")
-	assert.Contains(t, text, "2. ima_b | messages=5 | tokens=1456 | amount=$3.330000")
+	card := buildDailyUserUsageReportFeishuCard(report)
+	require.Equal(t, "interactive", card["msg_type"])
+
+	body, ok := card["card"].(map[string]any)
+	require.True(t, ok)
+	assert.NotNil(t, body["header"])
+	assert.NotNil(t, body["elements"])
+
+	jsonText := mustMarshalJSON(t, card)
+	assert.Contains(t, jsonText, "[new-api] Daily User Usage Report")
+	assert.Contains(t, jsonText, "**Date**\\n2026-03-08")
+	assert.Contains(t, jsonText, "**Prefixes**\\nima_")
+	assert.Contains(t, jsonText, "1. `ima_a`\\nMessages: 7 | Tokens: 2000 | Amount: $4.560000")
+	assert.Contains(t, jsonText, "2. `ima_b`\\nMessages: 5 | Tokens: 1456 | Amount: $3.330000")
+}
+
+func mustMarshalJSON(t *testing.T, value any) string {
+	t.Helper()
+	bytes, err := json.Marshal(value)
+	require.NoError(t, err)
+	return string(bytes)
 }

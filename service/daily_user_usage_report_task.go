@@ -186,12 +186,7 @@ func enqueueDailyUserUsageReportWebhook(report *model.DailyUserUsageReport, cfg 
 }
 
 func enqueueDailyUserUsageReportFeishu(report *model.DailyUserUsageReport, cfg dailyUserUsageReportConfig) error {
-	body, err := common.Marshal(map[string]any{
-		"msg_type": "text",
-		"content": map[string]string{
-			"text": formatDailyUserUsageReportFeishuText(report),
-		},
-	})
+	body, err := common.Marshal(buildDailyUserUsageReportFeishuCard(report))
 	if err != nil {
 		return fmt.Errorf("marshal feishu payload: %w", err)
 	}
@@ -209,21 +204,82 @@ func enqueueDailyUserUsageReportFeishu(report *model.DailyUserUsageReport, cfg d
 	})
 }
 
-func formatDailyUserUsageReportFeishuText(report *model.DailyUserUsageReport) string {
-	var builder strings.Builder
-	builder.WriteString("[new-api] Daily User Usage Report\n")
-	builder.WriteString(fmt.Sprintf("Date: %s\n", report.Date))
+func buildDailyUserUsageReportFeishuCard(report *model.DailyUserUsageReport) map[string]any {
+	prefixes := "-"
 	if len(report.Prefixes) > 0 {
-		builder.WriteString(fmt.Sprintf("Prefixes: %s\n", strings.Join(report.Prefixes, ", ")))
+		prefixes = strings.Join(report.Prefixes, ", ")
 	}
-	builder.WriteString(fmt.Sprintf("Users: %d\n", report.TotalUsers))
-	builder.WriteString(fmt.Sprintf("Messages: %d\n", report.TotalMessages))
-	builder.WriteString(fmt.Sprintf("Tokens: %d\n", report.TotalTokens))
-	builder.WriteString(fmt.Sprintf("Amount USD: %.6f\n", report.TotalAmountUSD))
-	builder.WriteString("Top 20:\n")
-	for index, item := range report.Ranking {
+
+	return map[string]any{
+		"msg_type": "interactive",
+		"card": map[string]any{
+			"config": map[string]any{
+				"wide_screen_mode": true,
+				"enable_forward":   true,
+			},
+			"header": map[string]any{
+				"template": "blue",
+				"title": map[string]any{
+					"tag":     "plain_text",
+					"content": "[new-api] Daily User Usage Report",
+				},
+			},
+			"elements": []map[string]any{
+				{
+					"tag": "div",
+					"fields": []map[string]any{
+						buildDailyUserUsageReportFeishuField("Date", report.Date),
+						buildDailyUserUsageReportFeishuField("Prefixes", prefixes),
+						buildDailyUserUsageReportFeishuField("Users", fmt.Sprintf("%d", report.TotalUsers)),
+						buildDailyUserUsageReportFeishuField("Messages", fmt.Sprintf("%d", report.TotalMessages)),
+						buildDailyUserUsageReportFeishuField("Tokens", fmt.Sprintf("%d", report.TotalTokens)),
+						buildDailyUserUsageReportFeishuField("Amount USD", fmt.Sprintf("$%.6f", report.TotalAmountUSD)),
+					},
+				},
+				{
+					"tag": "hr",
+				},
+				{
+					"tag": "div",
+					"text": map[string]any{
+						"tag":     "lark_md",
+						"content": formatDailyUserUsageReportFeishuRanking(report.Ranking),
+					},
+				},
+				{
+					"tag": "note",
+					"elements": []map[string]any{
+						{
+							"tag":     "lark_md",
+							"content": "Generated automatically from the previous day's usage summary.",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildDailyUserUsageReportFeishuField(label string, value string) map[string]any {
+	return map[string]any{
+		"is_short": true,
+		"text": map[string]any{
+			"tag":     "lark_md",
+			"content": fmt.Sprintf("**%s**\n%s", label, value),
+		},
+	}
+}
+
+func formatDailyUserUsageReportFeishuRanking(items []model.DailyUserUsageRankingItem) string {
+	if len(items) == 0 {
+		return "**Top 20**\nNo matching users found."
+	}
+
+	var builder strings.Builder
+	builder.WriteString("**Top 20**\n")
+	for index, item := range items {
 		builder.WriteString(fmt.Sprintf(
-			"%d. %s | messages=%d | tokens=%d | amount=$%.6f\n",
+			"%d. `%s`\nMessages: %d | Tokens: %d | Amount: $%.6f\n",
 			index+1,
 			item.Username,
 			item.Messages,
