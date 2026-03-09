@@ -109,6 +109,14 @@ const SystemSetting = () => {
     'fetch_setting.ip_list': [],
     'fetch_setting.allowed_ports': [],
     'fetch_setting.apply_ip_filter_for_domain': false,
+    DailyUserUsageReportEnabled: false,
+    DailyUserUsageReportName: '',
+    DailyUserUsageReportType: 'feishu',
+    DailyUserUsageReportUrl: '',
+    DailyUserUsageReportSecret: '',
+    DailyUserUsageReportUserPrefixFilter: '',
+    DailyUserUsageReportHour: '10',
+    DailyUserUsageReportMinute: '0',
   });
 
   const [originInputs, setOriginInputs] = useState({});
@@ -182,6 +190,7 @@ const SystemSetting = () => {
           case 'EmailDomainRestrictionEnabled':
           case 'EmailAliasRestrictionEnabled':
           case 'SMTPSSLEnabled':
+          case 'DailyUserUsageReportEnabled':
           case 'LinuxDOOAuthEnabled':
           case 'discord.enabled':
           case 'oidc.enabled':
@@ -676,6 +685,59 @@ const SystemSetting = () => {
     await updateOptions(options);
   };
 
+  const submitDailyUserUsageReportSettings = async () => {
+    const options = [
+      {
+        key: 'DailyUserUsageReportEnabled',
+        value: !!inputs.DailyUserUsageReportEnabled,
+      },
+      {
+        key: 'DailyUserUsageReportName',
+        value: inputs.DailyUserUsageReportName || '',
+      },
+      {
+        key: 'DailyUserUsageReportType',
+        value: inputs.DailyUserUsageReportType || 'feishu',
+      },
+      {
+        key: 'DailyUserUsageReportUrl',
+        value: inputs.DailyUserUsageReportUrl || '',
+      },
+      {
+        key: 'DailyUserUsageReportUserPrefixFilter',
+        value: inputs.DailyUserUsageReportUserPrefixFilter || '',
+      },
+      {
+        key: 'DailyUserUsageReportHour',
+        value:
+          inputs.DailyUserUsageReportHour === '' ||
+          inputs.DailyUserUsageReportHour === undefined
+            ? '10'
+            : String(inputs.DailyUserUsageReportHour),
+      },
+      {
+        key: 'DailyUserUsageReportMinute',
+        value:
+          inputs.DailyUserUsageReportMinute === '' ||
+          inputs.DailyUserUsageReportMinute === undefined
+            ? '0'
+            : String(inputs.DailyUserUsageReportMinute),
+      },
+    ];
+
+    if (
+      inputs.DailyUserUsageReportType &&
+      inputs.DailyUserUsageReportType !== 'feishu'
+    ) {
+      options.push({
+        key: 'DailyUserUsageReportSecret',
+        value: inputs.DailyUserUsageReportSecret || '',
+      });
+    }
+
+    await updateOptions(options);
+  };
+
   const handleCheckboxChange = async (optionKey, event) => {
     const value = event.target.checked;
 
@@ -779,6 +841,137 @@ const SystemSetting = () => {
                     {t('允许 HTTP 协议图片请求（适用于自部署代理）')}
                   </Form.Checkbox>
                   <Button onClick={submitWorker}>{t('更新Worker设置')}</Button>
+                </Form.Section>
+              </Card>
+
+              <Card>
+                <Form.Section text={t('每日报表推送')}>
+                  <Banner
+                    type='info'
+                    description={t(
+                      '每天按用户名前缀统计前一天的消息数、Token数、总金额，并推送 Top 20 排行。',
+                    )}
+                    style={{ marginBottom: 20, marginTop: 16 }}
+                  />
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Switch
+                        field={'DailyUserUsageReportEnabled'}
+                        label={t('启用日报推送')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            DailyUserUsageReportEnabled: value,
+                          })
+                        }
+                      />
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                      <Form.Input
+                        field={'DailyUserUsageReportName'}
+                        label={t('日报名称')}
+                        placeholder={t('例如：ima-route')}
+                        extraText={t('用于飞书卡片标题展示，未填写时默认使用系统名称。')}
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                      <Form.Select
+                        field={'DailyUserUsageReportType'}
+                        label={t('推送类型')}
+                        optionList={[
+                          { label: 'Feishu', value: 'feishu' },
+                          { label: 'Webhook', value: 'webhook' },
+                        ]}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            DailyUserUsageReportType: String(value),
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={4} lg={4} xl={4}>
+                      <Form.InputNumber
+                        field={'DailyUserUsageReportHour'}
+                        label={t('小时')}
+                        min={0}
+                        max={23}
+                        step={1}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            DailyUserUsageReportHour: String(value ?? ''),
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={4} lg={4} xl={4}>
+                      <Form.InputNumber
+                        field={'DailyUserUsageReportMinute'}
+                        label={t('分钟')}
+                        min={0}
+                        max={59}
+                        step={1}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            DailyUserUsageReportMinute: String(value ?? ''),
+                          })
+                        }
+                      />
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Input
+                        field={'DailyUserUsageReportUrl'}
+                        label={t('Webhook 地址')}
+                        placeholder={t('飞书机器人或通用 Webhook 地址')}
+                        extraText={t(
+                          '选择 Feishu 时填写飞书机器人地址；选择 Webhook 时填写通用接收地址。',
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field={'DailyUserUsageReportUserPrefixFilter'}
+                        label={t('用户名前缀过滤')}
+                        placeholder={t('例如：ima_ 或多个前缀用逗号分隔')}
+                        extraText={t(
+                          '仅统计匹配这些前缀的用户；支持逗号或换行分隔多个前缀。',
+                        )}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field={'DailyUserUsageReportSecret'}
+                        type='password'
+                        label={t('Webhook Secret')}
+                        placeholder={t('通用 Webhook 可选签名密钥')}
+                        extraText={t(
+                          'Feishu 通常留空，通用 Webhook 可填写签名密钥。',
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                  <Button onClick={submitDailyUserUsageReportSettings}>
+                    {t('保存每日报表推送设置')}
+                  </Button>
                 </Form.Section>
               </Card>
 

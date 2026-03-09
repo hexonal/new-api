@@ -163,6 +163,14 @@ func InitOptionMap() {
 	common.OptionMap["ConsumeCallbackMaxBackoffMs"] = "5000"
 	common.OptionMap["ConsumeCallbackWorkerCount"] = "2"
 	common.OptionMap["ConsumeCallbackQueueCapacity"] = "256"
+	common.OptionMap["DailyUserUsageReportEnabled"] = "false"
+	common.OptionMap["DailyUserUsageReportName"] = ""
+	common.OptionMap["DailyUserUsageReportType"] = "webhook"
+	common.OptionMap["DailyUserUsageReportUrl"] = ""
+	common.OptionMap["DailyUserUsageReportSecret"] = ""
+	common.OptionMap["DailyUserUsageReportUserPrefixFilter"] = ""
+	common.OptionMap["DailyUserUsageReportHour"] = "0"
+	common.OptionMap["DailyUserUsageReportMinute"] = "10"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 
 	// 自动添加所有注册的模型配置

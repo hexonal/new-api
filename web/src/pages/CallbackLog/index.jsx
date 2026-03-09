@@ -47,7 +47,7 @@ const FILTER_INIT_VALUES = {
   status: '',
   source: '',
   request_id: '',
-  user_id: '',
+  username: '',
 };
 
 const STATUS_META = {
@@ -150,7 +150,7 @@ const CallbackLog = () => {
       status: (values.status || '').trim(),
       source: (values.source || '').trim(),
       request_id: (values.request_id || '').trim(),
-      user_id: (values.user_id || '').trim(),
+      username: (values.username || '').trim(),
     };
   };
 
@@ -172,8 +172,8 @@ const CallbackLog = () => {
       if (filters.request_id) {
         params.request_id = filters.request_id;
       }
-      if (filters.user_id) {
-        params.user_id = filters.user_id;
+      if (filters.username) {
+        params.username = filters.username;
       }
 
       const res = await API.get('/api/callback/events', { params });
@@ -538,9 +538,9 @@ const CallbackLog = () => {
                   size='small'
                 />
                 <Form.Input
-                  field='user_id'
+                  field='username'
                   prefix={<IconSearch />}
-                  placeholder={t('用户 ID')}
+                  placeholder={t('用户名（精确）')}
                   showClear
                   pure
                   size='small'

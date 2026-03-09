@@ -76,6 +76,7 @@ type CallbackEventQueryParams struct {
 	Status         string
 	RequestID      string
 	EventID        string
+	Username       string
 	UserID         int
 	TokenID        int
 	StartTimestamp int64
@@ -270,6 +271,17 @@ func GetAllCallbackEvents(startIdx int, num int, queryParams CallbackEventQueryP
 	}
 	if queryParams.EventID != "" {
 		tx = tx.Where("event_id = ?", queryParams.EventID)
+	}
+	if queryParams.Username != "" {
+		var userIDs []int
+		if err = DB.Model(&User{}).Where("username = ?", queryParams.Username).Pluck("id", &userIDs).Error; err != nil {
+			return nil, 0, err
+		}
+		if len(userIDs) > 0 {
+			tx = tx.Where("(username_snapshot = ? OR (username_snapshot = '' AND user_id IN ?))", queryParams.Username, userIDs)
+		} else {
+			tx = tx.Where("username_snapshot = ?", queryParams.Username)
+		}
 	}
 	if queryParams.UserID > 0 {
 		tx = tx.Where("user_id = ?", queryParams.UserID)
