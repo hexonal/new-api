@@ -28,6 +28,7 @@ const (
 
 type dailyUserUsageReportConfig struct {
 	Enabled      bool
+	Name         string
 	ReportType   string
 	CallbackURL  string
 	Secret       string
@@ -120,6 +121,7 @@ func getDailyUserUsageReportConfig() dailyUserUsageReportConfig {
 
 	cfg := dailyUserUsageReportConfig{
 		Enabled:      common.OptionMap["DailyUserUsageReportEnabled"] == "true",
+		Name:         strings.TrimSpace(common.OptionMap["DailyUserUsageReportName"]),
 		ReportType:   strings.TrimSpace(strings.ToLower(common.OptionMap["DailyUserUsageReportType"])),
 		CallbackURL:  strings.TrimSpace(common.OptionMap["DailyUserUsageReportUrl"]),
 		Secret:       common.OptionMap["DailyUserUsageReportSecret"],
@@ -129,6 +131,12 @@ func getDailyUserUsageReportConfig() dailyUserUsageReportConfig {
 	}
 	if cfg.ReportType == "" {
 		cfg.ReportType = dailyUserUsageReportTypeWebhook
+	}
+	if cfg.Name == "" {
+		cfg.Name = strings.TrimSpace(common.OptionMap["SystemName"])
+	}
+	if cfg.Name == "" {
+		cfg.Name = "new-api"
 	}
 	return cfg
 }
@@ -186,7 +194,7 @@ func enqueueDailyUserUsageReportWebhook(report *model.DailyUserUsageReport, cfg 
 }
 
 func enqueueDailyUserUsageReportFeishu(report *model.DailyUserUsageReport, cfg dailyUserUsageReportConfig) error {
-	body, err := common.Marshal(buildDailyUserUsageReportFeishuCard(report))
+	body, err := common.Marshal(buildDailyUserUsageReportFeishuCard(report, cfg.Name))
 	if err != nil {
 		return fmt.Errorf("marshal feishu payload: %w", err)
 	}
@@ -204,10 +212,13 @@ func enqueueDailyUserUsageReportFeishu(report *model.DailyUserUsageReport, cfg d
 	})
 }
 
-func buildDailyUserUsageReportFeishuCard(report *model.DailyUserUsageReport) map[string]any {
+func buildDailyUserUsageReportFeishuCard(report *model.DailyUserUsageReport, reportName string) map[string]any {
 	prefixes := "-"
 	if len(report.Prefixes) > 0 {
 		prefixes = strings.Join(report.Prefixes, ", ")
+	}
+	if strings.TrimSpace(reportName) == "" {
+		reportName = "new-api"
 	}
 
 	return map[string]any{
@@ -221,7 +232,7 @@ func buildDailyUserUsageReportFeishuCard(report *model.DailyUserUsageReport) map
 				"template": "blue",
 				"title": map[string]any{
 					"tag":     "plain_text",
-					"content": "[new-api] Daily User Usage Report",
+					"content": fmt.Sprintf("[%s] Daily User Usage Report", reportName),
 				},
 			},
 			"elements": []map[string]any{
@@ -272,14 +283,14 @@ func buildDailyUserUsageReportFeishuField(label string, value string) map[string
 
 func formatDailyUserUsageReportFeishuRanking(items []model.DailyUserUsageRankingItem) string {
 	if len(items) == 0 {
-		return "**Top 20**\nNo matching users found."
+		return "**Ranking**\nNo matching users found."
 	}
 
 	var builder strings.Builder
-	builder.WriteString("**Top 20**\n")
+	builder.WriteString(fmt.Sprintf("**Top %d Users**\n", len(items)))
 	for index, item := range items {
 		builder.WriteString(fmt.Sprintf(
-			"%d. `%s`\nMessages: %d | Tokens: %d | Amount: $%.6f\n",
+			"%d. %s\nMessages: %d | Tokens: %d | Amount: $%.6f\n",
 			index+1,
 			item.Username,
 			item.Messages,

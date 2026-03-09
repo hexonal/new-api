@@ -164,6 +164,7 @@ func InitOptionMap() {
 	common.OptionMap["ConsumeCallbackWorkerCount"] = "2"
 	common.OptionMap["ConsumeCallbackQueueCapacity"] = "256"
 	common.OptionMap["DailyUserUsageReportEnabled"] = "false"
+	common.OptionMap["DailyUserUsageReportName"] = ""
 	common.OptionMap["DailyUserUsageReportType"] = "webhook"
 	common.OptionMap["DailyUserUsageReportUrl"] = ""
 	common.OptionMap["DailyUserUsageReportSecret"] = ""

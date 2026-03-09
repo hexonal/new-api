@@ -34,7 +34,7 @@ func TestBuildDailyUserUsageReportFeishuCard(t *testing.T) {
 		},
 	}
 
-	card := buildDailyUserUsageReportFeishuCard(report)
+	card := buildDailyUserUsageReportFeishuCard(report, "ima-route")
 	require.Equal(t, "interactive", card["msg_type"])
 
 	body, ok := card["card"].(map[string]any)
@@ -43,11 +43,12 @@ func TestBuildDailyUserUsageReportFeishuCard(t *testing.T) {
 	assert.NotNil(t, body["elements"])
 
 	jsonText := mustMarshalJSON(t, card)
-	assert.Contains(t, jsonText, "[new-api] Daily User Usage Report")
+	assert.Contains(t, jsonText, "[ima-route] Daily User Usage Report")
 	assert.Contains(t, jsonText, "**Date**\\n2026-03-08")
 	assert.Contains(t, jsonText, "**Prefixes**\\nima_")
-	assert.Contains(t, jsonText, "1. `ima_a`\\nMessages: 7 | Tokens: 2000 | Amount: $4.560000")
-	assert.Contains(t, jsonText, "2. `ima_b`\\nMessages: 5 | Tokens: 1456 | Amount: $3.330000")
+	assert.Contains(t, jsonText, "**Top 2 Users**")
+	assert.Contains(t, jsonText, "1. ima_a\\nMessages: 7 | Tokens: 2000 | Amount: $4.560000")
+	assert.Contains(t, jsonText, "2. ima_b\\nMessages: 5 | Tokens: 1456 | Amount: $3.330000")
 }
 
 func mustMarshalJSON(t *testing.T, value any) string {

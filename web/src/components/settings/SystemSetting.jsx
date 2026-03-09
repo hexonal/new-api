@@ -110,6 +110,7 @@ const SystemSetting = () => {
     'fetch_setting.allowed_ports': [],
     'fetch_setting.apply_ip_filter_for_domain': false,
     DailyUserUsageReportEnabled: false,
+    DailyUserUsageReportName: '',
     DailyUserUsageReportType: 'feishu',
     DailyUserUsageReportUrl: '',
     DailyUserUsageReportSecret: '',
@@ -691,6 +692,10 @@ const SystemSetting = () => {
         value: !!inputs.DailyUserUsageReportEnabled,
       },
       {
+        key: 'DailyUserUsageReportName',
+        value: inputs.DailyUserUsageReportName || '',
+      },
+      {
         key: 'DailyUserUsageReportType',
         value: inputs.DailyUserUsageReportType || 'feishu',
       },
@@ -871,6 +876,14 @@ const SystemSetting = () => {
                     gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
                   >
                     <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                      <Form.Input
+                        field={'DailyUserUsageReportName'}
+                        label={t('日报名称')}
+                        placeholder={t('例如：ima-route')}
+                        extraText={t('用于飞书卡片标题展示，未填写时默认使用系统名称。')}
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                       <Form.Select
                         field={'DailyUserUsageReportType'}
                         label={t('推送类型')}
@@ -886,7 +899,7 @@ const SystemSetting = () => {
                         }
                       />
                     </Col>
-                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                    <Col xs={24} sm={12} md={4} lg={4} xl={4}>
                       <Form.InputNumber
                         field={'DailyUserUsageReportHour'}
                         label={t('小时')}
@@ -901,7 +914,7 @@ const SystemSetting = () => {
                         }
                       />
                     </Col>
-                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                    <Col xs={24} sm={12} md={4} lg={4} xl={4}>
                       <Form.InputNumber
                         field={'DailyUserUsageReportMinute'}
                         label={t('分钟')}
