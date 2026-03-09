@@ -37,6 +37,16 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 			req.Set("Accept", "text/event-stream")
 		}
 	}
+	traceID := strings.TrimSpace(c.GetString(common2.RequestIdKey))
+	if traceID == "" {
+		traceID = strings.TrimSpace(c.Request.Header.Get(common2.TraceIdKey))
+	}
+	if traceID == "" && info != nil {
+		traceID = strings.TrimSpace(info.RequestId)
+	}
+	if traceID != "" {
+		req.Set(common2.TraceIdKey, traceID)
+	}
 }
 
 const clientHeaderPlaceholderPrefix = "{client_header:"
@@ -169,12 +179,17 @@ func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey str
 // Passthrough rules are applied first, then normal overrides are applied, so explicit overrides win.
 func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]string, error) {
 	headerOverride := make(map[string]string)
+	if info == nil {
+		return headerOverride, nil
+	}
+
+	headerOverrideSource := common.GetEffectiveHeaderOverride(info)
 
 	passAll := false
 	var passthroughRegex []*regexp.Regexp
 	if !info.IsChannelTest {
-		for k := range info.HeadersOverride {
-			key := strings.TrimSpace(k)
+		for k := range headerOverrideSource {
+			key := strings.TrimSpace(strings.ToLower(k))
 			if key == "" {
 				continue
 			}
@@ -183,12 +198,11 @@ func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]s
 				continue
 			}
 
-			lower := strings.ToLower(key)
 			var pattern string
 			switch {
-			case strings.HasPrefix(lower, headerPassthroughRegexPrefix):
+			case strings.HasPrefix(key, headerPassthroughRegexPrefix):
 				pattern = strings.TrimSpace(key[len(headerPassthroughRegexPrefix):])
-			case strings.HasPrefix(lower, headerPassthroughRegexPrefixV2):
+			case strings.HasPrefix(key, headerPassthroughRegexPrefixV2):
 				pattern = strings.TrimSpace(key[len(headerPassthroughRegexPrefixV2):])
 			default:
 				continue
@@ -229,15 +243,15 @@ func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]s
 			if value == "" {
 				continue
 			}
-			headerOverride[name] = value
+			headerOverride[strings.ToLower(strings.TrimSpace(name))] = value
 		}
 	}
 
-	for k, v := range info.HeadersOverride {
+	for k, v := range headerOverrideSource {
 		if isHeaderPassthroughRuleKey(k) {
 			continue
 		}
-		key := strings.TrimSpace(k)
+		key := strings.TrimSpace(strings.ToLower(k))
 		if key == "" {
 			continue
 		}
@@ -261,6 +275,10 @@ func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]s
 		headerOverride[key] = value
 	}
 	return headerOverride, nil
+}
+
+func ResolveHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]string, error) {
+	return processHeaderOverride(info, c)
 }
 
 func applyHeaderOverrideToRequest(req *http.Request, headerOverride map[string]string) {

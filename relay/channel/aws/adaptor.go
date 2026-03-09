@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/pkg/errors"
@@ -104,7 +106,19 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
-	claude.CommonClaudeHeadersOperation(c, req, info)
+	// AWS Bedrock does not accept arbitrary client-provided anthropic-beta flags;
+	// forwarding them causes ValidationException: invalid beta flag.
+	// We intentionally skip claude.CommonClaudeHeadersOperation and instead only
+	// apply model-level header settings (e.g. ClaudeSettings.HeadersSettings).
+	// Channel-level header_override is applied separately in doAwsClientRequest.
+	model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
+	traceID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	if traceID == "" && info != nil {
+		traceID = strings.TrimSpace(info.RequestId)
+	}
+	if traceID != "" {
+		req.Set(common.TraceIdKey, traceID)
+	}
 	if a.ClientMode == ClientModeApiKey {
 		req.Set("Authorization", "Bearer "+info.ApiKey)
 	}

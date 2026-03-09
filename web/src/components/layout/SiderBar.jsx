@@ -39,6 +39,7 @@ const routerMap = {
   user: '/console/user',
   subscription: '/console/subscription',
   log: '/console/log',
+  callback: '/console/callback',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
   about: '/about',
@@ -88,6 +89,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('使用日志'),
         itemKey: 'log',
         to: '/log',
+      },
+      {
+        text: t('回调日志'),
+        itemKey: 'callback',
+        to: '/callback',
+        className: isAdmin() ? '' : 'tableHiddle',
       },
       {
         text: t('绘图日志'),
@@ -251,9 +258,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
             for (let key in chats[i]) {
               let link = chats[i][key];
               if (typeof link !== 'string') continue; // 确保链接是字符串
-              if (link.startsWith('fluent')) {
+              if (link.startsWith('fluent') || link.startsWith('ccswitch')) {
                 shouldSkip = true;
-                break; // 跳过 Fluent Read
+                break;
               }
               chat.text = key;
               chat.itemKey = 'chat' + i;

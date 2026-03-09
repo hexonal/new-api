@@ -176,6 +176,9 @@ func SetRelayRouter(router *gin.Engine) {
 	registerMjRouterGroup(relayMjModeRouter)
 	//relayMjRouter.Use()
 
+	// 悠船回调 — 无需 TokenAuth，由悠船服务器直接推送结果
+	router.POST("/youchuan/notify", controller.RelayYouchuanNotify)
+
 	relaySunoRouter := router.Group("/suno")
 	relaySunoRouter.Use(middleware.RouteTag("relay"))
 	relaySunoRouter.Use(middleware.SystemPerformanceCheck())

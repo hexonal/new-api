@@ -237,6 +237,10 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/tag/models", controller.GetTagModels)
 			channelRoute.POST("/copy/:id", controller.CopyChannel)
 			channelRoute.POST("/multi_key/manage", controller.ManageMultiKeys)
+			channelRoute.POST("/upstream_updates/apply", controller.ApplyChannelUpstreamModelUpdates)
+			channelRoute.POST("/upstream_updates/apply_all", controller.ApplyAllChannelUpstreamModelUpdates)
+			channelRoute.POST("/upstream_updates/detect", controller.DetectChannelUpstreamModelUpdates)
+			channelRoute.POST("/upstream_updates/detect_all", controller.DetectAllChannelUpstreamModelUpdates)
 		}
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
@@ -314,6 +318,13 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
 
+		callbackRoute := apiRouter.Group("/callback")
+		callbackRoute.Use(middleware.AdminAuth())
+		{
+			callbackRoute.GET("/events", controller.GetAllCallbackEvents)
+			callbackRoute.GET("/events/:id/attempts", controller.GetCallbackEventAttempts)
+		}
+
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())
 		{
@@ -363,6 +374,18 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.PUT("/:id/name", controller.UpdateDeploymentName)
 			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
+		}
+
+		operatorRoute := apiRouter.Group("/operator")
+		operatorRoute.Use(middleware.OperatorAuth())
+		{
+			operatorRoute.POST("/provision", controller.OperatorProvision)
+			operatorRoute.POST("/tokens", controller.OperatorTokens)
+			operatorRoute.POST("/quota", controller.OperatorQuota)
+			operatorRoute.PUT("/group", controller.OperatorGroup)
+			operatorRoute.PUT("/models", controller.OperatorModels)
+			operatorRoute.POST("/disable", controller.OperatorDisable)
+			operatorRoute.POST("/disable-user", controller.OperatorDisableUser)
 		}
 	}
 }

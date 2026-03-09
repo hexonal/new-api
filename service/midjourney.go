@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -256,4 +259,80 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 		StatusCode: statusCode,
 		Response:   midjResponse,
 	}, responseBody, nil
+}
+
+// DoYouchuanMjRequest 将 MJ 提交请求转换为悠船 /v1/tob/diffusion 请求，
+// 并将悠船响应转换回 MJ 格式。
+func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL string) (*dto.MidjourneyResponseWithStatusCode, []byte, error) {
+	// 构建悠船请求体
+	ycBody := map[string]string{"text": mjReq.Prompt}
+	if serverAddr := system_setting.ServerAddress; serverAddr != "" {
+		ycBody["callback"] = serverAddr + "/youchuan/notify"
+	}
+	bodyData, err := common.Marshal(ycBody)
+	if err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "marshal_youchuan_body_failed", http.StatusInternalServerError), nil, err
+	}
+
+	url := fmt.Sprintf("%s/v1/tob/diffusion", baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyData))
+	if err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "create_request_failed", http.StatusInternalServerError), nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// 解析 appKey|secret
+	auth := common.GetContextKeyString(c, constant.ContextKeyChannelKey)
+	parts := strings.SplitN(auth, "|", 2)
+	if len(parts) == 2 {
+		req.Header.Set("x-youchuan-app", strings.TrimSpace(parts[0]))
+		req.Header.Set("x-youchuan-secret", strings.TrimSpace(parts[1]))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	resp, err := GetHttpClient().Do(req)
+	if err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "do_request_failed", http.StatusInternalServerError), nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "read_response_body_failed", resp.StatusCode), nil, err
+	}
+
+	// 解析悠船响应（内联结构体避免循环依赖 youchuan → service）
+	var ycResp struct {
+		ID      string `json:"id"`
+		Status  int    `json:"status"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	_ = common.Unmarshal(respBody, &ycResp)
+
+	if ycResp.Code != 0 || ycResp.ID == "" {
+		errMsg := ycResp.Message
+		if errMsg == "" {
+			errMsg = "youchuan submit failed"
+		}
+		mjResp := dto.MidjourneyResponse{Code: 4, Description: errMsg}
+		mjBody, _ := common.Marshal(mjResp)
+		return &dto.MidjourneyResponseWithStatusCode{Response: mjResp, StatusCode: resp.StatusCode}, mjBody, nil
+	}
+
+	// 转换为 MJ 格式响应
+	mjResp := dto.MidjourneyResponse{
+		Code:        1,
+		Result:      ycResp.ID,
+		Description: "submitted",
+	}
+	mjBody, _ := common.Marshal(mjResp)
+
+	_ = c.Request.Body.Close()
+
+	return &dto.MidjourneyResponseWithStatusCode{Response: mjResp, StatusCode: 200}, mjBody, nil
 }

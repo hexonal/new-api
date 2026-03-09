@@ -173,7 +173,8 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 	properties := Properties{}
 	privateData := TaskPrivateData{}
 	if relayInfo != nil && relayInfo.ChannelMeta != nil {
-		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini {
+		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini ||
+			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi {
 			privateData.Key = relayInfo.ChannelMeta.ApiKey
 		}
 		if relayInfo.UpstreamModelName != "" {
@@ -311,6 +312,30 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 		return nil
 	}
 	return tasks
+}
+
+// GetTaskByPlatformAndUpstreamID 通过 platform 和 upstream_task_id（存储在 private_data JSON 中）查找任务。
+// 用于回调场景：上游通过 upstream ID 推送结果，需要反查对应的本地任务。
+func GetTaskByPlatformAndUpstreamID(platform constant.TaskPlatform, upstreamID string) (*Task, bool, error) {
+	if upstreamID == "" {
+		return nil, false, nil
+	}
+	var task Task
+	var cond string
+	switch {
+	case common.UsingPostgreSQL:
+		cond = "platform = ? AND private_data->>'upstream_task_id' = ?"
+	case common.UsingMySQL:
+		cond = "platform = ? AND JSON_UNQUOTE(JSON_EXTRACT(private_data, '$.upstream_task_id')) = ?"
+	default: // SQLite
+		cond = "platform = ? AND json_extract(private_data, '$.upstream_task_id') = ?"
+	}
+	err := DB.Where(cond, platform, upstreamID).First(&task).Error
+	exist, err := RecordExist(err)
+	if err != nil {
+		return nil, false, err
+	}
+	return &task, exist, nil
 }
 
 func GetByOnlyTaskId(taskId string) (*Task, bool, error) {

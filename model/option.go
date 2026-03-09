@@ -148,6 +148,22 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticDisableStatusCodes"] = operation_setting.AutomaticDisableStatusCodesToString()
 	common.OptionMap["AutomaticRetryStatusCodes"] = operation_setting.AutomaticRetryStatusCodesToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
+	common.OptionMap["FeishuNotifyEnabled"] = "false"
+	common.OptionMap["FeishuWebhookUrl"] = ""
+	common.OptionMap["OperatorCallbackEnabled"] = "false"
+	common.OptionMap["OperatorCallbackUrl"] = ""
+	common.OptionMap["OperatorCallbackSecret"] = ""
+	common.OptionMap["OperatorCallbackUserPrefixFilter"] = ""
+	common.OptionMap["ConsumeCallbackEnabled"] = common.OptionMap["OperatorCallbackEnabled"]
+	common.OptionMap["ConsumeCallbackUrl"] = common.OptionMap["OperatorCallbackUrl"]
+	common.OptionMap["ConsumeCallbackSecret"] = common.OptionMap["OperatorCallbackSecret"]
+	common.OptionMap["ConsumeCallbackUserPrefixFilter"] = common.OptionMap["OperatorCallbackUserPrefixFilter"]
+	common.OptionMap["ConsumeCallbackRetryTimes"] = "3"
+	common.OptionMap["ConsumeCallbackInitialBackoffMs"] = "200"
+	common.OptionMap["ConsumeCallbackMaxBackoffMs"] = "5000"
+	common.OptionMap["ConsumeCallbackWorkerCount"] = "2"
+	common.OptionMap["ConsumeCallbackQueueCapacity"] = "256"
+	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -178,25 +194,62 @@ func SyncOptions(frequency int) {
 }
 
 func UpdateOption(key string, value string) error {
-	// Save to database first
-	option := Option{
-		Key: key,
+	// Save to database first.
+	if err := upsertOptionValue(key, value); err != nil {
+		return err
 	}
+	// Keep alias keys consistent in DB to avoid periodic option sync overriding
+	// the in-memory alias mapping with stale values.
+	if aliasKey, ok := getConsumeCallbackAliasKey(key); ok {
+		if err := upsertOptionValue(aliasKey, value); err != nil {
+			return err
+		}
+	}
+	// Update OptionMap
+	return updateOptionMap(key, value)
+}
+
+func upsertOptionValue(key string, value string) error {
+	option := Option{Key: key}
 	// https://gorm.io/docs/update.html#Save-All-Fields
-	DB.FirstOrCreate(&option, Option{Key: key})
+	if err := DB.FirstOrCreate(&option, Option{Key: key}).Error; err != nil {
+		return err
+	}
 	option.Value = value
 	// Save is a combination function.
 	// If save value does not contain primary key, it will execute Create,
 	// otherwise it will execute Update (with all fields).
-	DB.Save(&option)
-	// Update OptionMap
-	return updateOptionMap(key, value)
+	return DB.Save(&option).Error
+}
+
+func getConsumeCallbackAliasKey(key string) (string, bool) {
+	switch key {
+	case "ConsumeCallbackEnabled":
+		return "OperatorCallbackEnabled", true
+	case "ConsumeCallbackUrl":
+		return "OperatorCallbackUrl", true
+	case "ConsumeCallbackSecret":
+		return "OperatorCallbackSecret", true
+	case "ConsumeCallbackUserPrefixFilter":
+		return "OperatorCallbackUserPrefixFilter", true
+	case "OperatorCallbackEnabled":
+		return "ConsumeCallbackEnabled", true
+	case "OperatorCallbackUrl":
+		return "ConsumeCallbackUrl", true
+	case "OperatorCallbackSecret":
+		return "ConsumeCallbackSecret", true
+	case "OperatorCallbackUserPrefixFilter":
+		return "ConsumeCallbackUserPrefixFilter", true
+	default:
+		return "", false
+	}
 }
 
 func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
+	syncConsumeCallbackOptionAliases(key, value)
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
@@ -460,6 +513,27 @@ func updateOptionMap(key string, value string) (err error) {
 		err = operation_setting.UpdatePayMethodsByJsonString(value)
 	}
 	return err
+}
+
+func syncConsumeCallbackOptionAliases(key, value string) {
+	switch key {
+	case "ConsumeCallbackEnabled":
+		common.OptionMap["OperatorCallbackEnabled"] = value
+	case "ConsumeCallbackUrl":
+		common.OptionMap["OperatorCallbackUrl"] = value
+	case "ConsumeCallbackSecret":
+		common.OptionMap["OperatorCallbackSecret"] = value
+	case "ConsumeCallbackUserPrefixFilter":
+		common.OptionMap["OperatorCallbackUserPrefixFilter"] = value
+	case "OperatorCallbackEnabled":
+		common.OptionMap["ConsumeCallbackEnabled"] = value
+	case "OperatorCallbackUrl":
+		common.OptionMap["ConsumeCallbackUrl"] = value
+	case "OperatorCallbackSecret":
+		common.OptionMap["ConsumeCallbackSecret"] = value
+	case "OperatorCallbackUserPrefixFilter":
+		common.OptionMap["ConsumeCallbackUserPrefixFilter"] = value
+	}
 }
 
 // handleConfigUpdate 处理分层配置更新，返回是否已处理

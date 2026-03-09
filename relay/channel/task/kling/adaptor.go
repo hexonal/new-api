@@ -11,8 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 
-	"github.com/samber/lo"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
@@ -69,6 +67,24 @@ type requestPayload struct {
 	CameraControl  *CameraControl `json:"camera_control,omitempty"`
 	CallbackUrl    string         `json:"callback_url,omitempty"`
 	ExternalTaskId string         `json:"external_task_id,omitempty"`
+	// Image generation specific fields
+	ImageCount    int     `json:"image_count,omitempty"`
+	N             int     `json:"n,omitempty"`
+	ImageFidelity float64 `json:"image_fidelity,omitempty"`
+}
+
+// imageGenRequestPayload is the payload sent to Kling image generation API.
+// Separate struct to avoid sending video-only fields (duration, cfg_scale, etc.).
+type imageGenRequestPayload struct {
+	Prompt         string  `json:"prompt,omitempty"`
+	NegativePrompt string  `json:"negative_prompt,omitempty"`
+	Image          string  `json:"image,omitempty"`
+	ModelName      string  `json:"model_name,omitempty"`
+	Model          string  `json:"model,omitempty"`
+	ImageCount     int     `json:"image_count,omitempty"`
+	AspectRatio    string  `json:"aspect_ratio,omitempty"`
+	ImageFidelity  float64 `json:"image_fidelity,omitempty"`
+	N              int     `json:"n,omitempty"` // OpenAI-compatible, converted to image_count
 }
 
 type responsePayload struct {
@@ -86,6 +102,10 @@ type responsePayload struct {
 				Url      string `json:"url"`
 				Duration string `json:"duration"`
 			} `json:"videos"`
+			Images []struct {
+				Index int    `json:"index"`
+				Url   string `json:"url"`
+			} `json:"images"`
 		} `json:"task_result"`
 		CreatedAt int64 `json:"created_at"`
 		UpdatedAt int64 `json:"updated_at"`
@@ -119,7 +139,15 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 
 // BuildRequestURL constructs the upstream URL.
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	path := lo.Ternary(info.Action == constant.TaskActionGenerate, "/v1/videos/image2video", "/v1/videos/text2video")
+	var path string
+	switch info.Action {
+	case constant.TaskActionImageGenerate:
+		path = "/v1/images/omni-image"
+	case constant.TaskActionGenerate:
+		path = "/v1/videos/image2video"
+	default:
+		path = "/v1/videos/text2video"
+	}
 
 	if isNewAPIRelay(info.ApiKey) {
 		return fmt.Sprintf("%s/kling%s", a.baseURL, path), nil
@@ -149,6 +177,21 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return nil, fmt.Errorf("request not found in context")
 	}
 	req := v.(relaycommon.TaskSubmitReq)
+
+	// Auto-detect image generation by model name (for unified /v1/video/generations entry)
+	if strings.Contains(info.UpstreamModelName, "image") || info.Action == constant.TaskActionImageGenerate {
+		info.Action = constant.TaskActionImageGenerate
+		c.Set("action", constant.TaskActionImageGenerate)
+		imgBody, err := a.convertToImageGenPayload(&req, info)
+		if err != nil {
+			return nil, err
+		}
+		data, err := common.Marshal(imgBody)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(data), nil
+	}
 
 	body, err := a.convertToRequestPayload(&req, info)
 	if err != nil {
@@ -209,7 +252,15 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if !ok {
 		return nil, fmt.Errorf("invalid action")
 	}
-	path := lo.Ternary(action == constant.TaskActionGenerate, "/v1/videos/image2video", "/v1/videos/text2video")
+	var path string
+	switch action {
+	case constant.TaskActionImageGenerate:
+		path = "/v1/images/omni-image"
+	case constant.TaskActionGenerate:
+		path = "/v1/videos/image2video"
+	default:
+		path = "/v1/videos/text2video"
+	}
 	url := fmt.Sprintf("%s%s/%s", baseUrl, path, taskID)
 	if isNewAPIRelay(key) {
 		url = fmt.Sprintf("%s/kling%s/%s", baseUrl, path, taskID)
@@ -237,7 +288,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
-	return []string{"kling-v1", "kling-v1-6", "kling-v2-master"}
+	return []string{"kling-v1", "kling-v1-6", "kling-v2-master", "kling-image-o1"}
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
@@ -271,6 +322,30 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 	if err := taskcommon.UnmarshalMetadata(req.Metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
+	return &r, nil
+}
+
+func (a *TaskAdaptor) convertToImageGenPayload(req *relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) (*imageGenRequestPayload, error) {
+	r := imageGenRequestPayload{
+		Prompt:      req.Prompt,
+		Image:       req.Image,
+		ModelName:   info.UpstreamModelName,
+		Model:       info.UpstreamModelName,
+		ImageCount:  1,
+		AspectRatio: a.getAspectRatio(req.Size),
+	}
+	if r.ModelName == "" {
+		r.ModelName = "kling-image-o1"
+		r.Model = "kling-image-o1"
+	}
+	if err := taskcommon.UnmarshalMetadata(req.Metadata, &r); err != nil {
+		return nil, errors.Wrap(err, "unmarshal metadata failed")
+	}
+	// Support OpenAI-style "n" parameter
+	if r.N > 0 && r.ImageCount <= 1 {
+		r.ImageCount = r.N
+	}
+	r.N = 0 // don't send "n" to upstream
 	return &r, nil
 }
 
@@ -344,8 +419,10 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		return nil, fmt.Errorf("unknown task status: %s", status)
 	}
 	if videos := resPayload.Data.TaskResult.Videos; len(videos) > 0 {
-		video := videos[0]
-		taskInfo.Url = video.Url
+		taskInfo.Url = videos[0].Url
+	}
+	if images := resPayload.Data.TaskResult.Images; len(images) > 0 {
+		taskInfo.Url = images[0].Url
 	}
 	return taskInfo, nil
 }
@@ -374,6 +451,20 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 		}
 		if video.Duration != "" {
 			openAIVideo.Seconds = video.Duration
+		}
+	}
+	if len(klingResp.Data.TaskResult.Images) > 0 {
+		var urls []string
+		for _, img := range klingResp.Data.TaskResult.Images {
+			if img.Url != "" {
+				urls = append(urls, img.Url)
+			}
+		}
+		if len(urls) > 0 {
+			openAIVideo.SetMetadata("url", urls[0])
+			if len(urls) > 1 {
+				openAIVideo.SetMetadata("image_urls", urls)
+			}
 		}
 	}
 

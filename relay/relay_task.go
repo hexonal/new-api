@@ -41,6 +41,8 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	if strings.Contains(path, "/v1/videos/") && strings.HasSuffix(path, "/remix") {
 		info.Action = constant.TaskActionRemix
 	}
+
+	// 提取 remix 任务的 video_id
 	if info.Action == constant.TaskActionRemix {
 		videoID := c.Param("video_id")
 		if strings.TrimSpace(videoID) == "" {
@@ -176,7 +178,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 4. 价格计算：基础模型价格
 	info.OriginModelName = modelName
-	info.PriceData = helper.ModelPriceHelperPerCall(c, info)
+	priceData, err := helper.ModelPriceHelperPerCall(c, info)
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+	}
+	info.PriceData = priceData
 
 	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
 	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。
@@ -208,6 +214,19 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	requestBody, err := adaptor.BuildRequestBody(c, info)
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
+	}
+
+	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
+	if len(info.ParamOverride) > 0 {
+		bodyBytes, readErr := io.ReadAll(requestBody)
+		if readErr != nil {
+			return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
+		}
+		bodyBytes, err = relaycommon.ApplyParamOverride(bodyBytes, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
+		}
+		requestBody = bytes.NewReader(bodyBytes)
 	}
 
 	// 9. 发送请求

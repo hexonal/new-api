@@ -251,11 +251,13 @@ function renderStatus(type, t) {
         </Tag>
       );
     case 'SUBMITTED':
+    case 'QUEUED':
       return (
         <Tag color='yellow' shape='circle' prefixIcon={<Clock size={14} />}>
           {t('队列中')}
         </Tag>
       );
+    case '':
     case 'IN_PROGRESS':
       return (
         <Tag color='blue' shape='circle' prefixIcon={<Loader size={14} />}>
@@ -313,6 +315,36 @@ function renderDuration(submit_time, finishTime, t) {
       {durationSec} {t('秒')}
     </Tag>
   );
+}
+
+function normalizeImageSource(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((url) => typeof url === 'string')
+      .map((url) => url.trim())
+      .filter(Boolean);
+  }
+  if (typeof value !== 'string') {
+    return [];
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((url) => typeof url === 'string')
+          .map((url) => url.trim())
+          .filter(Boolean);
+      }
+    } catch (e) {
+      // Keep compatibility with malformed historical data.
+    }
+  }
+  return [trimmed];
 }
 
 export const getMjLogsColumns = ({
@@ -425,14 +457,24 @@ export const getMjLogsColumns = ({
       title: t('结果图片'),
       dataIndex: 'image_url',
       render: (text, record, index) => {
-        if (!text) {
+        const multiImageUrls = [
+          record?.image_urls,
+          record?.imageUrls,
+          record?.urls,
+        ]
+          .flatMap((value) => normalizeImageSource(value))
+          .filter((url, idx, arr) => arr.indexOf(url) === idx);
+
+        const previewSource = multiImageUrls.length > 0 ? multiImageUrls : text;
+
+        if (!previewSource) {
           return t('无');
         }
         return (
           <Button
             size='small'
             onClick={() => {
-              openImageModal(text);
+              openImageModal(previewSource);
             }}
           >
             {t('查看图片')}

@@ -241,6 +241,9 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "ConsumeCallbackUserPrefixFilter", "OperatorCallbackUserPrefixFilter":
+		// Username prefix filter is parsed in service layer.
+		// Separator supports comma/newline and matching is case-sensitive by design.
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
