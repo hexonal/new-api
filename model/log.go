@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -240,6 +241,37 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	if err != nil {
 		common.SysLog("failed to record task billing log: " + err.Error())
 	}
+}
+
+func PatchLatestConsumeLogOutputByTaskID(ctx context.Context, taskID string, outputURL string) error {
+	taskID = strings.TrimSpace(taskID)
+	outputURL = strings.TrimSpace(outputURL)
+	if taskID == "" || outputURL == "" {
+		return nil
+	}
+
+	var log Log
+	pattern := fmt.Sprintf("%%\"task_id\":\"%s\"%%", taskID)
+	err := LOG_DB.WithContext(ctx).
+		Where("type = ? AND other LIKE ?", LogTypeConsume, pattern).
+		Order("id DESC").
+		First(&log).Error
+	if err != nil {
+		return err
+	}
+
+	otherMap, _ := common.StrToMap(log.Other)
+	if otherMap == nil {
+		otherMap = make(map[string]interface{})
+	}
+	otherMap["output_url"] = outputURL
+	otherMap["output_preview"] = outputURL
+	log.Other = common.MapToJsonStr(otherMap)
+	return LOG_DB.WithContext(ctx).
+		Model(&Log{}).
+		Where("id = ?", log.Id).
+		Update("other", log.Other).
+		Error
 }
 
 func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string) (logs []*Log, total int64, err error) {

@@ -186,6 +186,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
 	}
+	service.SetLogOutputPreview(c, responseTextBuilder.String())
 
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
 
@@ -220,6 +221,16 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			return nil, types.NewOpenAIError(fmt.Errorf("openrouter response success=false"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
 	}
+	var outputPreview strings.Builder
+	for _, choice := range simpleResponse.Choices {
+		if content := strings.TrimSpace(choice.Message.StringContent()); content != "" {
+			if outputPreview.Len() > 0 {
+				outputPreview.WriteString("\n")
+			}
+			outputPreview.WriteString(content)
+		}
+	}
+	service.SetLogOutputPreview(c, outputPreview.String())
 
 	err = common.Unmarshal(responseBody, &simpleResponse)
 	if err != nil {
@@ -571,6 +582,7 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		var imageResp dto.ImageResponse
 		if err = common.Unmarshal(responseBody, &imageResp); err == nil && len(imageResp.Data) > 0 {
 			service.MaybeArchiveImageResponse(c.Request.Context(), info, &imageResp)
+			service.SetLogImageResponse(c, &imageResp)
 			if responseBody, err = common.Marshal(imageResp); err != nil {
 				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			}

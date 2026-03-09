@@ -397,6 +397,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 			if archivedURL, ok := service.MaybeArchiveTaskStoredResult(context.Background(), originTask); ok {
 				snap := originTask.Snapshot()
 				originTask.PrivateData.ResultURL = archivedURL
+				_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), originTask.TaskID, archivedURL)
 				if !snap.Equal(originTask.Snapshot()) {
 					_, _ = originTask.UpdateWithStatus(snap.Status)
 				}
@@ -496,10 +497,13 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	}
 	if archivedURL, ok := service.MaybeArchiveTaskResult(context.Background(), task, resultURL, body); ok {
 		task.PrivateData.ResultURL = archivedURL
+		task.Data = service.RewriteTaskResultData(body, archivedURL)
+		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, archivedURL)
 	} else if strings.HasPrefix(resultURL, "data:") {
 		// data: URI — kept in Data, not ResultURL
 	} else if resultURL != "" {
 		task.PrivateData.ResultURL = resultURL
+		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, resultURL)
 	} else if task.Status == model.TaskStatusSuccess {
 		// No URL from adaptor — construct proxy URL using public task ID
 		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)

@@ -74,6 +74,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	appendRequestPath(ctx, relayInfo, other)
 	appendRequestConversionChain(relayInfo, other)
 	appendBillingInfo(relayInfo, other)
+	AppendLogPreview(ctx, relayInfo, other)
 	return other
 }
 
@@ -212,5 +213,8 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
 	}
 	appendRequestPath(nil, relayInfo, other)
+	if inputPreview := BuildTaskLogInputPreview(relayInfo); inputPreview != "" {
+		other["input_preview"] = inputPreview
+	}
 	return other
 }

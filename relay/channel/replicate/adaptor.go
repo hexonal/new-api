@@ -278,6 +278,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		return nil, types.NewError(errors.New("replicate adaptor: no usable image data"), types.ErrorCodeBadResponse)
 	}
 	service.MaybeArchiveImageResponse(c.Request.Context(), info, &imageResponse)
+	service.SetLogImageResponse(c, &imageResponse)
 
 	responseBytes, err := common.Marshal(imageResponse)
 	if err != nil {

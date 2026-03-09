@@ -1590,6 +1590,7 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		})
 	}
 	service.MaybeArchiveImageResponse(c.Request.Context(), info, &openAIResponse)
+	service.SetLogImageResponse(c, &openAIResponse)
 
 	jsonResponse, jsonErr := json.Marshal(openAIResponse)
 	if jsonErr != nil {

@@ -374,6 +374,36 @@ export const useLogsData = () => {
           value: other.text_output,
         });
       }
+      if (other?.input_preview) {
+        expandDataLocal.push({
+          key: t('输入日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.input_preview}
+            </div>
+          ),
+        });
+      }
+      if (other?.output_preview) {
+        expandDataLocal.push({
+          key: t('输出日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_preview}
+            </div>
+          ),
+        });
+      }
+      if (Array.isArray(other?.output_media) && other.output_media.length > 0) {
+        expandDataLocal.push({
+          key: t('输出媒体'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_media.join('\n')}
+            </div>
+          ),
+        });
+      }
       if (other?.cache_tokens > 0) {
         expandDataLocal.push({
           key: t('缓存 Tokens'),

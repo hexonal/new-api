@@ -39,6 +39,12 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	other["request_path"] = c.Request.URL.Path
 	other["model_price"] = info.PriceData.ModelPrice
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	if info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.PublicTaskID) != "" {
+		other["task_id"] = strings.TrimSpace(info.TaskRelayInfo.PublicTaskID)
+	}
+	if inputPreview := BuildTaskLogInputPreview(info); inputPreview != "" {
+		other["input_preview"] = inputPreview
+	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
 	}
@@ -128,6 +134,16 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = props.UpstreamModelName
+	}
+	if task.TaskID != "" {
+		other["task_id"] = task.TaskID
+	}
+	if strings.TrimSpace(task.Properties.Input) != "" {
+		other["input_preview"] = trimLogPreview(task.Properties.Input)
+	}
+	if resultURL := strings.TrimSpace(task.GetResultURL()); resultURL != "" {
+		other["output_url"] = resultURL
+		other["output_preview"] = resultURL
 	}
 	return other
 }

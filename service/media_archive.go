@@ -121,7 +121,11 @@ func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string
 	if sourceURL == "" {
 		return "", false
 	}
-	return MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
+	archivedURL, ok := MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
+	if ok {
+		task.Data = RewriteTaskResultData(task.Data, archivedURL)
+	}
+	return archivedURL, ok
 }
 
 func maybeArchiveImageData(ctx context.Context, imageData dto.ImageData, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
@@ -258,6 +262,25 @@ func uploadArchivedBytesToOSS(ctx context.Context, data []byte, mimeType string,
 		return "", fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return buildMediaArchivePublicURL(cfg, objectKey), nil
+}
+
+func RewriteTaskResultData(body []byte, archivedURL string) []byte {
+	if len(body) == 0 || strings.TrimSpace(archivedURL) == "" {
+		return body
+	}
+
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+	if !rewriteTaskPayloadMediaNode(payload, archivedURL) {
+		return body
+	}
+	encoded, err := common.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return encoded
 }
 
 func buildMediaArchiveUploadURL(cfg media_archive_setting.Config, objectKey string) (string, error) {
@@ -404,6 +427,9 @@ func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
 	if cfg.PublicBaseURL != "" && strings.HasPrefix(rawURL, strings.TrimRight(cfg.PublicBaseURL, "/")+"/") {
 		return true
 	}
+	if cfg.Endpoint != "" && strings.HasPrefix(rawURL, strings.TrimRight(cfg.Endpoint, "/")+"/") {
+		return true
+	}
 	return strings.HasPrefix(rawURL, strings.TrimRight(cfg.Endpoint, "/")+"/"+strings.Trim(cfg.Bucket, "/")+"/")
 }
 
@@ -468,4 +494,52 @@ func logMediaArchiveFailure(ctx context.Context, action string, err error) {
 		return
 	}
 	logger.LogWarn(ctx, action+": "+err.Error())
+}
+
+func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) bool {
+	changed := false
+	if value, ok := payload["video_url"].(string); ok && strings.TrimSpace(value) != "" {
+		payload["video_url"] = archivedURL
+		changed = true
+	}
+	if value, ok := payload["url"].(string); ok && strings.TrimSpace(value) != "" {
+		payload["url"] = archivedURL
+		changed = true
+	}
+	if response, ok := payload["response"].(map[string]any); ok {
+		if rewriteTaskPayloadMediaNode(response, archivedURL) {
+			payload["response"] = response
+			changed = true
+		}
+	}
+	if videos, ok := payload["videos"].([]any); ok {
+		for i, item := range videos {
+			videoMap, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if _, exists := videoMap["bytesBase64Encoded"]; exists {
+				delete(videoMap, "bytesBase64Encoded")
+				changed = true
+			}
+			if value, ok := videoMap["video_url"].(string); ok && strings.TrimSpace(value) != "" {
+				videoMap["video_url"] = archivedURL
+				changed = true
+			}
+			if value, ok := videoMap["url"].(string); ok && strings.TrimSpace(value) != "" {
+				videoMap["url"] = archivedURL
+				changed = true
+			}
+			videos[i] = videoMap
+		}
+		payload["videos"] = videos
+	}
+	if _, exists := payload["bytesBase64Encoded"]; exists {
+		delete(payload, "bytesBase64Encoded")
+		changed = true
+	}
+	if changed {
+		payload["archived_url"] = archivedURL
+	}
+	return changed
 }

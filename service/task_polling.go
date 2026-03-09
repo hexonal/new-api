@@ -445,12 +445,15 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		resultURL := firstNonEmpty(taskResult.Url, taskResult.RemoteUrl)
 		if archivedURL, ok := MaybeArchiveTaskResult(ctx, task, resultURL, responseBody); ok {
 			task.PrivateData.ResultURL = archivedURL
+			task.Data = RewriteTaskResultData(responseBody, archivedURL)
+			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, archivedURL)
 		} else if strings.HasPrefix(resultURL, "data:") {
 			// data: URI (e.g. Vertex base64 encoded video) — keep in Data, not in ResultURL
 			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
 		} else if resultURL != "" {
 			// Direct upstream URL (e.g. Kling, Ali, Doubao, etc.)
 			task.PrivateData.ResultURL = resultURL
+			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, resultURL)
 		} else {
 			// No URL from adaptor — construct proxy URL using public task ID
 			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)

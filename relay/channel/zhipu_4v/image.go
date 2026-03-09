@@ -107,6 +107,7 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		payload.Data = append(payload.Data, imageData)
 	}
 	service.MaybeArchiveImageResponse(c.Request.Context(), info, &payload)
+	service.SetLogImageResponse(c, &payload)
 
 	jsonResp, err := common.Marshal(payload)
 	if err != nil {
