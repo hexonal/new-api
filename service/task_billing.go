@@ -42,7 +42,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.PublicTaskID) != "" {
 		other["task_id"] = strings.TrimSpace(info.TaskRelayInfo.PublicTaskID)
 	}
-	if inputPreview := BuildTaskLogInputPreview(info); inputPreview != "" {
+	if inputPreview := BuildTaskLogInputPreview(c, info); inputPreview != "" {
 		other["input_preview"] = inputPreview
 	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {

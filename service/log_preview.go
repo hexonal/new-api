@@ -61,6 +61,8 @@ func AppendLogPreview(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other 
 
 	if input := strings.TrimSpace(getContextString(ctx, logPreviewInputKey)); input != "" {
 		other["input_preview"] = trimLogPreview(input)
+	} else if input := strings.TrimSpace(buildBodyPreview(ctx)); input != "" {
+		other["input_preview"] = input
 	} else if relayInfo != nil && relayInfo.Request != nil {
 		if requestJSON := strings.TrimSpace(common.GetJsonString(relayInfo.Request)); requestJSON != "" && requestJSON != "null" {
 			other["input_preview"] = trimLogPreview(requestJSON)
@@ -83,7 +85,10 @@ func AppendLogPreview(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other 
 	}
 }
 
-func BuildTaskLogInputPreview(relayInfo *relaycommon.RelayInfo) string {
+func BuildTaskLogInputPreview(c *gin.Context, relayInfo *relaycommon.RelayInfo) string {
+	if bodyPreview := strings.TrimSpace(buildBodyPreview(c)); bodyPreview != "" {
+		return bodyPreview
+	}
 	if relayInfo == nil || relayInfo.Request == nil {
 		return ""
 	}
@@ -132,4 +137,19 @@ func firstNonEmptyStrings(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func buildBodyPreview(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil || storage == nil {
+		return ""
+	}
+	body, err := storage.Bytes()
+	if err != nil || len(body) == 0 {
+		return ""
+	}
+	return trimLogPreview(string(body))
 }
