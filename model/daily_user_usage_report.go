@@ -71,7 +71,7 @@ func GetDailyUserUsageReport(rawPrefixFilter string, limit int, startTimestamp i
 	if err := tx.Select(
 		"username, COALESCE(SUM(count), 0) AS messages, COALESCE(SUM(token_used), 0) AS tokens, COALESCE(SUM(quota), 0) AS quota",
 	).Group("username").
-		Order("quota DESC, token_used DESC, count DESC, username ASC").
+		Order("quota DESC, tokens DESC, messages DESC, username ASC").
 		Limit(limit).
 		Scan(&rows).Error; err != nil {
 		return nil, err
