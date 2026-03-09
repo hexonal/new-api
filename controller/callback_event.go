@@ -79,6 +79,7 @@ func GetAllCallbackEvents(c *gin.Context) {
 		Status:         strings.TrimSpace(c.Query("status")),
 		RequestID:      strings.TrimSpace(c.Query("request_id")),
 		EventID:        strings.TrimSpace(c.Query("event_id")),
+		Username:       strings.TrimSpace(c.Query("username")),
 		UserID:         userID,
 		TokenID:        tokenID,
 		StartTimestamp: startTimestamp,
