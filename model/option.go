@@ -171,6 +171,15 @@ func InitOptionMap() {
 	common.OptionMap["DailyUserUsageReportUserPrefixFilter"] = ""
 	common.OptionMap["DailyUserUsageReportHour"] = "0"
 	common.OptionMap["DailyUserUsageReportMinute"] = "10"
+	common.OptionMap["MonitorAlertEnabled"] = "false"
+	common.OptionMap["MonitorAlertType"] = "feishu"
+	common.OptionMap["MonitorAlertUrl"] = ""
+	common.OptionMap["MonitorAlertSecret"] = ""
+	common.OptionMap["MonitorAlertCallErrorEnabled"] = "true"
+	common.OptionMap["MonitorAlertCallbackErrorEnabled"] = "true"
+	common.OptionMap["MonitorAlertDiskEnabled"] = "true"
+	common.OptionMap["MonitorAlertDiskThresholdPercent"] = "90"
+	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 
 	// 自动添加所有注册的模型配置

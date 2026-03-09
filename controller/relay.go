@@ -389,6 +389,8 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, false, userGroup, other)
 	}
 
+	service.NotifyMonitorCallError(c, channelError, err)
+
 }
 
 func RelayMidjourney(c *gin.Context) {

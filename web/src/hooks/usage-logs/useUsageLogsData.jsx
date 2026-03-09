@@ -210,11 +210,14 @@ export const useLogsData = () => {
   // 获取表单值的辅助函数，确保所有值都是字符串
   const getFormValues = () => {
     const formValues = formApi ? formApi.getValues() : {};
+    const requestId = (formValues.request_id || '').trim();
+    const exactRequestSearch = requestId !== '';
 
     let start_timestamp = timestamp2string(getTodayStartTimestamp());
     let end_timestamp = timestamp2string(now.getTime() / 1000 + 3600);
 
     if (
+      !exactRequestSearch &&
       formValues.dateRange &&
       Array.isArray(formValues.dateRange) &&
       formValues.dateRange.length === 2
@@ -224,15 +227,20 @@ export const useLogsData = () => {
     }
 
     return {
-      username: formValues.username || '',
-      token_name: formValues.token_name || '',
-      model_name: formValues.model_name || '',
+      username: exactRequestSearch ? '' : (formValues.username || '').trim(),
+      token_name: exactRequestSearch ? '' : (formValues.token_name || '').trim(),
+      model_name: exactRequestSearch ? '' : (formValues.model_name || '').trim(),
       start_timestamp,
       end_timestamp,
-      channel: formValues.channel || '',
-      group: formValues.group || '',
-      request_id: formValues.request_id || '',
-      logType: formValues.logType ? parseInt(formValues.logType) : 0,
+      channel: exactRequestSearch ? '' : (formValues.channel || '').trim(),
+      group: exactRequestSearch ? '' : (formValues.group || '').trim(),
+      request_id: requestId,
+      logType: exactRequestSearch
+        ? ''
+        : formValues.logType
+          ? parseInt(formValues.logType)
+          : 0,
+      exactRequestSearch,
     };
   };
 
@@ -245,7 +253,12 @@ export const useLogsData = () => {
       end_timestamp,
       group,
       logType: formLogType,
+      exactRequestSearch,
     } = getFormValues();
+    if (exactRequestSearch) {
+      setShowStat(false);
+      return;
+    }
     const currentLogType = formLogType !== undefined ? formLogType : logType;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
@@ -270,7 +283,12 @@ export const useLogsData = () => {
       channel,
       group,
       logType: formLogType,
+      exactRequestSearch,
     } = getFormValues();
+    if (exactRequestSearch) {
+      setShowStat(false);
+      return;
+    }
     const currentLogType = formLogType !== undefined ? formLogType : logType;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
@@ -356,6 +374,14 @@ export const useLogsData = () => {
           value: logs[i].request_id,
         });
       }
+      expandDataLocal.push({
+        key: t('输入 Tokens'),
+        value: renderNumber(logs[i].prompt_tokens || 0),
+      });
+      expandDataLocal.push({
+        key: t('输出 Tokens'),
+        value: renderNumber(logs[i].completion_tokens || 0),
+      });
       if (other?.ws || other?.audio) {
         expandDataLocal.push({
           key: t('语音输入'),
@@ -648,6 +674,7 @@ export const useLogsData = () => {
       group,
       request_id,
       logType: formLogType,
+      exactRequestSearch,
     } = getFormValues();
 
     const currentLogType =
@@ -657,8 +684,12 @@ export const useLogsData = () => {
           ? formLogType
           : logType;
 
-    let localStartTimestamp = Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = Date.parse(end_timestamp) / 1000;
+    let localStartTimestamp = exactRequestSearch
+      ? 0
+      : Date.parse(start_timestamp) / 1000;
+    let localEndTimestamp = exactRequestSearch
+      ? 0
+      : Date.parse(end_timestamp) / 1000;
     if (isAdminUser) {
       url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&request_id=${request_id}`;
     } else {

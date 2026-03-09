@@ -44,80 +44,90 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import CustomOAuthSetting from './CustomOAuthSetting';
 
+const defaultInputs = {
+  PasswordLoginEnabled: '',
+  PasswordRegisterEnabled: '',
+  EmailVerificationEnabled: '',
+  GitHubOAuthEnabled: '',
+  GitHubClientId: '',
+  GitHubClientSecret: '',
+  'discord.enabled': '',
+  'discord.client_id': '',
+  'discord.client_secret': '',
+  'oidc.enabled': '',
+  'oidc.client_id': '',
+  'oidc.client_secret': '',
+  'oidc.well_known': '',
+  'oidc.authorization_endpoint': '',
+  'oidc.token_endpoint': '',
+  'oidc.user_info_endpoint': '',
+  Notice: '',
+  SMTPServer: '',
+  SMTPPort: '',
+  SMTPAccount: '',
+  SMTPFrom: '',
+  SMTPToken: '',
+  WorkerUrl: '',
+  WorkerValidKey: '',
+  WorkerAllowHttpImageRequestEnabled: '',
+  Footer: '',
+  WeChatAuthEnabled: '',
+  WeChatServerAddress: '',
+  WeChatServerToken: '',
+  WeChatAccountQRCodeImageURL: '',
+  TurnstileCheckEnabled: '',
+  TurnstileSiteKey: '',
+  TurnstileSecretKey: '',
+  RegisterEnabled: '',
+  'passkey.enabled': '',
+  'passkey.rp_display_name': '',
+  'passkey.rp_id': '',
+  'passkey.origins': [],
+  'passkey.allow_insecure_origin': '',
+  'passkey.user_verification': 'preferred',
+  'passkey.attachment_preference': '',
+  EmailDomainRestrictionEnabled: '',
+  EmailAliasRestrictionEnabled: '',
+  SMTPSSLEnabled: '',
+  EmailDomainWhitelist: [],
+  TelegramOAuthEnabled: '',
+  TelegramBotToken: '',
+  TelegramBotName: '',
+  LinuxDOOAuthEnabled: '',
+  LinuxDOClientId: '',
+  LinuxDOClientSecret: '',
+  LinuxDOMinimumTrustLevel: '',
+  ServerAddress: '',
+  'fetch_setting.enable_ssrf_protection': true,
+  'fetch_setting.allow_private_ip': '',
+  'fetch_setting.domain_filter_mode': false,
+  'fetch_setting.ip_filter_mode': false,
+  'fetch_setting.domain_list': [],
+  'fetch_setting.ip_list': [],
+  'fetch_setting.allowed_ports': [],
+  'fetch_setting.apply_ip_filter_for_domain': false,
+  DailyUserUsageReportEnabled: false,
+  DailyUserUsageReportName: '',
+  DailyUserUsageReportType: 'feishu',
+  DailyUserUsageReportUrl: '',
+  DailyUserUsageReportSecret: '',
+  DailyUserUsageReportUserPrefixFilter: '',
+  DailyUserUsageReportHour: '10',
+  DailyUserUsageReportMinute: '0',
+  MonitorAlertEnabled: false,
+  MonitorAlertType: 'feishu',
+  MonitorAlertUrl: '',
+  MonitorAlertSecret: '',
+  MonitorAlertCallErrorEnabled: false,
+  MonitorAlertCallbackErrorEnabled: false,
+  MonitorAlertDiskEnabled: false,
+  MonitorAlertDiskThresholdPercent: '90',
+  MonitorAlertCooldownMinutes: '',
+};
+
 const SystemSetting = () => {
   const { t } = useTranslation();
-  let [inputs, setInputs] = useState({
-    PasswordLoginEnabled: '',
-    PasswordRegisterEnabled: '',
-    EmailVerificationEnabled: '',
-    GitHubOAuthEnabled: '',
-    GitHubClientId: '',
-    GitHubClientSecret: '',
-    'discord.enabled': '',
-    'discord.client_id': '',
-    'discord.client_secret': '',
-    'oidc.enabled': '',
-    'oidc.client_id': '',
-    'oidc.client_secret': '',
-    'oidc.well_known': '',
-    'oidc.authorization_endpoint': '',
-    'oidc.token_endpoint': '',
-    'oidc.user_info_endpoint': '',
-    Notice: '',
-    SMTPServer: '',
-    SMTPPort: '',
-    SMTPAccount: '',
-    SMTPFrom: '',
-    SMTPToken: '',
-    WorkerUrl: '',
-    WorkerValidKey: '',
-    WorkerAllowHttpImageRequestEnabled: '',
-    Footer: '',
-    WeChatAuthEnabled: '',
-    WeChatServerAddress: '',
-    WeChatServerToken: '',
-    WeChatAccountQRCodeImageURL: '',
-    TurnstileCheckEnabled: '',
-    TurnstileSiteKey: '',
-    TurnstileSecretKey: '',
-    RegisterEnabled: '',
-    'passkey.enabled': '',
-    'passkey.rp_display_name': '',
-    'passkey.rp_id': '',
-    'passkey.origins': [],
-    'passkey.allow_insecure_origin': '',
-    'passkey.user_verification': 'preferred',
-    'passkey.attachment_preference': '',
-    EmailDomainRestrictionEnabled: '',
-    EmailAliasRestrictionEnabled: '',
-    SMTPSSLEnabled: '',
-    EmailDomainWhitelist: [],
-    TelegramOAuthEnabled: '',
-    TelegramBotToken: '',
-    TelegramBotName: '',
-    LinuxDOOAuthEnabled: '',
-    LinuxDOClientId: '',
-    LinuxDOClientSecret: '',
-    LinuxDOMinimumTrustLevel: '',
-    ServerAddress: '',
-    // SSRF防护配置
-    'fetch_setting.enable_ssrf_protection': true,
-    'fetch_setting.allow_private_ip': '',
-    'fetch_setting.domain_filter_mode': false, // true 白名单，false 黑名单
-    'fetch_setting.ip_filter_mode': false, // true 白名单，false 黑名单
-    'fetch_setting.domain_list': [],
-    'fetch_setting.ip_list': [],
-    'fetch_setting.allowed_ports': [],
-    'fetch_setting.apply_ip_filter_for_domain': false,
-    DailyUserUsageReportEnabled: false,
-    DailyUserUsageReportName: '',
-    DailyUserUsageReportType: 'feishu',
-    DailyUserUsageReportUrl: '',
-    DailyUserUsageReportSecret: '',
-    DailyUserUsageReportUserPrefixFilter: '',
-    DailyUserUsageReportHour: '10',
-    DailyUserUsageReportMinute: '0',
-  });
+  let [inputs, setInputs] = useState(defaultInputs);
 
   const [originInputs, setOriginInputs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -139,7 +149,7 @@ const SystemSetting = () => {
     const res = await API.get('/api/option/');
     const { success, message, data } = res.data;
     if (success) {
-      let newInputs = {};
+      let newInputs = { ...defaultInputs };
       data.forEach((item) => {
         switch (item.key) {
           case 'TopupGroupRatio':
@@ -191,6 +201,10 @@ const SystemSetting = () => {
           case 'EmailAliasRestrictionEnabled':
           case 'SMTPSSLEnabled':
           case 'DailyUserUsageReportEnabled':
+          case 'MonitorAlertEnabled':
+          case 'MonitorAlertCallErrorEnabled':
+          case 'MonitorAlertCallbackErrorEnabled':
+          case 'MonitorAlertDiskEnabled':
           case 'LinuxDOOAuthEnabled':
           case 'discord.enabled':
           case 'oidc.enabled':
@@ -246,6 +260,12 @@ const SystemSetting = () => {
   useEffect(() => {
     getOptions();
   }, []);
+
+  const hasMonitorAlertCooldownField =
+    Object.prototype.hasOwnProperty.call(
+      originInputs,
+      'MonitorAlertCooldownMinutes',
+    );
 
   const updateOptions = async (options) => {
     setLoading(true);
@@ -738,6 +758,60 @@ const SystemSetting = () => {
     await updateOptions(options);
   };
 
+  const submitMonitorAlertSettings = async () => {
+    const options = [
+      {
+        key: 'MonitorAlertEnabled',
+        value: !!inputs.MonitorAlertEnabled,
+      },
+      {
+        key: 'MonitorAlertType',
+        value: inputs.MonitorAlertType || 'feishu',
+      },
+      {
+        key: 'MonitorAlertUrl',
+        value: inputs.MonitorAlertUrl || '',
+      },
+      {
+        key: 'MonitorAlertSecret',
+        value: inputs.MonitorAlertSecret || '',
+      },
+      {
+        key: 'MonitorAlertCallErrorEnabled',
+        value: !!inputs.MonitorAlertCallErrorEnabled,
+      },
+      {
+        key: 'MonitorAlertCallbackErrorEnabled',
+        value: !!inputs.MonitorAlertCallbackErrorEnabled,
+      },
+      {
+        key: 'MonitorAlertDiskEnabled',
+        value: !!inputs.MonitorAlertDiskEnabled,
+      },
+      {
+        key: 'MonitorAlertDiskThresholdPercent',
+        value:
+          inputs.MonitorAlertDiskThresholdPercent === '' ||
+          inputs.MonitorAlertDiskThresholdPercent === undefined
+            ? '90'
+            : String(inputs.MonitorAlertDiskThresholdPercent),
+      },
+    ];
+
+    if (hasMonitorAlertCooldownField) {
+      options.push({
+        key: 'MonitorAlertCooldownMinutes',
+        value:
+          inputs.MonitorAlertCooldownMinutes === '' ||
+          inputs.MonitorAlertCooldownMinutes === undefined
+            ? ''
+            : String(inputs.MonitorAlertCooldownMinutes),
+      });
+    }
+
+    await updateOptions(options);
+  };
+
   const handleCheckboxChange = async (optionKey, event) => {
     const value = event.target.checked;
 
@@ -971,6 +1045,169 @@ const SystemSetting = () => {
                   </Row>
                   <Button onClick={submitDailyUserUsageReportSettings}>
                     {t('保存每日报表推送设置')}
+                  </Button>
+                </Form.Section>
+              </Card>
+
+              <Card>
+                <Form.Section text={t('监控告警推送')}>
+                  <Banner
+                    type='info'
+                    description={t(
+                      '用于单独配置监控告警通知，可按调用错误、回调错误和磁盘阈值分别触发。',
+                    )}
+                    style={{ marginBottom: 20, marginTop: 16 }}
+                  />
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Switch
+                        field={'MonitorAlertEnabled'}
+                        label={t('启用监控告警')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertEnabled: value,
+                          })
+                        }
+                      />
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                      <Form.Select
+                        field={'MonitorAlertType'}
+                        label={t('推送类型')}
+                        optionList={[
+                          { label: 'Feishu', value: 'feishu' },
+                          { label: 'Webhook', value: 'webhook' },
+                        ]}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertType: String(value),
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={16} lg={16} xl={16}>
+                      <Form.Input
+                        field={'MonitorAlertUrl'}
+                        label={t('Webhook 地址')}
+                        placeholder={t(
+                          '请输入Webhook地址，例如: https://example.com/webhook',
+                        )}
+                        extraText={t(
+                          '选择 Feishu 时填写飞书机器人地址；选择 Webhook 时填写通用接收地址。',
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field={'MonitorAlertSecret'}
+                        type='password'
+                        label={t('Webhook Secret')}
+                        placeholder={t('通用 Webhook 可选签名密钥')}
+                        extraText={t(
+                          '通用 Webhook 可填写签名密钥，系统会附带签名请求头；Feishu 通常留空。',
+                        )}
+                      />
+                    </Col>
+                    <Col xs={24} sm={12} md={6} lg={6} xl={6}>
+                      <Form.InputNumber
+                        field={'MonitorAlertDiskThresholdPercent'}
+                        label={t('磁盘阈值 (%)')}
+                        min={1}
+                        max={100}
+                        step={1}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertDiskThresholdPercent: String(
+                              value ?? '',
+                            ),
+                          })
+                        }
+                      />
+                    </Col>
+                    {hasMonitorAlertCooldownField && (
+                      <Col xs={24} sm={12} md={6} lg={6} xl={6}>
+                        <Form.InputNumber
+                          field={'MonitorAlertCooldownMinutes'}
+                          label={t('冷却时间 (分钟)')}
+                          min={0}
+                          step={1}
+                          onChange={(value) =>
+                            setInputs({
+                              ...inputs,
+                              MonitorAlertCooldownMinutes: String(value ?? ''),
+                            })
+                          }
+                        />
+                      </Col>
+                    )}
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.Switch
+                        field={'MonitorAlertCallErrorEnabled'}
+                        label={t('调用错误告警')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertCallErrorEnabled: value,
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.Switch
+                        field={'MonitorAlertCallbackErrorEnabled'}
+                        label={t('回调错误告警')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertCallbackErrorEnabled: value,
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.Switch
+                        field={'MonitorAlertDiskEnabled'}
+                        label={t('磁盘告警')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertDiskEnabled: value,
+                          })
+                        }
+                      />
+                    </Col>
+                  </Row>
+                  <Button onClick={submitMonitorAlertSettings}>
+                    {t('保存监控告警设置')}
                   </Button>
                 </Form.Section>
               </Card>

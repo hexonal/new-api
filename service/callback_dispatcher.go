@@ -215,6 +215,7 @@ func (d *callbackDispatcher) processEvent(event *model.CallbackEvent) {
 		if err := model.MarkCallbackEventDead(event.ID, attemptNo, statusCode, logErrMsg, firstAttemptAt, finishedAt); err != nil {
 			common.SysError(fmt.Sprintf("mark callback event dead failed: id=%d err=%s", event.ID, err.Error()))
 		}
+		NotifyMonitorCallbackError(event, attemptNo, statusCode, logErrMsg, responseSnippet)
 	}
 	_ = model.InsertCallbackEventAttempt(&model.CallbackEventAttempt{
 		EventID:         event.ID,
