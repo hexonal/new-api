@@ -76,6 +76,7 @@ func (t *Task) GetData(v any) error {
 
 type Properties struct {
 	Input             string `json:"input"`
+	RequestPath       string `json:"request_path,omitempty"`
 	UpstreamModelName string `json:"upstream_model_name,omitempty"`
 	OriginModelName   string `json:"origin_model_name,omitempty"`
 }

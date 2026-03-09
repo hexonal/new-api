@@ -304,6 +304,21 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
+function renderPreviewCell(value, t) {
+  if (!value) {
+    return <></>;
+  }
+  const text = String(value);
+  return (
+    <Typography.Text
+      ellipsis={{ showTooltip: true }}
+      style={{ maxWidth: 220, display: 'inline-block' }}
+    >
+      {text}
+    </Typography.Text>
+  );
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -634,6 +649,24 @@ export const getLogsColumns = ({
         ) : (
           <></>
         );
+      },
+    },
+    {
+      key: COLUMN_KEYS.INPUT_LOG,
+      title: t('输入日志'),
+      dataIndex: 'other',
+      render: (text, record) => {
+        const other = getLogOther(record.other);
+        return renderPreviewCell(other?.input_preview, t);
+      },
+    },
+    {
+      key: COLUMN_KEYS.OUTPUT_LOG,
+      title: t('输出日志'),
+      dataIndex: 'other',
+      render: (text, record) => {
+        const other = getLogOther(record.other);
+        return renderPreviewCell(other?.output_preview, t);
       },
     },
     {
