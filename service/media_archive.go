@@ -102,6 +102,28 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 	return maybeArchiveMediaReference(ctx, payloadURL, meta, cfg)
 }
 
+func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string, bool) {
+	if task == nil || len(task.Data) == 0 {
+		return "", false
+	}
+	sourceURL := extractTaskPayloadMediaURL(task.Data)
+	if sourceURL == "" {
+		var payload map[string]any
+		if err := common.Unmarshal(task.Data, &payload); err == nil {
+			sourceURL = firstNonEmpty(
+				extractMapString(payload, "video_url"),
+				extractMapString(payload, "url"),
+				extractMapString(payload, "response", "video_url"),
+				extractMapString(payload, "response", "url"),
+			)
+		}
+	}
+	if sourceURL == "" {
+		return "", false
+	}
+	return MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
+}
+
 func maybeArchiveImageData(ctx context.Context, imageData dto.ImageData, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
 	if ref := strings.TrimSpace(imageData.Url); ref != "" {
 		return maybeArchiveMediaReference(ctx, ref, meta, cfg)

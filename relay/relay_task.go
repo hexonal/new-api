@@ -392,6 +392,18 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
+	if isOpenAIVideoAPI {
+		if resultURL := strings.TrimSpace(originTask.GetResultURL()); resultURL == "" || strings.Contains(resultURL, "/v1/videos/"+originTask.TaskID+"/content") {
+			if archivedURL, ok := service.MaybeArchiveTaskStoredResult(context.Background(), originTask); ok {
+				snap := originTask.Snapshot()
+				originTask.PrivateData.ResultURL = archivedURL
+				if !snap.Equal(originTask.Snapshot()) {
+					_, _ = originTask.UpdateWithStatus(snap.Status)
+				}
+			}
+		}
+	}
+
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
