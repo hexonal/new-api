@@ -283,15 +283,24 @@ func buildDailyUserUsageReportFeishuField(label string, value string) map[string
 
 func formatDailyUserUsageReportFeishuRanking(items []model.DailyUserUsageRankingItem) string {
 	if len(items) == 0 {
-		return "**Ranking**\nNo matching users found."
+		return "**User Ranking**\nNo matching users found."
 	}
 
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Top %d Users**\n", len(items)))
+	builder.WriteString("**User Ranking**\n")
 	for index, item := range items {
+		rankLabel := fmt.Sprintf("#%d", index+1)
+		switch index {
+		case 0:
+			rankLabel = "🥇 #1"
+		case 1:
+			rankLabel = "🥈 #2"
+		case 2:
+			rankLabel = "🥉 #3"
+		}
 		builder.WriteString(fmt.Sprintf(
-			"%d. %s\nMessages: %d | Tokens: %d | Amount: $%.6f\n",
-			index+1,
+			"%s %s\nMessages: %d\nTokens: %d\nAmount: $%.6f\n\n",
+			rankLabel,
 			item.Username,
 			item.Messages,
 			item.Tokens,
