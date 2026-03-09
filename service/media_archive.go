@@ -3,7 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"mime"
@@ -12,7 +14,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -23,10 +24,8 @@ import (
 	"github.com/QuantumNous/new-api/setting/media_archive_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type mediaArchiveKind string
@@ -46,14 +45,6 @@ type mediaArchiveMeta struct {
 	Index     int
 	Proxy     string
 }
-
-type mediaArchiveUploader struct {
-	mu       sync.RWMutex
-	cacheKey string
-	s3Client *s3.Client
-}
-
-var globalMediaArchiveUploader = &mediaArchiveUploader{}
 
 func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo, imageResponse *dto.ImageResponse) {
 	if imageResponse == nil || info == nil {
@@ -203,7 +194,7 @@ func archiveURLToOSS(ctx context.Context, sourceURL string, meta mediaArchiveMet
 
 func uploadArchivedBytes(ctx context.Context, data []byte, mimeType string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
 	objectKey := buildMediaArchiveObjectKey(meta, mimeType, cfg.PathPrefix)
-	archivedURL, err := globalMediaArchiveUploader.uploadBytes(ctx, data, mimeType, objectKey, cfg)
+	archivedURL, err := uploadArchivedBytesToOSS(ctx, data, mimeType, objectKey, cfg)
 	if err != nil {
 		logMediaArchiveFailure(ctx, "upload media to oss", err)
 		return "", false
@@ -211,57 +202,55 @@ func uploadArchivedBytes(ctx context.Context, data []byte, mimeType string, meta
 	return archivedURL, true
 }
 
-func (u *mediaArchiveUploader) uploadBytes(ctx context.Context, data []byte, mimeType string, objectKey string, cfg media_archive_setting.Config) (string, error) {
-	client, err := u.getClient(cfg)
+func uploadArchivedBytesToOSS(ctx context.Context, data []byte, mimeType string, objectKey string, cfg media_archive_setting.Config) (string, error) {
+	requestURL, err := buildMediaArchiveUploadURL(cfg, objectKey)
 	if err != nil {
 		return "", err
 	}
-	_, err = client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(cfg.Bucket),
-		Key:         aws.String(objectKey),
-		Body:        bytes.NewReader(data),
-		ContentType: aws.String(mimeType),
-		ACL:         s3types.ObjectCannedACLPublicRead,
-	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewReader(data))
 	if err != nil {
 		return "", err
+	}
+	req.Header.Set("Content-Type", mimeType)
+
+	hash := sha256.Sum256(data)
+	payloadHash := hex.EncodeToString(hash[:])
+	req.Header.Set("x-amz-content-sha256", payloadHash)
+
+	creds, err := credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "").Retrieve(ctx)
+	if err != nil {
+		return "", err
+	}
+	signer := v4.NewSigner()
+	if err = signer.SignHTTP(ctx, creds, req, payloadHash, "s3", firstNonEmpty(cfg.Region, "us-east-1"), time.Now().UTC()); err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return buildMediaArchivePublicURL(cfg, objectKey), nil
 }
 
-func (u *mediaArchiveUploader) getClient(cfg media_archive_setting.Config) (*s3.Client, error) {
-	cacheKey := strings.Join([]string{
-		cfg.Endpoint,
-		cfg.Region,
-		cfg.Bucket,
-		cfg.AccessKey,
-		strconv.FormatBool(cfg.UsePathStyle),
-	}, "|")
-
-	u.mu.RLock()
-	if u.s3Client != nil && u.cacheKey == cacheKey {
-		client := u.s3Client
-		u.mu.RUnlock()
-		return client, nil
+func buildMediaArchiveUploadURL(cfg media_archive_setting.Config, objectKey string) (string, error) {
+	endpoint, err := url.Parse(cfg.Endpoint)
+	if err != nil {
+		return "", err
 	}
-	u.mu.RUnlock()
-
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.s3Client != nil && u.cacheKey == cacheKey {
-		return u.s3Client, nil
+	cleanKey := strings.TrimPrefix(objectKey, "/")
+	if cfg.UsePathStyle {
+		endpoint.Path = path.Join(endpoint.Path, cfg.Bucket, cleanKey)
+		return endpoint.String(), nil
 	}
-
-	awsCfg := aws.Config{
-		Region:      firstNonEmpty(cfg.Region, "us-east-1"),
-		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
-	}
-	awsCfg.BaseEndpoint = aws.String(cfg.Endpoint)
-	u.s3Client = s3.NewFromConfig(awsCfg, func(options *s3.Options) {
-		options.UsePathStyle = cfg.UsePathStyle
-	})
-	u.cacheKey = cacheKey
-	return u.s3Client, nil
+	endpoint.Host = cfg.Bucket + "." + endpoint.Host
+	endpoint.Path = path.Join(endpoint.Path, cleanKey)
+	return endpoint.String(), nil
 }
 
 func extractTaskPayloadMediaURL(body []byte) string {
