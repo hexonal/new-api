@@ -114,6 +114,9 @@ export const useLogsData = () => {
   // User info modal state
   const [showUserInfo, setShowUserInfoModal] = useState(false);
   const [userInfoData, setUserInfoData] = useState(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewModalTitle, setPreviewModalTitle] = useState('');
+  const [previewModalContent, setPreviewModalContent] = useState('');
 
   // Channel affinity usage cache stats modal state (admin only)
   const [
@@ -748,6 +751,12 @@ export const useLogsData = () => {
     }
   };
 
+  const openPreviewModal = (title, content) => {
+    setPreviewModalTitle(title);
+    setPreviewModalContent(content || '');
+    setIsPreviewModalOpen(true);
+  };
+
   // Initialize data
   useEffect(() => {
     const localPageSize =
@@ -812,6 +821,10 @@ export const useLogsData = () => {
     setShowUserInfoModal,
     userInfoData,
     showUserInfoFunc,
+    isPreviewModalOpen,
+    setIsPreviewModalOpen,
+    previewModalTitle,
+    previewModalContent,
 
     // Channel affinity usage cache stats modal
     showChannelAffinityUsageCacheModal,
@@ -825,6 +838,7 @@ export const useLogsData = () => {
     handlePageSizeChange,
     refresh,
     copyText,
+    openPreviewModal,
     handleEyeClick,
     setLogsFormat,
     hasExpandableRows,

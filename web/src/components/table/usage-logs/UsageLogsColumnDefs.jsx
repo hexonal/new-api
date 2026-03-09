@@ -304,18 +304,21 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
-function renderPreviewCell(value, t) {
+function renderPreviewButton(value, label, onOpen) {
   if (!value) {
     return <></>;
   }
-  const text = String(value);
   return (
-    <Typography.Text
-      ellipsis={{ showTooltip: true }}
-      style={{ maxWidth: 220, display: 'inline-block' }}
+    <Button
+      theme='light'
+      size='small'
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen?.();
+      }}
     >
-      {text}
-    </Typography.Text>
+      {label}
+    </Button>
   );
 }
 
@@ -351,6 +354,7 @@ export const getLogsColumns = ({
   copyText,
   showUserInfoFunc,
   openChannelAffinityUsageCacheModal,
+  openPreviewModal,
   isAdminUser,
 }) => {
   return [
@@ -657,7 +661,11 @@ export const getLogsColumns = ({
       dataIndex: 'other',
       render: (text, record) => {
         const other = getLogOther(record.other);
-        return renderPreviewCell(other?.input_preview, t);
+        return renderPreviewButton(
+          other?.input_preview,
+          t('查看输入'),
+          () => openPreviewModal?.(t('输入日志'), other?.input_preview),
+        );
       },
     },
     {
@@ -666,7 +674,14 @@ export const getLogsColumns = ({
       dataIndex: 'other',
       render: (text, record) => {
         const other = getLogOther(record.other);
-        return renderPreviewCell(other?.output_preview, t);
+        const outputContent = Array.isArray(other?.output_media) && other.output_media.length > 0
+          ? other.output_media.join('\n')
+          : other?.output_preview;
+        return renderPreviewButton(
+          outputContent,
+          t('查看输出'),
+          () => openPreviewModal?.(t('输出日志'), outputContent),
+        );
       },
     },
     {
