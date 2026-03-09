@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -202,6 +203,16 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": err.Error(),
+			})
+			return
+		}
+	case "SameModelFallbackMaxAttempts":
+		var maxAttempts int
+		maxAttempts, err = strconv.Atoi(strings.TrimSpace(option.Value.(string)))
+		if err != nil || maxAttempts < 0 || maxAttempts > 100 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "同名模型回退最大尝试次数必须在 0 到 100 之间",
 			})
 			return
 		}

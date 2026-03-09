@@ -45,15 +45,6 @@ type zhipuImageData struct {
 	B64Image string `json:"b64_image,omitempty"`
 }
 
-type openAIImagePayload struct {
-	Created int64             `json:"created"`
-	Data    []openAIImageData `json:"data"`
-}
-
-type openAIImageData struct {
-	B64Json string `json:"b64_json"`
-}
-
 func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *types.NewAPIError) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -74,7 +65,7 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		}, resp.StatusCode)
 	}
 
-	payload := openAIImagePayload{}
+	payload := dto.ImageResponse{}
 	if zhipuResp.Created != nil && *zhipuResp.Created != 0 {
 		payload.Created = *zhipuResp.Created
 	} else {
@@ -110,11 +101,12 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 			continue
 		}
 
-		imageData := openAIImageData{
+		imageData := dto.ImageData{
 			B64Json: b64,
 		}
 		payload.Data = append(payload.Data, imageData)
 	}
+	service.MaybeArchiveImageResponse(c.Request.Context(), info, &payload)
 
 	jsonResp, err := common.Marshal(payload)
 	if err != nil {

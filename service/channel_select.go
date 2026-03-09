@@ -12,11 +12,12 @@ import (
 )
 
 type RetryParam struct {
-	Ctx          *gin.Context
-	TokenGroup   string
-	ModelName    string
-	Retry        *int
-	resetNextTry bool
+	Ctx                 *gin.Context
+	TokenGroup          string
+	ModelName           string
+	Retry               *int
+	AttemptedChannelIDs map[int]struct{}
+	resetNextTry        bool
 }
 
 func (p *RetryParam) GetRetry() int {
@@ -43,6 +44,31 @@ func (p *RetryParam) IncreaseRetry() {
 
 func (p *RetryParam) ResetRetryNextTry() {
 	p.resetNextTry = true
+}
+
+func (p *RetryParam) MarkChannelAttempted(channelID int) {
+	if channelID <= 0 {
+		return
+	}
+	if p.AttemptedChannelIDs == nil {
+		p.AttemptedChannelIDs = make(map[int]struct{})
+	}
+	p.AttemptedChannelIDs[channelID] = struct{}{}
+}
+
+func (p *RetryParam) UseSameModelFallback() bool {
+	return common.SameModelFallbackMaxAttempts > 0
+}
+
+func (p *RetryParam) RemainingSameModelAttempts() int {
+	if !p.UseSameModelFallback() {
+		return 0
+	}
+	remaining := common.SameModelFallbackMaxAttempts - p.GetRetry()
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 // CacheGetRandomSatisfiedChannel tries to get a random channel that satisfies the requirements.
@@ -81,6 +107,9 @@ func (p *RetryParam) ResetRetryNextTry() {
 //	Retry=3: GroupB, priority1 (startRetryIndex=2, priorityRetry=1)
 //	         分组B, 优先级1
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
+	if param != nil && param.UseSameModelFallback() {
+		return getNextSameModelFallbackChannel(param)
+	}
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup
@@ -159,4 +188,61 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+func getNextSameModelFallbackChannel(param *RetryParam) (*model.Channel, string, error) {
+	selectGroup := param.TokenGroup
+	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
+
+	if param.TokenGroup == "auto" {
+		if len(setting.GetAutoGroups()) == 0 {
+			return nil, selectGroup, errors.New("auto groups is not enabled")
+		}
+		autoGroups := GetUserAutoGroup(userGroup)
+		if len(autoGroups) == 0 {
+			return nil, selectGroup, errors.New("auto groups is not enabled")
+		}
+
+		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		if currentGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyAutoGroup); currentGroup != "" && !crossGroupRetry {
+			autoGroups = []string{currentGroup}
+		}
+		startGroupIndex := 0
+		if crossGroupRetry {
+			if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
+				if idx, ok := lastGroupIndex.(int); ok && idx >= 0 {
+					startGroupIndex = idx
+				}
+			}
+		}
+
+		for i := startGroupIndex; i < len(autoGroups); i++ {
+			autoGroup := autoGroups[i]
+			channel, err := model.GetNextSatisfiedChannel(autoGroup, param.ModelName, param.AttemptedChannelIDs)
+			if err != nil {
+				return nil, autoGroup, err
+			}
+			if channel == nil {
+				if !crossGroupRetry {
+					break
+				}
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
+				continue
+			}
+			param.MarkChannelAttempted(channel.Id)
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, autoGroup)
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
+			return channel, autoGroup, nil
+		}
+		return nil, selectGroup, nil
+	}
+
+	channel, err := model.GetNextSatisfiedChannel(param.TokenGroup, param.ModelName, param.AttemptedChannelIDs)
+	if err != nil {
+		return nil, param.TokenGroup, err
+	}
+	if channel != nil {
+		param.MarkChannelAttempted(channel.Id)
+	}
+	return channel, param.TokenGroup, nil
 }

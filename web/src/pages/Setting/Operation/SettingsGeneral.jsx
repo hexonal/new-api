@@ -51,6 +51,7 @@ export default function GeneralSettings(props) {
     'general_setting.custom_currency_exchange_rate': '',
     QuotaPerUnit: '',
     RetryTimes: '',
+    SameModelFallbackMaxAttempts: '',
     USDExchangeRate: '',
     DisplayTokenStatEnabled: false,
     DefaultCollapseSidebar: false,
@@ -198,6 +199,19 @@ export default function GeneralSettings(props) {
                   initValue={''}
                   placeholder={t('失败重试次数')}
                   onChange={handleFieldChange('RetryTimes')}
+                  showClear
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'SameModelFallbackMaxAttempts'}
+                  label={t('同名模型回退最大尝试次数')}
+                  initValue={''}
+                  placeholder={t('0 表示关闭同名模型回退')}
+                  extraText={t(
+                    '开启后，同名模型渠道失败会继续尝试下一个未尝试渠道，直到达到最大次数或候选耗尽',
+                  )}
+                  onChange={handleFieldChange('SameModelFallbackMaxAttempts')}
                   showClear
                 />
               </Col>
