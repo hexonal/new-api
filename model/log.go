@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,23 +54,73 @@ const (
 
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
-		logs[i].ChannelName = ""
-		var otherMap map[string]interface{}
-		otherMap, _ = common.StrToMap(logs[i].Other)
-		if otherMap != nil {
-			// Remove admin-only debug fields.
-			delete(otherMap, "admin_info")
-			delete(otherMap, "reject_reason")
-		}
-		logs[i].Other = common.MapToJsonStr(otherMap)
+		sanitizeUserLog(logs[i])
 		logs[i].Id = startIdx + i + 1
 	}
+}
+
+func sanitizeUserLog(log *Log) {
+	if log == nil {
+		return
+	}
+	log.ChannelName = ""
+	var otherMap map[string]interface{}
+	otherMap, _ = common.StrToMap(log.Other)
+	if otherMap != nil {
+		// Remove admin-only debug fields.
+		delete(otherMap, "admin_info")
+		delete(otherMap, "reject_reason")
+	}
+	log.Other = common.MapToJsonStr(otherMap)
 }
 
 func GetLogByTokenId(tokenId int) (logs []*Log, err error) {
 	err = LOG_DB.Model(&Log{}).Where("token_id = ?", tokenId).Order("id desc").Limit(common.MaxRecentItems).Find(&logs).Error
 	formatUserLogs(logs, 0)
 	return logs, err
+}
+
+func logExactRequestPriority(log *Log) int {
+	if log == nil {
+		return 99
+	}
+	switch log.Type {
+	case LogTypeConsume:
+		return 0
+	case LogTypeError:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func GetBestLogByTokenIdAndRequestId(tokenId int, requestId string) (*Log, error) {
+	requestId = strings.TrimSpace(requestId)
+	if tokenId == 0 || requestId == "" {
+		return nil, nil
+	}
+	var logs []*Log
+	err := LOG_DB.Model(&Log{}).
+		Where("token_id = ? AND request_id = ?", tokenId, requestId).
+		Order("id desc").
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, nil
+	}
+	sort.SliceStable(logs, func(i, j int) bool {
+		leftPriority := logExactRequestPriority(logs[i])
+		rightPriority := logExactRequestPriority(logs[j])
+		if leftPriority != rightPriority {
+			return leftPriority < rightPriority
+		}
+		return logs[i].Id > logs[j].Id
+	})
+	best := logs[0]
+	sanitizeUserLog(best)
+	return best, nil
 }
 
 func RecordLog(userId int, logType int, content string) {
