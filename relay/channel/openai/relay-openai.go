@@ -28,13 +28,17 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
-	if !forceFormat && !thinkToContent {
-		return helper.StringData(c, data)
-	}
-
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
 	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
+		if !forceFormat && !thinkToContent {
+			return helper.StringData(c, data)
+		}
 		return err
+	}
+	rewritten := service.MaybeArchiveStreamResponse(c, info, &lastStreamResponse)
+
+	if !forceFormat && !thinkToContent && !rewritten {
+		return helper.StringData(c, data)
 	}
 
 	if !thinkToContent {
@@ -225,6 +229,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	responseBodyRewritten := service.MaybeArchiveTextResponse(c, info, &simpleResponse)
 	var outputPreview strings.Builder
 	for _, choice := range simpleResponse.Choices {
 		if content := strings.TrimSpace(choice.Message.StringContent()); content != "" {
@@ -273,14 +278,21 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
-		if usageModified {
+		if usageModified || responseBodyRewritten {
 			var bodyMap map[string]interface{}
-			err = common.Unmarshal(responseBody, &bodyMap)
-			if err != nil {
-				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+			if usageModified && !responseBodyRewritten {
+				err = common.Unmarshal(responseBody, &bodyMap)
+				if err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
+				bodyMap["usage"] = simpleResponse.Usage
+				responseBody, _ = common.Marshal(bodyMap)
+			} else {
+				responseBody, err = common.Marshal(simpleResponse)
+				if err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
 			}
-			bodyMap["usage"] = simpleResponse.Usage
-			responseBody, _ = common.Marshal(bodyMap)
 		}
 		if forceFormat {
 			responseBody, err = common.Marshal(simpleResponse)

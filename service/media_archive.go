@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,11 @@ const (
 	mediaArchiveKindImage mediaArchiveKind = "image"
 	mediaArchiveKindVideo mediaArchiveKind = "video"
 	mediaArchiveTimeout                    = 2 * time.Minute
+)
+
+var (
+	markdownMediaLinkPattern = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]+)\)`)
+	rawURLPattern            = regexp.MustCompile(`https?://[^\s<>"')]+`)
 )
 
 type mediaArchiveMeta struct {
@@ -76,6 +82,46 @@ func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo,
 			imageResponse.Data[i].B64Json = ""
 		}
 	}
+}
+
+func MaybeArchiveTextResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.OpenAITextResponse) bool {
+	if response == nil || info == nil {
+		return false
+	}
+	changed := false
+	for i := range response.Choices {
+		content := response.Choices[i].Message.StringContent()
+		if content == "" {
+			continue
+		}
+		rewritten := rewriteTextMediaReferences(ctx, info, content)
+		if rewritten == content {
+			continue
+		}
+		response.Choices[i].Message.SetStringContent(rewritten)
+		changed = true
+	}
+	return changed
+}
+
+func MaybeArchiveStreamResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.ChatCompletionsStreamResponse) bool {
+	if response == nil || info == nil {
+		return false
+	}
+	changed := false
+	for i := range response.Choices {
+		content := response.Choices[i].Delta.GetContentString()
+		if content == "" {
+			continue
+		}
+		rewritten := rewriteTextMediaReferences(ctx, info, content)
+		if rewritten == content {
+			continue
+		}
+		response.Choices[i].Delta.SetContentString(rewritten)
+		changed = true
+	}
+	return changed
 }
 
 func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL string, responseBody []byte) (string, bool) {
@@ -179,6 +225,60 @@ func maybeArchiveMediaReference(ctx context.Context, ref string, meta mediaArchi
 		}
 		return uploadArchivedBytes(ctx, data, detectMediaMimeType(data, meta.Kind), meta, cfg)
 	}
+}
+
+func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo, text string) string {
+	if strings.TrimSpace(text) == "" || info == nil {
+		return text
+	}
+	cfg := media_archive_setting.GetConfig()
+	if !cfg.IsReady() {
+		return text
+	}
+
+	meta := mediaArchiveMeta{
+		Kind:      mediaArchiveKindImage,
+		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+		RequestID: strings.TrimSpace(info.RequestId),
+		ChannelID: info.ChannelId,
+		UserID:    info.UserId,
+		Proxy:     strings.TrimSpace(info.ChannelSetting.Proxy),
+	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
+
+	seen := make(map[string]string)
+	nextIndex := 0
+	replaceURL := func(raw string) string {
+		if raw == "" || isMediaArchiveURL(raw, cfg) || !looksLikeMediaReference(raw) {
+			return raw
+		}
+		if archived, ok := seen[raw]; ok {
+			return archived
+		}
+		meta.Index = nextIndex
+		nextIndex++
+		archived, ok := maybeArchiveMediaReference(archiveCtx, raw, meta, cfg)
+		if !ok || archived == "" {
+			return raw
+		}
+		seen[raw] = archived
+		return archived
+	}
+
+	rewritten := markdownMediaLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+		parts := markdownMediaLinkPattern.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return fmt.Sprintf("![%s](%s)", parts[1], replaceURL(parts[2]))
+	})
+
+	rewritten = rawURLPattern.ReplaceAllStringFunc(rewritten, func(raw string) string {
+		return replaceURL(raw)
+	})
+
+	return rewritten
 }
 
 func archiveURLToOSS(ctx context.Context, sourceURL string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
@@ -429,6 +529,27 @@ func buildMediaArchivePublicURL(cfg media_archive_setting.Config, objectKey stri
 		return base + "/" + path.Join(cfg.Bucket, objectKey)
 	}
 	return parsed.Scheme + "://" + cfg.Bucket + "." + parsed.Host + "/" + objectKey
+}
+
+func looksLikeMediaReference(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	if strings.HasPrefix(raw, "data:image/") || strings.HasPrefix(raw, "data:video/") {
+		return true
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	ext := strings.ToLower(path.Ext(parsed.Path))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".mp4", ".mov", ".webm", ".mkv":
+		return true
+	default:
+		return false
+	}
 }
 
 func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
