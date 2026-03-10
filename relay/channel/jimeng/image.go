@@ -80,6 +80,7 @@ func jimengImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.R
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
+	service.SetLogOutputBodyBytes(c, jsonResponse)
 
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)

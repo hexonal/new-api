@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -26,6 +27,7 @@ func IOCopyBytesGracefully(c *gin.Context, src *http.Response, data []byte) {
 	if c.Writer == nil {
 		return
 	}
+	maybeSetLogOutputBody(c, src, data)
 
 	body := io.NopCloser(bytes.NewBuffer(data))
 
@@ -58,4 +60,26 @@ func IOCopyBytesGracefully(c *gin.Context, src *http.Response, data []byte) {
 		logger.LogError(c, fmt.Sprintf("failed to copy response body: %s", err.Error()))
 	}
 	c.Writer.Flush()
+}
+
+func maybeSetLogOutputBody(c *gin.Context, src *http.Response, data []byte) {
+	if c == nil || len(data) == 0 {
+		return
+	}
+	contentType := ""
+	if src != nil {
+		contentType = strings.TrimSpace(src.Header.Get("Content-Type"))
+	}
+	if idx := strings.Index(contentType, ";"); idx >= 0 {
+		contentType = strings.TrimSpace(contentType[:idx])
+	}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return
+	}
+	if contentType == "application/json" || contentType == "" {
+		if trimmed[0] == '{' || trimmed[0] == '[' {
+			SetLogOutputBodyBytes(c, trimmed)
+		}
+	}
 }

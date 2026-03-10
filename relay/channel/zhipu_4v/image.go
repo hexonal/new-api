@@ -113,6 +113,7 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
+	service.SetLogOutputBodyBytes(c, jsonResp)
 
 	service.IOCopyBytesGracefully(c, resp, jsonResp)
 

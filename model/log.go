@@ -316,7 +316,6 @@ func PatchLatestConsumeLogOutputByTaskID(ctx context.Context, taskID string, out
 		otherMap = make(map[string]interface{})
 	}
 	otherMap["output_url"] = outputURL
-	otherMap["output_preview"] = outputURL
 	log.Other = common.MapToJsonStr(otherMap)
 	return LOG_DB.WithContext(ctx).
 		Model(&Log{}).

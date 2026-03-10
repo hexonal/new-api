@@ -674,9 +674,10 @@ export const getLogsColumns = ({
       dataIndex: 'other',
       render: (text, record) => {
         const other = getLogOther(record.other);
-        const outputContent = Array.isArray(other?.output_media) && other.output_media.length > 0
-          ? other.output_media.join('\n')
-          : other?.output_preview;
+        const outputContent = other?.output_body ||
+          (Array.isArray(other?.output_media) && other.output_media.length > 0
+            ? other.output_media.join('\n')
+            : other?.output_preview);
         return renderPreviewButton(
           outputContent,
           t('查看输出'),

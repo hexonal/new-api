@@ -14,6 +14,7 @@ const (
 	logPreviewInputKey  = "log_preview_input"
 	logPreviewOutputKey = "log_preview_output"
 	logPreviewMediaKey  = "log_preview_media"
+	logOutputBodyKey    = "log_output_body"
 	logPreviewMaxChars  = 4000
 )
 
@@ -23,6 +24,24 @@ func SetLogInputPreview(c *gin.Context, value string) {
 
 func SetLogOutputPreview(c *gin.Context, value string) {
 	setLogPreviewValue(c, logPreviewOutputKey, value)
+}
+
+func SetLogOutputBody(c *gin.Context, value string) {
+	if c == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	c.Set(logOutputBodyKey, value)
+}
+
+func SetLogOutputBodyBytes(c *gin.Context, value []byte) {
+	if len(value) == 0 {
+		return
+	}
+	SetLogOutputBody(c, string(value))
 }
 
 func SetLogOutputMedia(c *gin.Context, values []string) {
@@ -71,6 +90,12 @@ func AppendLogPreview(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other 
 
 	if output := strings.TrimSpace(getContextString(ctx, logPreviewOutputKey)); output != "" {
 		other["output_preview"] = trimLogPreview(output)
+	}
+	if outputBody := strings.TrimSpace(getContextString(ctx, logOutputBodyKey)); outputBody != "" {
+		other["output_body"] = outputBody
+		if _, ok := other["output_preview"]; !ok {
+			other["output_preview"] = trimLogPreview(outputBody)
+		}
 	}
 
 	if ctx != nil {

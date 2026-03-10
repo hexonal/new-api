@@ -115,6 +115,9 @@ func main() {
 	// Callback event cleanup task (daily midnight, keep last 3 days)
 	service.StartCallbackEventCleanupTask()
 
+	// Usage log cleanup task (daily, retention controlled by LogCleanupRetentionDays)
+	service.StartLogCleanupTask()
+
 	// Daily user usage report task (yesterday summary + top 20)
 	service.StartDailyUserUsageReportTask()
 

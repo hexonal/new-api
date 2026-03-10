@@ -417,7 +417,16 @@ export const useLogsData = () => {
           ),
         });
       }
-      if (other?.output_preview) {
+      if (other?.output_body) {
+        expandDataLocal.push({
+          key: t('输出日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_body}
+            </div>
+          ),
+        });
+      } else if (other?.output_preview) {
         expandDataLocal.push({
           key: t('输出日志'),
           value: (
