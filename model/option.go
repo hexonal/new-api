@@ -178,6 +178,7 @@ func InitOptionMap() {
 	common.OptionMap["MonitorAlertCallErrorEnabled"] = "true"
 	common.OptionMap["MonitorAlertCallbackErrorEnabled"] = "true"
 	common.OptionMap["MonitorAlertDiskEnabled"] = "true"
+	common.OptionMap["MonitorAlertMaskSensitiveEnabled"] = "false"
 	common.OptionMap["MonitorAlertDiskThresholdPercent"] = "90"
 	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"

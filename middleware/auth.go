@@ -307,6 +307,9 @@ func TokenAuth() func(c *gin.Context) {
 			if id == 0 {
 				c.Set("id", token.UserId)
 			}
+			c.Set("token_id", token.Id)
+			c.Set("token_key", token.Key)
+			c.Set("token_name", token.Name)
 		}
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())

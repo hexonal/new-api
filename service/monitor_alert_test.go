@@ -42,3 +42,27 @@ func TestFormatMonitorAlertMarkdown(t *testing.T) {
 	require.Contains(t, output, "status code: 401")
 	require.Contains(t, output, "model name: gpt-4.1-mini")
 }
+
+func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {
+	cfg := monitorAlertConfig{MaskSensitive: false}
+	output := sanitizeMonitorAlertData(cfg, map[string]interface{}{
+		"error":    "[sk-Bmr***Zsn] token quota exhausted",
+		"token_sk": "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
+	})
+
+	require.Equal(t, "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn", output["token_sk"])
+	require.Contains(t, output["error"], "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn")
+}
+
+func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
+	cfg := monitorAlertConfig{MaskSensitive: true}
+	output := sanitizeMonitorAlertData(cfg, map[string]interface{}{
+		"error":        "request to https://open.feishu.cn/open-apis/bot/v2/hook/abc failed for sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
+		"callback_url": "https://open.feishu.cn/open-apis/bot/v2/hook/abc",
+		"token_sk":     "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
+	})
+
+	require.Equal(t, "sk-Bmr1***2Zsn", output["token_sk"])
+	require.NotContains(t, output["error"], "open.feishu.cn")
+	require.NotContains(t, output["callback_url"], "open.feishu.cn")
+}

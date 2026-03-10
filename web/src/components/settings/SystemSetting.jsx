@@ -118,6 +118,7 @@ const defaultInputs = {
   MonitorAlertType: 'feishu',
   MonitorAlertUrl: '',
   MonitorAlertSecret: '',
+  MonitorAlertMaskSensitiveEnabled: false,
   MonitorAlertCallErrorEnabled: false,
   MonitorAlertCallbackErrorEnabled: false,
   MonitorAlertDiskEnabled: false,
@@ -202,6 +203,7 @@ const SystemSetting = () => {
           case 'SMTPSSLEnabled':
           case 'DailyUserUsageReportEnabled':
           case 'MonitorAlertEnabled':
+          case 'MonitorAlertMaskSensitiveEnabled':
           case 'MonitorAlertCallErrorEnabled':
           case 'MonitorAlertCallbackErrorEnabled':
           case 'MonitorAlertDiskEnabled':
@@ -261,11 +263,10 @@ const SystemSetting = () => {
     getOptions();
   }, []);
 
-  const hasMonitorAlertCooldownField =
-    Object.prototype.hasOwnProperty.call(
-      originInputs,
-      'MonitorAlertCooldownMinutes',
-    );
+  const hasMonitorAlertCooldownField = Object.prototype.hasOwnProperty.call(
+    originInputs,
+    'MonitorAlertCooldownMinutes',
+  );
 
   const updateOptions = async (options) => {
     setLoading(true);
@@ -777,6 +778,10 @@ const SystemSetting = () => {
         value: inputs.MonitorAlertSecret || '',
       },
       {
+        key: 'MonitorAlertMaskSensitiveEnabled',
+        value: !!inputs.MonitorAlertMaskSensitiveEnabled,
+      },
+      {
         key: 'MonitorAlertCallErrorEnabled',
         value: !!inputs.MonitorAlertCallErrorEnabled,
       },
@@ -954,7 +959,9 @@ const SystemSetting = () => {
                         field={'DailyUserUsageReportName'}
                         label={t('日报名称')}
                         placeholder={t('例如：ima-route')}
-                        extraText={t('用于飞书卡片标题展示，未填写时默认使用系统名称。')}
+                        extraText={t(
+                          '用于飞书卡片标题展示，未填写时默认使用系统名称。',
+                        )}
                       />
                     </Col>
                     <Col xs={24} sm={12} md={8} lg={8} xl={8}>
@@ -1121,6 +1128,24 @@ const SystemSetting = () => {
                         extraText={t(
                           '通用 Webhook 可填写签名密钥，系统会附带签名请求头；Feishu 通常留空。',
                         )}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={6} lg={6} xl={6}>
+                      <Form.Switch
+                        field={'MonitorAlertMaskSensitiveEnabled'}
+                        label={t('敏感信息脱敏')}
+                        size='default'
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        extraText={t(
+                          '开启后会对监控告警中的 token、URL 等敏感信息做脱敏；默认关闭。',
+                        )}
+                        onChange={(value) =>
+                          setInputs({
+                            ...inputs,
+                            MonitorAlertMaskSensitiveEnabled: value,
+                          })
+                        }
                       />
                     </Col>
                     <Col xs={24} sm={12} md={6} lg={6} xl={6}>

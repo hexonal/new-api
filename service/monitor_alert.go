@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +35,7 @@ type monitorAlertConfig struct {
 	AlertType            string
 	CallbackURL          string
 	Secret               string
+	MaskSensitive        bool
 	CallErrorEnabled     bool
 	CallbackErrorEnabled bool
 	DiskEnabled          bool
@@ -50,6 +52,7 @@ type monitorAlertWebhookPayload struct {
 var (
 	monitorAlertOnce      sync.Once
 	monitorAlertCooldowns sync.Map
+	maskedSKPattern       = regexp.MustCompile(`sk-[A-Za-z0-9]{1,8}\*{3}[A-Za-z0-9]{1,8}`)
 )
 
 func StartMonitorAlertTask() {
@@ -93,6 +96,7 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 		"group":        strings.TrimSpace(c.GetString("group")),
 		"model_name":   strings.TrimSpace(c.GetString("original_model")),
 		"token_name":   strings.TrimSpace(c.GetString("token_name")),
+		"token_sk":     strings.TrimSpace(c.GetString("token_key")),
 		"channel_id":   channelError.ChannelId,
 		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
 		"channel_type": c.GetInt("channel_type"),
@@ -136,6 +140,7 @@ func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message
 		"group":        strings.TrimSpace(c.GetString("group")),
 		"model_name":   strings.TrimSpace(c.GetString("original_model")),
 		"token_name":   strings.TrimSpace(c.GetString("token_name")),
+		"token_sk":     strings.TrimSpace(c.GetString("token_key")),
 		"channel_id":   c.GetInt("channel_id"),
 		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
 		"channel_type": c.GetInt("channel_type"),
@@ -178,6 +183,7 @@ func NotifyMonitorCallbackError(event *model.CallbackEvent, attemptNo int, statu
 		"username":          strings.TrimSpace(event.UsernameSnapshot),
 		"token_id":          event.TokenID,
 		"token_name":        strings.TrimSpace(event.TokenNameSnapshot),
+		"token_sk":          strings.TrimSpace(event.TokenSKSnapshot),
 	}
 
 	idempotencyKey := fmt.Sprintf("monitor_alert:callback_error:%d:%d", event.ID, attemptNo)
@@ -232,6 +238,7 @@ func getMonitorAlertConfig() monitorAlertConfig {
 		AlertType:            strings.TrimSpace(strings.ToLower(common.OptionMap["MonitorAlertType"])),
 		CallbackURL:          strings.TrimSpace(common.OptionMap["MonitorAlertUrl"]),
 		Secret:               common.OptionMap["MonitorAlertSecret"],
+		MaskSensitive:        common.OptionMap["MonitorAlertMaskSensitiveEnabled"] == "true",
 		CallErrorEnabled:     common.OptionMap["MonitorAlertCallErrorEnabled"] != "false",
 		CallbackErrorEnabled: common.OptionMap["MonitorAlertCallbackErrorEnabled"] != "false",
 		DiskEnabled:          common.OptionMap["MonitorAlertDiskEnabled"] != "false",
@@ -271,6 +278,7 @@ func allowMonitorAlertByCooldown(key string, now time.Time, cooldownMinutes int)
 }
 
 func enqueueMonitorAlert(cfg monitorAlertConfig, title string, requestID string, data map[string]interface{}, idempotencyKey string) error {
+	data = sanitizeMonitorAlertData(cfg, data)
 	switch cfg.AlertType {
 	case monitorAlertTypeWebhook:
 		return enqueueMonitorAlertWebhook(cfg, title, requestID, data, idempotencyKey)
@@ -369,7 +377,7 @@ func formatMonitorAlertMarkdown(title string, requestID string, data map[string]
 	}
 	orderedKeys := []string{
 		"kind", "request_path", "status_code", "error_type", "error_code", "error",
-		"user_id", "username", "group", "model_name", "token_name", "channel_id", "channel_name", "channel_type",
+		"user_id", "username", "group", "model_name", "token_name", "token_sk", "channel_id", "channel_name", "channel_type",
 		"callback_event_id", "callback_event", "sink_type", "source", "attempt_no", "http_status", "callback_url", "response",
 		"cache_path", "used_percent", "threshold_percent", "total", "used", "free", "cache_file_count", "cache_total_size",
 	}
@@ -397,6 +405,69 @@ func mergeMonitorAlertData(title string, requestID string, data map[string]inter
 		merged[key] = value
 	}
 	return merged
+}
+
+func sanitizeMonitorAlertData(cfg monitorAlertConfig, data map[string]interface{}) map[string]interface{} {
+	sanitized := make(map[string]interface{}, len(data))
+	for key, value := range data {
+		sanitized[key] = value
+	}
+
+	tokenSK := normalizeMonitorAlertTokenSK(sanitized["token_sk"])
+	if cfg.MaskSensitive {
+		if tokenSK != "" {
+			sanitized["token_sk"] = maskMonitorAlertSK(tokenSK)
+		}
+		for _, key := range []string{"error", "response", "callback_url", "request_path"} {
+			text := strings.TrimSpace(fmt.Sprintf("%v", sanitized[key]))
+			if text != "" {
+				sanitized[key] = common.MaskSensitiveInfo(text)
+			}
+		}
+		return sanitized
+	}
+
+	if tokenSK != "" {
+		sanitized["token_sk"] = tokenSK
+		if text := strings.TrimSpace(fmt.Sprintf("%v", sanitized["error"])); text != "" {
+			sanitized["error"] = restoreMonitorAlertSK(text, tokenSK)
+		}
+		if text := strings.TrimSpace(fmt.Sprintf("%v", sanitized["response"])); text != "" {
+			sanitized["response"] = restoreMonitorAlertSK(text, tokenSK)
+		}
+	}
+	return sanitized
+}
+
+func normalizeMonitorAlertTokenSK(raw interface{}) string {
+	text := strings.TrimSpace(fmt.Sprintf("%v", raw))
+	if text == "" || text == "<nil>" {
+		return ""
+	}
+	if strings.HasPrefix(text, "sk-") {
+		return text
+	}
+	return "sk-" + text
+}
+
+func maskMonitorAlertSK(raw string) string {
+	raw = normalizeMonitorAlertTokenSK(raw)
+	if raw == "" {
+		return ""
+	}
+	key := strings.TrimPrefix(raw, "sk-")
+	if len(key) <= 8 {
+		return "sk-***"
+	}
+	return fmt.Sprintf("sk-%s***%s", key[:4], key[len(key)-4:])
+}
+
+func restoreMonitorAlertSK(text string, tokenSK string) string {
+	tokenSK = normalizeMonitorAlertTokenSK(tokenSK)
+	if tokenSK == "" || strings.TrimSpace(text) == "" {
+		return text
+	}
+	return maskedSKPattern.ReplaceAllString(text, tokenSK)
 }
 
 func signMonitorAlert(secret string, timestamp string, payload []byte) string {
