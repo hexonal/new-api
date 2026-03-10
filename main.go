@@ -302,6 +302,7 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+	model.StartOptionSyncSubscriber()
 
 	// 启动系统监控
 	common.StartSystemMonitor()
