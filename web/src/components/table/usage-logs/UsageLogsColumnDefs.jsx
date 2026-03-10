@@ -661,10 +661,11 @@ export const getLogsColumns = ({
       dataIndex: 'other',
       render: (text, record) => {
         const other = getLogOther(record.other);
+        const inputContent = other?.input_body || other?.input_preview;
         return renderPreviewButton(
-          other?.input_preview,
+          inputContent,
           t('查看输入'),
-          () => openPreviewModal?.(t('输入日志'), other?.input_preview),
+          () => openPreviewModal?.(t('输入日志'), inputContent),
         );
       },
     },

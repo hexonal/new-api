@@ -216,6 +216,16 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "LogCleanupRetentionDays":
+		var retentionDays int
+		retentionDays, err = strconv.Atoi(strings.TrimSpace(option.Value.(string)))
+		if err != nil || retentionDays < 0 || retentionDays > 3650 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "日志自动清理保留天数必须在 0 到 3650 之间",
+			})
+			return
+		}
 	case "console_setting.api_info":
 		err = console_setting.ValidateConsoleSettings(option.Value.(string), "ApiInfo")
 		if err != nil {

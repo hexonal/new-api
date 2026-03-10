@@ -213,8 +213,8 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
 	}
 	appendRequestPath(nil, relayInfo, other)
-	if inputPreview := BuildTaskLogInputPreview(nil, relayInfo); inputPreview != "" {
-		other["input_preview"] = inputPreview
+	if inputBody := BuildTaskLogInputBody(nil, relayInfo); inputBody != "" {
+		other["input_body"] = inputBody
 	}
 	return other
 }

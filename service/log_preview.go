@@ -14,6 +14,7 @@ const (
 	logPreviewInputKey  = "log_preview_input"
 	logPreviewOutputKey = "log_preview_output"
 	logPreviewMediaKey  = "log_preview_media"
+	logInputBodyKey     = "log_input_body"
 	logOutputBodyKey    = "log_output_body"
 	logPreviewMaxChars  = 4000
 )
@@ -24,6 +25,24 @@ func SetLogInputPreview(c *gin.Context, value string) {
 
 func SetLogOutputPreview(c *gin.Context, value string) {
 	setLogPreviewValue(c, logPreviewOutputKey, value)
+}
+
+func SetLogInputBody(c *gin.Context, value string) {
+	if c == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	c.Set(logInputBodyKey, value)
+}
+
+func SetLogInputBodyBytes(c *gin.Context, value []byte) {
+	if len(value) == 0 {
+		return
+	}
+	SetLogInputBody(c, string(value))
 }
 
 func SetLogOutputBody(c *gin.Context, value string) {
@@ -78,46 +97,42 @@ func AppendLogPreview(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other 
 		return
 	}
 
-	if input := strings.TrimSpace(getContextString(ctx, logPreviewInputKey)); input != "" {
-		other["input_preview"] = trimLogPreview(input)
-	} else if input := strings.TrimSpace(buildBodyPreview(ctx)); input != "" {
-		other["input_preview"] = input
+	if inputBody := strings.TrimSpace(getContextString(ctx, logInputBodyKey)); inputBody != "" {
+		other["input_body"] = inputBody
 	} else if relayInfo != nil && relayInfo.Request != nil {
 		if requestJSON := strings.TrimSpace(common.GetJsonString(relayInfo.Request)); requestJSON != "" && requestJSON != "null" {
-			other["input_preview"] = trimLogPreview(requestJSON)
+			other["input_body"] = requestJSON
 		}
+	} else if inputBody := strings.TrimSpace(buildBodyJSON(ctx)); inputBody != "" {
+		other["input_body"] = inputBody
+	} else if input := strings.TrimSpace(getContextString(ctx, logPreviewInputKey)); input != "" {
+		other["input_preview"] = trimLogPreview(input)
 	}
 
-	if output := strings.TrimSpace(getContextString(ctx, logPreviewOutputKey)); output != "" {
-		other["output_preview"] = trimLogPreview(output)
-	}
 	if outputBody := strings.TrimSpace(getContextString(ctx, logOutputBodyKey)); outputBody != "" {
 		other["output_body"] = outputBody
-		if _, ok := other["output_preview"]; !ok {
-			other["output_preview"] = trimLogPreview(outputBody)
-		}
 	}
 
 	if ctx != nil {
 		if media, ok := ctx.Get(logPreviewMediaKey); ok {
 			if urls, castOK := media.([]string); castOK && len(urls) > 0 {
 				other["output_media"] = urls
-				if output := strings.TrimSpace(firstNonEmptyStrings(urls...)); output != "" {
-					other["output_preview"] = trimLogPreview(output)
-				}
 			}
 		}
 	}
 }
 
-func BuildTaskLogInputPreview(c *gin.Context, relayInfo *relaycommon.RelayInfo) string {
-	if bodyPreview := strings.TrimSpace(buildBodyPreview(c)); bodyPreview != "" {
-		return bodyPreview
+func BuildTaskLogInputBody(c *gin.Context, relayInfo *relaycommon.RelayInfo) string {
+	if relayInfo != nil && relayInfo.Request != nil {
+		requestJSON := strings.TrimSpace(common.GetJsonString(relayInfo.Request))
+		if requestJSON != "" && requestJSON != "null" {
+			return requestJSON
+		}
 	}
-	if relayInfo == nil || relayInfo.Request == nil {
-		return ""
+	if bodyJSON := strings.TrimSpace(buildBodyJSON(c)); bodyJSON != "" {
+		return bodyJSON
 	}
-	return trimLogPreview(common.GetJsonString(relayInfo.Request))
+	return ""
 }
 
 func trimLogPreview(value string) string {
@@ -155,16 +170,7 @@ func setLogPreviewValue(c *gin.Context, key string, value string) {
 	c.Set(key, value)
 }
 
-func firstNonEmptyStrings(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
-func buildBodyPreview(c *gin.Context) string {
+func buildBodyJSON(c *gin.Context) string {
 	if c == nil {
 		return ""
 	}
@@ -176,5 +182,12 @@ func buildBodyPreview(c *gin.Context) string {
 	if err != nil || len(body) == 0 {
 		return ""
 	}
-	return trimLogPreview(string(body))
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		return trimmed
+	}
+	return ""
 }

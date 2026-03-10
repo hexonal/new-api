@@ -46,6 +46,7 @@ export default function SettingsLog(props) {
   const [loadingCleanHistoryLog, setLoadingCleanHistoryLog] = useState(false);
   const [inputs, setInputs] = useState({
     LogConsumeEnabled: false,
+    LogCleanupRetentionDays: '0',
     historyTimestamp: dayjs().subtract(1, 'month').toDate(),
   });
   const refForm = useRef();
@@ -212,6 +213,21 @@ export default function SettingsLog(props) {
                     setInputs({
                       ...inputs,
                       LogConsumeEnabled: value,
+                    });
+                  }}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'LogCleanupRetentionDays'}
+                  label={t('自动清理日志保留天数')}
+                  min={0}
+                  step={1}
+                  extraText={t('0 表示关闭自动清理；大于 0 时，每天自动清理 N 天前的使用日志')}
+                  onChange={(value) => {
+                    setInputs({
+                      ...inputs,
+                      LogCleanupRetentionDays: String(value ?? '0'),
                     });
                   }}
                 />

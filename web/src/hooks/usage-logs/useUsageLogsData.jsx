@@ -407,7 +407,16 @@ export const useLogsData = () => {
           value: other.text_output,
         });
       }
-      if (other?.input_preview) {
+      if (other?.input_body) {
+        expandDataLocal.push({
+          key: t('输入日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.input_body}
+            </div>
+          ),
+        });
+      } else if (other?.input_preview) {
         expandDataLocal.push({
           key: t('输入日志'),
           value: (

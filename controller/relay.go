@@ -593,7 +593,7 @@ func RelayTask(c *gin.Context) {
 			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
 		}
 		task.Quota = result.Quota
-		task.Properties.Input = service.BuildTaskLogInputPreview(c, relayInfo)
+		task.Properties.Input = service.BuildTaskLogInputBody(c, relayInfo)
 		if c.Request != nil && c.Request.URL != nil {
 			task.Properties.RequestPath = c.Request.URL.Path
 		}
