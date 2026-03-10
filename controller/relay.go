@@ -88,6 +88,14 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer func() {
 		if newAPIError != nil {
 			logger.LogError(c, fmt.Sprintf("relay error: %s", newAPIError.Error()))
+			service.NotifyMonitorAPIError(
+				c,
+				"API request failed",
+				newAPIError.StatusCode,
+				newAPIError.ErrorWithStatusCode(),
+				string(newAPIError.GetErrorType()),
+				string(newAPIError.GetErrorCode()),
+			)
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
@@ -389,6 +397,8 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		useTimeSeconds := int(time.Since(startTime).Seconds())
 		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, false, userGroup, other)
 	}
+
+	service.NotifyMonitorCallError(c, channelError, err)
 
 }
 

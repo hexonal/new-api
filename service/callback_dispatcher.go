@@ -159,6 +159,12 @@ func (d *callbackDispatcher) processEvent(event *model.CallbackEvent) {
 	if event == nil {
 		return
 	}
+	if shouldCancelCallbackEvent(event) {
+		if err := model.MarkCallbackEventCancelled(event.ID, "callback cancelled: monitor alert disabled", common.GetTimestamp()); err != nil {
+			common.SysError(fmt.Sprintf("mark callback event cancelled failed: id=%d err=%s", event.ID, err.Error()))
+		}
+		return
+	}
 	cfg := getCallbackDispatchConfig()
 	attemptNo := event.AttemptCount + 1
 	startedAt := common.GetTimestamp()
@@ -215,6 +221,7 @@ func (d *callbackDispatcher) processEvent(event *model.CallbackEvent) {
 		if err := model.MarkCallbackEventDead(event.ID, attemptNo, statusCode, logErrMsg, firstAttemptAt, finishedAt); err != nil {
 			common.SysError(fmt.Sprintf("mark callback event dead failed: id=%d err=%s", event.ID, err.Error()))
 		}
+		NotifyMonitorCallbackError(event, attemptNo, statusCode, logErrMsg, responseSnippet)
 	}
 	_ = model.InsertCallbackEventAttempt(&model.CallbackEventAttempt{
 		EventID:         event.ID,
@@ -227,6 +234,16 @@ func (d *callbackDispatcher) processEvent(event *model.CallbackEvent) {
 		ResponseSnippet: responseSnippet,
 		NodeID:          d.nodeID,
 	})
+}
+
+func shouldCancelCallbackEvent(event *model.CallbackEvent) bool {
+	if event == nil {
+		return false
+	}
+	if !isMonitorAlertCallbackEvent(event) {
+		return false
+	}
+	return !getMonitorAlertConfig().Enabled
 }
 
 func calculateCallbackBackoff(initialMs int, maxMs int, retryIndex int) time.Duration {

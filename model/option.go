@@ -1,8 +1,12 @@
 package model
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -12,6 +16,19 @@ import (
 	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
+)
+
+const optionSyncRedisChannel = "new-api:option-sync"
+
+type optionSyncMessage struct {
+	Key    string `json:"key"`
+	Value  string `json:"value"`
+	NodeID string `json:"node_id"`
+}
+
+var (
+	optionSyncNodeID = fmt.Sprintf("%s-%s", strings.TrimSpace(common.GetEnvOrDefaultString("HOSTNAME", "node")), common.GetUUID()[:8])
+	optionSyncOnce   sync.Once
 )
 
 type Option struct {
@@ -171,6 +188,16 @@ func InitOptionMap() {
 	common.OptionMap["DailyUserUsageReportUserPrefixFilter"] = ""
 	common.OptionMap["DailyUserUsageReportHour"] = "0"
 	common.OptionMap["DailyUserUsageReportMinute"] = "10"
+	common.OptionMap["MonitorAlertEnabled"] = "false"
+	common.OptionMap["MonitorAlertType"] = "feishu"
+	common.OptionMap["MonitorAlertUrl"] = ""
+	common.OptionMap["MonitorAlertSecret"] = ""
+	common.OptionMap["MonitorAlertCallErrorEnabled"] = "true"
+	common.OptionMap["MonitorAlertCallbackErrorEnabled"] = "true"
+	common.OptionMap["MonitorAlertDiskEnabled"] = "true"
+	common.OptionMap["MonitorAlertMaskSensitiveEnabled"] = "false"
+	common.OptionMap["MonitorAlertDiskThresholdPercent"] = "90"
+	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 
 	// 自动添加所有注册的模型配置
@@ -201,6 +228,53 @@ func SyncOptions(frequency int) {
 	}
 }
 
+func StartOptionSyncSubscriber() {
+	if !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	optionSyncOnce.Do(func() {
+		go func() {
+			for {
+				if err := runOptionSyncSubscriber(); err != nil {
+					common.SysError("option sync subscriber stopped: " + err.Error())
+				}
+				time.Sleep(time.Second)
+			}
+		}()
+	})
+}
+
+func runOptionSyncSubscriber() error {
+	ctx := context.Background()
+	pubsub := common.RDB.Subscribe(ctx, optionSyncRedisChannel)
+	if _, err := pubsub.Receive(ctx); err != nil {
+		_ = pubsub.Close()
+		return err
+	}
+	defer func() {
+		if err := pubsub.Close(); err != nil {
+			common.SysError("option sync subscriber close failed: " + err.Error())
+		}
+	}()
+	common.SysLog("option sync subscriber started")
+
+	ch := pubsub.Channel()
+	for msg := range ch {
+		var payload optionSyncMessage
+		if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
+			common.SysError("option sync payload decode failed: " + err.Error())
+			continue
+		}
+		if payload.NodeID == optionSyncNodeID || strings.TrimSpace(payload.Key) == "" {
+			continue
+		}
+		if err := updateOptionMap(payload.Key, payload.Value); err != nil {
+			common.SysError("option sync apply failed: " + err.Error())
+		}
+	}
+	return fmt.Errorf("redis pubsub channel closed")
+}
+
 func UpdateOption(key string, value string) error {
 	// Save to database first.
 	if err := upsertOptionValue(key, value); err != nil {
@@ -214,7 +288,29 @@ func UpdateOption(key string, value string) error {
 		}
 	}
 	// Update OptionMap
-	return updateOptionMap(key, value)
+	if err := updateOptionMap(key, value); err != nil {
+		return err
+	}
+	publishOptionUpdate(key, value)
+	return nil
+}
+
+func publishOptionUpdate(key string, value string) {
+	if !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	body, err := json.Marshal(optionSyncMessage{
+		Key:    key,
+		Value:  value,
+		NodeID: optionSyncNodeID,
+	})
+	if err != nil {
+		common.SysError("marshal option sync payload failed: " + err.Error())
+		return
+	}
+	if err := common.RDB.Publish(context.Background(), optionSyncRedisChannel, body).Err(); err != nil {
+		common.SysError("publish option sync failed: " + err.Error())
+	}
 }
 
 func upsertOptionValue(key string, value string) error {

@@ -243,6 +243,19 @@ func MarkCallbackEventDead(id int64, attemptCount int, httpStatus int, errMsg st
 		}).Error
 }
 
+func MarkCallbackEventCancelled(id int64, reason string, finishedAt int64) error {
+	return DB.Model(&CallbackEvent{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"status":        CallbackEventStatusCancelled,
+			"last_error":    trimErrorForStorage(reason),
+			"locked_by":     "",
+			"locked_at":     0,
+			"next_retry_at": 0,
+			"updated_at":    finishedAt,
+		}).Error
+}
+
 func trimErrorForStorage(errMsg string) string {
 	errMsg = strings.TrimSpace(errMsg)
 	if len(errMsg) <= 8000 {

@@ -118,6 +118,9 @@ func main() {
 	// Daily user usage report task (yesterday summary + top 20)
 	service.StartDailyUserUsageReportTask()
 
+	// Monitor alert task (disk space threshold checks)
+	service.StartMonitorAlertTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)
@@ -299,6 +302,7 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+	model.StartOptionSyncSubscriber()
 
 	// 启动系统监控
 	common.StartSystemMonitor()
