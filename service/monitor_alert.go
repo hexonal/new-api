@@ -25,6 +25,7 @@ const (
 	monitorAlertDefaultDiskThreshold   = 90
 	monitorAlertDefaultCooldownMinutes = 60
 	monitorAlertDiskPollInterval       = time.Minute
+	monitorAlertContextSentKey         = "monitor_alert_sent"
 )
 
 type monitorAlertConfig struct {
@@ -69,6 +70,9 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	if c == nil || err == nil {
 		return
 	}
+	if monitorAlertAlreadySent(c) {
+		return
+	}
 	cfg := getMonitorAlertConfig()
 	if !cfg.Enabled || !cfg.CallErrorEnabled || strings.TrimSpace(cfg.CallbackURL) == "" {
 		return
@@ -98,9 +102,52 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	}
 
 	idempotencyKey := fmt.Sprintf("monitor_alert:call_error:%s", nonEmptyMonitorAlertID(requestID))
+	markMonitorAlertSent(c)
 	gopool.Go(func() {
 		if enqueueErr := enqueueMonitorAlert(cfg, "API call error", requestID, data, idempotencyKey); enqueueErr != nil {
 			common.SysError("enqueue monitor call error alert failed: " + enqueueErr.Error())
+		}
+	})
+}
+
+func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message string, errorType string, errorCode string) {
+	if c == nil {
+		return
+	}
+	if monitorAlertAlreadySent(c) {
+		return
+	}
+	cfg := getMonitorAlertConfig()
+	if !cfg.Enabled || !cfg.CallErrorEnabled || strings.TrimSpace(cfg.CallbackURL) == "" {
+		return
+	}
+
+	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	data := map[string]interface{}{
+		"kind":         "api_error",
+		"request_id":   requestID,
+		"request_path": "",
+		"status_code":  statusCode,
+		"error_type":   strings.TrimSpace(errorType),
+		"error_code":   strings.TrimSpace(errorCode),
+		"error":        strings.TrimSpace(message),
+		"user_id":      c.GetInt("id"),
+		"username":     strings.TrimSpace(c.GetString("username")),
+		"group":        strings.TrimSpace(c.GetString("group")),
+		"model_name":   strings.TrimSpace(c.GetString("original_model")),
+		"token_name":   strings.TrimSpace(c.GetString("token_name")),
+		"channel_id":   c.GetInt("channel_id"),
+		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
+		"channel_type": c.GetInt("channel_type"),
+	}
+	if c.Request != nil && c.Request.URL != nil {
+		data["request_path"] = c.Request.URL.Path
+	}
+	idempotencyKey := fmt.Sprintf("monitor_alert:api_error:%s", nonEmptyMonitorAlertID(requestID))
+	markMonitorAlertSent(c)
+	gopool.Go(func() {
+		if enqueueErr := enqueueMonitorAlert(cfg, title, requestID, data, idempotencyKey); enqueueErr != nil {
+			common.SysError("enqueue monitor api error alert failed: " + enqueueErr.Error())
 		}
 	})
 }
@@ -365,6 +412,20 @@ func nonEmptyMonitorAlertID(value string) string {
 		return value
 	}
 	return common.GetUUID()
+}
+
+func monitorAlertAlreadySent(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	return c.GetBool(monitorAlertContextSentKey)
+}
+
+func markMonitorAlertSent(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	c.Set(monitorAlertContextSentKey, true)
 }
 
 func monitorAlertNodeName() string {
