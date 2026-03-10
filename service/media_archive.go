@@ -33,6 +33,7 @@ type mediaArchiveKind string
 const (
 	mediaArchiveKindImage mediaArchiveKind = "image"
 	mediaArchiveKindVideo mediaArchiveKind = "video"
+	mediaArchiveTimeout                    = 2 * time.Minute
 )
 
 type mediaArchiveMeta struct {
@@ -65,10 +66,12 @@ func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo,
 	if info.ChannelMeta != nil {
 		meta.Proxy = strings.TrimSpace(info.ChannelSetting.Proxy)
 	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
 
 	for i := range imageResponse.Data {
 		meta.Index = i
-		if archivedURL, ok := maybeArchiveImageData(ctx, imageResponse.Data[i], meta, cfg); ok {
+		if archivedURL, ok := maybeArchiveImageData(archiveCtx, imageResponse.Data[i], meta, cfg); ok {
 			imageResponse.Data[i].Url = archivedURL
 			imageResponse.Data[i].B64Json = ""
 		}
@@ -91,15 +94,24 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 		ChannelID: task.ChannelId,
 		UserID:    task.UserId,
 	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
 
-	if archivedURL, ok := maybeArchiveMediaReference(ctx, strings.TrimSpace(sourceURL), meta, cfg); ok {
+	if archivedURL, ok := maybeArchiveMediaReference(archiveCtx, strings.TrimSpace(sourceURL), meta, cfg); ok {
 		return archivedURL, true
 	}
 	payloadURL := extractTaskPayloadMediaURL(responseBody)
 	if payloadURL == "" {
 		return "", false
 	}
-	return maybeArchiveMediaReference(ctx, payloadURL, meta, cfg)
+	return maybeArchiveMediaReference(archiveCtx, payloadURL, meta, cfg)
+}
+
+func newMediaArchiveContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		return context.WithTimeout(context.Background(), mediaArchiveTimeout)
+	}
+	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
 }
 
 func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string, bool) {
