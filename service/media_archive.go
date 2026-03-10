@@ -434,16 +434,21 @@ func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
 }
 
 func extensionFromMimeType(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg", "image/jpg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "video/mp4":
+		return ".mp4"
+	}
 	exts, err := mime.ExtensionsByType(mimeType)
 	if err != nil || len(exts) == 0 {
-		switch mimeType {
-		case "image/webp":
-			return ".webp"
-		case "video/mp4":
-			return ".mp4"
-		default:
-			return ""
-		}
+		return ""
 	}
 	return exts[0]
 }
