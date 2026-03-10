@@ -170,6 +170,42 @@ const renderPlatform = (platform, t) => {
   }
 };
 
+const getTaskPlatformModelName = (record) => {
+  const properties = record?.properties;
+  const candidates = [
+    properties?.origin_model_name,
+    properties?.upstream_model_name,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') {
+      return candidate.trim().toLowerCase();
+    }
+  }
+  return '';
+};
+
+const renderTaskPlatform = (record, t) => {
+  const platform = record?.platform;
+  const modelName = getTaskPlatformModelName(record);
+  if (String(platform) === '55') {
+    if (modelName.startsWith('veo')) {
+      return (
+        <Tag color='light-blue' shape='circle'>
+          Veo
+        </Tag>
+      );
+    }
+    if (modelName.startsWith('sora')) {
+      return (
+        <Tag color='green' shape='circle'>
+          Sora
+        </Tag>
+      );
+    }
+  }
+  return renderPlatform(platform, t);
+};
+
 const renderPreviewText = (value) => {
   if (!value) {
     return '-';
@@ -348,7 +384,7 @@ export const getTaskLogsColumns = ({
       title: t('平台'),
       dataIndex: 'platform',
       render: (text, record, index) => {
-        return <div>{renderPlatform(text, t)}</div>;
+        return <div>{renderTaskPlatform(record, t)}</div>;
       },
     },
     {
