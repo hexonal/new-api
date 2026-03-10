@@ -308,17 +308,39 @@ function renderPreviewButton(value, label, onOpen) {
   if (!value) {
     return <></>;
   }
+  const preview = String(value).replace(/\s+/g, ' ').trim();
   return (
-    <Button
-      theme='light'
-      size='small'
-      onClick={(event) => {
-        event.stopPropagation();
-        onOpen?.();
-      }}
-    >
-      {label}
-    </Button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }}>
+      <Typography.Text
+        style={{
+          maxWidth: 260,
+          fontSize: 12,
+          lineHeight: 1.5,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        }}
+        ellipsis={{
+          rows: 2,
+          expandable: false,
+          showTooltip: {
+            opts: {
+              content: preview,
+            },
+          },
+        }}
+      >
+        {preview}
+      </Typography.Text>
+      <Button
+        theme='light'
+        size='small'
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen?.();
+        }}
+      >
+        {label}
+      </Button>
+    </div>
   );
 }
 
