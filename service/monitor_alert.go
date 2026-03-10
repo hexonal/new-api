@@ -367,6 +367,18 @@ func nonEmptyMonitorAlertID(value string) string {
 	return common.GetUUID()
 }
 
+func monitorAlertNodeName() string {
+	host := strings.TrimSpace(common.GetEnvOrDefaultString("HOSTNAME", ""))
+	if host != "" {
+		return host
+	}
+	ip := strings.TrimSpace(common.GetIp())
+	if ip != "" {
+		return ip
+	}
+	return "node"
+}
+
 func isMonitorAlertCallbackEvent(event *model.CallbackEvent) bool {
 	if event == nil {
 		return false
