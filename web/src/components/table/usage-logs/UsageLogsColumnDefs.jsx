@@ -308,7 +308,12 @@ function renderPreviewButton(value, label, onOpen) {
   if (!value) {
     return <></>;
   }
-  const preview = String(value).replace(/\s+/g, ' ').trim();
+  let preview = String(value).trim();
+  try {
+    preview = JSON.stringify(JSON.parse(preview), null, 2);
+  } catch (error) {
+    preview = preview.replace(/\s+/g, ' ').trim();
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }}>
       <Typography.Text
@@ -317,6 +322,7 @@ function renderPreviewButton(value, label, onOpen) {
           fontSize: 12,
           lineHeight: 1.5,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          whiteSpace: 'pre-wrap',
         }}
         ellipsis={{
           rows: 2,

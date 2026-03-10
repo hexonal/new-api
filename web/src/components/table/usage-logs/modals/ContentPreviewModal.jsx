@@ -20,12 +20,28 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Modal } from '@douyinfe/semi-ui';
 
+function formatPreviewContent(content) {
+  if (typeof content !== 'string') {
+    return content || '';
+  }
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return '';
+  }
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch (error) {
+    return content;
+  }
+}
+
 const ContentPreviewModal = ({
   isPreviewModalOpen,
   setIsPreviewModalOpen,
   previewModalTitle,
   previewModalContent,
 }) => {
+  const formattedContent = formatPreviewContent(previewModalContent);
   return (
     <Modal
       title={previewModalTitle}
@@ -44,7 +60,7 @@ const ContentPreviewModal = ({
           fontSize: 13,
         }}
       >
-        {previewModalContent}
+        {formattedContent}
       </pre>
     </Modal>
   );

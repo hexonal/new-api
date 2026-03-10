@@ -203,8 +203,12 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 		if info.ShouldIncludeUsage && !containStreamUsage {
 			response := helper.GenerateFinalUsageResponse(responseId, createAt, model, *usage)
 			response.SetSystemFingerprint(systemFingerprint)
+			if encoded, err := common.Marshal(response); err == nil {
+				service.AppendLogOutputChunk(c, string(encoded))
+			}
 			helper.ObjectData(c, response)
 		}
+		service.AppendLogOutputChunk(c, "[DONE]")
 		helper.Done(c)
 
 	case types.RelayFormatClaude:

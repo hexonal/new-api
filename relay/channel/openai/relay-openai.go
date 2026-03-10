@@ -31,18 +31,28 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
 	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
 		if !forceFormat && !thinkToContent {
+			service.AppendLogOutputChunk(c, data)
 			return helper.StringData(c, data)
 		}
 		return err
 	}
 	rewritten := service.MaybeArchiveStreamResponse(c, info, &lastStreamResponse)
+	appendStreamChunk := func(resp *dto.ChatCompletionsStreamResponse) error {
+		encoded, err := common.Marshal(resp)
+		if err != nil {
+			return err
+		}
+		service.AppendLogOutputChunk(c, string(encoded))
+		return helper.StringData(c, string(encoded))
+	}
 
 	if !forceFormat && !thinkToContent && !rewritten {
+		service.AppendLogOutputChunk(c, data)
 		return helper.StringData(c, data)
 	}
 
 	if !thinkToContent {
-		return helper.ObjectData(c, lastStreamResponse)
+		return appendStreamChunk(&lastStreamResponse)
 	}
 
 	hasThinkingContent := false
@@ -70,12 +80,12 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 			}
 			info.ThinkingContentInfo.IsFirstThinkingContent = false
 			info.ThinkingContentInfo.HasSentThinkingContent = true
-			return helper.ObjectData(c, response)
+			return appendStreamChunk(response)
 		}
 	}
 
 	if lastStreamResponse.Choices == nil || len(lastStreamResponse.Choices) == 0 {
-		return helper.ObjectData(c, lastStreamResponse)
+		return appendStreamChunk(&lastStreamResponse)
 	}
 
 	// Process each choice
@@ -90,7 +100,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 				response.Choices[j].Delta.Reasoning = nil
 			}
 			info.ThinkingContentInfo.SendLastThinkingContent = true
-			helper.ObjectData(c, response)
+			_ = appendStreamChunk(response)
 		}
 
 		// Convert reasoning content to regular content if any
@@ -105,7 +115,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		}
 	}
 
-	return helper.ObjectData(c, lastStreamResponse)
+	return appendStreamChunk(&lastStreamResponse)
 }
 
 func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -195,6 +205,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
 
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
+	service.FinalizeLogOutputStreamBody(c)
 
 	return usage, nil
 }

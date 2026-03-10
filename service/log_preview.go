@@ -16,6 +16,7 @@ const (
 	logPreviewMediaKey  = "log_preview_media"
 	logInputBodyKey     = "log_input_body"
 	logOutputBodyKey    = "log_output_body"
+	logOutputChunksKey  = "log_output_chunks"
 	logPreviewMaxChars  = 4000
 )
 
@@ -61,6 +62,51 @@ func SetLogOutputBodyBytes(c *gin.Context, value []byte) {
 		return
 	}
 	SetLogOutputBody(c, string(value))
+}
+
+func AppendLogOutputChunk(c *gin.Context, value string) {
+	if c == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	current, ok := c.Get(logOutputChunksKey)
+	if !ok {
+		c.Set(logOutputChunksKey, []string{value})
+		return
+	}
+	chunks, castOK := current.([]string)
+	if !castOK {
+		c.Set(logOutputChunksKey, []string{value})
+		return
+	}
+	chunks = append(chunks, value)
+	c.Set(logOutputChunksKey, chunks)
+}
+
+func FinalizeLogOutputStreamBody(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	current, ok := c.Get(logOutputChunksKey)
+	if !ok {
+		return
+	}
+	chunks, castOK := current.([]string)
+	if !castOK || len(chunks) == 0 {
+		return
+	}
+	payload := map[string]any{
+		"stream": true,
+		"chunks": chunks,
+	}
+	encoded, err := common.Marshal(payload)
+	if err != nil {
+		return
+	}
+	SetLogOutputBodyBytes(c, encoded)
 }
 
 func SetLogOutputMedia(c *gin.Context, values []string) {
