@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -58,7 +59,7 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 
 	event, err := buildUserPointsFailureCallbackEvent(
 		c,
-		"https://zcheap.ai/api/v1/user_points?sk={sk}",
+		"https://example.com/api/v1/user_points?sk={sk}",
 		"data.can_pre_deduct",
 		"abc123",
 		errors.New("dial tcp timeout"),
@@ -116,7 +117,7 @@ func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
 
 	event, err := buildUserPointsFailureCallbackEvent(
 		c,
-		"https://zcheap.ai/api/v1/user_points?sk={sk}",
+		"https://example.com/api/v1/user_points?sk={sk}",
 		"data.can_pre_deduct",
 		"abc123",
 		errors.New("request timeout"),
@@ -209,5 +210,35 @@ func TestShouldCheckUserPointsWithWildcardPrefix(t *testing.T) {
 	}
 	if shouldCheckUserPoints(tokenKey, username, "abc_*") {
 		t.Fatalf("unexpected match for non-matching wildcard prefix")
+	}
+}
+
+func TestBuildUserPointsQuotaRejectMessage(t *testing.T) {
+	defaultMessage := buildUserPointsQuotaRejectMessage(nil)
+	if defaultMessage == "" {
+		t.Fatalf("default message should not be empty")
+	}
+
+	msgWithURLOnly := buildUserPointsQuotaRejectMessage(&operation_setting.PaymentSetting{
+		UserPointsRechargeURL: "https://example.com/topup",
+	})
+	if !strings.Contains(msgWithURLOnly, "https://example.com/topup") {
+		t.Fatalf("url should be appended when custom message is empty, got: %s", msgWithURLOnly)
+	}
+
+	msgWithPlaceholder := buildUserPointsQuotaRejectMessage(&operation_setting.PaymentSetting{
+		UserPointsRechargeURL:         "https://example.com/topup",
+		UserPointsInsufficientMessage: "Insufficient quota. Please recharge at {recharge_url}",
+	})
+	if msgWithPlaceholder != "Insufficient quota. Please recharge at https://example.com/topup" {
+		t.Fatalf("placeholder replacement failed, got: %s", msgWithPlaceholder)
+	}
+
+	msgWithoutPlaceholder := buildUserPointsQuotaRejectMessage(&operation_setting.PaymentSetting{
+		UserPointsRechargeURL:         "https://example.com/topup",
+		UserPointsInsufficientMessage: "Insufficient quota. Please recharge via the dashboard.",
+	})
+	if !strings.Contains(msgWithoutPlaceholder, "https://example.com/topup") {
+		t.Fatalf("url should be appended when placeholder absent, got: %s", msgWithoutPlaceholder)
 	}
 }

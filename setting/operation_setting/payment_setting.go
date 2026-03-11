@@ -9,7 +9,9 @@ type PaymentSetting struct {
 	UserPointsQueryURL             string          `json:"user_points_query_url"`
 	UserPointsUsernamePrefixFilter string          `json:"user_points_username_prefix_filter"`
 	UserPointsCanPreDeductJSONPath string          `json:"user_points_can_pre_deduct_jsonpath"`
-	UserPointsOnErrorDecision      string          `json:"user_points_on_error_decision"` // user_points 调用异常时的决策：allow(放行) / deny(拒绝)
+	UserPointsOnErrorDecision      string          `json:"user_points_on_error_decision"`    // user_points 调用异常时的决策：allow(放行) / deny(拒绝)
+	UserPointsRechargeURL          string          `json:"user_points_recharge_url"`         // 额度不足时的引导充值链接
+	UserPointsInsufficientMessage  string          `json:"user_points_insufficient_message"` // 额度不足提示文案；支持 {recharge_url} 占位符
 }
 
 // 默认配置
@@ -21,6 +23,8 @@ var paymentSetting = PaymentSetting{
 	UserPointsUsernamePrefixFilter: "",
 	UserPointsCanPreDeductJSONPath: "data.can_pre_deduct",
 	UserPointsOnErrorDecision:      "allow",
+	UserPointsRechargeURL:          "",
+	UserPointsInsufficientMessage:  "",
 }
 
 func init() {

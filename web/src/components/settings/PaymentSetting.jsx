@@ -52,6 +52,8 @@ const PaymentSetting = () => {
     UserPointsUsernamePrefixFilter: '',
     UserPointsCanPreDeductJsonpath: '',
     UserPointsOnErrorDecision: 'allow',
+    UserPointsRechargeUrl: '',
+    UserPointsInsufficientMessage: '',
   });
 
   let [loading, setLoading] = useState(false);
@@ -113,6 +115,12 @@ const PaymentSetting = () => {
             break;
           case 'payment_setting.user_points_on_error_decision':
             newInputs['UserPointsOnErrorDecision'] = item.value || 'allow';
+            break;
+          case 'payment_setting.user_points_recharge_url':
+            newInputs['UserPointsRechargeUrl'] = item.value || '';
+            break;
+          case 'payment_setting.user_points_insufficient_message':
+            newInputs['UserPointsInsufficientMessage'] = item.value || '';
             break;
           case 'Price':
           case 'MinTopUp':

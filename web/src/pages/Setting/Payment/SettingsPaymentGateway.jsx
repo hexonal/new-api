@@ -48,6 +48,8 @@ export default function SettingsPaymentGateway(props) {
     UserPointsUsernamePrefixFilter: '',
     UserPointsCanPreDeductJsonpath: 'data.can_pre_deduct',
     UserPointsOnErrorDecision: 'allow',
+    UserPointsRechargeUrl: '',
+    UserPointsInsufficientMessage: '',
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -80,6 +82,9 @@ export default function SettingsPaymentGateway(props) {
           'data.can_pre_deduct',
         UserPointsOnErrorDecision:
           props.options.UserPointsOnErrorDecision || 'allow',
+        UserPointsRechargeUrl: props.options.UserPointsRechargeUrl || '',
+        UserPointsInsufficientMessage:
+          props.options.UserPointsInsufficientMessage || '',
       };
 
       // 美化 JSON 展示
@@ -172,6 +177,14 @@ export default function SettingsPaymentGateway(props) {
       showError(t('请选择 user_points 异常时处理策略'));
       return;
     }
+    if (
+      inputs.UserPointsEnabled &&
+      (inputs.UserPointsInsufficientMessage || '').includes('{recharge_url}') &&
+      (inputs.UserPointsRechargeUrl || '').trim() === ''
+    ) {
+      showError(t('文案使用了 {recharge_url}，请同时填写充值链接 URL'));
+      return;
+    }
 
     setLoading(true);
     try {
@@ -252,6 +265,23 @@ export default function SettingsPaymentGateway(props) {
         options.push({
           key: 'payment_setting.user_points_on_error_decision',
           value: inputs.UserPointsOnErrorDecision,
+        });
+      }
+      if (
+        originInputs['UserPointsRechargeUrl'] !== inputs.UserPointsRechargeUrl
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_recharge_url',
+          value: inputs.UserPointsRechargeUrl,
+        });
+      }
+      if (
+        originInputs['UserPointsInsufficientMessage'] !==
+        inputs.UserPointsInsufficientMessage
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_insufficient_message',
+          value: inputs.UserPointsInsufficientMessage,
         });
       }
 
@@ -444,7 +474,7 @@ export default function SettingsPaymentGateway(props) {
                 field='UserPointsQueryUrl'
                 label={t('user_points 查询 URL')}
                 placeholder={t(
-                  '例如：https://zcheap.ai/api/v1/user_points?sk={sk}',
+                  '例如：https://example.com/api/v1/user_points?sk={sk}',
                 )}
                 extraText={t(
                   '支持 {sk} 占位符；不写占位符时将自动追加 ?sk=... 参数',
@@ -471,6 +501,34 @@ export default function SettingsPaymentGateway(props) {
                 placeholder={t('例如：ima_,\nteam_')}
                 autosize
                 extraText={t('支持逗号或换行分隔；仅命中前缀的用户名会触发校验')}
+              />
+            </Col>
+          </Row>
+          <Row
+            gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+            style={{ marginTop: 16 }}
+          >
+            <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+              <Form.Input
+                field='UserPointsRechargeUrl'
+                label={t('额度不足充值 URL（可选）')}
+                placeholder={t('例如：https://example.com/topup')}
+                extraText={t(
+                  '当预扣校验返回不可扣减时，用于引导用户充值；可与文案占位符联动',
+                )}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+              <Form.TextArea
+                field='UserPointsInsufficientMessage'
+                label={t('额度不足提示文案（可选）')}
+                placeholder={t(
+                  '例如：Insufficient quota. Please recharge at {recharge_url}',
+                )}
+                autosize
+                extraText={t(
+                  '默认英文为 Insufficient quota；支持 {recharge_url} 占位符',
+                )}
               />
             </Col>
           </Row>

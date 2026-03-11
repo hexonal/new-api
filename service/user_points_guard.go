@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -29,6 +28,8 @@ const (
 	userPointsGuardFailureEventType       = "user_points.pre_deduct.check_failed"
 	userPointsOnErrorAllow                = "allow"
 	userPointsOnErrorDeny                 = "deny"
+	userPointsRechargeURLPlaceholder      = "{recharge_url}"
+	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -108,15 +109,42 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 }
 
 func buildUserPointsQuotaRejectError() *types.NewAPIError {
+	message := buildUserPointsQuotaRejectMessage(operation_setting.GetPaymentSetting())
 	return types.NewErrorWithStatusCode(
-		// Keep this guard response deterministic in English by requirement.
-		// Do not localize by user context here.
-		errors.New(i18n.Translate(i18n.DefaultLang, i18n.MsgQuotaInsufficient)),
+		errors.New(message),
 		types.ErrorCodeInsufficientUserQuota,
 		http.StatusForbidden,
 		types.ErrOptionWithSkipRetry(),
 		types.ErrOptionWithNoRecordErrorLog(),
 	)
+}
+
+// buildUserPointsQuotaRejectMessage builds an English error message for user_points rejection.
+// It supports a custom copy and recharge URL from payment settings.
+// If custom message contains "{recharge_url}", the placeholder will be replaced.
+func buildUserPointsQuotaRejectMessage(cfg *operation_setting.PaymentSetting) string {
+	defaultMessage := userPointsQuotaInsufficientMessageEN
+	if cfg == nil {
+		return defaultMessage
+	}
+
+	customMessage := strings.TrimSpace(cfg.UserPointsInsufficientMessage)
+	rechargeURL := strings.TrimSpace(cfg.UserPointsRechargeURL)
+	if customMessage == "" {
+		if rechargeURL == "" {
+			return defaultMessage
+		}
+		return fmt.Sprintf("%s Please recharge at %s", defaultMessage, rechargeURL)
+	}
+	if rechargeURL == "" {
+		return customMessage
+	}
+
+	replaced := strings.ReplaceAll(customMessage, userPointsRechargeURLPlaceholder, rechargeURL)
+	if replaced != customMessage {
+		return replaced
+	}
+	return fmt.Sprintf("%s %s", customMessage, rechargeURL)
 }
 
 // isUserPointsGuardPath decides which relay endpoints should trigger the guard.
