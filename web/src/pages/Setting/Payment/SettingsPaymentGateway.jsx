@@ -464,7 +464,7 @@ export default function SettingsPaymentGateway(props) {
                   },
                 ]}
                 extraText={t(
-                  '当 user_points 接口超时/报错/解析失败时，按这里配置优先放行或拒绝',
+                  '仅对 user_points 接口异常生效；若 JSONPath 结果为 false，仍会直接拦截',
                 )}
                 placeholder={t('请选择异常处理策略')}
               />
@@ -491,7 +491,9 @@ export default function SettingsPaymentGateway(props) {
                 field='UserPointsCanPreDeductJsonpath'
                 label={t('can_pre_deduct JSONPath')}
                 placeholder={t('例如：data.can_pre_deduct')}
-                extraText={t('使用 gjson path（JSONPath 风格）定位布尔字段')}
+                extraText={t(
+                  '使用 gjson path（JSONPath 风格）定位字段；仅当结果为 true 时才放行，false 会拦截',
+                )}
               />
             </Col>
             <Col xs={24} sm={24} md={12} lg={12} xl={12}>

@@ -82,8 +82,9 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 
 	jsonPath := strings.TrimSpace(cfg.UserPointsCanPreDeductJSONPath)
 	onErrorDecision := normalizeUserPointsOnErrorDecision(cfg.UserPointsOnErrorDecision)
-	// Only explicit "can_pre_deduct = false" blocks the request.
-	// For request/parse errors, runtime behavior is controlled by on_error_decision.
+	// Gate rule: request is allowed only when resolved can_pre_deduct value is true.
+	// If resolved value is false, request is always blocked.
+	// on_error_decision only controls request/parse error behavior.
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
 		c.Request.Context(),
 		strings.TrimSpace(cfg.UserPointsQueryURL),
