@@ -167,7 +167,7 @@ export default function SettingsPaymentGateway(props) {
       inputs.UserPointsEnabled &&
       (inputs.UserPointsCanPreDeductJsonpath || '').trim() === ''
     ) {
-      showError(t('请填写 can_pre_deduct 的 JSONPath（gjson path）'));
+      showError(t('请填写 can_pre_deduct 路径（如 data.can_pre_deduct 或 $.data.can_pre_deduct）'));
       return;
     }
     if (
@@ -464,7 +464,7 @@ export default function SettingsPaymentGateway(props) {
                   },
                 ]}
                 extraText={t(
-                  '仅对 user_points 接口异常生效；若 JSONPath 结果为 false，仍会直接拦截',
+                  '仅对 user_points 请求失败、路径不存在或值非布尔等异常生效；若结果为 false，仍会直接拦截',
                 )}
                 placeholder={t('请选择异常处理策略')}
               />
@@ -490,9 +490,9 @@ export default function SettingsPaymentGateway(props) {
               <Form.Input
                 field='UserPointsCanPreDeductJsonpath'
                 label={t('can_pre_deduct JSONPath')}
-                placeholder={t('例如：data.can_pre_deduct')}
+                placeholder={t('例如：$.data.can_pre_deduct 或 data.can_pre_deduct')}
                 extraText={t(
-                  '使用 gjson path（JSONPath 风格）定位字段；仅当结果为 true 时才放行，false 会拦截',
+                  '使用 JSONPath 风格（内部按 gjson 解析）；仅当解析值为 true 才放行。false 会直接拦截；路径不存在或值非布尔时按异常策略处理',
                 )}
               />
             </Col>

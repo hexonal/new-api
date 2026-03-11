@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -176,6 +178,84 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 	}
 	if url2 != "https://example.com/api/v1/user_points?sk=sk-abc123" {
 		t.Fatalf("unexpected url with query append: %s", url2)
+	}
+}
+
+func TestNormalizeUserPointsJSONPath(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty uses default", raw: "", want: defaultUserPointsCanPreDeductJSONPath},
+		{name: "plain path", raw: "data.can_pre_deduct", want: "data.can_pre_deduct"},
+		{name: "jsonpath with dollar", raw: "$.data.can_pre_deduct", want: "data.can_pre_deduct"},
+		{name: "jsonpath with spaces", raw: "  $.data.can_pre_deduct  ", want: "data.can_pre_deduct"},
+		{name: "only dollar uses default", raw: "$", want: defaultUserPointsCanPreDeductJSONPath},
+	}
+	for _, tc := range cases {
+		got := normalizeUserPointsJSONPath(tc.raw)
+		if got != tc.want {
+			t.Fatalf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestFetchUserPointsCanPreDeductSupportsDollarJSONPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"code":200,"data":{"can_pre_deduct":false}}`))
+	}))
+	defer server.Close()
+
+	canPreDeduct, err := fetchUserPointsCanPreDeduct(
+		context.Background(),
+		server.URL+"?sk={sk}",
+		"abc123",
+		"$.data.can_pre_deduct",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if canPreDeduct {
+		t.Fatalf("expected false, got true")
+	}
+}
+
+func TestRunUserPointsPreDeductGuardBlocksWhenFalse(t *testing.T) {
+	origin := *operation_setting.GetPaymentSetting()
+	defer func() {
+		*operation_setting.GetPaymentSetting() = origin
+	}()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"code":200,"msg":"success","data":{"can_pre_deduct":false}}`))
+	}))
+	defer server.Close()
+
+	cfg := operation_setting.GetPaymentSetting()
+	cfg.UserPointsEnabled = true
+	cfg.UserPointsQueryURL = server.URL + "?sk={sk}"
+	cfg.UserPointsUsernamePrefixFilter = "ima_"
+	cfg.UserPointsCanPreDeductJSONPath = "$.data.can_pre_deduct"
+	cfg.UserPointsOnErrorDecision = "allow"
+
+	userPointsPrefixCache = sync.Map{}
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Set("token_key", "abc123")
+	c.Set("username", "ima_1999004390964838400")
+
+	err := RunUserPointsPreDeductGuard(c, &model.Token{Key: "abc123"})
+	if err == nil {
+		t.Fatalf("expected guard to block request when can_pre_deduct=false")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("unexpected status code: %d", err.StatusCode)
+	}
+	if !strings.Contains(err.Error(), "Insufficient quota") {
+		t.Fatalf("unexpected error message: %s", err.Error())
 	}
 }
 

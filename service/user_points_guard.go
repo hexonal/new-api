@@ -80,7 +80,7 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		return nil
 	}
 
-	jsonPath := strings.TrimSpace(cfg.UserPointsCanPreDeductJSONPath)
+	jsonPath := normalizeUserPointsJSONPath(cfg.UserPointsCanPreDeductJSONPath)
 	onErrorDecision := normalizeUserPointsOnErrorDecision(cfg.UserPointsOnErrorDecision)
 	// Gate rule: request is allowed only when resolved can_pre_deduct value is true.
 	// If resolved value is false, request is always blocked.
@@ -223,16 +223,14 @@ func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter str
 }
 
 // fetchUserPointsCanPreDeduct requests external points service and extracts
-// can_pre_deduct value using gjson path from response JSON.
+// can_pre_deduct value using JSONPath-like path (resolved to gjson path) from response JSON.
 func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenKey string, jsonPath string) (bool, error) {
 	requestURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey))
 	if err != nil {
 		return false, err
 	}
 
-	if jsonPath == "" {
-		jsonPath = defaultUserPointsCanPreDeductJSONPath
-	}
+	resolvedJSONPath := normalizeUserPointsJSONPath(jsonPath)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, userPointsRequestTimeout)
 	defer cancel()
@@ -261,15 +259,15 @@ func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenK
 		return false, err
 	}
 
-	result := gjson.GetBytes(body, jsonPath)
+	result := gjson.GetBytes(body, resolvedJSONPath)
 	if !result.Exists() {
-		return false, fmt.Errorf("jsonpath not found: %s", jsonPath)
+		return false, fmt.Errorf("jsonpath not found: %s", resolvedJSONPath)
 	}
 
 	if value, ok := gjsonResultToBool(result); ok {
 		return value, nil
 	}
-	return false, fmt.Errorf("jsonpath value is not boolean-like: %s", jsonPath)
+	return false, fmt.Errorf("jsonpath value is not boolean-like: %s", resolvedJSONPath)
 }
 
 // buildUserPointsRequestURL supports two URL styles:
@@ -370,9 +368,7 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey)); err == nil {
 		resolvedQueryURL = builtURL
 	}
-	if jsonPath == "" {
-		jsonPath = defaultUserPointsCanPreDeductJSONPath
-	}
+	jsonPath = normalizeUserPointsJSONPath(jsonPath)
 
 	reason := "user_points_guard_failed_close"
 	if failOpen {
@@ -423,6 +419,27 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}, nil
+}
+
+// normalizeUserPointsJSONPath normalizes operator input to the path syntax accepted by gjson.
+// Supported forms:
+// - data.can_pre_deduct
+// - $.data.can_pre_deduct (standard JSONPath style)
+func normalizeUserPointsJSONPath(raw string) string {
+	path := strings.TrimSpace(raw)
+	if path == "" {
+		return defaultUserPointsCanPreDeductJSONPath
+	}
+	if strings.HasPrefix(path, "$.") {
+		path = strings.TrimPrefix(path, "$.")
+	} else if strings.HasPrefix(path, "$") {
+		path = strings.TrimPrefix(path, "$")
+		path = strings.TrimPrefix(path, ".")
+	}
+	if path == "" {
+		return defaultUserPointsCanPreDeductJSONPath
+	}
+	return path
 }
 
 func normalizeUserPointsOnErrorDecision(raw string) string {
