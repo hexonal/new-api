@@ -43,6 +43,10 @@ export default function SettingsPaymentGateway(props) {
     PayMethods: '',
     AmountOptions: '',
     AmountDiscount: '',
+    UserPointsEnabled: false,
+    UserPointsQueryUrl: '',
+    UserPointsUsernamePrefixFilter: '',
+    UserPointsCanPreDeductJsonpath: 'data.can_pre_deduct',
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -66,6 +70,13 @@ export default function SettingsPaymentGateway(props) {
         PayMethods: props.options.PayMethods || '',
         AmountOptions: props.options.AmountOptions || '',
         AmountDiscount: props.options.AmountDiscount || '',
+        UserPointsEnabled: !!props.options.UserPointsEnabled,
+        UserPointsQueryUrl: props.options.UserPointsQueryUrl || '',
+        UserPointsUsernamePrefixFilter:
+          props.options.UserPointsUsernamePrefixFilter || '',
+        UserPointsCanPreDeductJsonpath:
+          props.options.UserPointsCanPreDeductJsonpath ||
+          'data.can_pre_deduct',
       };
 
       // 美化 JSON 展示
@@ -137,6 +148,20 @@ export default function SettingsPaymentGateway(props) {
         return;
       }
     }
+    if (
+      inputs.UserPointsEnabled &&
+      (inputs.UserPointsQueryUrl || '').trim() === ''
+    ) {
+      showError(t('请填写 user_points 查询 URL'));
+      return;
+    }
+    if (
+      inputs.UserPointsEnabled &&
+      (inputs.UserPointsCanPreDeductJsonpath || '').trim() === ''
+    ) {
+      showError(t('请填写 can_pre_deduct 的 JSONPath（gjson path）'));
+      return;
+    }
 
     setLoading(true);
     try {
@@ -178,6 +203,36 @@ export default function SettingsPaymentGateway(props) {
         options.push({
           key: 'payment_setting.amount_discount',
           value: inputs.AmountDiscount,
+        });
+      }
+      if (originInputs['UserPointsEnabled'] !== inputs.UserPointsEnabled) {
+        options.push({
+          key: 'payment_setting.user_points_enabled',
+          value: inputs.UserPointsEnabled ? 'true' : 'false',
+        });
+      }
+      if (originInputs['UserPointsQueryUrl'] !== inputs.UserPointsQueryUrl) {
+        options.push({
+          key: 'payment_setting.user_points_query_url',
+          value: inputs.UserPointsQueryUrl,
+        });
+      }
+      if (
+        originInputs['UserPointsUsernamePrefixFilter'] !==
+        inputs.UserPointsUsernamePrefixFilter
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_username_prefix_filter',
+          value: inputs.UserPointsUsernamePrefixFilter,
+        });
+      }
+      if (
+        originInputs['UserPointsCanPreDeductJsonpath'] !==
+        inputs.UserPointsCanPreDeductJsonpath
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_can_pre_deduct_jsonpath',
+          value: inputs.UserPointsCanPreDeductJsonpath,
         });
       }
 
@@ -320,6 +375,65 @@ export default function SettingsPaymentGateway(props) {
                 extraText={t(
                   '设置不同充值金额对应的折扣，键为充值金额，值为折扣率，例如：{"100": 0.95, "200": 0.9, "500": 0.85}',
                 )}
+              />
+            </Col>
+          </Row>
+          <Row
+            gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+            style={{ marginTop: 16 }}
+          >
+            <Col span={24}>
+              <Text strong>{t('User Points 预扣校验（可选）')}</Text>
+            </Col>
+          </Row>
+          <Row
+            gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+            style={{ marginTop: 12 }}
+          >
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Switch
+                field='UserPointsEnabled'
+                size='default'
+                checkedText='｜'
+                uncheckedText='〇'
+                label={t('启用 user_points 预扣校验')}
+                extraText={t(
+                  '仅匹配用户名前缀的 token 生效；接口异常/超时时 fail-open 放行',
+                )}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={16} lg={16} xl={16}>
+              <Form.Input
+                field='UserPointsQueryUrl'
+                label={t('user_points 查询 URL')}
+                placeholder={t(
+                  '例如：https://zcheap.ai/api/v1/user_points?sk={sk}',
+                )}
+                extraText={t(
+                  '支持 {sk} 占位符；不写占位符时将自动追加 ?sk=... 参数',
+                )}
+              />
+            </Col>
+          </Row>
+          <Row
+            gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+            style={{ marginTop: 16 }}
+          >
+            <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+              <Form.Input
+                field='UserPointsCanPreDeductJsonpath'
+                label={t('can_pre_deduct JSONPath')}
+                placeholder={t('例如：data.can_pre_deduct')}
+                extraText={t('使用 gjson path（JSONPath 风格）定位布尔字段')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+              <Form.TextArea
+                field='UserPointsUsernamePrefixFilter'
+                label={t('用户名前缀过滤')}
+                placeholder={t('例如：ima_,\nteam_')}
+                autosize
+                extraText={t('支持逗号或换行分隔；仅命中前缀的用户名会触发校验')}
               />
             </Col>
           </Row>

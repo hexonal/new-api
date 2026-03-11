@@ -47,6 +47,10 @@ const PaymentSetting = () => {
     StripeUnitPrice: 8.0,
     StripeMinTopUp: 1,
     StripePromotionCodesEnabled: false,
+    UserPointsEnabled: false,
+    UserPointsQueryUrl: '',
+    UserPointsUsernamePrefixFilter: '',
+    UserPointsCanPreDeductJsonpath: '',
   });
 
   let [loading, setLoading] = useState(false);
@@ -94,6 +98,18 @@ const PaymentSetting = () => {
               newInputs['AmountDiscount'] = item.value;
             }
             break;
+          case 'payment_setting.user_points_enabled':
+            newInputs['UserPointsEnabled'] = toBoolean(item.value);
+            break;
+          case 'payment_setting.user_points_query_url':
+            newInputs['UserPointsQueryUrl'] = item.value;
+            break;
+          case 'payment_setting.user_points_username_prefix_filter':
+            newInputs['UserPointsUsernamePrefixFilter'] = item.value;
+            break;
+          case 'payment_setting.user_points_can_pre_deduct_jsonpath':
+            newInputs['UserPointsCanPreDeductJsonpath'] = item.value;
+            break;
           case 'Price':
           case 'MinTopUp':
           case 'StripeUnitPrice':
@@ -101,7 +117,10 @@ const PaymentSetting = () => {
             newInputs[item.key] = parseFloat(item.value);
             break;
           default:
-            if (item.key.endsWith('Enabled')) {
+            if (
+              item.key.endsWith('Enabled') ||
+              item.key.endsWith('_enabled')
+            ) {
               newInputs[item.key] = toBoolean(item.value);
             } else {
               newInputs[item.key] = item.value;

@@ -1,0 +1,374 @@
+package service
+
+import (
+	"context"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+)
+
+const (
+	defaultUserPointsCanPreDeductJSONPath = "data.can_pre_deduct"
+	userPointsPrefixCacheTTL              = 10 * time.Minute
+	userPointsRequestTimeout              = 3 * time.Second
+	userPointsGuardFailureEventType       = "user_points.pre_deduct.check_failed"
+)
+
+type userPointsPrefixCacheEntry struct {
+	username    string
+	shouldCheck bool
+	expiresAt   int64
+}
+
+// Cache key: "<token_key>|<raw_prefix_filter>".
+// Value keeps last username and match result to avoid repeated prefix parsing/matching.
+var userPointsPrefixCache sync.Map
+
+// RunUserPointsPreDeductGuard checks external user points API after token auth.
+// If the external service fails (timeout/error/invalid response), it fails open.
+func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewAPIError {
+	if c == nil {
+		return nil
+	}
+	if !isUserPointsGuardPath(c.Request.Method, c.Request.URL.Path) {
+		return nil
+	}
+
+	cfg := operation_setting.GetPaymentSetting()
+	if cfg == nil || !cfg.UserPointsEnabled {
+		return nil
+	}
+
+	rawPrefixFilter := strings.TrimSpace(cfg.UserPointsUsernamePrefixFilter)
+	if rawPrefixFilter == "" {
+		return nil
+	}
+
+	tokenKey := strings.TrimSpace(c.GetString("token_key"))
+	if tokenKey == "" && token != nil {
+		tokenKey = strings.TrimSpace(token.Key)
+	}
+	if tokenKey == "" {
+		return nil
+	}
+
+	username := strings.TrimSpace(c.GetString("username"))
+	if username == "" {
+		return nil
+	}
+
+	if !shouldCheckUserPoints(tokenKey, username, rawPrefixFilter) {
+		return nil
+	}
+
+	jsonPath := strings.TrimSpace(cfg.UserPointsCanPreDeductJSONPath)
+	// External dependency is best-effort by requirement: fail-open on any request/parse errors.
+	// Only explicit "can_pre_deduct = false" blocks the request.
+	canPreDeduct, err := fetchUserPointsCanPreDeduct(
+		c.Request.Context(),
+		strings.TrimSpace(cfg.UserPointsQueryURL),
+		tokenKey,
+		jsonPath,
+	)
+	if err != nil {
+		// Persist fail-open diagnostics to callback logs for observability/troubleshooting.
+		reportUserPointsGuardFailureCallbackLog(c, strings.TrimSpace(cfg.UserPointsQueryURL), jsonPath, tokenKey, err)
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
+		return nil
+	}
+	if canPreDeduct {
+		return nil
+	}
+
+	return types.NewErrorWithStatusCode(
+		// Keep this guard response deterministic in English by requirement.
+		// Do not localize by user context here.
+		errors.New(i18n.Translate(i18n.DefaultLang, i18n.MsgQuotaInsufficient)),
+		types.ErrorCodeInsufficientUserQuota,
+		http.StatusForbidden,
+		types.ErrOptionWithSkipRetry(),
+		types.ErrOptionWithNoRecordErrorLog(),
+	)
+}
+
+// isUserPointsGuardPath decides which relay endpoints should trigger the guard.
+// Only real invoke endpoints are covered (POST). Read-only model query endpoints are excluded.
+func isUserPointsGuardPath(method string, path string) bool {
+	if method != http.MethodPost {
+		return false
+	}
+	return isPrimaryRelayInvokePath(path)
+}
+
+func isPrimaryRelayInvokePath(path string) bool {
+	switch {
+	case path == "/v1/messages":
+		return true
+	case strings.HasPrefix(path, "/v1/completions"):
+		return true
+	case strings.HasPrefix(path, "/v1/chat/completions"):
+		return true
+	case strings.HasPrefix(path, "/v1/responses"):
+		return true
+	case strings.HasPrefix(path, "/v1/embeddings"):
+		return true
+	case strings.HasPrefix(path, "/v1/edits"):
+		return true
+	case strings.HasPrefix(path, "/v1/images/"):
+		return true
+	case strings.HasPrefix(path, "/v1/audio/"):
+		return true
+	case strings.HasPrefix(path, "/v1/moderations"):
+		return true
+	case strings.HasPrefix(path, "/v1/rerank"):
+		return true
+	case strings.HasPrefix(path, "/v1/engines/"):
+		return true
+	case strings.HasPrefix(path, "/v1/models/"):
+		// Gemini-compatible invoke path: /v1/models/*path
+		return true
+	case strings.HasPrefix(path, "/v1beta/models/"):
+		// Gemini invoke path: /v1beta/models/{model}:{action}
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter string) bool {
+	cacheKey := tokenKey + "|" + rawPrefixFilter
+	now := time.Now().Unix()
+	if cached, ok := userPointsPrefixCache.Load(cacheKey); ok {
+		if entry, ok := cached.(userPointsPrefixCacheEntry); ok && entry.expiresAt > now && entry.username == username {
+			return entry.shouldCheck
+		}
+	}
+
+	prefixes := model.ParseDailyUserUsagePrefixes(rawPrefixFilter)
+	shouldCheck := false
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(username, prefix) {
+			shouldCheck = true
+			break
+		}
+	}
+	userPointsPrefixCache.Store(cacheKey, userPointsPrefixCacheEntry{
+		username:    username,
+		shouldCheck: shouldCheck,
+		expiresAt:   time.Now().Add(userPointsPrefixCacheTTL).Unix(),
+	})
+	return shouldCheck
+}
+
+// fetchUserPointsCanPreDeduct requests external points service and extracts
+// can_pre_deduct value using gjson path from response JSON.
+func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenKey string, jsonPath string) (bool, error) {
+	requestURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey))
+	if err != nil {
+		return false, err
+	}
+
+	if jsonPath == "" {
+		jsonPath = defaultUserPointsCanPreDeductJSONPath
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, userPointsRequestTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return false, err
+	}
+
+	client := GetHttpClient()
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	result := gjson.GetBytes(body, jsonPath)
+	if !result.Exists() {
+		return false, fmt.Errorf("jsonpath not found: %s", jsonPath)
+	}
+
+	if value, ok := gjsonResultToBool(result); ok {
+		return value, nil
+	}
+	return false, fmt.Errorf("jsonpath value is not boolean-like: %s", jsonPath)
+}
+
+// buildUserPointsRequestURL supports two URL styles:
+// 1) URL template with {sk} placeholder
+// 2) Plain URL (function appends sk query parameter)
+func buildUserPointsRequestURL(rawQueryURL string, tokenKey string) (string, error) {
+	trimmed := strings.TrimSpace(rawQueryURL)
+	if trimmed == "" {
+		return "", fmt.Errorf("user_points_query_url is empty")
+	}
+	if strings.Contains(trimmed, "{sk}") {
+		return strings.ReplaceAll(trimmed, "{sk}", url.QueryEscape(tokenKey)), nil
+	}
+	parsedURL, err := url.Parse(trimmed)
+	if err != nil {
+		return "", err
+	}
+	query := parsedURL.Query()
+	query.Set("sk", tokenKey)
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String(), nil
+}
+
+// formatSKWithPrefix guarantees sk value uses "sk-" prefix in outbound request.
+func formatSKWithPrefix(tokenKey string) string {
+	key := strings.TrimSpace(tokenKey)
+	if key == "" {
+		return key
+	}
+	if strings.HasPrefix(key, "sk-") {
+		return key
+	}
+	return "sk-" + key
+}
+
+// gjsonResultToBool accepts typical boolean-like values from external API:
+// bool, number(0/1), string(true/false/yes/no/0/1).
+func gjsonResultToBool(result gjson.Result) (bool, bool) {
+	switch result.Type {
+	case gjson.True:
+		return true, true
+	case gjson.False:
+		return false, true
+	case gjson.Number:
+		return result.Num != 0, true
+	case gjson.String:
+		text := strings.ToLower(strings.TrimSpace(result.String()))
+		switch text {
+		case "true", "1", "yes", "y":
+			return true, true
+		case "false", "0", "no", "n":
+			return false, true
+		default:
+			return false, false
+		}
+	default:
+		return false, false
+	}
+}
+
+// reportUserPointsGuardFailureCallbackLog writes a terminal callback-event row for
+// user_points guard failures. It never affects request flow and keeps fail-open semantics.
+func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error) {
+	if c == nil || guardErr == nil || model.DB == nil {
+		return
+	}
+
+	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, tokenKey, guardErr)
+	if err != nil {
+		logger.LogWarn(context.Background(), fmt.Sprintf("build user_points failure callback log failed: %s", err.Error()))
+		return
+	}
+
+	if err := model.InsertCallbackEvent(event); err != nil {
+		if isDuplicateEventInsertError(err) {
+			return
+		}
+		logger.LogWarn(context.Background(), fmt.Sprintf("insert user_points failure callback log failed: %s", err.Error()))
+	}
+}
+
+// buildUserPointsFailureCallbackEvent builds a non-dispatching callback-event record.
+// Status is set to terminal(dead), so dispatcher won't claim it.
+func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error) (*model.CallbackEvent, error) {
+	if c == nil {
+		return nil, fmt.Errorf("nil context")
+	}
+	if guardErr == nil {
+		return nil, fmt.Errorf("nil guard error")
+	}
+
+	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	requestPath := ""
+	if c.Request != nil && c.Request.URL != nil {
+		requestPath = c.Request.URL.Path
+	}
+	resolvedQueryURL := strings.TrimSpace(rawQueryURL)
+	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey)); err == nil {
+		resolvedQueryURL = builtURL
+	}
+	if jsonPath == "" {
+		jsonPath = defaultUserPointsCanPreDeductJSONPath
+	}
+
+	payload, err := common.Marshal(map[string]interface{}{
+		"reason":                         "user_points_guard_failed_open",
+		"error":                          strings.TrimSpace(guardErr.Error()),
+		"request_path":                   requestPath,
+		"user_points_query_url":          strings.TrimSpace(rawQueryURL),
+		"resolved_user_points_query_url": resolvedQueryURL,
+		"can_pre_deduct_jsonpath":        jsonPath,
+		"fail_open":                      true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal user_points guard failure payload: %w", err)
+	}
+
+	now := common.GetTimestamp()
+	idempotencySuffix := requestID
+	if idempotencySuffix == "" {
+		idempotencySuffix = common.GetUUID()
+	}
+
+	return &model.CallbackEvent{
+		EventID:           common.GetUUID(),
+		IdempotencyKey:    fmt.Sprintf("user_points_guard:%s", idempotencySuffix),
+		Source:            model.CallbackEventSourceUserPointsGuard,
+		EventType:         userPointsGuardFailureEventType,
+		SinkType:          model.CallbackEventSinkUserPointsGuardLog,
+		RequestID:         requestID,
+		UserID:            c.GetInt("id"),
+		TokenID:           c.GetInt("token_id"),
+		UsernameSnapshot:  trimSnapshotField(strings.TrimSpace(c.GetString("username")), 64),
+		TokenNameSnapshot: trimSnapshotField(strings.TrimSpace(c.GetString("token_name")), 100),
+		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(formatSKWithPrefix(tokenKey)), 128),
+		CallbackURL:       resolvedQueryURL,
+		HTTPMethod:        http.MethodGet,
+		Headers:           "{}",
+		ContentType:       "application/json",
+		Body:              string(payload),
+		BodySHA256:        hex.EncodeToString(common.Sha256Raw(payload)),
+		Status:            model.CallbackEventStatusDead,
+		MaxRetries:        0,
+		NextRetryAt:       0,
+		LastError:         strings.TrimSpace(guardErr.Error()),
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}, nil
+}

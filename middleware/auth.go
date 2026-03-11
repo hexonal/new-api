@@ -368,6 +368,18 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		// Extensible post-auth hook chain:
+		// run extra business guards after token/user/group context is fully prepared.
+		// Any returned error aborts request with OpenAI-compatible error body.
+		if behaviorErr := service.RunPostTokenBehaviors(c, token); behaviorErr != nil {
+			code := behaviorErr.GetErrorCode()
+			if code != "" {
+				abortWithOpenAiMessage(c, behaviorErr.StatusCode, behaviorErr.Error(), code)
+			} else {
+				abortWithOpenAiMessage(c, behaviorErr.StatusCode, behaviorErr.Error())
+			}
+			return
+		}
 		c.Next()
 	}
 }
