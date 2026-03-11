@@ -9,6 +9,7 @@ type PaymentSetting struct {
 	UserPointsQueryURL             string          `json:"user_points_query_url"`
 	UserPointsUsernamePrefixFilter string          `json:"user_points_username_prefix_filter"`
 	UserPointsCanPreDeductJSONPath string          `json:"user_points_can_pre_deduct_jsonpath"`
+	UserPointsOnErrorDecision      string          `json:"user_points_on_error_decision"` // user_points 调用异常时的决策：allow(放行) / deny(拒绝)
 }
 
 // 默认配置
@@ -19,6 +20,7 @@ var paymentSetting = PaymentSetting{
 	UserPointsQueryURL:             "",
 	UserPointsUsernamePrefixFilter: "",
 	UserPointsCanPreDeductJSONPath: "data.can_pre_deduct",
+	UserPointsOnErrorDecision:      "allow",
 }
 
 func init() {

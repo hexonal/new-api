@@ -47,6 +47,7 @@ export default function SettingsPaymentGateway(props) {
     UserPointsQueryUrl: '',
     UserPointsUsernamePrefixFilter: '',
     UserPointsCanPreDeductJsonpath: 'data.can_pre_deduct',
+    UserPointsOnErrorDecision: 'allow',
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -77,6 +78,8 @@ export default function SettingsPaymentGateway(props) {
         UserPointsCanPreDeductJsonpath:
           props.options.UserPointsCanPreDeductJsonpath ||
           'data.can_pre_deduct',
+        UserPointsOnErrorDecision:
+          props.options.UserPointsOnErrorDecision || 'allow',
       };
 
       // 美化 JSON 展示
@@ -162,6 +165,13 @@ export default function SettingsPaymentGateway(props) {
       showError(t('请填写 can_pre_deduct 的 JSONPath（gjson path）'));
       return;
     }
+    if (
+      inputs.UserPointsEnabled &&
+      (inputs.UserPointsOnErrorDecision || '').trim() === ''
+    ) {
+      showError(t('请选择 user_points 异常时处理策略'));
+      return;
+    }
 
     setLoading(true);
     try {
@@ -233,6 +243,15 @@ export default function SettingsPaymentGateway(props) {
         options.push({
           key: 'payment_setting.user_points_can_pre_deduct_jsonpath',
           value: inputs.UserPointsCanPreDeductJsonpath,
+        });
+      }
+      if (
+        originInputs['UserPointsOnErrorDecision'] !==
+        inputs.UserPointsOnErrorDecision
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_on_error_decision',
+          value: inputs.UserPointsOnErrorDecision,
         });
       }
 
@@ -397,12 +416,30 @@ export default function SettingsPaymentGateway(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 label={t('启用 user_points 预扣校验')}
-                extraText={t(
-                  '仅匹配用户名前缀的 token 生效；接口异常/超时时 fail-open 放行',
-                )}
+                extraText={t('仅匹配用户名前缀的 token 生效')}
               />
             </Col>
-            <Col xs={24} sm={24} md={16} lg={16} xl={16}>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Select
+                field='UserPointsOnErrorDecision'
+                label={t('快速失败策略')}
+                optionList={[
+                  {
+                    label: t('异常时优先通过（fail-open）'),
+                    value: 'allow',
+                  },
+                  {
+                    label: t('异常时优先拒绝（fail-close）'),
+                    value: 'deny',
+                  },
+                ]}
+                extraText={t(
+                  '当 user_points 接口超时/报错/解析失败时，按这里配置优先放行或拒绝',
+                )}
+                placeholder={t('请选择异常处理策略')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
               <Form.Input
                 field='UserPointsQueryUrl'
                 label={t('user_points 查询 URL')}

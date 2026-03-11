@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -61,6 +62,7 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 		"data.can_pre_deduct",
 		"abc123",
 		errors.New("dial tcp timeout"),
+		true,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -91,6 +93,70 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 	}
 	if !strings.Contains(event.Body, "dial tcp timeout") {
 		t.Fatalf("event body should contain error detail, got: %s", event.Body)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
+		t.Fatalf("unexpected payload json error: %v", err)
+	}
+	if payload["reason"] != "user_points_guard_failed_open" {
+		t.Fatalf("unexpected reason: %v", payload["reason"])
+	}
+	if payload["fail_open"] != true {
+		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	}
+}
+
+func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	c.Set(common.RequestIdKey, "req-user-points-2")
+
+	event, err := buildUserPointsFailureCallbackEvent(
+		c,
+		"https://zcheap.ai/api/v1/user_points?sk={sk}",
+		"data.can_pre_deduct",
+		"abc123",
+		errors.New("request timeout"),
+		false,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
+		t.Fatalf("unexpected payload json error: %v", err)
+	}
+	if payload["reason"] != "user_points_guard_failed_close" {
+		t.Fatalf("unexpected reason: %v", payload["reason"])
+	}
+	if payload["fail_open"] != false {
+		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	}
+}
+
+func TestNormalizeUserPointsOnErrorDecision(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty default allow", raw: "", want: userPointsOnErrorAllow},
+		{name: "allow", raw: "allow", want: userPointsOnErrorAllow},
+		{name: "allow uppercase", raw: "ALLOW", want: userPointsOnErrorAllow},
+		{name: "deny", raw: "deny", want: userPointsOnErrorDeny},
+		{name: "deny with spaces", raw: "  deny  ", want: userPointsOnErrorDeny},
+		{name: "unknown default allow", raw: "whatever", want: userPointsOnErrorAllow},
+	}
+
+	for _, tc := range cases {
+		got := normalizeUserPointsOnErrorDecision(tc.raw)
+		if got != tc.want {
+			t.Fatalf("%s: got %s, want %s", tc.name, got, tc.want)
+		}
 	}
 }
 
@@ -132,5 +198,16 @@ func TestGjsonResultToBool(t *testing.T) {
 		if ok != tc.ok || value != tc.expected {
 			t.Fatalf("unexpected parse result for %s: got (%v,%v), want (%v,%v)", tc.raw, value, ok, tc.expected, tc.ok)
 		}
+	}
+}
+
+func TestShouldCheckUserPointsWithWildcardPrefix(t *testing.T) {
+	tokenKey := "token-1"
+	username := "ima_1999004390964838400"
+	if !shouldCheckUserPoints(tokenKey, username, "ima_*") {
+		t.Fatalf("wildcard prefix should match username")
+	}
+	if shouldCheckUserPoints(tokenKey, username, "abc_*") {
+		t.Fatalf("unexpected match for non-matching wildcard prefix")
 	}
 }

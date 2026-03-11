@@ -63,6 +63,16 @@ const SOURCE_META = {
   consume: { color: 'cyan', label: '消费回调' },
   operator: { color: 'purple', label: '运营回调' },
   feishu: { color: 'orange', label: '飞书通知' },
+  user_points_guard: { color: 'indigo', label: '积分预扣校验' },
+};
+
+const EVENT_TYPE_META = {
+  'consume.settle': { color: 'cyan', label: '消费结算' },
+  'quota.warning': { color: 'orange', label: '额度预警' },
+  'user_points.pre_deduct.check_failed': {
+    color: 'red',
+    label: '预扣校验失败',
+  },
 };
 
 const normalizeTimestamp = (value) => {
@@ -140,6 +150,7 @@ const CallbackLog = () => {
       { label: t('消费回调'), value: 'consume' },
       { label: t('运营回调'), value: 'operator' },
       { label: t('飞书通知'), value: 'feishu' },
+      { label: t('积分预扣校验'), value: 'user_points_guard' },
     ],
     [t],
   );
@@ -279,6 +290,14 @@ const CallbackLog = () => {
     return <Tag color={meta.color}>{t(meta.label)}</Tag>;
   };
 
+  const renderEventTypeTag = (eventType) => {
+    const meta = EVENT_TYPE_META[eventType];
+    if (!meta) {
+      return eventType || '-';
+    }
+    return <Tag color={meta.color}>{t(meta.label)}</Tag>;
+  };
+
   const eventColumns = useMemo(
     () => [
       {
@@ -306,8 +325,8 @@ const CallbackLog = () => {
         title: t('事件类型'),
         dataIndex: 'event_type',
         key: 'event_type',
-        width: 140,
-        render: (value) => value || '-',
+        width: 150,
+        render: (value) => renderEventTypeTag(value),
       },
       {
         title: t('Request ID'),

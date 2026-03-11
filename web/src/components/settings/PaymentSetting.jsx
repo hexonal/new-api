@@ -51,6 +51,7 @@ const PaymentSetting = () => {
     UserPointsQueryUrl: '',
     UserPointsUsernamePrefixFilter: '',
     UserPointsCanPreDeductJsonpath: '',
+    UserPointsOnErrorDecision: 'allow',
   });
 
   let [loading, setLoading] = useState(false);
@@ -109,6 +110,9 @@ const PaymentSetting = () => {
             break;
           case 'payment_setting.user_points_can_pre_deduct_jsonpath':
             newInputs['UserPointsCanPreDeductJsonpath'] = item.value;
+            break;
+          case 'payment_setting.user_points_on_error_decision':
+            newInputs['UserPointsOnErrorDecision'] = item.value || 'allow';
             break;
           case 'Price':
           case 'MinTopUp':

@@ -27,6 +27,8 @@ const (
 	userPointsPrefixCacheTTL              = 10 * time.Minute
 	userPointsRequestTimeout              = 3 * time.Second
 	userPointsGuardFailureEventType       = "user_points.pre_deduct.check_failed"
+	userPointsOnErrorAllow                = "allow"
+	userPointsOnErrorDeny                 = "deny"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -40,7 +42,8 @@ type userPointsPrefixCacheEntry struct {
 var userPointsPrefixCache sync.Map
 
 // RunUserPointsPreDeductGuard checks external user points API after token auth.
-// If the external service fails (timeout/error/invalid response), it fails open.
+// On external errors, behavior follows configured policy:
+// allow => fail-open, deny => fail-close.
 func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewAPIError {
 	if c == nil {
 		return nil
@@ -77,8 +80,9 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	}
 
 	jsonPath := strings.TrimSpace(cfg.UserPointsCanPreDeductJSONPath)
-	// External dependency is best-effort by requirement: fail-open on any request/parse errors.
+	onErrorDecision := normalizeUserPointsOnErrorDecision(cfg.UserPointsOnErrorDecision)
 	// Only explicit "can_pre_deduct = false" blocks the request.
+	// For request/parse errors, runtime behavior is controlled by on_error_decision.
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
 		c.Request.Context(),
 		strings.TrimSpace(cfg.UserPointsQueryURL),
@@ -86,15 +90,24 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		jsonPath,
 	)
 	if err != nil {
-		// Persist fail-open diagnostics to callback logs for observability/troubleshooting.
-		reportUserPointsGuardFailureCallbackLog(c, strings.TrimSpace(cfg.UserPointsQueryURL), jsonPath, tokenKey, err)
-		logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
-		return nil
+		failOpen := onErrorDecision == userPointsOnErrorAllow
+		// Persist diagnostics to callback logs for observability/troubleshooting.
+		reportUserPointsGuardFailureCallbackLog(c, strings.TrimSpace(cfg.UserPointsQueryURL), jsonPath, tokenKey, err, failOpen)
+		if failOpen {
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
+			return nil
+		}
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed close, request blocked: %s", err.Error()))
+		return buildUserPointsQuotaRejectError()
 	}
 	if canPreDeduct {
 		return nil
 	}
 
+	return buildUserPointsQuotaRejectError()
+}
+
+func buildUserPointsQuotaRejectError() *types.NewAPIError {
 	return types.NewErrorWithStatusCode(
 		// Keep this guard response deterministic in English by requirement.
 		// Do not localize by user context here.
@@ -162,6 +175,11 @@ func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter str
 	prefixes := model.ParseDailyUserUsagePrefixes(rawPrefixFilter)
 	shouldCheck := false
 	for _, prefix := range prefixes {
+		// Allow optional wildcard style in config, e.g. "ima_*" == "ima_".
+		prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+		if prefix == "" {
+			continue
+		}
 		if strings.HasPrefix(username, prefix) {
 			shouldCheck = true
 			break
@@ -284,13 +302,13 @@ func gjsonResultToBool(result gjson.Result) (bool, bool) {
 }
 
 // reportUserPointsGuardFailureCallbackLog writes a terminal callback-event row for
-// user_points guard failures. It never affects request flow and keeps fail-open semantics.
-func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error) {
+// user_points guard failures. It never affects request flow.
+func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) {
 	if c == nil || guardErr == nil || model.DB == nil {
 		return
 	}
 
-	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, tokenKey, guardErr)
+	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, tokenKey, guardErr, failOpen)
 	if err != nil {
 		logger.LogWarn(context.Background(), fmt.Sprintf("build user_points failure callback log failed: %s", err.Error()))
 		return
@@ -306,7 +324,7 @@ func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string,
 
 // buildUserPointsFailureCallbackEvent builds a non-dispatching callback-event record.
 // Status is set to terminal(dead), so dispatcher won't claim it.
-func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error) (*model.CallbackEvent, error) {
+func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) (*model.CallbackEvent, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil context")
 	}
@@ -327,14 +345,19 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		jsonPath = defaultUserPointsCanPreDeductJSONPath
 	}
 
+	reason := "user_points_guard_failed_close"
+	if failOpen {
+		reason = "user_points_guard_failed_open"
+	}
+
 	payload, err := common.Marshal(map[string]interface{}{
-		"reason":                         "user_points_guard_failed_open",
+		"reason":                         reason,
 		"error":                          strings.TrimSpace(guardErr.Error()),
 		"request_path":                   requestPath,
 		"user_points_query_url":          strings.TrimSpace(rawQueryURL),
 		"resolved_user_points_query_url": resolvedQueryURL,
 		"can_pre_deduct_jsonpath":        jsonPath,
-		"fail_open":                      true,
+		"fail_open":                      failOpen,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal user_points guard failure payload: %w", err)
@@ -371,4 +394,16 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}, nil
+}
+
+func normalizeUserPointsOnErrorDecision(raw string) string {
+	decision := strings.ToLower(strings.TrimSpace(raw))
+	switch decision {
+	case userPointsOnErrorDeny:
+		return userPointsOnErrorDeny
+	case userPointsOnErrorAllow:
+		return userPointsOnErrorAllow
+	default:
+		return userPointsOnErrorAllow
+	}
 }
