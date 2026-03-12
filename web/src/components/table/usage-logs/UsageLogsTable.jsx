@@ -45,6 +45,7 @@ const LogsTable = (logsData) => {
     openChannelAffinityUsageCacheModal,
     hasExpandableRows,
     isAdminUser,
+    billingDisplayMode,
     t,
     COLUMN_KEYS,
   } = logsData;
@@ -59,6 +60,7 @@ const LogsTable = (logsData) => {
       openChannelAffinityUsageCacheModal,
       isAdminUser,
       isMobile,
+      billingDisplayMode,
     });
   }, [
     t,
@@ -68,6 +70,7 @@ const LogsTable = (logsData) => {
     openChannelAffinityUsageCacheModal,
     isAdminUser,
     isMobile,
+    billingDisplayMode,
   ]);
 
   // Filter columns based on visibility settings
