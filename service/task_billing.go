@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -14,13 +15,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	TaskTerminalChargeStatePending = "pending"
+	TaskTerminalChargeStateApplied = "applied"
+	TaskTerminalChargeStateSkipped = "skipped"
+)
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
 func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	tokenName := c.GetString("token_name")
 	logContent := fmt.Sprintf("操作 %s", info.Action)
-	// 支持任务仅按次计费
-	if common.StringsContains(constant.TaskPricePatches, info.OriginModelName) {
+	perCallBilling := common.StringsContains(constant.TaskPricePatches, info.OriginModelName)
+	if info.TaskRelayInfo != nil {
+		perCallBilling = info.TaskRelayInfo.PerCallBilling
+	}
+	// 按次计费任务仅记录模式，不展开倍率参数。
+	if perCallBilling {
 		logContent = fmt.Sprintf("%s，按次计费", logContent)
 	} else {
 		if len(info.PriceData.OtherRatios) > 0 {
@@ -140,6 +151,90 @@ func taskModelName(task *model.Task) string {
 	return task.Properties.OriginModelName
 }
 
+func IsDeferredSettleTask(task *model.Task) bool {
+	if task == nil || task.PrivateData.BillingContext == nil {
+		return false
+	}
+	return task.PrivateData.BillingContext.DeferredSettle
+}
+
+// ResolveDeferredTaskActualQuota resolves final quota for deferred-settle tasks.
+// Priority:
+// 1. adaptor-adjusted final quota
+// 2. token-based calculation from total_tokens
+// 3. submit-time estimated quota fallback
+func ResolveDeferredTaskActualQuota(adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo) (int, string) {
+	if adaptor != nil {
+		if q := adaptor.AdjustBillingOnComplete(task, taskResult); q > 0 {
+			return q, "adaptor_adjust"
+		}
+	}
+	if taskResult != nil && taskResult.TotalTokens > 0 {
+		if q, ok := calculateTaskQuotaByTokens(task, taskResult.TotalTokens); ok && q > 0 {
+			return q, fmt.Sprintf("token_recalculate:%d", taskResult.TotalTokens)
+		}
+	}
+	if task != nil && task.PrivateData.BillingContext != nil && task.PrivateData.BillingContext.EstimatedQuota > 0 {
+		return task.PrivateData.BillingContext.EstimatedQuota, "estimated_quota_fallback"
+	}
+	return 0, "unresolved"
+}
+
+// ApplyDeferredTaskTerminalCharge performs first-time charge for deferred-settle tasks.
+// It is idempotent by persisted terminal charge state in billing context.
+func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actualQuota int, reason string) error {
+	if task == nil || task.PrivateData.BillingContext == nil || !task.PrivateData.BillingContext.DeferredSettle {
+		return nil
+	}
+
+	bc := task.PrivateData.BillingContext
+	state := strings.TrimSpace(bc.TerminalChargeState)
+	if state == "" {
+		state = TaskTerminalChargeStatePending
+	}
+	if state == TaskTerminalChargeStateApplied || state == TaskTerminalChargeStateSkipped {
+		return nil
+	}
+
+	if actualQuota <= 0 {
+		bc.TerminalChargeState = TaskTerminalChargeStateSkipped
+		bc.TerminalChargeAt = time.Now().Unix()
+		return task.Update()
+	}
+
+	if err := taskAdjustFunding(task, actualQuota); err != nil {
+		return err
+	}
+	taskAdjustTokenQuota(ctx, task, actualQuota)
+
+	task.Quota = actualQuota
+	bc.TerminalChargeState = TaskTerminalChargeStateApplied
+	bc.TerminalChargedQuota = actualQuota
+	bc.TerminalChargeAt = time.Now().Unix()
+
+	other := taskBillingOther(task)
+	other["task_id"] = task.TaskID
+	other["deferred_settle"] = true
+	other["actual_quota"] = actualQuota
+	other["estimated_quota"] = bc.EstimatedQuota
+	other["terminal_charge_state"] = bc.TerminalChargeState
+	other["terminal_charge_reason"] = reason
+	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		UserId:    task.UserId,
+		LogType:   model.LogTypeConsume,
+		Content:   reason,
+		ChannelId: task.ChannelId,
+		ModelName: taskModelName(task),
+		Quota:     actualQuota,
+		TokenId:   task.PrivateData.TokenId,
+		Group:     task.Group,
+		Other:     other,
+	})
+	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)
+	model.UpdateChannelUsedQuota(task.ChannelId, actualQuota)
+	return task.Update()
+}
+
 // RefundTaskQuota 统一的任务失败退款逻辑。
 // 当异步任务失败时，将预扣的 quota 退还给用户（支持钱包和订阅），并退还令牌额度。
 func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
@@ -242,20 +337,29 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 // 当任务成功且返回了 totalTokens 时，根据模型倍率和分组倍率重新计算实际扣费额度，
 // 与预扣费的差额进行补扣或退还。支持钱包和订阅计费来源。
 func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTokens int) {
-	if totalTokens <= 0 {
+	actualQuota, ok := calculateTaskQuotaByTokens(task, totalTokens)
+	if !ok || actualQuota <= 0 {
 		return
 	}
 
 	modelName := taskModelName(task)
+	modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
+	groupRatio := ratio_setting.GetGroupRatio(task.Group)
+	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, groupRatio)
+	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+}
 
-	// 获取模型价格和倍率
-	modelRatio, hasRatioSetting, _ := ratio_setting.GetModelRatio(modelName)
-	// 只有配置了倍率(非固定价格)时才按 token 重新计费
-	if !hasRatioSetting || modelRatio <= 0 {
-		return
+func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
+	if task == nil || totalTokens <= 0 {
+		return 0, false
 	}
 
-	// 获取用户和组的倍率信息
+	modelName := taskModelName(task)
+	modelRatio, hasRatioSetting, _ := ratio_setting.GetModelRatio(modelName)
+	if !hasRatioSetting || modelRatio <= 0 {
+		return 0, false
+	}
+
 	group := task.Group
 	if group == "" {
 		user, err := model.GetUserById(task.UserId, false)
@@ -264,22 +368,15 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 		}
 	}
 	if group == "" {
-		return
+		return 0, false
 	}
 
 	groupRatio := ratio_setting.GetGroupRatio(group)
 	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
-
-	var finalGroupRatio float64
+	finalGroupRatio := groupRatio
 	if hasUserGroupRatio {
 		finalGroupRatio = userGroupRatio
-	} else {
-		finalGroupRatio = groupRatio
 	}
 
-	// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio
-	actualQuota := int(float64(totalTokens) * modelRatio * finalGroupRatio)
-
-	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, finalGroupRatio)
-	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+	return int(float64(totalTokens) * modelRatio * finalGroupRatio), true
 }

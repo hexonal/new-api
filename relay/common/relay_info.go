@@ -660,6 +660,10 @@ type TaskRelayInfo struct {
 	PublicTaskID string
 
 	ConsumeQuota bool
+	// PerCallBilling indicates task settlement should skip completion-time delta recalculation.
+	PerCallBilling bool
+	// DeferredSettle indicates submit-time should skip charging and charge on terminal success.
+	DeferredSettle bool
 
 	// LockedChannel holds the full channel object when the request is bound to
 	// a specific channel (e.g., remix on origin task's channel). Stored as any
@@ -670,6 +674,7 @@ type TaskRelayInfo struct {
 type TaskSubmitReq struct {
 	Prompt         string                 `json:"prompt"`
 	Model          string                 `json:"model,omitempty"`
+	CallbackURL    string                 `json:"callback_url,omitempty"`
 	Mode           string                 `json:"mode,omitempty"`
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
@@ -686,6 +691,31 @@ func (t *TaskSubmitReq) GetPrompt() string {
 
 func (t *TaskSubmitReq) HasImage() bool {
 	return len(t.Images) > 0
+}
+
+// GetCallbackURL returns callback_url from top-level field first, then metadata fallback.
+// Supported metadata keys: callback_url, callbackUrl, notify_hook, notifyHook.
+func (t *TaskSubmitReq) GetCallbackURL() string {
+	if t == nil {
+		return ""
+	}
+	if v := strings.TrimSpace(t.CallbackURL); v != "" {
+		return v
+	}
+	if t.Metadata == nil {
+		return ""
+	}
+	keys := []string{"callback_url", "callbackUrl", "notify_hook", "notifyHook"}
+	for _, key := range keys {
+		if raw, ok := t.Metadata[key]; ok {
+			if s, ok := raw.(string); ok {
+				if v := strings.TrimSpace(s); v != "" {
+					return v
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {

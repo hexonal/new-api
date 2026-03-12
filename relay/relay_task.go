@@ -19,6 +19,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +28,51 @@ type TaskSubmitResult struct {
 	TaskData       []byte
 	Platform       constant.TaskPlatform
 	Quota          int
+	EstimatedQuota int
+	PerCallBilling bool
+	DeferredSettle bool
 	//PerCallPrice   types.PriceData
+}
+
+const taskTokenBillingModelImaPro = "ima-pro"
+
+func shouldUseTokenBillingForTaskModel(modelName string) bool {
+	return strings.EqualFold(strings.TrimSpace(modelName), taskTokenBillingModelImaPro)
+}
+
+func shouldUseDeferredSettleForTaskModel(modelName string) bool {
+	return strings.EqualFold(strings.TrimSpace(modelName), taskTokenBillingModelImaPro)
+}
+
+func shouldUsePerCallBillingForTaskModel(modelName string) bool {
+	if shouldUseTokenBillingForTaskModel(modelName) {
+		return false
+	}
+	return common.StringsContains(constant.TaskPricePatches, modelName)
+}
+
+func estimateTaskPromptTokens(c *gin.Context, info *relaycommon.RelayInfo, modelName string) int {
+	// Reuse estimated tokens if already provided by prior pipeline stages.
+	if tokens := info.GetEstimatePromptTokens(); tokens > 0 {
+		return tokens
+	}
+
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return common.PreConsumedQuota
+	}
+
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		return common.PreConsumedQuota
+	}
+
+	tokens := service.EstimateTokenByModel(modelName, prompt)
+	if tokens <= 0 {
+		tokens = common.PreConsumedQuota
+	}
+	info.SetEstimatePromptTokens(tokens)
+	return tokens
 }
 
 // ResolveOriginTask 处理基于已有任务的提交（remix / continuation）：
@@ -178,9 +223,25 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 4. 价格计算：基础模型价格
 	info.OriginModelName = modelName
-	priceData, err := helper.ModelPriceHelperPerCall(c, info)
-	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+	perCallBilling := shouldUsePerCallBillingForTaskModel(modelName)
+	deferredSettle := shouldUseDeferredSettleForTaskModel(modelName)
+	var priceData types.PriceData
+	var err error
+	if shouldUseTokenBillingForTaskModel(modelName) {
+		promptTokens := estimateTaskPromptTokens(c, info, modelName)
+		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		}
+	} else {
+		priceData, err = helper.ModelPriceHelperPerCall(c, info)
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		}
+	}
+	if info.TaskRelayInfo != nil {
+		info.TaskRelayInfo.PerCallBilling = perCallBilling
+		info.TaskRelayInfo.DeferredSettle = deferredSettle
 	}
 	info.PriceData = priceData
 
@@ -194,7 +255,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 6. 将 OtherRatios 应用到基础额度
-	if !common.StringsContains(constant.TaskPricePatches, modelName) {
+	if !perCallBilling {
 		for _, ra := range info.PriceData.OtherRatios {
 			if ra != 1.0 {
 				info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
@@ -202,11 +263,29 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
-	// 7. 预扣费（仅首次 — 重试时 info.Billing 已存在，跳过）
-	if info.Billing == nil && !info.PriceData.FreeModel {
-		info.ForcePreConsume = true
-		if apiErr := service.PreConsumeBilling(c, info.PriceData.Quota, info); apiErr != nil {
-			return nil, service.TaskErrorFromAPIError(apiErr)
+	// 7. 提交阶段计费处理
+	// - strict_preconsume: 维持原逻辑（预扣费）
+	// - deferred_settle: 仅做额度校验，不预扣
+	if !info.PriceData.FreeModel {
+		if deferredSettle {
+			if apiErr := service.ValidateDeferredTaskBilling(c, info, info.PriceData.Quota); apiErr != nil {
+				return nil, service.TaskErrorFromAPIError(apiErr)
+			}
+			// Subscription relies on pre-consume records for strict consistency.
+			// For subscription-selected tasks we downgrade to strict preconsume mode.
+			if info.BillingSource == service.BillingSourceSubscription {
+				common.SysLog(fmt.Sprintf("model %s deferred settle downgraded to strict preconsume for subscription funding", modelName))
+				deferredSettle = false
+				if info.TaskRelayInfo != nil {
+					info.TaskRelayInfo.DeferredSettle = false
+				}
+			}
+		}
+		if !deferredSettle && info.Billing == nil {
+			info.ForcePreConsume = true
+			if apiErr := service.PreConsumeBilling(c, info.PriceData.Quota, info); apiErr != nil {
+				return nil, service.TaskErrorFromAPIError(apiErr)
+			}
 		}
 	}
 
@@ -267,6 +346,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		TaskData:       taskData,
 		Platform:       platform,
 		Quota:          finalQuota,
+		EstimatedQuota: finalQuota,
+		PerCallBilling: perCallBilling,
+		DeferredSettle: deferredSettle,
 	}, nil
 }
 

@@ -36,6 +36,13 @@ type TaskPollingAdaptor interface {
 // 打破 service -> relay -> relay/channel -> service 的循环依赖。
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
 
+const (
+	// ima-pro is known to have longer processing latency.
+	// We keep timeout grace wider than global default to avoid premature failure.
+	imaProSlowModelName     = "ima-pro"
+	imaProTimeoutMultiplier = 6
+)
+
 // sweepTimedOutTasks 在主轮询之前独立清理超时任务。
 // 每次最多处理 100 条，剩余的下个周期继续处理。
 // 使用 per-task CAS (UpdateWithStatus) 防止覆盖被正常轮询已推进的任务。
@@ -57,6 +64,9 @@ func sweepTimedOutTasks(ctx context.Context) {
 
 	for _, task := range tasks {
 		isLegacy := task.SubmitTime > 0 && task.SubmitTime < legacyTaskCutoff
+		if shouldSkipTimeoutForSlowModel(task, now) {
+			continue
+		}
 
 		oldStatus := task.Status
 		task.Status = model.TaskStatusFailure
@@ -86,6 +96,23 @@ func sweepTimedOutTasks(ctx context.Context) {
 	if timedOutCount > 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("sweepTimedOutTasks: timed out %d tasks", timedOutCount))
 	}
+}
+
+func shouldSkipTimeoutForSlowModel(task *model.Task, now int64) bool {
+	if task == nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(task.Properties.OriginModelName), imaProSlowModelName) {
+		return false
+	}
+	if constant.TaskTimeoutMinutes <= 0 || task.SubmitTime <= 0 {
+		return false
+	}
+	extendedTimeoutSeconds := int64(constant.TaskTimeoutMinutes*imaProTimeoutMultiplier) * 60
+	if now-task.SubmitTime < extendedTimeoutSeconds {
+		return true
+	}
+	return false
 }
 
 // TaskPollingLoop 主轮询循环，每 15 秒检查一次未完成的任务
@@ -463,7 +490,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		task.FailReason = taskResult.Reason
 		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, task.FailReason))
 		taskResult.Progress = taskcommon.ProgressComplete
-		if quota != 0 {
+		if IsDeferredSettleTask(task) && task.PrivateData.BillingContext != nil {
+			task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStateSkipped
+		}
+		if quota != 0 && !IsDeferredSettleTask(task) {
 			shouldRefund = true
 		}
 	default:
@@ -474,6 +504,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 
 	isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
+	terminalTransitionWon := false
 	if isDone && snap.Status != task.Status {
 		won, err := task.UpdateWithStatus(snap.Status)
 		if err != nil {
@@ -484,6 +515,8 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			logger.LogWarn(ctx, fmt.Sprintf("Task %s already transitioned by another process, skip billing", task.TaskID))
 			shouldRefund = false
 			shouldSettle = false
+		} else {
+			terminalTransitionWon = true
 		}
 	} else if !snap.Equal(task.Snapshot()) {
 		if _, err := task.UpdateWithStatus(snap.Status); err != nil {
@@ -499,6 +532,11 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 	if shouldRefund {
 		RefundTaskQuota(ctx, task, task.FailReason)
+	}
+	if terminalTransitionWon {
+		if callbackErr := EnqueueVideoTaskTerminalCallback(ctx, task); callbackErr != nil {
+			logger.LogError(ctx, fmt.Sprintf("enqueue video task callback failed for task %s: %s", task.TaskID, callbackErr.Error()))
+		}
 	}
 
 	return nil
@@ -544,6 +582,14 @@ func truncateBase64(s string) string {
 //  2. taskResult.TotalTokens > 0 → 按 token 重算
 //  3. 都不满足 → 保持预扣额度不变
 func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo) {
+	if IsDeferredSettleTask(task) {
+		actualQuota, settleReason := ResolveDeferredTaskActualQuota(adaptor, task, taskResult)
+		if err := ApplyDeferredTaskTerminalCharge(ctx, task, actualQuota, settleReason); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("task %s deferred terminal charge failed: %s", task.TaskID, err.Error()))
+		}
+		return
+	}
+
 	// 0. 按次计费的任务不做差额结算
 	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 按次计费，跳过差额结算", task.TaskID))

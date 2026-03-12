@@ -86,12 +86,16 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 
 	formData := c.Request.PostForm
 	req = TaskSubmitReq{
-		Prompt:   formData.Get("prompt"),
-		Model:    formData.Get("model"),
-		Mode:     formData.Get("mode"),
-		Image:    formData.Get("image"),
-		Size:     formData.Get("size"),
-		Metadata: make(map[string]interface{}),
+		Prompt:      formData.Get("prompt"),
+		Model:       formData.Get("model"),
+		CallbackURL: formData.Get("callback_url"),
+		Mode:        formData.Get("mode"),
+		Image:       formData.Get("image"),
+		Size:        formData.Get("size"),
+		Metadata:    make(map[string]interface{}),
+	}
+	if req.CallbackURL == "" {
+		req.CallbackURL = formData.Get("notify_hook")
 	}
 
 	if durationStr := formData.Get("seconds"); durationStr != "" {
@@ -191,6 +195,8 @@ func isKnownTaskField(field string) bool {
 		"size":            true,
 		"duration":        true,
 		"input_reference": true, // Sora 特有字段
+		"callback_url":    true,
+		"notify_hook":     true,
 	}
 	return knownFields[field]
 }

@@ -57,6 +57,7 @@ const (
 	ChannelTypeCodex          = 57
 	ChannelTypeYouchuan       = 58
 	ChannelTypePixVerse       = 59
+	ChannelTypeImaPro         = 60
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -122,6 +123,7 @@ var ChannelBaseURLs = []string{
 	"https://chatgpt.com",                       //57
 	"https://ali.youchuan.cn",                   //58
 	"https://app-api.pixverse.ai",               //59
+	"",                                          //60
 }
 
 var ChannelTypeNames = map[int]string{
@@ -181,6 +183,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeCodex:          "Codex",
 	ChannelTypeYouchuan:       "悠船",
 	ChannelTypePixVerse:       "PixVerse",
+	ChannelTypeImaPro:         "ima_pro",
 }
 
 func GetChannelTypeName(channelType int) string {

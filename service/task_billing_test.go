@@ -712,3 +712,70 @@ func TestSettle_NonPerCall_AdaptorAdjustWorks(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 }
+
+func TestSettle_DeferredSettle_ChargesOnceByAdaptor(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 33, 33, 33
+	const initQuota, tokenRemain = 10000, 9000
+	const actualQuota = 2600
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-deferred-once", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.EstimatedQuota = 2000
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+
+	adaptor := &mockAdaptor{adjustReturn: actualQuota}
+	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	assert.Equal(t, initQuota-actualQuota, getUserQuota(t, userID))
+	assert.Equal(t, tokenRemain-actualQuota, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, actualQuota, task.Quota)
+	assert.Equal(t, TaskTerminalChargeStateApplied, task.PrivateData.BillingContext.TerminalChargeState)
+	assert.Equal(t, int64(1), countLogs(t))
+
+	// Idempotency: second execution should no-op.
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+	assert.Equal(t, initQuota-actualQuota, getUserQuota(t, userID))
+	assert.Equal(t, tokenRemain-actualQuota, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, int64(1), countLogs(t))
+}
+
+func TestSettle_DeferredSettle_UsesEstimatedFallback(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 34, 34, 34
+	const initQuota, tokenRemain = 8000, 7000
+	const estimatedQuota = 1500
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-deferred-fallback", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.EstimatedQuota = estimatedQuota
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+
+	adaptor := &mockAdaptor{adjustReturn: 0}
+	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	assert.Equal(t, initQuota-estimatedQuota, getUserQuota(t, userID))
+	assert.Equal(t, tokenRemain-estimatedQuota, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, estimatedQuota, task.Quota)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Contains(t, log.Content, "estimated_quota_fallback")
+}

@@ -54,6 +54,8 @@ const PaymentSetting = () => {
     UserPointsOnErrorDecision: 'allow',
     UserPointsRechargeUrl: '',
     UserPointsInsufficientMessage: '',
+    ImaProMinBalanceGateEnabled: false,
+    ImaProMinBalanceUsdThreshold: 10,
   });
 
   let [loading, setLoading] = useState(false);
@@ -121,6 +123,13 @@ const PaymentSetting = () => {
             break;
           case 'payment_setting.user_points_insufficient_message':
             newInputs['UserPointsInsufficientMessage'] = item.value || '';
+            break;
+          case 'payment_setting.ima_pro_min_balance_gate_enabled':
+            newInputs['ImaProMinBalanceGateEnabled'] = toBoolean(item.value);
+            break;
+          case 'payment_setting.ima_pro_min_balance_usd_threshold':
+            newInputs['ImaProMinBalanceUsdThreshold'] =
+              item.value !== '' ? parseFloat(item.value) : 10;
             break;
           case 'Price':
           case 'MinTopUp':

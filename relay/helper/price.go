@@ -186,6 +186,76 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 	return priceData, nil
 }
 
+// ModelPriceHelperTokenOnly forces token-based pricing by model ratio.
+// It ignores fixed per-request model price even if configured.
+// This is used by task models that must always be billed by token usage semantics.
+func ModelPriceHelperTokenOnly(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {
+	groupRatioInfo := HandleGroupRatio(c, info)
+
+	if meta == nil {
+		meta = &types.TokenCountMeta{}
+	}
+
+	preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
+	if meta.MaxTokens != 0 {
+		preConsumedTokens += meta.MaxTokens
+	}
+
+	modelRatio, success, matchName := ratio_setting.GetModelRatio(info.OriginModelName)
+	if !success {
+		acceptUnsetRatio := false
+		if info.UserSetting.AcceptUnsetRatioModel {
+			acceptUnsetRatio = true
+		}
+		if !acceptUnsetRatio {
+			return types.PriceData{}, fmt.Errorf("model %s ratio or price is not configured; please contact the administrator or enable self-use mode", matchName)
+		}
+	}
+
+	completionRatio := ratio_setting.GetCompletionRatio(info.OriginModelName)
+	cacheRatio, _ := ratio_setting.GetCacheRatio(info.OriginModelName)
+	cacheCreationRatio, _ := ratio_setting.GetCreateCacheRatio(info.OriginModelName)
+	cacheCreationRatio5m := cacheCreationRatio
+	cacheCreationRatio1h := cacheCreationRatio * claudeCacheCreation1hMultiplier
+	imageRatio, _ := ratio_setting.GetImageRatio(info.OriginModelName)
+	audioRatio := ratio_setting.GetAudioRatio(info.OriginModelName)
+	audioCompletionRatio := ratio_setting.GetAudioCompletionRatio(info.OriginModelName)
+
+	preConsumedQuota := int(float64(preConsumedTokens) * modelRatio * groupRatioInfo.GroupRatio)
+
+	freeModel := false
+	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume {
+		if groupRatioInfo.GroupRatio == 0 || modelRatio == 0 {
+			preConsumedQuota = 0
+			freeModel = true
+		}
+	}
+
+	priceData := types.PriceData{
+		FreeModel:            freeModel,
+		ModelPrice:           0,
+		ModelRatio:           modelRatio,
+		CompletionRatio:      completionRatio,
+		GroupRatioInfo:       groupRatioInfo,
+		UsePrice:             false,
+		CacheRatio:           cacheRatio,
+		ImageRatio:           imageRatio,
+		AudioRatio:           audioRatio,
+		AudioCompletionRatio: audioCompletionRatio,
+		CacheCreationRatio:   cacheCreationRatio,
+		CacheCreation5mRatio: cacheCreationRatio5m,
+		CacheCreation1hRatio: cacheCreationRatio1h,
+		Quota:                preConsumedQuota,
+		QuotaToPreConsume:    preConsumedQuota,
+	}
+
+	if common.DebugEnabled {
+		println(fmt.Sprintf("model_price_helper_token_only result: %s", priceData.ToSetting()))
+	}
+	info.PriceData = priceData
+	return priceData, nil
+}
+
 func ContainPriceOrRatio(modelName string) bool {
 	_, ok := ratio_setting.GetModelPrice(modelName, false)
 	if ok {

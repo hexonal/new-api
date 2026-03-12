@@ -8,18 +8,20 @@ import (
 )
 
 const (
-	CallbackEventSourceConsume  = "consume"
-	CallbackEventSourceOperator = "operator"
-	CallbackEventSourceFeishu   = "feishu"
+	CallbackEventSourceConsume   = "consume"
+	CallbackEventSourceOperator  = "operator"
+	CallbackEventSourceFeishu    = "feishu"
+	CallbackEventSourceVideoTask = "video_task"
 	// CallbackEventSourceUserPointsGuard marks user_points pre-deduct guard diagnostics.
 	// It is used for internal observability records, not for external webhook delivery.
 	CallbackEventSourceUserPointsGuard = "user_points_guard"
 )
 
 const (
-	CallbackEventSinkConsumeWebhook  = "consume_webhook"
-	CallbackEventSinkOperatorWebhook = "operator_webhook"
-	CallbackEventSinkFeishuWebhook   = "feishu_webhook"
+	CallbackEventSinkConsumeWebhook   = "consume_webhook"
+	CallbackEventSinkOperatorWebhook  = "operator_webhook"
+	CallbackEventSinkFeishuWebhook    = "feishu_webhook"
+	CallbackEventSinkVideoTaskWebhook = "video_task_webhook"
 	// CallbackEventSinkUserPointsGuardLog stores terminal diagnostic logs for user_points checks.
 	// Events with this sink are written in terminal status and are not dispatched.
 	CallbackEventSinkUserPointsGuardLog = "user_points_guard_log"

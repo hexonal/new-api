@@ -45,3 +45,7 @@ var ModelList = []string{
 }
 
 var ChannelName = "openai"
+
+var IMAProModelList = []string{
+	"ima-pro",
+}

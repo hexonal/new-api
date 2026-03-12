@@ -50,6 +50,8 @@ export default function SettingsPaymentGateway(props) {
     UserPointsOnErrorDecision: 'allow',
     UserPointsRechargeUrl: '',
     UserPointsInsufficientMessage: '',
+    ImaProMinBalanceGateEnabled: false,
+    ImaProMinBalanceUsdThreshold: 10,
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -85,6 +87,11 @@ export default function SettingsPaymentGateway(props) {
         UserPointsRechargeUrl: props.options.UserPointsRechargeUrl || '',
         UserPointsInsufficientMessage:
           props.options.UserPointsInsufficientMessage || '',
+        ImaProMinBalanceGateEnabled: !!props.options.ImaProMinBalanceGateEnabled,
+        ImaProMinBalanceUsdThreshold:
+          props.options.ImaProMinBalanceUsdThreshold !== undefined
+            ? Number(props.options.ImaProMinBalanceUsdThreshold)
+            : 10,
       };
 
       // 美化 JSON 展示
@@ -185,6 +192,13 @@ export default function SettingsPaymentGateway(props) {
       showError(t('文案使用了 {recharge_url}，请同时填写充值链接 URL'));
       return;
     }
+    if (
+      inputs.ImaProMinBalanceGateEnabled &&
+      Number(inputs.ImaProMinBalanceUsdThreshold) <= 0
+    ) {
+      showError(t('请填写 ima-pro 最低余额门槛（USD > 0）'));
+      return;
+    }
 
     setLoading(true);
     try {
@@ -282,6 +296,24 @@ export default function SettingsPaymentGateway(props) {
         options.push({
           key: 'payment_setting.user_points_insufficient_message',
           value: inputs.UserPointsInsufficientMessage,
+        });
+      }
+      if (
+        originInputs['ImaProMinBalanceGateEnabled'] !==
+        inputs.ImaProMinBalanceGateEnabled
+      ) {
+        options.push({
+          key: 'payment_setting.ima_pro_min_balance_gate_enabled',
+          value: inputs.ImaProMinBalanceGateEnabled ? 'true' : 'false',
+        });
+      }
+      if (
+        originInputs['ImaProMinBalanceUsdThreshold'] !==
+        inputs.ImaProMinBalanceUsdThreshold
+      ) {
+        options.push({
+          key: 'payment_setting.ima_pro_min_balance_usd_threshold',
+          value: String(inputs.ImaProMinBalanceUsdThreshold),
         });
       }
 
@@ -530,6 +562,33 @@ export default function SettingsPaymentGateway(props) {
                 autosize
                 extraText={t(
                   '默认英文为 Insufficient quota；支持 {recharge_url} 占位符',
+                )}
+              />
+            </Col>
+          </Row>
+          <Row
+            gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+            style={{ marginTop: 16 }}
+          >
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Switch
+                field='ImaProMinBalanceGateEnabled'
+                size='default'
+                checkedText='｜'
+                uncheckedText='〇'
+                label={t('启用 ima-pro 最低余额门槛')}
+                extraText={t('仅对 ima-pro 生效')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='ImaProMinBalanceUsdThreshold'
+                precision={2}
+                min={0}
+                label={t('ima-pro 最低余额门槛（USD）')}
+                placeholder={t('例如：10')}
+                extraText={t(
+                  '启用后仅当余额大于等于该美元门槛时才允许提交；默认 10',
                 )}
               />
             </Col>

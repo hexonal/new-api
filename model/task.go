@@ -100,6 +100,9 @@ type TaskPrivateData struct {
 	Key            string `json:"key,omitempty"`
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
+	// CallbackURL is an optional client-provided webhook endpoint for task terminal updates.
+	// It is validated at submit-time and dispatched asynchronously by callback dispatcher.
+	CallbackURL string `json:"callback_url,omitempty"`
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
 	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
@@ -115,6 +118,13 @@ type TaskBillingContext struct {
 	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
 	OriginModelName string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
 	PerCallBilling  bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+	DeferredSettle  bool               `json:"deferred_settle,omitempty"`   // 延迟结算：提交阶段不扣费，终态成功时再扣费
+	EstimatedQuota  int                `json:"estimated_quota,omitempty"`   // 提交阶段估算额度，终态无 usage 时作为兜底
+	// TerminalChargeState tracks deferred terminal-charge lifecycle.
+	// pending -> applied/skipped
+	TerminalChargeState  string `json:"terminal_charge_state,omitempty"`
+	TerminalChargedQuota int    `json:"terminal_charged_quota,omitempty"`
+	TerminalChargeAt     int64  `json:"terminal_charge_at,omitempty"`
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）

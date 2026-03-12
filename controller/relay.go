@@ -575,13 +575,20 @@ func RelayTask(c *gin.Context) {
 
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
-		if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
-			common.SysError("settle task billing error: " + settleErr.Error())
+		if !result.DeferredSettle {
+			if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
+				common.SysError("settle task billing error: " + settleErr.Error())
+			}
+			service.LogTaskConsumption(c, relayInfo)
 		}
-		service.LogTaskConsumption(c, relayInfo)
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
+			if callbackURL := strings.TrimSpace(req.GetCallbackURL()); callbackURL != "" {
+				task.PrivateData.CallbackURL = callbackURL
+			}
+		}
 		task.PrivateData.BillingSource = relayInfo.BillingSource
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
@@ -591,9 +598,20 @@ func RelayTask(c *gin.Context) {
 			ModelRatio:      relayInfo.PriceData.ModelRatio,
 			OtherRatios:     relayInfo.PriceData.OtherRatios,
 			OriginModelName: relayInfo.OriginModelName,
-			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
+			PerCallBilling:  result.PerCallBilling,
+			DeferredSettle:  result.DeferredSettle,
+			EstimatedQuota:  result.EstimatedQuota,
 		}
-		task.Quota = result.Quota
+		if result.DeferredSettle {
+			task.PrivateData.BillingContext.TerminalChargeState = "pending"
+		}
+		// Deferred-settle tasks are charged only on terminal success.
+		// Keep task quota at 0 to avoid accidental refund/recalculate branches.
+		if result.DeferredSettle {
+			task.Quota = 0
+		} else {
+			task.Quota = result.Quota
+		}
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
 		if insertErr := task.Insert(); insertErr != nil {
