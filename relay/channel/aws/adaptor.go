@@ -41,6 +41,8 @@ func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dt
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	maybeInjectAwsClaudeCacheControl(request)
+
 	for i, message := range request.Messages {
 		updated := false
 		if !message.IsStringContent() {
@@ -141,6 +143,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert openai request to claude request")
 	}
+	maybeInjectAwsClaudeCacheControl(claudeReq)
 	info.UpstreamModelName = claudeReq.Model
 	return claudeReq, err
 }
