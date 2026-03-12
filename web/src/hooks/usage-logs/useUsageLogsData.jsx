@@ -612,22 +612,29 @@ export const useLogsData = () => {
       }
       if (other?.cache_status) {
         expandDataLocal.push({
-          key: t('缓存状态'),
+          key: t('缓存状态（上游）'),
           value: other.cache_status,
         });
       }
       if (other?.cache_miss_reason) {
         let missReasonDetail = other.cache_miss_reason;
+        expandDataLocal.push({
+          key: t('缓存未命中原因（上游）'),
+          value: missReasonDetail,
+        });
+      }
+      if (other?.cache_miss_local_hint) {
+        let hintDetail = other.cache_miss_local_hint;
         if (
-          other.cache_miss_reason === 'below_min_prompt_tokens' &&
+          other.cache_miss_local_hint === 'below_min_prompt_tokens' &&
           typeof other?.cache_prompt_tokens_observed === 'number' &&
           typeof other?.cache_min_tokens_required === 'number'
         ) {
-          missReasonDetail += ` (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
+          hintDetail += ` (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
         }
         expandDataLocal.push({
-          key: t('缓存未命中原因'),
-          value: missReasonDetail,
+          key: t('缓存未命中提示（本地）'),
+          value: hintDetail,
         });
       }
       if (other?.billing_source === 'subscription') {
