@@ -452,6 +452,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage 
 	if isClaudeUsageSemantic {
 		other["claude"] = true
 		other["usage_semantic"] = "anthropic"
+		service.AppendClaudeCacheDiagnosticInfo(relayInfo, usage, other)
 	}
 	if imageTokens != 0 {
 		other["image"] = true
