@@ -585,6 +585,25 @@ export const useLogsData = () => {
           value: other.request_path,
         });
       }
+      if (other?.cache_status) {
+        expandDataLocal.push({
+          key: t('缓存状态'),
+          value: other.cache_status,
+        });
+      }
+      if (other?.cache_miss_reason) {
+        let missReasonDetail = other.cache_miss_reason;
+        if (
+          typeof other?.cache_prompt_tokens_observed === 'number' &&
+          typeof other?.cache_min_tokens_required === 'number'
+        ) {
+          missReasonDetail += ` (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
+        }
+        expandDataLocal.push({
+          key: t('缓存未命中原因'),
+          value: missReasonDetail,
+        });
+      }
       if (other?.billing_source === 'subscription') {
         const planId = other?.subscription_plan_id;
         const planTitle = other?.subscription_plan_title || '';
