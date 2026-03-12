@@ -216,6 +216,47 @@ func TestRequestOpenAI2ClaudeMessage_AssistantToolCallWithMalformedArguments(t *
 	assert.Empty(t, inputObj)
 }
 
+func TestRequestOpenAI2ClaudeMessage_PreserveCacheControlFromOpenAIBlocks(t *testing.T) {
+	request := dto.GeneralOpenAIRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []dto.Message{
+			{
+				Role: "system",
+				Content: []any{
+					map[string]any{
+						"type":          "text",
+						"text":          "system prefix",
+						"cache_control": map[string]any{"type": "ephemeral"},
+					},
+				},
+			},
+			{
+				Role: "user",
+				Content: []any{
+					map[string]any{
+						"type":          "text",
+						"text":          "user prefix",
+						"cache_control": map[string]any{"type": "ephemeral"},
+					},
+				},
+			},
+		},
+	}
+
+	claudeRequest, err := RequestOpenAI2ClaudeMessage(nil, request)
+	require.NoError(t, err)
+
+	systemBlocks := claudeRequest.ParseSystem()
+	require.Len(t, systemBlocks, 1)
+	require.NotEmpty(t, systemBlocks[0].CacheControl, "system cache_control should be preserved")
+
+	require.Len(t, claudeRequest.Messages, 1)
+	contentBlocks, err := claudeRequest.Messages[0].ParseContent()
+	require.NoError(t, err)
+	require.Len(t, contentBlocks, 1)
+	require.NotEmpty(t, contentBlocks[0].CacheControl, "message cache_control should be preserved")
+}
+
 func TestStreamResponseClaude2OpenAI_EmptyInputJSONDeltaIsEmpty(t *testing.T) {
 	empty := ""
 	resp := &dto.ClaudeResponse{

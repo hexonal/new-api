@@ -545,9 +545,21 @@ func (m *Message) ParseContent() []MediaContent {
 		switch contentType {
 		case ContentTypeText:
 			if text, ok := contentItem["text"].(string); ok {
+				var cacheControl json.RawMessage
+				if cacheControlAny, exists := contentItem["cache_control"]; exists && cacheControlAny != nil {
+					switch v := cacheControlAny.(type) {
+					case json.RawMessage:
+						cacheControl = v
+					default:
+						if b, err := json.Marshal(v); err == nil && string(b) != "null" {
+							cacheControl = b
+						}
+					}
+				}
 				contentList = append(contentList, MediaContent{
-					Type: ContentTypeText,
-					Text: text,
+					Type:         ContentTypeText,
+					Text:         text,
+					CacheControl: cacheControl,
 				})
 			}
 
