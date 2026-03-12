@@ -337,6 +337,7 @@ export const getLogsColumns = ({
   showUserInfoFunc,
   openChannelAffinityUsageCacheModal,
   isAdminUser,
+  isMobile = false,
 }) => {
   return [
     {
@@ -848,14 +849,22 @@ export const getLogsColumns = ({
         }
         return (
             <Typography.Paragraph
-                ellipsis={{
-                  rows: 3,
-                  showTooltip: {
-                    type: 'popover',
-                    opts: { style: { width: 420 } },
-                  },
+                ellipsis={
+                  isMobile
+                    ? false
+                    : {
+                        rows: 3,
+                        showTooltip: {
+                          type: 'popover',
+                          opts: { style: { width: 420 } },
+                        },
+                      }
+                }
+                style={{
+                  maxWidth: isMobile ? 'none' : 240,
+                  whiteSpace: 'pre-line',
+                  wordBreak: 'break-word',
                 }}
-                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
             >
               {cacheSummary ? `${cacheSummary}\n${content}` : content}
             </Typography.Paragraph>

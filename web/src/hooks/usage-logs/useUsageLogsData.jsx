@@ -595,7 +595,18 @@ export const useLogsData = () => {
         let missReasonDetail = other.cache_miss_reason;
         expandDataLocal.push({
           key: t('缓存未命中原因（上游）'),
-          value: missReasonDetail,
+          value: (
+            <div
+              style={{
+                maxWidth: 600,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.6,
+              }}
+            >
+              {missReasonDetail}
+            </div>
+          ),
         });
       }
       if (other?.cache_miss_local_hint) {
@@ -609,7 +620,18 @@ export const useLogsData = () => {
         }
         expandDataLocal.push({
           key: t('缓存未命中提示（本地）'),
-          value: hintDetail,
+          value: (
+            <div
+              style={{
+                maxWidth: 600,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.6,
+              }}
+            >
+              {hintDetail}
+            </div>
+          ),
         });
       }
       if (other?.billing_source === 'subscription') {

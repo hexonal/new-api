@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useMemo } from 'react';
 import { Empty, Descriptions } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
+import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
@@ -27,6 +28,7 @@ import {
 import { getLogsColumns } from './UsageLogsColumnDefs';
 
 const LogsTable = (logsData) => {
+  const isMobile = useIsMobile();
   const {
     logs,
     expandData,
@@ -56,6 +58,7 @@ const LogsTable = (logsData) => {
       showUserInfoFunc,
       openChannelAffinityUsageCacheModal,
       isAdminUser,
+      isMobile,
     });
   }, [
     t,
@@ -64,6 +67,7 @@ const LogsTable = (logsData) => {
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
     isAdminUser,
+    isMobile,
   ]);
 
   // Filter columns based on visibility settings
