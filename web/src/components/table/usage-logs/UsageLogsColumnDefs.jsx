@@ -829,6 +829,21 @@ export const getLogsColumns = ({
               'openai',
               billingDisplayMode,
             );
+        let cacheSummary = '';
+        if (other?.cache_status) {
+          let cacheMissReason = other?.cache_miss_reason || '';
+          if (
+            cacheMissReason &&
+            Number.isFinite(other?.cache_prompt_tokens_observed) &&
+            Number.isFinite(other?.cache_min_tokens_required)
+          ) {
+            cacheMissReason = `${cacheMissReason} (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
+          }
+          cacheSummary = `${t('缓存状态')}：${other.cache_status}`;
+          if (cacheMissReason) {
+            cacheSummary += ` | ${t('缓存未命中原因')}：${cacheMissReason}`;
+          }
+        }
         return (
             <Typography.Paragraph
                 ellipsis={{
@@ -836,7 +851,7 @@ export const getLogsColumns = ({
                 }}
                 style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
             >
-              {content}
+              {cacheSummary ? `${cacheSummary}\n${content}` : content}
             </Typography.Paragraph>
         );
       },
