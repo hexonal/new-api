@@ -75,24 +75,17 @@ func hasClaudeCacheControlBreakpoint(req *dto.ClaudeRequest) bool {
 }
 
 func selectBestCacheTarget(req *dto.ClaudeRequest) (cacheTarget, bool) {
-	best := cacheTarget{textLength: 0}
-	found := false
-
-	updateBest := func(candidate cacheTarget) {
-		if !found || candidate.textLength > best.textLength ||
-			(candidate.textLength == best.textLength && strings.HasPrefix(candidate.targetType, "system")) {
-			best = candidate
-			found = true
-		}
-	}
-
+	// Prefer stable prefix positions for better cross-turn reuse:
+	// 1) system
+	// 2) first user text block
+	// 3) fallback to first available text block
 	if req.IsStringSystem() {
 		sysText := strings.TrimSpace(req.GetStringSystem())
 		if sysText != "" {
-			updateBest(cacheTarget{
+			return cacheTarget{
 				targetType: "system_string",
 				textLength: len(sysText),
-			})
+			}, true
 		}
 	} else {
 		systemBlocks := req.ParseSystem()
@@ -104,26 +97,28 @@ func selectBestCacheTarget(req *dto.ClaudeRequest) (cacheTarget, bool) {
 			if text == "" {
 				continue
 			}
-			updateBest(cacheTarget{
+			return cacheTarget{
 				targetType: "system_block",
 				blockIndex: idx,
 				textLength: len(text),
-			})
+			}, true
 		}
 	}
 
 	for msgIdx, msg := range req.Messages {
+		if strings.ToLower(strings.TrimSpace(msg.Role)) != "user" {
+			continue
+		}
 		if msg.IsStringContent() {
 			text := strings.TrimSpace(msg.GetStringContent())
 			if text == "" {
 				continue
 			}
-			updateBest(cacheTarget{
+			return cacheTarget{
 				targetType: "message_string",
 				msgIndex:   msgIdx,
 				textLength: len(text),
-			})
-			continue
+			}, true
 		}
 		blocks, err := msg.ParseContent()
 		if err != nil {
@@ -137,16 +132,49 @@ func selectBestCacheTarget(req *dto.ClaudeRequest) (cacheTarget, bool) {
 			if text == "" {
 				continue
 			}
-			updateBest(cacheTarget{
+			return cacheTarget{
 				targetType: "message_block",
 				msgIndex:   msgIdx,
 				blockIndex: blockIdx,
 				textLength: len(text),
-			})
+			}, true
 		}
 	}
 
-	return best, found
+	for msgIdx, msg := range req.Messages {
+		if msg.IsStringContent() {
+			text := strings.TrimSpace(msg.GetStringContent())
+			if text == "" {
+				continue
+			}
+			return cacheTarget{
+				targetType: "message_string",
+				msgIndex:   msgIdx,
+				textLength: len(text),
+			}, true
+		}
+		blocks, err := msg.ParseContent()
+		if err != nil {
+			continue
+		}
+		for blockIdx, block := range blocks {
+			if block.Type != "text" {
+				continue
+			}
+			text := strings.TrimSpace(block.GetText())
+			if text == "" {
+				continue
+			}
+			return cacheTarget{
+				targetType: "message_block",
+				msgIndex:   msgIdx,
+				blockIndex: blockIdx,
+				textLength: len(text),
+			}, true
+		}
+	}
+
+	return cacheTarget{}, false
 }
 
 func applyCacheControlToTarget(req *dto.ClaudeRequest, target cacheTarget, cacheControl json.RawMessage) bool {
@@ -207,4 +235,3 @@ func applyCacheControlToTarget(req *dto.ClaudeRequest, target cacheTarget, cache
 		return false
 	}
 }
-

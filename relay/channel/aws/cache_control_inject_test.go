@@ -67,3 +67,24 @@ func TestMaybeInjectAwsClaudeCacheControl_ExistingCacheControl(t *testing.T) {
 	require.NotEmpty(t, blocks[0].CacheControl)
 }
 
+func TestMaybeInjectAwsClaudeCacheControl_PreferFirstUserContent(t *testing.T) {
+	req := &dto.ClaudeRequest{
+		Model:  "claude-sonnet-4-6",
+		System: "",
+		Messages: []dto.ClaudeMessage{
+			{Role: "user", Content: "stable prefix"},
+			{Role: "assistant", Content: "very very very very very long assistant message"},
+			{Role: "user", Content: "another user message"},
+		},
+	}
+
+	injected := maybeInjectAwsClaudeCacheControl(req)
+	require.True(t, injected)
+
+	firstBlocks, err := req.Messages[0].ParseContent()
+	require.NoError(t, err)
+	require.NotEmpty(t, firstBlocks)
+	require.NotEmpty(t, firstBlocks[0].CacheControl)
+
+	require.True(t, req.Messages[1].IsStringContent())
+}
