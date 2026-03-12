@@ -3,6 +3,7 @@ package relay
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,106 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func cloneRawMessage(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]byte, len(raw))
+	copy(out, raw)
+	return out
+}
+
+func normalizeClaudeTopLevelCacheControl(request *dto.ClaudeRequest) bool {
+	if request == nil || len(request.CacheControl) == 0 {
+		return true
+	}
+
+	// If request already carries block-level cache_control, drop top-level one.
+	if !request.IsStringSystem() {
+		systemContents := request.ParseSystem()
+		for _, item := range systemContents {
+			if len(item.CacheControl) > 0 {
+				request.CacheControl = nil
+				return true
+			}
+		}
+	}
+	for _, msg := range request.Messages {
+		content, err := msg.ParseContent()
+		if err != nil {
+			continue
+		}
+		for _, item := range content {
+			if len(item.CacheControl) > 0 {
+				request.CacheControl = nil
+				return true
+			}
+		}
+	}
+
+	// Prefer system text block as compatibility target, because it is usually the stable prefix.
+	if request.IsStringSystem() {
+		sysText := strings.TrimSpace(request.GetStringSystem())
+		if sysText != "" {
+			request.System = []dto.ClaudeMediaMessage{
+				{
+					Type:         "text",
+					Text:         common.GetPointer(sysText),
+					CacheControl: cloneRawMessage(request.CacheControl),
+				},
+			}
+			request.CacheControl = nil
+			return true
+		}
+	} else {
+		systemContents := request.ParseSystem()
+		for i := len(systemContents) - 1; i >= 0; i-- {
+			if systemContents[i].Type == "text" {
+				systemContents[i].CacheControl = cloneRawMessage(request.CacheControl)
+				request.System = systemContents
+				request.CacheControl = nil
+				return true
+			}
+		}
+	}
+
+	// Fallback to the latest text message block.
+	for i := len(request.Messages) - 1; i >= 0; i-- {
+		msg := request.Messages[i]
+		if msg.IsStringContent() {
+			msgText := strings.TrimSpace(msg.GetStringContent())
+			if msgText == "" {
+				continue
+			}
+			msg.Content = []dto.ClaudeMediaMessage{
+				{
+					Type:         "text",
+					Text:         common.GetPointer(msgText),
+					CacheControl: cloneRawMessage(request.CacheControl),
+				},
+			}
+			request.Messages[i] = msg
+			request.CacheControl = nil
+			return true
+		}
+		content, err := msg.ParseContent()
+		if err != nil {
+			continue
+		}
+		for j := len(content) - 1; j >= 0; j-- {
+			if content[j].Type == "text" {
+				content[j].CacheControl = cloneRawMessage(request.CacheControl)
+				msg.Content = content
+				request.Messages[i] = msg
+				request.CacheControl = nil
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
 
 	info.InitChannelMeta(c)
@@ -34,6 +135,16 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 	request, err := common.DeepCopy(claudeReq)
 	if err != nil {
 		return types.NewError(fmt.Errorf("failed to copy request to ClaudeRequest: %w", err), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if len(request.CacheControl) > 0 {
+		if !normalizeClaudeTopLevelCacheControl(request) {
+			return types.NewErrorWithStatusCode(
+				errors.New("invalid cache_control usage: top-level cache_control requires a text block in system/messages; please set cache_control on system/messages content blocks"),
+				types.ErrorCodeInvalidRequest,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
 	}
 
 	err = helper.ModelMappedHelper(c, info, request)
