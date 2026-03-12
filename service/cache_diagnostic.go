@@ -13,10 +13,10 @@ const (
 	cacheStatusCreated = "created"
 	cacheStatusMiss    = "miss"
 
-	cacheMissReasonNoBreakpoint = "no_cache_control_breakpoint"
-	cacheMissReasonBelowMin     = "below_min_prompt_tokens"
-	cacheMissReasonAWSNoSignal  = "upstream_no_cache_signal_aws"
-	cacheMissReasonNoSignal     = "upstream_no_cache_signal"
+	cacheMissReasonAWSNoSignal = "upstream_no_cache_signal_aws"
+	cacheMissReasonNoSignal    = "upstream_no_cache_signal"
+	cacheMissHintNoBreakpoint  = "no_cache_control_breakpoint"
+	cacheMissHintBelowMin      = "below_min_prompt_tokens"
 )
 
 // AppendClaudeCacheDiagnosticInfo writes lightweight cache diagnostics into the log "other" map.
@@ -25,6 +25,7 @@ func AppendClaudeCacheDiagnosticInfo(relayInfo *relaycommon.RelayInfo, usage *dt
 	if relayInfo == nil || usage == nil || other == nil {
 		return
 	}
+	other["cache_status_source"] = "upstream_usage"
 
 	cacheReadTokens := usage.PromptTokensDetails.CachedTokens
 	cacheCreationTokens := usage.PromptTokensDetails.CachedCreationTokens +
@@ -41,6 +42,13 @@ func AppendClaudeCacheDiagnosticInfo(relayInfo *relaycommon.RelayInfo, usage *dt
 	}
 
 	other["cache_status"] = cacheStatusMiss
+	if relayInfo.ChannelType == constant.ChannelTypeAws {
+		other["cache_miss_reason"] = cacheMissReasonAWSNoSignal
+	} else {
+		other["cache_miss_reason"] = cacheMissReasonNoSignal
+	}
+
+	// Local hints are best-effort diagnostics to help explain likely causes.
 	hasBreakpoint := hasCacheControlBreakpoint(relayInfo.Request)
 	other["cache_breakpoint_present"] = hasBreakpoint
 
@@ -52,13 +60,9 @@ func AppendClaudeCacheDiagnosticInfo(relayInfo *relaycommon.RelayInfo, usage *dt
 
 	switch {
 	case !hasBreakpoint:
-		other["cache_miss_reason"] = cacheMissReasonNoBreakpoint
+		other["cache_miss_local_hint"] = cacheMissHintNoBreakpoint
 	case minTokens > 0 && usage.PromptTokens < minTokens:
-		other["cache_miss_reason"] = cacheMissReasonBelowMin
-	case relayInfo.ChannelType == constant.ChannelTypeAws:
-		other["cache_miss_reason"] = cacheMissReasonAWSNoSignal
-	default:
-		other["cache_miss_reason"] = cacheMissReasonNoSignal
+		other["cache_miss_local_hint"] = cacheMissHintBelowMin
 	}
 }
 

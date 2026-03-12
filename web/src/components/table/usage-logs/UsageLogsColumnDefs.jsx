@@ -829,18 +829,21 @@ export const getLogsColumns = ({
             );
         let cacheSummary = '';
         if (other?.cache_status) {
-          let cacheMissReason = other?.cache_miss_reason || '';
+          let upstreamMissReason = other?.cache_miss_reason || '';
+          let localHint = other?.cache_miss_local_hint || '';
           if (
-            cacheMissReason &&
-            cacheMissReason === 'below_min_prompt_tokens' &&
+            localHint === 'below_min_prompt_tokens' &&
             Number.isFinite(other?.cache_prompt_tokens_observed) &&
             Number.isFinite(other?.cache_min_tokens_required)
           ) {
-            cacheMissReason = `${cacheMissReason} (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
+            localHint = `${localHint} (${other.cache_prompt_tokens_observed}/${other.cache_min_tokens_required})`;
           }
-          cacheSummary = `${t('缓存状态')}：${other.cache_status}`;
-          if (cacheMissReason) {
-            cacheSummary += ` | ${t('缓存未命中原因')}：${cacheMissReason}`;
+          cacheSummary = `${t('缓存状态（上游）')}：${other.cache_status}`;
+          if (upstreamMissReason) {
+            cacheSummary += ` | ${t('缓存未命中原因（上游）')}：${upstreamMissReason}`;
+          }
+          if (localHint) {
+            cacheSummary += ` | ${t('缓存未命中提示（本地）')}：${localHint}`;
           }
         }
         return (
