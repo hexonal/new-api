@@ -194,6 +194,9 @@ type ClaudeRequest struct {
 	Prompt   string          `json:"prompt,omitempty"`
 	System   any             `json:"system,omitempty"`
 	Messages []ClaudeMessage `json:"messages,omitempty"`
+	// CacheControl is kept for compatibility with clients that send a top-level
+	// cache_control in /v1/messages. It will be normalized to block-level in relay.
+	CacheControl json.RawMessage `json:"cache_control,omitempty"`
 	// InferenceGeo controls Claude data residency region.
 	// This field is filtered by default and can be enabled via channel setting allow_inference_geo.
 	InferenceGeo      string          `json:"inference_geo,omitempty"`
