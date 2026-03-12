@@ -594,6 +594,7 @@ export const useLogsData = () => {
       if (other?.cache_miss_reason) {
         let missReasonDetail = other.cache_miss_reason;
         if (
+          other.cache_miss_reason === 'below_min_prompt_tokens' &&
           typeof other?.cache_prompt_tokens_observed === 'number' &&
           typeof other?.cache_min_tokens_required === 'number'
         ) {

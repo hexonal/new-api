@@ -832,6 +832,7 @@ export const getLogsColumns = ({
           let cacheMissReason = other?.cache_miss_reason || '';
           if (
             cacheMissReason &&
+            cacheMissReason === 'below_min_prompt_tokens' &&
             Number.isFinite(other?.cache_prompt_tokens_observed) &&
             Number.isFinite(other?.cache_min_tokens_required)
           ) {
@@ -846,6 +847,10 @@ export const getLogsColumns = ({
             <Typography.Paragraph
                 ellipsis={{
                   rows: 3,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 420 } },
+                  },
                 }}
                 style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
             >
