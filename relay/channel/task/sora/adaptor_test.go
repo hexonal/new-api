@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +46,50 @@ func TestExtractTotalTokensFromResponse(t *testing.T) {
 				t.Fatalf("extractTotalTokensFromResponse() = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseTaskResult_ImaCallbackCompleted(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"tk-123",
+		"task_status":"completed",
+		"task_code":0,
+		"results":[{"url":"https://file.example.com/video.mp4"}]
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult error: %v", err)
+	}
+	if result.Status != "SUCCESS" {
+		t.Fatalf("Status = %q, want SUCCESS", result.Status)
+	}
+	if result.Url != "https://file.example.com/video.mp4" {
+		t.Fatalf("Url = %q, want callback result url", result.Url)
+	}
+	if result.TaskID != "tk-123" {
+		t.Fatalf("TaskID = %q, want tk-123", result.TaskID)
+	}
+}
+
+func TestParseTaskResult_ImaCallbackFailedByTaskCode(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"tk-456",
+		"task_status":"failed",
+		"task_code":1234
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult error: %v", err)
+	}
+	if result.Status != "FAILURE" {
+		t.Fatalf("Status = %q, want FAILURE", result.Status)
+	}
+	if result.Reason == "" {
+		t.Fatalf("Reason should not be empty")
 	}
 }
 
@@ -145,5 +190,161 @@ func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	}
 	if got := req.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+}
+
+func TestParseTaskResult_CompatCompletedWithResultsURL(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"ima_task_123",
+		"task_status":"completed",
+		"task_code":"ok",
+		"finish_at":"2026-03-13T10:00:00Z",
+		"results":[{"url":"https://cdn.example.com/ima/video.mp4"}]
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusSuccess {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusSuccess)
+	}
+	if got.TaskID != "ima_task_123" {
+		t.Fatalf("TaskID = %q, want ima_task_123", got.TaskID)
+	}
+	if got.Url != "https://cdn.example.com/ima/video.mp4" {
+		t.Fatalf("Url = %q, want https://cdn.example.com/ima/video.mp4", got.Url)
+	}
+}
+
+func TestParseTaskResult_CompatFailedWithTaskCode(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"ima_task_456",
+		"task_status":"failed",
+		"task_code":"E_TASK_TIMEOUT",
+		"finish_at":1710000000
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusFailure {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusFailure)
+	}
+	if got.TaskID != "ima_task_456" {
+		t.Fatalf("TaskID = %q, want ima_task_456", got.TaskID)
+	}
+	if got.Reason != "E_TASK_TIMEOUT" {
+		t.Fatalf("Reason = %q, want E_TASK_TIMEOUT", got.Reason)
+	}
+}
+
+func TestParseTaskResult_CompatTaskCodeForcesFailureWhenStatusCompleted(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"ima_task_789",
+		"task_status":"completed",
+		"task_code":"E_TASK_TIMEOUT",
+		"results":[{"url":"https://cdn.example.com/ima/video.mp4"}]
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusFailure {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusFailure)
+	}
+	if got.Reason != "E_TASK_TIMEOUT" {
+		t.Fatalf("Reason = %q, want E_TASK_TIMEOUT", got.Reason)
+	}
+}
+
+func TestParseTaskResult_CompatWrappedDataFields(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"data":{
+			"id_task":"ima_task_data_1",
+			"task_status":"completed",
+			"task_code":"0",
+			"results":[{"url":"https://cdn.example.com/ima/data.mp4"}]
+		}
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusSuccess {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusSuccess)
+	}
+	if got.TaskID != "ima_task_data_1" {
+		t.Fatalf("TaskID = %q, want ima_task_data_1", got.TaskID)
+	}
+	if got.Url != "https://cdn.example.com/ima/data.mp4" {
+		t.Fatalf("Url = %q, want https://cdn.example.com/ima/data.mp4", got.Url)
+	}
+}
+
+func TestParseTaskResult_CompatResultURLFallbackPaths(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "data_results_url",
+			body: `{"task_status":"completed","task_code":"0","data":{"results":[{"url":"https://cdn.example.com/a.mp4"}]}}`,
+			want: "https://cdn.example.com/a.mp4",
+		},
+		{
+			name: "response_results_url",
+			body: `{"task_status":"completed","task_code":"0","response":{"results":[{"url":"https://cdn.example.com/b.mp4"}]}}`,
+			want: "https://cdn.example.com/b.mp4",
+		},
+		{
+			name: "top_level_url",
+			body: `{"task_status":"completed","task_code":"0","url":"https://cdn.example.com/c.mp4"}`,
+			want: "https://cdn.example.com/c.mp4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := adaptor.ParseTaskResult([]byte(tt.body))
+			if err != nil {
+				t.Fatalf("ParseTaskResult returned error: %v", err)
+			}
+			if got.Status != model.TaskStatusSuccess {
+				t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusSuccess)
+			}
+			if got.Url != tt.want {
+				t.Fatalf("Url = %q, want %q", got.Url, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsTaskCodeFailure(t *testing.T) {
+	tests := []struct {
+		code string
+		want bool
+	}{
+		{code: "", want: false},
+		{code: "0", want: false},
+		{code: "ok", want: false},
+		{code: "completed", want: false},
+		{code: "12", want: true},
+		{code: "E_TIMEOUT", want: true},
+	}
+
+	for _, tt := range tests {
+		if got := IsTaskCodeFailure(tt.code); got != tt.want {
+			t.Fatalf("IsTaskCodeFailure(%q) = %v, want %v", tt.code, got, tt.want)
+		}
 	}
 }

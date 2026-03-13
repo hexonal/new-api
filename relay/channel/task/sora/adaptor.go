@@ -681,30 +681,171 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	taskResult := relaycommon.TaskInfo{
 		Code: 0,
 	}
+	taskCode := extractSoraTaskCode(respBody)
 
-	switch resTask.Status {
-	case "queued", "pending":
-		taskResult.Status = model.TaskStatusQueued
-	case "processing", "in_progress":
-		taskResult.Status = model.TaskStatusInProgress
-	case "completed":
-		taskResult.Status = model.TaskStatusSuccess
-		// Url intentionally left empty — the caller constructs the proxy URL using the public task ID
-	case "failed", "cancelled":
-		taskResult.Status = model.TaskStatusFailure
-		if resTask.Error != nil {
-			taskResult.Reason = resTask.Error.Message
-		} else {
-			taskResult.Reason = "task failed"
-		}
-	default:
+	statusRaw := strings.TrimSpace(resTask.Status)
+	if statusRaw == "" {
+		statusRaw = extractFirstNonEmptyString(respBody,
+			"task_status",
+			"data.task_status",
+			"response.task_status",
+		)
 	}
+	taskResult.Status = normalizeSoraTaskStatus(statusRaw)
+
+	// ima-pro callback may return provider-specific task_code.
+	// Treat non-zero / non-success task_code as terminal failure, even when
+	// task_status is missing or incorrectly set to completed by upstream.
+	if IsTaskCodeFailure(taskCode) {
+		taskResult.Status = model.TaskStatusFailure
+	}
+
+	if taskResult.Status == model.TaskStatusSuccess {
+		// Support callback/query payloads that carry direct result URL.
+		for _, path := range []string{
+			"results.0.url",
+			"data.results.0.url",
+			"response.results.0.url",
+			"url",
+		} {
+			if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" {
+				taskResult.Url = v
+				break
+			}
+		}
+	}
+
+	if taskResult.Status == model.TaskStatusFailure {
+		for _, path := range []string{
+			"error.message",
+			"message",
+			"msg",
+			"reason",
+		} {
+			if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" {
+				taskResult.Reason = v
+				break
+			}
+		}
+		if taskResult.Reason == "" && resTask.Error != nil && strings.TrimSpace(resTask.Error.Message) != "" {
+			taskResult.Reason = resTask.Error.Message
+		}
+		if taskResult.Reason == "" {
+			if IsTaskCodeFailure(taskCode) {
+				taskResult.Reason = taskCode
+			} else {
+				taskResult.Reason = "task failed"
+			}
+		}
+	}
+
+	taskResult.TaskID = strings.TrimSpace(resTask.ID)
+	if taskResult.TaskID == "" {
+		taskResult.TaskID = strings.TrimSpace(resTask.TaskID)
+	}
+	if taskResult.TaskID == "" {
+		taskResult.TaskID = extractFirstNonEmptyString(respBody,
+			"id_task",
+			"data.id_task",
+			"response.id_task",
+			"task_id",
+			"data.task_id",
+			"response.task_id",
+		)
+	}
+
 	if resTask.Progress > 0 && resTask.Progress < 100 {
 		taskResult.Progress = fmt.Sprintf("%d%%", resTask.Progress)
+	} else {
+		progress := gjson.GetBytes(respBody, "progress")
+		if progress.Exists() && progress.Int() > 0 && progress.Int() < 100 {
+			taskResult.Progress = fmt.Sprintf("%d%%", progress.Int())
+		}
+	}
+	if taskResult.Progress == "" &&
+		(taskResult.Status == model.TaskStatusSuccess || taskResult.Status == model.TaskStatusFailure) &&
+		hasSoraFinishAt(respBody) {
+		taskResult.Progress = taskcommon.ProgressComplete
 	}
 	taskResult.TotalTokens = extractTotalTokensFromResponse(respBody)
 
 	return &taskResult, nil
+}
+
+func extractSoraTaskCode(respBody []byte) string {
+	for _, path := range []string{
+		"task_code",
+		"data.task_code",
+		"response.task_code",
+	} {
+		taskCode := gjson.GetBytes(respBody, path)
+		if !taskCode.Exists() {
+			continue
+		}
+		if taskCode.Type == gjson.String {
+			return strings.TrimSpace(taskCode.String())
+		}
+		if taskCode.Type == gjson.Number {
+			return strconv.FormatInt(taskCode.Int(), 10)
+		}
+		if v := strings.TrimSpace(taskCode.String()); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// IsTaskCodeFailure returns true when provider task_code explicitly indicates
+// terminal failure. Empty / zero / success-like markers are treated as non-fail.
+func IsTaskCodeFailure(taskCode string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(taskCode))
+	switch normalized {
+	case "", "0", "ok", "success", "succeeded", "completed":
+		return false
+	}
+	if n, err := strconv.ParseInt(normalized, 10, 64); err == nil {
+		return n != 0
+	}
+	return true
+}
+
+func hasSoraFinishAt(respBody []byte) bool {
+	finishAt := gjson.GetBytes(respBody, "finish_at")
+	if !finishAt.Exists() {
+		return false
+	}
+	switch finishAt.Type {
+	case gjson.Number:
+		return finishAt.Int() > 0
+	case gjson.String:
+		return strings.TrimSpace(finishAt.String()) != ""
+	default:
+		return strings.TrimSpace(finishAt.String()) != ""
+	}
+}
+
+func extractFirstNonEmptyString(respBody []byte, paths ...string) string {
+	for _, path := range paths {
+		if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func normalizeSoraTaskStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "queued", "pending", "submitted":
+		return model.TaskStatusQueued
+	case "processing", "in_progress", "running":
+		return model.TaskStatusInProgress
+	case "completed", "success", "succeeded", "done":
+		return model.TaskStatusSuccess
+	case "failed", "cancelled", "canceled", "error":
+		return model.TaskStatusFailure
+	default:
+		return ""
+	}
 }
 
 // extractTotalTokensFromResponse reads optional token usage from known upstream response shapes.

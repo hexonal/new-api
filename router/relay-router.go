@@ -178,6 +178,8 @@ func SetRelayRouter(router *gin.Engine) {
 
 	// 悠船回调 — 无需 TokenAuth，由悠船服务器直接推送结果
 	router.POST("/youchuan/notify", controller.RelayYouchuanNotify)
+	// ima-pro 回调 — 无需 TokenAuth，由上游服务器直接推送结果
+	router.POST("/ima-pro/notify", controller.RelayImaProNotify)
 
 	relaySunoRouter := router.Group("/suno")
 	relaySunoRouter.Use(middleware.RouteTag("relay"))

@@ -503,41 +503,16 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		task.Progress = taskResult.Progress
 	}
 
-	isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
-	terminalTransitionWon := false
-	if isDone && snap.Status != task.Status {
-		won, err := task.UpdateWithStatus(snap.Status)
-		if err != nil {
-			logger.LogError(ctx, fmt.Sprintf("UpdateWithStatus failed for task %s: %s", task.TaskID, err.Error()))
-			shouldRefund = false
-			shouldSettle = false
-		} else if !won {
-			logger.LogWarn(ctx, fmt.Sprintf("Task %s already transitioned by another process, skip billing", task.TaskID))
-			shouldRefund = false
-			shouldSettle = false
-		} else {
-			terminalTransitionWon = true
-		}
-	} else if !snap.Equal(task.Snapshot()) {
-		if _, err := task.UpdateWithStatus(snap.Status); err != nil {
-			logger.LogError(ctx, fmt.Sprintf("Failed to update task %s: %s", task.TaskID, err.Error()))
-		}
-	} else {
-		// No changes, skip update
-		logger.LogDebug(ctx, fmt.Sprintf("No update needed for task %s", task.TaskID))
-	}
-
-	if shouldSettle {
-		settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
-	}
-	if shouldRefund {
-		RefundTaskQuota(ctx, task, task.FailReason)
-	}
-	if terminalTransitionWon {
-		if callbackErr := EnqueueVideoTaskTerminalCallback(ctx, task); callbackErr != nil {
-			logger.LogError(ctx, fmt.Sprintf("enqueue video task callback failed for task %s: %s", task.TaskID, callbackErr.Error()))
-		}
-	}
+	reconcileTaskTerminalTransition(
+		ctx,
+		adaptor,
+		task,
+		taskResult,
+		snap.Status,
+		snap.Equal(task.Snapshot()),
+		shouldSettle,
+		shouldRefund,
+	)
 
 	return nil
 }
