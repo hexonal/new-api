@@ -110,13 +110,16 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 
 	for key, values := range formData {
 		if len(values) > 0 && !isKnownTaskField(key) {
-			if intVal, err := strconv.Atoi(values[0]); err == nil {
-				req.Metadata[key] = intVal
-			} else if floatVal, err := strconv.ParseFloat(values[0], 64); err == nil {
-				req.Metadata[key] = floatVal
-			} else {
-				req.Metadata[key] = values[0]
+			// Keep list semantics for *_urls style fields and repeated form keys.
+			if len(values) > 1 || strings.HasSuffix(key, "_urls") {
+				parsed := make([]any, 0, len(values))
+				for _, value := range values {
+					parsed = append(parsed, parseTaskFormValue(value))
+				}
+				req.Metadata[key] = parsed
+				continue
 			}
+			req.Metadata[key] = parseTaskFormValue(values[0])
 		}
 	}
 	return req, nil
@@ -141,7 +144,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	if seconds == 0 {
 		seconds = req.Duration
 	}
-	if req.InputReference != "" {
+	if req.InputReference != "" && len(req.Images) == 0 {
 		req.Images = []string{req.InputReference}
 	}
 
@@ -149,7 +152,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
 	}
 
-	if req.HasImage() {
+	if req.HasImage() || hasTaskReferenceMetadata(req.Metadata) {
 		hasInputReference = true
 	}
 
@@ -199,6 +202,66 @@ func isKnownTaskField(field string) bool {
 		"notify_hook":     true,
 	}
 	return knownFields[field]
+}
+
+func parseTaskFormValue(value string) any {
+	if intVal, err := strconv.Atoi(value); err == nil {
+		return intVal
+	}
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal
+	}
+	return value
+}
+
+func hasTaskReferenceMetadata(metadata map[string]interface{}) bool {
+	if len(metadata) == 0 {
+		return false
+	}
+	keys := []string{
+		"reference_video_urls",
+		"reference_audio_urls",
+		"video_urls",
+		"audio_urls",
+		"reference_video_url",
+		"reference_audio_url",
+		"video_url",
+		"audio_url",
+	}
+	for _, key := range keys {
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch v := raw.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				return true
+			}
+		case []string:
+			if len(v) > 0 {
+				return true
+			}
+		case []any:
+			for _, item := range v {
+				switch t := item.(type) {
+				case string:
+					if strings.TrimSpace(t) != "" {
+						return true
+					}
+				case map[string]any:
+					if u, ok := t["url"].(string); ok && strings.TrimSpace(u) != "" {
+						return true
+					}
+				}
+			}
+		default:
+			if strings.TrimSpace(fmt.Sprintf("%v", v)) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {

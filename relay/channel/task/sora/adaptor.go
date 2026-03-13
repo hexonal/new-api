@@ -104,6 +104,12 @@ type TaskAdaptor struct {
 	baseURL     string
 }
 
+const (
+	imaProCreatePath      = "/api/v1/aigc/task/create"
+	imaProQueryPath       = "/api/v1/aigc/task/query"
+	imaProLegacyFetchPath = "/v1/videos/%s"
+)
+
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
 	a.baseURL = info.ChannelBaseUrl
@@ -187,8 +193,14 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.Action == constant.TaskActionRemix {
+	if info != nil && info.TaskRelayInfo != nil && info.Action == constant.TaskActionRemix {
+		if a.ChannelType == constant.ChannelTypeImaPro {
+			return "", fmt.Errorf("ima-pro does not support remix")
+		}
 		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
+	}
+	if a.ChannelType == constant.ChannelTypeImaPro {
+		return fmt.Sprintf("%s%s", a.baseURL, imaProCreatePath), nil
 	}
 	return fmt.Sprintf("%s/v1/videos", a.baseURL), nil
 }
@@ -357,26 +369,27 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 
-	imageURL := ""
-	if len(req.Images) > 0 {
-		imageURL = strings.TrimSpace(req.Images[0])
-	}
-	if imageURL == "" {
-		imageURL = strings.TrimSpace(req.Image)
-	}
-	if imageURL == "" {
-		imageURL = strings.TrimSpace(req.InputReference)
-	}
-	if imageURL != "" {
+	imageURLs := collectImaProImageURLs(req)
+	for i, imageURL := range imageURLs {
+		role := "reference_image"
+		if i == 0 {
+			role = "first_frame"
+		}
 		elements = append(elements, imaProElement{
 			ReferenceType: "image",
-			ReferenceRole: "first_frame",
+			ReferenceRole: role,
 			Image:         &imaProResourceURL{URL: imageURL},
 		})
 	}
 
-	videoURL := pickString(metadata, "reference_video_url", "referenceVideoUrl", "video_url", "videoUrl")
-	if videoURL != "" {
+	videoURLs := collectImaProMediaURLs(
+		metadata,
+		"reference_video_urls",
+		"video_urls",
+		"reference_video_url",
+		"video_url",
+	)
+	for _, videoURL := range videoURLs {
 		elements = append(elements, imaProElement{
 			ReferenceType: "video",
 			ReferenceRole: "reference_video",
@@ -384,8 +397,14 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 
-	audioURL := pickString(metadata, "reference_audio_url", "referenceAudioUrl", "audio_url", "audioUrl")
-	if audioURL != "" {
+	audioURLs := collectImaProMediaURLs(
+		metadata,
+		"reference_audio_urls",
+		"audio_urls",
+		"reference_audio_url",
+		"audio_url",
+	)
+	for _, audioURL := range audioURLs {
 		elements = append(elements, imaProElement{
 			ReferenceType: "audio",
 			ReferenceRole: "reference_audio",
@@ -393,6 +412,74 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 	return elements
+}
+
+func collectImaProImageURLs(req *relaycommon.TaskSubmitReq) []string {
+	urls := make([]string, 0, len(req.Images))
+	for _, image := range req.Images {
+		urls = appendUniqueURL(urls, image)
+	}
+	// Backward-compatible fallbacks: only used when images is empty.
+	if len(urls) == 0 {
+		urls = appendUniqueURL(urls, req.Image)
+	}
+	if len(urls) == 0 {
+		urls = appendUniqueURL(urls, req.InputReference)
+	}
+	return urls
+}
+
+func collectImaProMediaURLs(metadata map[string]any, keys ...string) []string {
+	urls := make([]string, 0, 4)
+	for _, key := range keys {
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch list := raw.(type) {
+		case []string:
+			for _, item := range list {
+				urls = appendUniqueURL(urls, item)
+			}
+		case []any:
+			for _, item := range list {
+				urls = appendUniqueURL(urls, parseResourceURL(item))
+			}
+		default:
+			// Be tolerant for incorrectly sent single values.
+			urls = appendUniqueURL(urls, parseResourceURL(list))
+		}
+	}
+	return urls
+}
+
+func parseResourceURL(raw any) string {
+	switch v := raw.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case map[string]any:
+		if url, ok := v["url"].(string); ok {
+			return strings.TrimSpace(url)
+		}
+	case map[string]string:
+		if url, ok := v["url"]; ok {
+			return strings.TrimSpace(url)
+		}
+	}
+	return ""
+}
+
+func appendUniqueURL(dst []string, candidate string) []string {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return dst
+	}
+	for _, existed := range dst {
+		if existed == candidate {
+			return dst
+		}
+	}
+	return append(dst, candidate)
 }
 
 func resolveTaskDurationSeconds(req *relaycommon.TaskSubmitReq, metadata map[string]any) int {
@@ -702,20 +789,81 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s/v1/videos/%s", baseUrl, taskID)
-
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+key)
-
 	client, err := service.GetHttpClientWithProxy(proxy)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
 	}
+	if client == nil {
+		// Keep fetch path resilient in unit tests and minimal-runtime setups
+		// where proxy client may not be initialized.
+		client = http.DefaultClient
+	}
+
+	if a.ChannelType == constant.ChannelTypeImaPro {
+		// Prefer provider-native query endpoint; fallback to legacy OpenAI-style path
+		// for backward compatibility with older IMA bridge deployments.
+		resp, err := a.fetchImaProTaskByPost(baseUrl, key, taskID, client)
+		if err == nil && (resp.StatusCode < http.StatusBadRequest || !isEndpointNotFound(resp.StatusCode)) {
+			return resp, nil
+		}
+		if resp != nil && isEndpointNotFound(resp.StatusCode) {
+			_ = resp.Body.Close()
+			resp = nil
+		}
+		resp, err = a.fetchImaProTaskByGet(baseUrl, key, taskID, client)
+		if err == nil && (resp.StatusCode < http.StatusBadRequest || !isEndpointNotFound(resp.StatusCode)) {
+			return resp, nil
+		}
+		if resp != nil && isEndpointNotFound(resp.StatusCode) {
+			_ = resp.Body.Close()
+		}
+		return a.fetchLegacyVideoTask(baseUrl, key, taskID, client)
+	}
+
+	return a.fetchLegacyVideoTask(baseUrl, key, taskID, client)
+}
+
+func (a *TaskAdaptor) fetchImaProTaskByPost(baseURL, key, taskID string, client *http.Client) (*http.Response, error) {
+	body := map[string]any{
+		"id_task": taskID,
+		"task_id": taskID,
+	}
+	payload, err := common.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	uri := fmt.Sprintf("%s%s", baseURL, imaProQueryPath)
+	req, err := http.NewRequest(http.MethodPost, uri, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
 	return client.Do(req)
+}
+
+func (a *TaskAdaptor) fetchImaProTaskByGet(baseURL, key, taskID string, client *http.Client) (*http.Response, error) {
+	uri := fmt.Sprintf("%s%s?id_task=%s", baseURL, imaProQueryPath, taskID)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	return client.Do(req)
+}
+
+func (a *TaskAdaptor) fetchLegacyVideoTask(baseURL, key, taskID string, client *http.Client) (*http.Response, error) {
+	uri := fmt.Sprintf("%s"+imaProLegacyFetchPath, baseURL, taskID)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	return client.Do(req)
+}
+
+func isEndpointNotFound(statusCode int) bool {
+	return statusCode == http.StatusNotFound || statusCode == http.StatusMethodNotAllowed
 }
 
 func (a *TaskAdaptor) GetModelList() []string {

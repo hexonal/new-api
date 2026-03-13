@@ -310,6 +310,106 @@ func TestBuildImaProPayload_ChannelSettingOverridesTenantApp(t *testing.T) {
 	}
 }
 
+func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("username", "ima_user")
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "multi media prompt",
+		Images: []string{
+			"https://file.fashionlabs.cn/doc_image/1.png",
+			"https://file.fashionlabs.cn/doc_image/2.png",
+		},
+		Metadata: map[string]any{
+			"reference_video_urls": []any{
+				"https://file.fashionlabs.cn/doc_video/v1.mp4",
+				map[string]any{"url": "https://file.fashionlabs.cn/doc_video/v2.mp4"},
+			},
+			"reference_audio_urls": []string{
+				"https://file.fashionlabs.cn/doc_audio/a1.mp3",
+				"https://file.fashionlabs.cn/doc_audio/a2.mp3",
+			},
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action: constant.TaskActionGenerate,
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	got := payload.Parameters.ElementList
+	if len(got) != 7 {
+		t.Fatalf("element_list len = %d, want 7", len(got))
+	}
+	// text -> images -> videos -> audios
+	if got[0].ReferenceType != "text" {
+		t.Fatalf("got[0].ReferenceType = %q, want text", got[0].ReferenceType)
+	}
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
+		t.Fatalf("got[1] invalid image first frame: %+v", got[1])
+	}
+	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "reference_image" {
+		t.Fatalf("got[2] invalid image role: %+v", got[2])
+	}
+	if got[3].ReferenceType != "video" || got[3].ReferenceRole != "reference_video" {
+		t.Fatalf("got[3] invalid video role: %+v", got[3])
+	}
+	if got[4].ReferenceType != "video" || got[4].ReferenceRole != "reference_video" {
+		t.Fatalf("got[4] invalid video role: %+v", got[4])
+	}
+	if got[5].ReferenceType != "audio" || got[5].ReferenceRole != "reference_audio" {
+		t.Fatalf("got[5] invalid audio role: %+v", got[5])
+	}
+	if got[6].ReferenceType != "audio" || got[6].ReferenceRole != "reference_audio" {
+		t.Fatalf("got[6] invalid audio role: %+v", got[6])
+	}
+}
+
+func TestBuildImaProPayload_ImagesPriorityOverInputReference(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("username", "ima_user")
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt:         "image priority",
+		Images:         []string{"https://file.fashionlabs.cn/doc_image/priority.png"},
+		InputReference: "https://file.fashionlabs.cn/doc_image/fallback.png",
+	}
+	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+
+	var imageURLs []string
+	for _, item := range payload.Parameters.ElementList {
+		if item.ReferenceType == "image" && item.Image != nil {
+			imageURLs = append(imageURLs, item.Image.URL)
+		}
+	}
+	if len(imageURLs) != 1 {
+		t.Fatalf("image url len = %d, want 1", len(imageURLs))
+	}
+	if imageURLs[0] != "https://file.fashionlabs.cn/doc_image/priority.png" {
+		t.Fatalf("image url = %q, want priority image", imageURLs[0])
+	}
+}
+
 func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -335,6 +435,98 @@ func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	}
 	if got := req.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+}
+
+func TestBuildRequestURL_ImaProUsesAIGCTaskCreate(t *testing.T) {
+	adaptor := &TaskAdaptor{
+		ChannelType: constant.ChannelTypeImaPro,
+		baseURL:     "http://upstream.example.com",
+	}
+
+	got, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{})
+	if err != nil {
+		t.Fatalf("BuildRequestURL returned error: %v", err)
+	}
+	if got != "http://upstream.example.com/api/v1/aigc/task/create" {
+		t.Fatalf("BuildRequestURL = %q, want /api/v1/aigc/task/create", got)
+	}
+}
+
+func TestBuildImaProPayload_MediaAliasKeyFallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("username", "ima_user")
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "alias media keys",
+		Metadata: map[string]any{
+			"video_urls":          []string{"https://file.fashionlabs.cn/doc_video/alias_v1.mp4"},
+			"reference_audio_url": "https://file.fashionlabs.cn/doc_audio/alias_a1.mp3",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	got := payload.Parameters.ElementList
+	if len(got) != 3 {
+		t.Fatalf("element_list len = %d, want 3", len(got))
+	}
+	if got[1].ReferenceType != "video" || got[1].Video == nil || got[1].Video.URL != "https://file.fashionlabs.cn/doc_video/alias_v1.mp4" {
+		t.Fatalf("video mapping invalid: %+v", got[1])
+	}
+	if got[2].ReferenceType != "audio" || got[2].Audio == nil || got[2].Audio.URL != "https://file.fashionlabs.cn/doc_audio/alias_a1.mp3" {
+		t.Fatalf("audio mapping invalid: %+v", got[2])
+	}
+}
+
+func TestFetchTask_ImaProQueryFallbackChain(t *testing.T) {
+	visited := make([]string, 0, 3)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		visited = append(visited, r.Method+" "+r.URL.Path)
+		switch len(visited) {
+		case 1:
+			// Force fallback from POST /api/v1/aigc/task/query
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = w.Write([]byte(`{"code":405}`))
+		case 2:
+			// GET /api/v1/aigc/task/query?id_task=... should be used next.
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"task_status":"completed","results":[{"url":"https://file.fashionlabs.cn/out.mp4"}]}`))
+		default:
+			t.Fatalf("unexpected extra request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+	resp, err := adaptor.FetchTask(server.URL, "sk-test", map[string]any{
+		"task_id": "tk_123",
+	}, "")
+	if err != nil {
+		t.Fatalf("FetchTask returned error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status code = %d, want 200", resp.StatusCode)
+	}
+	if len(visited) != 2 {
+		t.Fatalf("request count = %d, want 2", len(visited))
+	}
+	if visited[0] != "POST /api/v1/aigc/task/query" {
+		t.Fatalf("first request = %q, want POST /api/v1/aigc/task/query", visited[0])
+	}
+	if visited[1] != "GET /api/v1/aigc/task/query" {
+		t.Fatalf("second request = %q, want GET /api/v1/aigc/task/query", visited[1])
 	}
 }
 
