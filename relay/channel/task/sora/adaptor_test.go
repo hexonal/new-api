@@ -14,6 +14,102 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestConvertToOpenAIVideo_ExposeUsageAndResults(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID:   "task_public_001",
+		Status:   model.TaskStatusSuccess,
+		Progress: "100%",
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+		Data: json.RawMessage(`{
+			"id_task":"tk_upstream_001",
+			"task_status":"completed",
+			"results":[{"url":"https://cdn.example.com/final.mp4","size":123,"content_type":"video"}],
+			"usage":{"completion_tokens":324900,"total_tokens":324900}
+		}`),
+	}
+	task.PrivateData.ResultURL = "https://cdn.example.com/final.mp4"
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	if got["id"] != "task_public_001" {
+		t.Fatalf("id = %v, want task_public_001", got["id"])
+	}
+	if got["task_id"] != "task_public_001" {
+		t.Fatalf("task_id = %v, want task_public_001", got["task_id"])
+	}
+	if got["status"] != "completed" {
+		t.Fatalf("status = %v, want completed", got["status"])
+	}
+
+	usage, ok := got["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("usage missing or invalid: %#v", got["usage"])
+	}
+	if usage["total_tokens"] != float64(324900) {
+		t.Fatalf("usage.total_tokens = %v, want 324900", usage["total_tokens"])
+	}
+
+	results, ok := got["results"].([]any)
+	if !ok || len(results) != 1 {
+		t.Fatalf("results missing or invalid: %#v", got["results"])
+	}
+	r0, ok := results[0].(map[string]any)
+	if !ok {
+		t.Fatalf("results[0] invalid: %#v", results[0])
+	}
+	if r0["url"] != "https://cdn.example.com/final.mp4" {
+		t.Fatalf("results[0].url = %v, want https://cdn.example.com/final.mp4", r0["url"])
+	}
+}
+
+func TestConvertToOpenAIVideo_UsageAndResultsPathFallback(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID:   "task_public_002",
+		Status:   model.TaskStatusInProgress,
+		Progress: "42%",
+		Properties: model.Properties{
+			OriginModelName: "ima-pro-fast",
+		},
+		Data: json.RawMessage(`{
+			"data":{
+				"results":[{"url":"https://cdn.example.com/from_data.mp4"}],
+				"usage":{"total_tokens":111}
+			}
+		}`),
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	usage, ok := got["usage"].(map[string]any)
+	if !ok || usage["total_tokens"] != float64(111) {
+		t.Fatalf("usage fallback invalid: %#v", got["usage"])
+	}
+	results, ok := got["results"].([]any)
+	if !ok || len(results) != 1 {
+		t.Fatalf("results fallback invalid: %#v", got["results"])
+	}
+}
+
 func TestExtractTotalTokensFromResponse(t *testing.T) {
 	tests := []struct {
 		name string

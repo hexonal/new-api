@@ -23,7 +23,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 // ============================
@@ -949,10 +948,73 @@ func extractTotalTokensFromResponse(respBody []byte) int {
 }
 
 func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
-	data := task.Data
-	var err error
-	if data, err = sjson.SetBytes(data, "id", task.TaskID); err != nil {
-		return nil, errors.Wrap(err, "set id failed")
+	if task == nil {
+		return nil, errors.New("task is nil")
 	}
-	return data, nil
+
+	// Build stable OpenAI-style video response from task state first,
+	// then enrich with provider-specific extensions (usage/results) from raw task data.
+	base := task.ToOpenAIVideo()
+	base.TaskID = task.TaskID
+	if strings.TrimSpace(base.Model) == "" {
+		base.Model = taskcommon.DefaultString(task.Properties.OriginModelName, task.Properties.UpstreamModelName)
+	}
+
+	outBytes, err := common.Marshal(base)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal openai video base failed")
+	}
+	var out map[string]any
+	if err := common.Unmarshal(outBytes, &out); err != nil {
+		return nil, errors.Wrap(err, "unmarshal openai video base failed")
+	}
+
+	usage := extractFirstJSONObject(task.Data,
+		"usage",
+		"data.usage",
+		"response.usage",
+		"metadata.usage",
+	)
+	if len(usage) > 0 {
+		out["usage"] = usage
+	}
+
+	results := extractFirstJSONArray(task.Data,
+		"results",
+		"data.results",
+		"response.results",
+	)
+	if len(results) > 0 {
+		out["results"] = results
+	}
+
+	return common.Marshal(out)
+}
+
+func extractFirstJSONObject(respBody []byte, paths ...string) map[string]any {
+	for _, path := range paths {
+		v := gjson.GetBytes(respBody, path)
+		if !v.Exists() || !v.IsObject() {
+			continue
+		}
+		m := make(map[string]any)
+		if err := common.Unmarshal([]byte(v.Raw), &m); err == nil && len(m) > 0 {
+			return m
+		}
+	}
+	return nil
+}
+
+func extractFirstJSONArray(respBody []byte, paths ...string) []any {
+	for _, path := range paths {
+		v := gjson.GetBytes(respBody, path)
+		if !v.Exists() || !v.IsArray() {
+			continue
+		}
+		arr := make([]any, 0)
+		if err := common.Unmarshal([]byte(v.Raw), &arr); err == nil && len(arr) > 0 {
+			return arr
+		}
+	}
+	return nil
 }
