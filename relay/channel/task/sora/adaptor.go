@@ -59,12 +59,12 @@ type responseTask struct {
 }
 
 type imaProPayload struct {
-	TenantID     string             `json:"tenant_id"`
-	UserID       string             `json:"user_id"`
-	AppID        string             `json:"app_id"`
-	AppKind      string             `json:"app_kind"`
+	TenantID string `json:"tenant_id"`
+	UserID   string `json:"user_id"`
+	AppID    string `json:"app_id"`
+	AppKind  string `json:"app_kind"`
 	// IDTask mirrors New API public task_id for upstream traceability.
-	IDTask       string             `json:"id_task,omitempty"`
+	IDTask string `json:"id_task,omitempty"`
 	// TaskID is the New API public task_id, passed through for upstream troubleshooting traceability.
 	TaskID       string             `json:"task_id,omitempty"`
 	AigcCategory string             `json:"aigc_category"`
@@ -791,6 +791,10 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
 		return
 	}
+	if upstreamErr := parseImaSubmitError(responseBody, resp.StatusCode); upstreamErr != nil {
+		taskErr = upstreamErr
+		return
+	}
 
 	upstreamID := firstNonEmptyValue(
 		strings.TrimSpace(dResp.ID),
@@ -819,6 +823,95 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	c.JSON(http.StatusOK, dResp)
 	return upstreamID, responseBody, nil
+}
+
+func parseImaSubmitError(body []byte, upstreamStatus int) *dto.TaskError {
+	errorValue := gjson.GetBytes(body, "error")
+	msg := ""
+	if errorValue.Exists() {
+		if errorValue.Type == gjson.String {
+			msg = strings.TrimSpace(errorValue.String())
+		}
+		if msg == "" {
+			msg = strings.TrimSpace(gjson.GetBytes(body, "error.message").String())
+		}
+		if msg == "" {
+			msg = strings.TrimSpace(gjson.GetBytes(body, "error.msg").String())
+		}
+	}
+
+	codeVal := gjson.GetBytes(body, "code")
+	topCode, hasTopCode := parseResponseCode(codeVal)
+	topMessage := strings.TrimSpace(gjson.GetBytes(body, "message").String())
+	if msg == "" && hasTopCode && topCode != 0 && topCode != 200 {
+		msg = topMessage
+		if msg == "" {
+			msg = "upstream request failed"
+		}
+	}
+	if msg == "" {
+		return nil
+	}
+
+	errorCode := strings.TrimSpace(gjson.GetBytes(body, "error.code").String())
+	errorType := strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "error.type").String()))
+	if errorCode == "" && hasTopCode && topCode != 0 && topCode != 200 {
+		errorCode = strconv.Itoa(topCode)
+	}
+	if errorCode == "" {
+		errorCode = "upstream_error"
+	}
+
+	statusCode := upstreamStatus
+	if statusCode < http.StatusBadRequest {
+		statusCode = deriveSubmitErrorHTTPStatus(errorCode, errorType, topCode)
+	}
+	if statusCode < http.StatusBadRequest {
+		statusCode = http.StatusBadRequest
+	}
+	return service.TaskErrorWrapperLocal(fmt.Errorf("%s", msg), errorCode, statusCode)
+}
+
+func parseResponseCode(v gjson.Result) (int, bool) {
+	if !v.Exists() {
+		return 0, false
+	}
+	if v.Type == gjson.Number {
+		return int(v.Int()), true
+	}
+	raw := strings.TrimSpace(v.String())
+	if raw == "" {
+		return 0, false
+	}
+	if n, err := strconv.Atoi(raw); err == nil {
+		return n, true
+	}
+	switch strings.ToLower(raw) {
+	case "ok", "success", "succeeded", "completed":
+		return 200, true
+	}
+	return 0, false
+}
+
+func deriveSubmitErrorHTTPStatus(errorCode string, errorType string, topCode int) int {
+	if topCode >= 400 && topCode < 600 {
+		return topCode
+	}
+	normalized := strings.ToLower(strings.TrimSpace(errorCode + " " + errorType))
+	switch {
+	case strings.Contains(normalized, "badrequest"), strings.Contains(normalized, "invalid"):
+		return http.StatusBadRequest
+	case strings.Contains(normalized, "unauthorized"), strings.Contains(normalized, "auth"):
+		return http.StatusUnauthorized
+	case strings.Contains(normalized, "forbidden"):
+		return http.StatusForbidden
+	case strings.Contains(normalized, "notfound"), strings.Contains(normalized, "not_found"):
+		return http.StatusNotFound
+	case strings.Contains(normalized, "ratelimit"), strings.Contains(normalized, "too_many"):
+		return http.StatusTooManyRequests
+	default:
+		return http.StatusBadRequest
+	}
 }
 
 // FetchTask fetch task status

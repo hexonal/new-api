@@ -675,11 +675,11 @@ func TestDoResponse_ErrorPayloadWithoutTaskIDPreservesUpstreamMessage(t *testing
 	if taskErr == nil {
 		t.Fatalf("DoResponse should return task error")
 	}
-	if taskErr.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("taskErr.StatusCode = %d, want %d", taskErr.StatusCode, http.StatusInternalServerError)
+	if taskErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("taskErr.StatusCode = %d, want %d", taskErr.StatusCode, http.StatusBadRequest)
 	}
-	if !strings.Contains(taskErr.Message, "task_id is empty") {
-		t.Fatalf("taskErr.Message = %q, want task_id is empty", taskErr.Message)
+	if !strings.Contains(taskErr.Message, "content") {
+		t.Fatalf("taskErr.Message = %q, want upstream content error", taskErr.Message)
 	}
 }
 
