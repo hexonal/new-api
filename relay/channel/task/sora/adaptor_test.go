@@ -1,6 +1,9 @@
 package sora
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -114,6 +117,7 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 		},
 	}
 	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			UpstreamModelName: "ima-pro",
 		},
@@ -130,8 +134,8 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	if payload.TenantID != "tenant-1" {
 		t.Fatalf("TenantID = %q, want tenant-1", payload.TenantID)
 	}
-	if payload.UserID != "ima_foo" {
-		t.Fatalf("UserID = %q, want ima_foo", payload.UserID)
+	if payload.UserID != "sk-current-user" {
+		t.Fatalf("UserID = %q, want sk-current-user", payload.UserID)
 	}
 	if payload.ModelVersion != "ima-pro" {
 		t.Fatalf("ModelVersion = %q, want ima-pro", payload.ModelVersion)
@@ -163,6 +167,51 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	if payload.Parameters.ElementList[1].Image == nil || payload.Parameters.ElementList[1].Image.URL != "https://example.com/frame.png" {
 		t.Fatalf("image element mapping is invalid: %#v", payload.Parameters.ElementList[1].Image)
 	}
+	if payload.CallbackURL != "" {
+		t.Fatalf("CallbackURL = %q, want empty", payload.CallbackURL)
+	}
+}
+
+func TestBuildImaProPayload_ChannelSettingOverridesTenantApp(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("username", "ima_foo")
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "make a cinematic shot",
+		Image:  "https://example.com/frame.png",
+		Metadata: map[string]any{
+			"tenant_id": "tenant-from-metadata",
+			"app_id":    "app-from-metadata",
+			"app_kind":  "kind-from-metadata",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro-fast",
+		},
+	}
+	info.ChannelSetting.ImaProTenantID = "arena"
+	info.ChannelSetting.ImaProAppID = "arena"
+	info.ChannelSetting.ImaProAppKind = "imagent"
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	if payload.TenantID != "arena" {
+		t.Fatalf("TenantID = %q, want arena", payload.TenantID)
+	}
+	if payload.AppID != "arena" {
+		t.Fatalf("AppID = %q, want arena", payload.AppID)
+	}
+	if payload.AppKind != "imagent" {
+		t.Fatalf("AppKind = %q, want imagent", payload.AppKind)
+	}
+	if payload.UserID != "sk-current-user" {
+		t.Fatalf("UserID = %q, want sk-current-user", payload.UserID)
+	}
 }
 
 func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
@@ -190,6 +239,78 @@ func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	}
 	if got := req.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+}
+
+func TestDoResponse_WrappedCreateResponseExtractsDataIDTask(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"code": 200,
+		"data": {
+			"id_task": "tk-202603131631387ETKUBM91MTD72X9",
+			"estimated_time_seconds": 150
+		},
+		"log_id": "20260313163138A5WI3LABWETA3RNU",
+		"message": "Success"
+	}`)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			PublicTaskID: "task_public_123",
+		},
+	}
+
+	upstreamID, _, taskErr := adaptor.DoResponse(ctx, resp, info)
+	if taskErr != nil {
+		t.Fatalf("DoResponse returned error: %+v", taskErr)
+	}
+	if upstreamID != "tk-202603131631387ETKUBM91MTD72X9" {
+		t.Fatalf("upstreamID = %q, want tk-202603131631387ETKUBM91MTD72X9", upstreamID)
+	}
+
+	var got responseTask
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal response body failed: %v", err)
+	}
+	if got.ID != "task_public_123" || got.TaskID != "task_public_123" {
+		t.Fatalf("public task id mapping invalid: id=%q task_id=%q", got.ID, got.TaskID)
+	}
+	if got.Object != "video" {
+		t.Fatalf("Object = %q, want video", got.Object)
+	}
+	if got.Model != "ima-pro" {
+		t.Fatalf("Model = %q, want ima-pro", got.Model)
+	}
+}
+
+func TestGetModelList_ImaProContainsFastModel(t *testing.T) {
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+	models := adaptor.GetModelList()
+	expected := map[string]bool{
+		"ima-pro":      false,
+		"ima-pro-fast": false,
+	}
+	for _, modelName := range models {
+		if _, ok := expected[modelName]; ok {
+			expected[modelName] = true
+		}
+	}
+	for modelName, found := range expected {
+		if !found {
+			t.Fatalf("missing model %q in model list: %#v", modelName, models)
+		}
 	}
 }
 

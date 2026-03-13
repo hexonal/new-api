@@ -7,6 +7,11 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// IMA Pro submit payload overrides (channel-scoped).
+	// When configured, these values override request metadata values.
+	ImaProTenantID string `json:"ima_pro_tenant_id,omitempty"`
+	ImaProAppID    string `json:"ima_pro_app_id,omitempty"`
+	ImaProAppKind  string `json:"ima_pro_app_kind,omitempty"`
 }
 
 type VertexKeyType string

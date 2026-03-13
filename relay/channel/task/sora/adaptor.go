@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -110,7 +111,7 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.apiKey = info.ApiKey
 }
 
-func validateRemixRequest(c *gin.Context) *dto.TaskError {
+func validateRemixRequest(c *gin.Context, validateCallback bool) *dto.TaskError {
 	var req relaycommon.TaskSubmitReq
 	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
@@ -118,9 +119,11 @@ func validateRemixRequest(c *gin.Context) *dto.TaskError {
 	if strings.TrimSpace(req.Prompt) == "" {
 		return service.TaskErrorWrapperLocal(fmt.Errorf("field prompt is required"), "invalid_request", http.StatusBadRequest)
 	}
-	if callbackURL := req.GetCallbackURL(); callbackURL != "" {
-		if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
-			return service.TaskErrorWrapperLocal(err, "invalid_callback_url", http.StatusBadRequest)
+	if validateCallback {
+		if callbackURL := req.GetCallbackURL(); callbackURL != "" {
+			if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
+				return service.TaskErrorWrapperLocal(err, "invalid_callback_url", http.StatusBadRequest)
+			}
 		}
 	}
 	// 存储原始请求到 context，与 ValidateMultipartDirect 路径保持一致
@@ -130,7 +133,7 @@ func validateRemixRequest(c *gin.Context) *dto.TaskError {
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
 	if info.Action == constant.TaskActionRemix {
-		return validateRemixRequest(c)
+		return validateRemixRequest(c, a.ChannelType != constant.ChannelTypeImaPro)
 	}
 	if taskErr = relaycommon.ValidateMultipartDirect(c, info); taskErr != nil {
 		return taskErr
@@ -139,9 +142,11 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 	}
-	if callbackURL := req.GetCallbackURL(); callbackURL != "" {
-		if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
-			return service.TaskErrorWrapperLocal(err, "invalid_callback_url", http.StatusBadRequest)
+	if a.ChannelType != constant.ChannelTypeImaPro {
+		if callbackURL := req.GetCallbackURL(); callbackURL != "" {
+			if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
+				return service.TaskErrorWrapperLocal(err, "invalid_callback_url", http.StatusBadRequest)
+			}
 		}
 	}
 	return nil
@@ -314,12 +319,14 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	}
 
 	payload := &imaProPayload{
-		TenantID:     pickStringWithDefault(metadata, "test", "tenant_id", "tenantId"),
-		UserID:       resolveImaProUserID(c, metadata),
-		AppID:        pickStringWithDefault(metadata, "new-api", "app_id", "appId"),
-		AppKind:      pickStringWithDefault(metadata, "imagent", "app_kind", "appKind"),
+		TenantID:     resolveImaProTenantID(info, metadata),
+		UserID:       resolveImaProUserID(c, info, metadata),
+		AppID:        resolveImaProAppID(info, metadata),
+		AppKind:      resolveImaProAppKind(info, metadata),
 		AigcCategory: pickStringWithDefault(metadata, resolveImaProCategory(req), "aigc_category", "aigcCategory"),
-		CallbackURL:  req.GetCallbackURL(),
+		// callback_url is intentionally disabled for IMA Pro public contract.
+		// Clients must poll task status via /v1/videos/{task_id}.
+		CallbackURL:  "",
 		Watermark:    resolveImaProWatermark(metadata),
 		WatermarkImg: pickString(metadata, "watermark_img", "watermarkImg"),
 		ModelVersion: taskcommon.DefaultString(info.UpstreamModelName, info.OriginModelName),
@@ -459,7 +466,40 @@ func resolveImaProCategory(req *relaycommon.TaskSubmitReq) string {
 	return "text_to_video"
 }
 
-func resolveImaProUserID(c *gin.Context, metadata map[string]any) string {
+func resolveImaProTenantID(info *relaycommon.RelayInfo, metadata map[string]any) string {
+	if info != nil {
+		if v := strings.TrimSpace(info.ChannelSetting.ImaProTenantID); v != "" {
+			return v
+		}
+	}
+	return pickStringWithDefault(metadata, "test", "tenant_id", "tenantId")
+}
+
+func resolveImaProAppID(info *relaycommon.RelayInfo, metadata map[string]any) string {
+	if info != nil {
+		if v := strings.TrimSpace(info.ChannelSetting.ImaProAppID); v != "" {
+			return v
+		}
+	}
+	return pickStringWithDefault(metadata, "new-api", "app_id", "appId")
+}
+
+func resolveImaProAppKind(info *relaycommon.RelayInfo, metadata map[string]any) string {
+	if info != nil {
+		if v := strings.TrimSpace(info.ChannelSetting.ImaProAppKind); v != "" {
+			return v
+		}
+	}
+	return pickStringWithDefault(metadata, "imagent", "app_kind", "appKind")
+}
+
+func resolveImaProUserID(c *gin.Context, info *relaycommon.RelayInfo, metadata map[string]any) string {
+	if info != nil {
+		// For IMA Pro, user_id must be the current caller SK.
+		if v := strings.TrimSpace(info.TokenKey); v != "" {
+			return v
+		}
+	}
 	if v := pickString(metadata, "user_id", "userId"); v != "" {
 		return v
 	}
@@ -618,17 +658,23 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	_ = resp.Body.Close()
 
-	// Parse Sora response
+	// Parse upstream response and support both:
+	// 1) OpenAI-style top-level {id/task_id/...}
+	// 2) IMA wrapped submit response {code,data:{id_task,...},...}
 	var dResp responseTask
 	if err := common.Unmarshal(responseBody, &dResp); err != nil {
 		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
 		return
 	}
 
-	upstreamID := dResp.ID
-	if upstreamID == "" {
-		upstreamID = dResp.TaskID
-	}
+	upstreamID := firstNonEmptyValue(
+		strings.TrimSpace(dResp.ID),
+		strings.TrimSpace(dResp.TaskID),
+		strings.TrimSpace(gjson.GetBytes(responseBody, "data.id_task").String()),
+		strings.TrimSpace(gjson.GetBytes(responseBody, "id_task").String()),
+		strings.TrimSpace(gjson.GetBytes(responseBody, "data.task_id").String()),
+		strings.TrimSpace(gjson.GetBytes(responseBody, "task_id").String()),
+	)
 	if upstreamID == "" {
 		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
 		return
@@ -637,6 +683,15 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	// 使用公开 task_xxxx ID 返回给客户端
 	dResp.ID = info.PublicTaskID
 	dResp.TaskID = info.PublicTaskID
+	if strings.TrimSpace(dResp.Object) == "" {
+		dResp.Object = "video"
+	}
+	if strings.TrimSpace(dResp.Model) == "" {
+		dResp.Model = taskcommon.DefaultString(info.OriginModelName, info.UpstreamModelName)
+	}
+	if dResp.CreatedAt == 0 {
+		dResp.CreatedAt = time.Now().Unix()
+	}
 	c.JSON(http.StatusOK, dResp)
 	return upstreamID, responseBody, nil
 }
@@ -665,10 +720,16 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
+	if a.ChannelType == constant.ChannelTypeImaPro {
+		return IMAProModelList
+	}
 	return ModelList
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
+	if a.ChannelType == constant.ChannelTypeImaPro {
+		return "ima_pro"
+	}
 	return ChannelName
 }
 
@@ -827,6 +888,15 @@ func hasSoraFinishAt(respBody []byte) bool {
 func extractFirstNonEmptyString(respBody []byte, paths ...string) string {
 	for _, path := range paths {
 		if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyValue(values ...string) string {
+	for _, value := range values {
+		if v := strings.TrimSpace(value); v != "" {
 			return v
 		}
 	}

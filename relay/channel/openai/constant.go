@@ -48,4 +48,5 @@ var ChannelName = "openai"
 
 var IMAProModelList = []string{
 	"ima-pro",
+	"ima-pro-fast",
 }
