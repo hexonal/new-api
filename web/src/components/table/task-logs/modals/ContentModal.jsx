@@ -17,10 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Typography, Spin } from '@douyinfe/semi-ui';
 import { IconExternalOpen, IconCopy } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
+import CodeViewer from '../../../playground/CodeViewer';
 
 const { Text } = Typography;
 
@@ -57,6 +58,39 @@ const ContentModal = ({
   const handleOpenInNewTab = () => {
     window.open(modalContent, '_blank');
   };
+
+  const normalizedModalContent = useMemo(() => {
+    if (modalContent === undefined || modalContent === null) {
+      return '';
+    }
+    if (typeof modalContent === 'string') {
+      return modalContent;
+    }
+    if (typeof modalContent === 'object') {
+      try {
+        return JSON.stringify(modalContent, null, 2);
+      } catch (error) {
+        return String(modalContent);
+      }
+    }
+    return String(modalContent);
+  }, [modalContent]);
+
+  const formattedJsonContent = useMemo(() => {
+    const trimmed = normalizedModalContent.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const startsLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');
+    if (!startsLikeJson) {
+      return null;
+    }
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch (error) {
+      return null;
+    }
+  }, [normalizedModalContent]);
 
   const renderVideoContent = () => {
     if (videoError) {
@@ -161,7 +195,7 @@ const ContentModal = ({
       bodyStyle={{
         height: isVideo ? '70vh' : '400px',
         maxHeight: '80vh',
-        overflow: 'auto',
+        overflow: isVideo ? 'auto' : 'hidden',
         padding: isVideo && videoError ? '0' : '24px',
       }}
       width={isVideo ? '90vw' : 800}
@@ -170,7 +204,12 @@ const ContentModal = ({
       {isVideo ? (
         renderVideoContent()
       ) : (
-        <p style={{ whiteSpace: 'pre-line' }}>{modalContent}</p>
+        <div style={{ height: '100%' }}>
+          <CodeViewer
+            content={formattedJsonContent || normalizedModalContent}
+            language={formattedJsonContent ? 'json' : 'text'}
+          />
+        </div>
       )}
     </Modal>
   );
