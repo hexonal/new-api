@@ -385,6 +385,46 @@ func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
 	}
 }
 
+func TestBuildImaProPayload_TwoImagesUseFirstAndLastFrame(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("username", "ima_user")
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "two frame prompt",
+		Images: []string{
+			"https://file.fashionlabs.cn/doc_image/first.png",
+			"https://file.fashionlabs.cn/doc_image/last.png",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		TokenKey: "sk-current-user",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:       constant.TaskActionGenerate,
+			PublicTaskID: "task_public_456",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+
+	got := payload.Parameters.ElementList
+	if len(got) < 3 {
+		t.Fatalf("element_list len = %d, want >= 3", len(got))
+	}
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
+		t.Fatalf("got[1] invalid role: %+v", got[1])
+	}
+	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "last_frame" {
+		t.Fatalf("got[2] invalid role: %+v", got[2])
+	}
+}
+
 func TestBuildImaProPayload_ImagesPriorityOverInputReference(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())

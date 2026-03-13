@@ -400,10 +400,23 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 	imageURLs := collectImaProImageURLs(req)
 	for i, imageURL := range imageURLs {
 		role := "reference_image"
-		// Upstream validation disallows mixing first/last frame content with reference media.
-		// When reference video/audio exists, all images must stay as reference_image.
-		if i == 0 && !hasReferenceMedia {
-			role = "first_frame"
+		// Upstream validation disallows mixing first/last frame with reference media.
+		// Strategy:
+		// - with reference media (video/audio): all images use reference_image
+		// - 1 image: first_frame
+		// - 2 images: first_frame + last_frame
+		// - >=3 images (no reference media): all images fallback to reference_image
+		if !hasReferenceMedia {
+			switch len(imageURLs) {
+			case 1:
+				role = "first_frame"
+			case 2:
+				if i == 0 {
+					role = "first_frame"
+				} else {
+					role = "last_frame"
+				}
+			}
 		}
 		elements = append(elements, imaProElement{
 			ReferenceType: "image",
