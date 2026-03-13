@@ -533,6 +533,17 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	if adaptor == nil {
 		return nil
 	}
+	// Ensure adaptor channel-specific behavior (e.g., IMA-Pro query path)
+	// is initialized in fetch flow as well.
+	adaptor.Init(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:          channelModel.Type,
+			ChannelBaseUrl:       baseURL,
+			ApiKey:               channelModel.Key,
+			ChannelSetting:       channelModel.GetSetting(),
+			ChannelOtherSettings: channelModel.GetOtherSettings(),
+		},
+	})
 
 	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
 		"task_id": task.GetUpstreamTaskID(),
