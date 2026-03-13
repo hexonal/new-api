@@ -73,6 +73,46 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
 }
 
+// LogDeferredTaskSubmission writes a submit-phase consume log for deferred-settle tasks.
+// It keeps request-level trace parity with non-deferred models while postponing real charging
+// to terminal success settlement.
+func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, estimatedQuota int, taskID string) {
+	tokenName := c.GetString("token_name")
+	logContent := fmt.Sprintf("操作 %s，延迟结算(提交阶段)", info.Action)
+	other := make(map[string]interface{})
+	other["request_path"] = c.Request.URL.Path
+	other["model_price"] = info.PriceData.ModelPrice
+	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
+		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	}
+	if info.IsModelMapped {
+		other["is_model_mapped"] = true
+		other["upstream_model_name"] = info.UpstreamModelName
+	}
+	other["deferred_settle"] = true
+	other["terminal_charge_state"] = TaskTerminalChargeStatePending
+	if estimatedQuota > 0 {
+		other["estimated_quota"] = estimatedQuota
+	}
+	if strings.TrimSpace(taskID) != "" {
+		other["task_id"] = taskID
+	}
+	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
+		ChannelId: info.ChannelId,
+		ModelName: info.OriginModelName,
+		TokenName: tokenName,
+		Quota:     0,
+		Content:   logContent,
+		TokenId:   info.TokenId,
+		Group:     info.UsingGroup,
+		Other:     other,
+	})
+	// Keep request_count consistent with non-deferred task submit path.
+	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, 0)
+	model.UpdateChannelUsedQuota(info.ChannelId, 0)
+}
+
 // ---------------------------------------------------------------------------
 // 异步任务计费辅助函数
 // ---------------------------------------------------------------------------
@@ -309,7 +349,8 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		CompletionTokens: completionTokens,
 		Other:            other,
 	})
-	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)
+	// deferred-settle requests already counted at submit phase; terminal stage only updates used quota.
+	model.UpdateUserUsedQuota(task.UserId, actualQuota)
 	model.UpdateChannelUsedQuota(task.ChannelId, actualQuota)
 	return task.Update()
 }

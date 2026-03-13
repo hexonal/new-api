@@ -580,6 +580,8 @@ func RelayTask(c *gin.Context) {
 				common.SysError("settle task billing error: " + settleErr.Error())
 			}
 			service.LogTaskConsumption(c, relayInfo)
+		} else {
+			service.LogDeferredTaskSubmission(c, relayInfo, result.EstimatedQuota, relayInfo.PublicTaskID)
 		}
 
 		task := model.InitTask(result.Platform, relayInfo)

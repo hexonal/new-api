@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -34,14 +35,22 @@ type TaskSubmitResult struct {
 	//PerCallPrice   types.PriceData
 }
 
-const taskTokenBillingModelImaPro = "ima-pro"
+var taskDeferredSettleModels = map[string]struct{}{
+	"ima-pro":      {},
+	"ima-pro-fast": {},
+}
+
+func isDeferredSettleTaskModel(modelName string) bool {
+	_, ok := taskDeferredSettleModels[strings.ToLower(strings.TrimSpace(modelName))]
+	return ok
+}
 
 func shouldUseTokenBillingForTaskModel(modelName string) bool {
-	return strings.EqualFold(strings.TrimSpace(modelName), taskTokenBillingModelImaPro)
+	return isDeferredSettleTaskModel(modelName)
 }
 
 func shouldUseDeferredSettleForTaskModel(modelName string) bool {
-	return strings.EqualFold(strings.TrimSpace(modelName), taskTokenBillingModelImaPro)
+	return isDeferredSettleTaskModel(modelName)
 }
 
 func shouldUsePerCallBillingForTaskModel(modelName string) bool {
@@ -563,13 +572,24 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
-	snap := task.Snapshot()
+	// Terminal state must use callback/polling-consistent transition handler,
+	// otherwise billing/callback side-effects are skipped.
+	if ti.Status == string(model.TaskStatusSuccess) || ti.Status == string(model.TaskStatusFailure) {
+		_, _ = service.ApplyExternalTaskStateUpdate(context.Background(), task, ti, body, "realtime_fetch", 0)
+		// Repair path for legacy rows: task already SUCCESS but deferred terminal charge still pending.
+		if ti.Status == string(model.TaskStatusSuccess) && service.IsDeferredSettleTask(task) {
+			actualQuota, reason := service.ResolveDeferredTaskActualQuota(adaptor, task, ti)
+			_ = service.ApplyDeferredTaskTerminalCharge(context.Background(), task, actualQuota, "realtime_fetch:"+reason)
+		}
+	} else {
+		snap := task.Snapshot()
 
-	applyRealtimeTaskInfoToTask(task, ti)
-	applyRealtimeRawPayloadToTask(task, body)
+		applyRealtimeTaskInfoToTask(task, ti)
+		applyRealtimeRawPayloadToTask(task, body)
 
-	if !snap.Equal(task.Snapshot()) {
-		_, _ = task.UpdateWithStatus(snap.Status)
+		if !snap.Equal(task.Snapshot()) {
+			_, _ = task.UpdateWithStatus(snap.Status)
+		}
 	}
 
 	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理

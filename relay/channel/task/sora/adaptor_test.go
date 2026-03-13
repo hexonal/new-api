@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -348,7 +349,7 @@ func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
 			UpstreamModelName: "ima-pro",
 		},
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
-			Action: constant.TaskActionGenerate,
+			Action:       constant.TaskActionGenerate,
 			PublicTaskID: "task_public_123",
 		},
 	}
@@ -638,6 +639,47 @@ func TestDoResponse_WrappedCreateResponseExtractsDataIDTask(t *testing.T) {
 	}
 	if got.Model != "ima-pro" {
 		t.Fatalf("Model = %q, want ima-pro", got.Model)
+	}
+}
+
+func TestDoResponse_ErrorPayloadWithoutTaskIDPreservesUpstreamMessage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"error": {
+			"code": "InvalidParameter",
+			"message": "The parameter content specified in the request is not valid",
+			"param": "content",
+			"type": "BadRequest"
+		}
+	}`)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro-fast",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro-fast",
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			PublicTaskID: "task_public_789",
+		},
+	}
+
+	_, _, taskErr := adaptor.DoResponse(ctx, resp, info)
+	if taskErr == nil {
+		t.Fatalf("DoResponse should return task error")
+	}
+	if taskErr.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("taskErr.StatusCode = %d, want %d", taskErr.StatusCode, http.StatusInternalServerError)
+	}
+	if !strings.Contains(taskErr.Message, "task_id is empty") {
+		t.Fatalf("taskErr.Message = %q, want task_id is empty", taskErr.Message)
 	}
 }
 
