@@ -586,8 +586,9 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
-		if relayInfo.ChannelType != constant.ChannelTypeImaPro {
-			if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
+		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
+			task.Properties.Input = relaycommon.DescribeTaskInputType(req)
+			if relayInfo.ChannelType != constant.ChannelTypeImaPro {
 				if callbackURL := strings.TrimSpace(req.GetCallbackURL()); callbackURL != "" {
 					task.PrivateData.CallbackURL = callbackURL
 				}

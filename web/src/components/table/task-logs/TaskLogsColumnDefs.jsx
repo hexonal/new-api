@@ -90,7 +90,36 @@ function renderDuration(submit_time, finishTime) {
   );
 }
 
-const renderType = (type, t) => {
+const renderInputType = (inputType, t) => {
+  if (!inputType || typeof inputType !== 'string') {
+    return null;
+  }
+  const inputTypeMap = {
+    text: t('文本'),
+    image: t('图片'),
+    video: t('视频'),
+    audio: t('音频'),
+  };
+  const parts = inputType
+    .split(/[,+]/)
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  if (!parts.length) {
+    return null;
+  }
+  const label = parts.map((part) => inputTypeMap[part] || part).join('+');
+  return (
+    <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
+      {label}
+    </Tag>
+  );
+};
+
+const renderType = (type, record, t) => {
+  const inputTypeTag = renderInputType(record?.properties?.input, t);
+  if (inputTypeTag) {
+    return inputTypeTag;
+  }
   switch (type) {
     case 'MUSIC':
       return (
@@ -330,7 +359,23 @@ export const getTaskLogsColumns = ({
       title: t('类型'),
       dataIndex: 'action',
       render: (text, record, index) => {
-        return <div>{renderType(text, t)}</div>;
+        return <div>{renderType(text, record, t)}</div>;
+      },
+    },
+    {
+      key: COLUMN_KEYS.MODEL,
+      title: t('模型'),
+      dataIndex: 'properties',
+      render: (properties) => {
+        const modelName =
+          properties?.origin_model_name || properties?.upstream_model_name || '-';
+        return (
+          <Tooltip content={modelName}>
+            <Tag color='green' shape='circle'>
+              {modelName}
+            </Tag>
+          </Tooltip>
+        );
       },
     },
     {
