@@ -440,6 +440,19 @@ export function getLobeHubIcon(iconName, size = 14) {
     return <Avatar size='extra-extra-small'>?</Avatar>;
   }
 
+  // 支持本地静态资源图标（如 /ima-pro-logo.png）
+  if (typeof iconName === 'string' && iconName.startsWith('/')) {
+    return (
+      <img
+        src={iconName}
+        alt='model icon'
+        width={size}
+        height={size}
+        style={{ borderRadius: 4, objectFit: 'cover' }}
+      />
+    );
+  }
+
   // 解析组件路径与点号链式属性
   const segments = String(iconName).split('.');
   const baseKey = segments[0];

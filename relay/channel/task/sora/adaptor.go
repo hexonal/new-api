@@ -924,27 +924,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	}
 
 	if taskResult.Status == model.TaskStatusFailure {
-		for _, path := range []string{
-			"error.message",
-			"message",
-			"msg",
-			"reason",
-		} {
-			if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" {
-				taskResult.Reason = v
-				break
-			}
-		}
-		if taskResult.Reason == "" && resTask.Error != nil && strings.TrimSpace(resTask.Error.Message) != "" {
-			taskResult.Reason = resTask.Error.Message
-		}
-		if taskResult.Reason == "" {
-			if IsTaskCodeFailure(taskCode) {
-				taskResult.Reason = taskCode
-			} else {
-				taskResult.Reason = "task failed"
-			}
-		}
+		taskResult.Reason = extractImaFailureReason(respBody, resTask.Error, taskCode)
 	}
 
 	taskResult.TaskID = strings.TrimSpace(resTask.ID)
@@ -1015,6 +995,57 @@ func IsTaskCodeFailure(taskCode string) bool {
 		return n != 0
 	}
 	return true
+}
+
+func extractImaFailureReason(respBody []byte, respErr *struct {
+	Message string `json:"message"`
+	Code    string `json:"code"`
+}, taskCode string) string {
+	primaryPaths := []string{
+		"error.message",
+		"error.detail",
+		"error.msg",
+		"reason",
+		"fail_reason",
+		"failure_reason",
+		"data.reason",
+		"response.reason",
+	}
+	for _, path := range primaryPaths {
+		if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" && !isSuccessLikeMessage(v) {
+			return v
+		}
+	}
+
+	if respErr != nil {
+		if v := strings.TrimSpace(respErr.Message); v != "" && !isSuccessLikeMessage(v) {
+			return v
+		}
+		if code := strings.TrimSpace(respErr.Code); code != "" {
+			return code
+		}
+	}
+
+	// message/msg are often generic "Success" wrappers from provider; only use when not success-like.
+	for _, path := range []string{"message", "msg", "data.message", "response.message"} {
+		if v := strings.TrimSpace(gjson.GetBytes(respBody, path).String()); v != "" && !isSuccessLikeMessage(v) {
+			return v
+		}
+	}
+
+	if IsTaskCodeFailure(taskCode) {
+		return taskCode
+	}
+	return "task failed"
+}
+
+func isSuccessLikeMessage(raw string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	switch normalized {
+	case "ok", "success", "succeeded", "done", "completed":
+		return true
+	}
+	return false
 }
 
 func hasSoraFinishAt(respBody []byte) bool {

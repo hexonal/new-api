@@ -672,6 +672,49 @@ func TestParseTaskResult_CompatTaskCodeForcesFailureWhenStatusCompleted(t *testi
 	}
 }
 
+func TestParseTaskResult_CompatFailureIgnoresGenericSuccessMessage(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"ima_task_901",
+		"task_status":"failed",
+		"task_code":"E_UPSTREAM_TIMEOUT",
+		"message":"Success"
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusFailure {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusFailure)
+	}
+	if got.Reason != "E_UPSTREAM_TIMEOUT" {
+		t.Fatalf("Reason = %q, want E_UPSTREAM_TIMEOUT", got.Reason)
+	}
+}
+
+func TestParseTaskResult_CompatFailurePrefersReasonOverGenericMessage(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"id_task":"ima_task_902",
+		"task_status":"failed",
+		"task_code":"1",
+		"message":"Success",
+		"reason":"content policy blocked"
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusFailure {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusFailure)
+	}
+	if got.Reason != "content policy blocked" {
+		t.Fatalf("Reason = %q, want content policy blocked", got.Reason)
+	}
+}
+
 func TestParseTaskResult_CompatWrappedDataFields(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	body := []byte(`{
