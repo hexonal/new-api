@@ -218,7 +218,8 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 			UpstreamModelName: "ima-pro",
 		},
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
-			Action: constant.TaskActionGenerate,
+			Action:       constant.TaskActionGenerate,
+			PublicTaskID: "task_public_123",
 		},
 	}
 
@@ -235,6 +236,9 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	}
 	if payload.ModelVersion != "ima-pro" {
 		t.Fatalf("ModelVersion = %q, want ima-pro", payload.ModelVersion)
+	}
+	if payload.TaskID != "task_public_123" {
+		t.Fatalf("TaskID = %q, want task_public_123", payload.TaskID)
 	}
 	if payload.AigcCategory != "image_to_video" {
 		t.Fatalf("AigcCategory = %q, want image_to_video", payload.AigcCategory)
@@ -259,6 +263,9 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	}
 	if payload.Parameters.ElementList[1].ReferenceType != "image" {
 		t.Fatalf("second element type = %q, want image", payload.Parameters.ElementList[1].ReferenceType)
+	}
+	if payload.Parameters.ElementList[1].ReferenceRole != "first_frame" {
+		t.Fatalf("second element role = %q, want first_frame", payload.Parameters.ElementList[1].ReferenceRole)
 	}
 	if payload.Parameters.ElementList[1].Image == nil || payload.Parameters.ElementList[1].Image.URL != "https://example.com/frame.png" {
 		t.Fatalf("image element mapping is invalid: %#v", payload.Parameters.ElementList[1].Image)
@@ -339,6 +346,7 @@ func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
 		},
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
 			Action: constant.TaskActionGenerate,
+			PublicTaskID: "task_public_123",
 		},
 	}
 
@@ -354,8 +362,8 @@ func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
 	if got[0].ReferenceType != "text" {
 		t.Fatalf("got[0].ReferenceType = %q, want text", got[0].ReferenceType)
 	}
-	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
-		t.Fatalf("got[1] invalid image first frame: %+v", got[1])
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "reference_image" {
+		t.Fatalf("got[1] invalid image role under reference media: %+v", got[1])
 	}
 	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "reference_image" {
 		t.Fatalf("got[2] invalid image role: %+v", got[2])
@@ -426,12 +434,19 @@ func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new request failed: %v", err)
 	}
-	if err := adaptor.BuildRequestHeader(ctx, req, &relaycommon.RelayInfo{}); err != nil {
+	if err := adaptor.BuildRequestHeader(ctx, req, &relaycommon.RelayInfo{
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			PublicTaskID: "task_public_123",
+		},
+	}); err != nil {
 		t.Fatalf("BuildRequestHeader returned error: %v", err)
 	}
 
 	if got := req.Header.Get("Authorization"); got != "Bearer test-key" {
 		t.Fatalf("Authorization = %q, want Bearer test-key", got)
+	}
+	if got := req.Header.Get("X-New-Api-Task-Id"); got != "task_public_123" {
+		t.Fatalf("X-New-Api-Task-Id = %q, want task_public_123", got)
 	}
 	if got := req.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want application/json", got)

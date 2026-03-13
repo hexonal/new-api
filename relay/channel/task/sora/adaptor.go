@@ -63,6 +63,8 @@ type imaProPayload struct {
 	UserID       string             `json:"user_id"`
 	AppID        string             `json:"app_id"`
 	AppKind      string             `json:"app_kind"`
+	// TaskID is the New API public task_id, passed through for upstream troubleshooting traceability.
+	TaskID       string             `json:"task_id,omitempty"`
 	AigcCategory string             `json:"aigc_category"`
 	CallbackURL  string             `json:"callback_url,omitempty"`
 	Watermark    int                `json:"watermark"`
@@ -208,6 +210,12 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 // BuildRequestHeader sets required headers.
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
 	req.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if info != nil && info.TaskRelayInfo != nil {
+		if publicTaskID := strings.TrimSpace(info.TaskRelayInfo.PublicTaskID); publicTaskID != "" {
+			// Pass public task id downstream for traceability without exposing upstream IDs.
+			req.Header.Set("X-New-Api-Task-Id", publicTaskID)
+		}
+	}
 	// ima-pro receives internally converted JSON payload; force JSON content type
 	// regardless of the client-side OpenAI-style upload format.
 	if a.ChannelType == constant.ChannelTypeImaPro {
@@ -334,6 +342,7 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		UserID:       resolveImaProUserID(c, info, metadata),
 		AppID:        resolveImaProAppID(info, metadata),
 		AppKind:      resolveImaProAppKind(info, metadata),
+		TaskID:       resolveImaProTraceTaskID(info),
 		AigcCategory: pickStringWithDefault(metadata, resolveImaProCategory(req), "aigc_category", "aigcCategory"),
 		// callback_url is intentionally disabled for IMA Pro public contract.
 		// Clients must poll task status via /v1/videos/{task_id}.
@@ -369,10 +378,28 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 
+	videoURLs := collectImaProMediaURLs(
+		metadata,
+		"reference_video_urls",
+		"video_urls",
+		"reference_video_url",
+		"video_url",
+	)
+	audioURLs := collectImaProMediaURLs(
+		metadata,
+		"reference_audio_urls",
+		"audio_urls",
+		"reference_audio_url",
+		"audio_url",
+	)
+	hasReferenceMedia := len(videoURLs) > 0 || len(audioURLs) > 0
+
 	imageURLs := collectImaProImageURLs(req)
 	for i, imageURL := range imageURLs {
 		role := "reference_image"
-		if i == 0 {
+		// Upstream validation disallows mixing first/last frame content with reference media.
+		// When reference video/audio exists, all images must stay as reference_image.
+		if i == 0 && !hasReferenceMedia {
 			role = "first_frame"
 		}
 		elements = append(elements, imaProElement{
@@ -382,13 +409,6 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 
-	videoURLs := collectImaProMediaURLs(
-		metadata,
-		"reference_video_urls",
-		"video_urls",
-		"reference_video_url",
-		"video_url",
-	)
 	for _, videoURL := range videoURLs {
 		elements = append(elements, imaProElement{
 			ReferenceType: "video",
@@ -397,13 +417,6 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 
-	audioURLs := collectImaProMediaURLs(
-		metadata,
-		"reference_audio_urls",
-		"audio_urls",
-		"reference_audio_url",
-		"audio_url",
-	)
 	for _, audioURL := range audioURLs {
 		elements = append(elements, imaProElement{
 			ReferenceType: "audio",
@@ -412,6 +425,13 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		})
 	}
 	return elements
+}
+
+func resolveImaProTraceTaskID(info *relaycommon.RelayInfo) string {
+	if info == nil || info.TaskRelayInfo == nil {
+		return ""
+	}
+	return strings.TrimSpace(info.TaskRelayInfo.PublicTaskID)
 }
 
 func collectImaProImageURLs(req *relaycommon.TaskSubmitReq) []string {
