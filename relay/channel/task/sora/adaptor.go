@@ -63,6 +63,8 @@ type imaProPayload struct {
 	UserID       string             `json:"user_id"`
 	AppID        string             `json:"app_id"`
 	AppKind      string             `json:"app_kind"`
+	// IDTask mirrors New API public task_id for upstream traceability.
+	IDTask       string             `json:"id_task,omitempty"`
 	// TaskID is the New API public task_id, passed through for upstream troubleshooting traceability.
 	TaskID       string             `json:"task_id,omitempty"`
 	AigcCategory string             `json:"aigc_category"`
@@ -338,6 +340,7 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	}
 
 	payload := &imaProPayload{
+		IDTask:       resolveImaProTraceTaskID(info),
 		TenantID:     resolveImaProTenantID(info, metadata),
 		UserID:       resolveImaProUserID(c, info, metadata),
 		AppID:        resolveImaProAppID(info, metadata),
@@ -600,14 +603,17 @@ func resolveImaProAppKind(info *relaycommon.RelayInfo, metadata map[string]any) 
 }
 
 func resolveImaProUserID(c *gin.Context, info *relaycommon.RelayInfo, metadata map[string]any) string {
-	if info != nil {
-		// For IMA Pro, user_id must be the current caller SK.
-		if v := strings.TrimSpace(info.TokenKey); v != "" {
+	if info != nil && info.TaskRelayInfo != nil {
+		// user_id is intentionally bound to New API public task_id for upstream traceability.
+		if v := strings.TrimSpace(info.TaskRelayInfo.PublicTaskID); v != "" {
 			return v
 		}
 	}
-	if v := pickString(metadata, "user_id", "userId"); v != "" {
-		return v
+	if info != nil {
+		// Fallback for legacy flows without pre-generated public task id.
+		if v := strings.TrimSpace(info.TokenKey); v != "" {
+			return v
+		}
 	}
 	if c == nil {
 		return ""

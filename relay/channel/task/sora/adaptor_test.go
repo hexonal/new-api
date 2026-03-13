@@ -231,8 +231,11 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	if payload.TenantID != "tenant-1" {
 		t.Fatalf("TenantID = %q, want tenant-1", payload.TenantID)
 	}
-	if payload.UserID != "sk-current-user" {
-		t.Fatalf("UserID = %q, want sk-current-user", payload.UserID)
+	if payload.UserID != "task_public_123" {
+		t.Fatalf("UserID = %q, want task_public_123", payload.UserID)
+	}
+	if payload.IDTask != "task_public_123" {
+		t.Fatalf("IDTask = %q, want task_public_123", payload.IDTask)
 	}
 	if payload.ModelVersion != "ima-pro" {
 		t.Fatalf("ModelVersion = %q, want ima-pro", payload.ModelVersion)
