@@ -324,6 +324,18 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 	return tasks
 }
 
+func GetTasksByTaskIDs(taskIDs []string) []*Task {
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	var tasks []*Task
+	err := DB.Where("task_id in (?)", taskIDs).Find(&tasks).Error
+	if err != nil {
+		return nil
+	}
+	return tasks
+}
+
 // GetTaskByPlatformAndUpstreamID 通过 platform 和 upstream_task_id（存储在 private_data JSON 中）查找任务。
 // 用于回调场景：上游通过 upstream ID 推送结果，需要反查对应的本地任务。
 func GetTaskByPlatformAndUpstreamID(platform constant.TaskPlatform, upstreamID string) (*Task, bool, error) {

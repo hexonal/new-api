@@ -149,6 +149,9 @@ func ApplyExternalTaskStateUpdate(
 			return true, fmt.Errorf("enqueue video task callback failed: %w", callbackErr)
 		}
 	}
+	if isTaskTerminalStatus(task.Status) {
+		RemoveTaskFromPollingQueue(task.TaskID)
+	}
 
 	return terminalTransitionWon, nil
 }

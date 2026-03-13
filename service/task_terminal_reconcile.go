@@ -59,4 +59,7 @@ func reconcileTaskTerminalTransition(
 			logger.LogError(ctx, fmt.Sprintf("enqueue video task callback failed for task %s: %s", task.TaskID, callbackErr.Error()))
 		}
 	}
+	if isDone {
+		RemoveTaskFromPollingQueue(task.TaskID)
+	}
 }

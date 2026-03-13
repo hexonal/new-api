@@ -37,10 +37,19 @@ type TaskPollingAdaptor interface {
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
 
 const (
-	// ima-pro is known to have longer processing latency.
-	// We keep timeout grace wider than global default to avoid premature failure.
-	imaProSlowModelName     = "ima-pro"
-	imaProTimeoutMultiplier = 6
+	// TaskPollingLoop runs every 15s.
+	taskPollingTickSeconds = 15
+
+	// ima-pro / ima-pro-fast are very slow models.
+	imaProModelName     = "ima-pro"
+	imaProFastModelName = "ima-pro-fast"
+
+	// For slow IMA models:
+	// 1) only join proactive polling queue after 5 minutes;
+	// 2) then poll at most once every 5 minutes (global window gating).
+	imaProAutoPollDelaySeconds    = 5 * 60
+	imaProAutoPollIntervalSeconds = 5 * 60
+	imaProAutoPollWindowSeconds   = 30
 )
 
 // sweepTimedOutTasks 在主轮询之前独立清理超时任务。
@@ -91,6 +100,7 @@ func sweepTimedOutTasks(ctx context.Context) {
 		if !isLegacy && task.Quota != 0 {
 			RefundTaskQuota(ctx, task, reason)
 		}
+		RemoveTaskFromPollingQueue(task.TaskID)
 	}
 
 	if timedOutCount > 0 {
@@ -102,27 +112,22 @@ func shouldSkipTimeoutForSlowModel(task *model.Task, now int64) bool {
 	if task == nil {
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(task.Properties.OriginModelName), imaProSlowModelName) {
+	if !isImaSlowModel(task) {
 		return false
 	}
-	if constant.TaskTimeoutMinutes <= 0 || task.SubmitTime <= 0 {
-		return false
-	}
-	extendedTimeoutSeconds := int64(constant.TaskTimeoutMinutes*imaProTimeoutMultiplier) * 60
-	if now-task.SubmitTime < extendedTimeoutSeconds {
-		return true
-	}
-	return false
+	// IMA slow models rely on callback + background polling queue.
+	// Do not auto-timeout these tasks in sweep stage.
+	return true
 }
 
 // TaskPollingLoop 主轮询循环，每 15 秒检查一次未完成的任务
 func TaskPollingLoop() {
 	for {
-		time.Sleep(time.Duration(15) * time.Second)
+		time.Sleep(time.Duration(taskPollingTickSeconds) * time.Second)
 		common.SysLog("任务进度轮询开始")
 		ctx := context.TODO()
 		sweepTimedOutTasks(ctx)
-		allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
+		allTasks := getPendingTasksForPolling(constant.TaskQueryLimit)
 		platformTask := make(map[constant.TaskPlatform][]*model.Task)
 		for _, t := range allTasks {
 			platformTask[t.Platform] = append(platformTask[t.Platform], t)
@@ -153,6 +158,11 @@ func TaskPollingLoop() {
 					logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
 				} else {
 					logger.LogInfo(ctx, fmt.Sprintf("Fix null task_id task success: %v", nullTaskIds))
+					for _, task := range tasks {
+						if task.GetUpstreamTaskID() == "" {
+							RemoveTaskFromPollingQueue(task.TaskID)
+						}
+					}
 				}
 			}
 			if len(taskChannelM) == 0 {
@@ -214,6 +224,12 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		})
 		if err != nil {
 			common.SysLog(fmt.Sprintf("UpdateSunoTask error: %v", err))
+		} else {
+			for _, upstreamID := range taskIds {
+				if task := taskM[upstreamID]; task != nil {
+					RemoveTaskFromPollingQueue(task.TaskID)
+				}
+			}
 		}
 		return err
 	}
@@ -222,8 +238,15 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		return errors.New("adaptor not found")
 	}
 	proxy := ch.GetSetting().Proxy
+
+	claimedTaskIDs, leaseTokens := claimTaskPollingLeases(taskIds)
+	if len(claimedTaskIDs) == 0 {
+		return nil
+	}
+	defer releaseClaimedTaskPollingLeases(leaseTokens)
+
 	resp, err := adaptor.FetchTask(*ch.BaseURL, ch.Key, map[string]any{
-		"ids": taskIds,
+		"ids": claimedTaskIDs,
 	}, proxy)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("Get Task Do req error: %v", err))
@@ -265,9 +288,11 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 			logger.LogInfo(ctx, task.TaskID+" 构建失败，"+task.FailReason)
 			task.Progress = "100%"
 			RefundTaskQuota(ctx, task, task.FailReason)
+			RemoveTaskFromPollingQueue(task.TaskID)
 		}
 		if responseItem.Status == model.TaskStatusSuccess {
 			task.Progress = "100%"
+			RemoveTaskFromPollingQueue(task.TaskID)
 		}
 		task.Data = responseItem.Data
 
@@ -348,6 +373,12 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		})
 		if errUpdate != nil {
 			common.SysLog(fmt.Sprintf("UpdateVideoTask error: %v", errUpdate))
+		} else {
+			for _, upstreamID := range taskIds {
+				if task := taskM[upstreamID]; task != nil {
+					RemoveTaskFromPollingQueue(task.TaskID)
+				}
+			}
 		}
 		return fmt.Errorf("CacheGetChannel failed: %w", err)
 	}
@@ -355,6 +386,25 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 	if adaptor == nil {
 		return fmt.Errorf("video adaptor not found")
 	}
+
+	now := time.Now().Unix()
+	eligibleTaskIDs := make([]string, 0, len(taskIds))
+	deferredSlowModelCount := 0
+	for _, taskID := range taskIds {
+		task := taskM[taskID]
+		if !shouldPollVideoTaskNow(task, now) {
+			deferredSlowModelCount++
+			continue
+		}
+		eligibleTaskIDs = append(eligibleTaskIDs, taskID)
+	}
+	if deferredSlowModelCount > 0 {
+		logger.LogInfo(ctx, fmt.Sprintf("Channel #%d deferred slow-model polls: %d", channelId, deferredSlowModelCount))
+	}
+	if len(eligibleTaskIDs) == 0 {
+		return nil
+	}
+
 	info := &relaycommon.RelayInfo{}
 	info.ChannelMeta = &relaycommon.ChannelMeta{
 		ChannelBaseUrl:       cacheGetChannel.GetBaseURL(),
@@ -364,14 +414,64 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		ChannelOtherSettings: cacheGetChannel.GetOtherSettings(),
 	}
 	adaptor.Init(info)
-	for _, taskId := range taskIds {
+
+	polledCount := 0
+	for _, taskId := range eligibleTaskIDs {
+		leaseToken, claimed := tryAcquireTaskPollingLease(taskId)
+		if !claimed {
+			continue
+		}
 		if err := updateVideoSingleTask(ctx, adaptor, cacheGetChannel, taskId, taskM); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("Failed to update video task %s: %s", taskId, err.Error()))
 		}
+		releaseTaskPollingLease(taskId, leaseToken)
+		polledCount++
 		// sleep 1 second between each task to avoid hitting rate limits of upstream platforms
 		time.Sleep(1 * time.Second)
 	}
+	if polledCount == 0 {
+		return nil
+	}
 	return nil
+}
+
+func shouldPollVideoTaskNow(task *model.Task, now int64) bool {
+	if task == nil {
+		return true
+	}
+	if !isImaSlowModel(task) {
+		return true
+	}
+
+	if task.SubmitTime > 0 && now-task.SubmitTime < imaProAutoPollDelaySeconds {
+		return false
+	}
+	return shouldRunImaSlowPollWindow(now)
+}
+
+func shouldRunImaSlowPollWindow(now int64) bool {
+	if now <= 0 {
+		return true
+	}
+	slot := now % imaProAutoPollIntervalSeconds
+	return slot < imaProAutoPollWindowSeconds
+}
+
+func isImaSlowModel(task *model.Task) bool {
+	if task == nil {
+		return false
+	}
+	modelCandidates := []string{
+		task.Properties.OriginModelName,
+		task.Properties.UpstreamModelName,
+	}
+	for _, candidate := range modelCandidates {
+		switch strings.ToLower(strings.TrimSpace(candidate)) {
+		case imaProModelName, imaProFastModelName:
+			return true
+		}
+	}
+	return false
 }
 
 func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *model.Channel, taskId string, taskM map[string]*model.Task) error {

@@ -618,6 +618,8 @@ func RelayTask(c *gin.Context) {
 		task.Action = relayInfo.Action
 		if insertErr := task.Insert(); insertErr != nil {
 			common.SysError("insert task error: " + insertErr.Error())
+		} else {
+			service.AddTaskToPollingQueue(task.TaskID)
 		}
 	}
 
