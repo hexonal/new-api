@@ -190,6 +190,9 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    ima_pro_tenant_id: '',
+    ima_pro_app_id: '',
+    ima_pro_app_kind: '',
     settings: '',
     // 仅 Vertex: 密钥格式（存入 settings.vertex_key_type）
     vertex_key_type: 'json',
@@ -280,6 +283,12 @@ const EditChannelModal = (props) => {
   );
   const upstreamDetectedModelsOmittedCount =
     upstreamDetectedModels.length - upstreamDetectedModelsPreview.length;
+  const hasImaProModelSelected = Array.isArray(inputs.models)
+    ? inputs.models.some((model) => {
+        const name = (model || '').trim();
+        return name === 'ima-pro' || name === 'ima-pro-fast';
+      })
+    : false;
   const modelSearchMatchedCount = useMemo(() => {
     const keyword = modelSearchValue.trim();
     if (!keyword) {
@@ -525,6 +534,10 @@ const EditChannelModal = (props) => {
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
+    system_prompt_override: false,
+    ima_pro_tenant_id: '',
+    ima_pro_app_id: '',
+    ima_pro_app_kind: '',
   });
   const showApiConfigCard = true; // 控制是否显示 API 配置卡片
   const getInitValues = () => ({ ...originInputs });
@@ -845,6 +858,9 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          data.ima_pro_tenant_id = parsedSettings.ima_pro_tenant_id || '';
+          data.ima_pro_app_id = parsedSettings.ima_pro_app_id || '';
+          data.ima_pro_app_kind = parsedSettings.ima_pro_app_kind || '';
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -853,6 +869,9 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.ima_pro_tenant_id = '';
+          data.ima_pro_app_id = '';
+          data.ima_pro_app_kind = '';
         }
       } else {
         data.force_format = false;
@@ -861,6 +880,9 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.ima_pro_tenant_id = '';
+        data.ima_pro_app_id = '';
+        data.ima_pro_app_kind = '';
       }
 
       if (data.settings) {
@@ -966,6 +988,9 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        ima_pro_tenant_id: data.ima_pro_tenant_id || '',
+        ima_pro_app_id: data.ima_pro_app_id || '',
+        ima_pro_app_kind: data.ima_pro_app_kind || '',
       });
       initialModelsRef.current = (data.models || [])
         .map((model) => (model || '').trim())
@@ -1324,6 +1349,9 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      ima_pro_tenant_id: '',
+      ima_pro_app_id: '',
+      ima_pro_app_kind: '',
     });
     // 重置密钥模式状态
     setKeyMode('append');
@@ -1690,6 +1718,9 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      ima_pro_tenant_id: (localInputs.ima_pro_tenant_id || '').trim(),
+      ima_pro_app_id: (localInputs.ima_pro_app_id || '').trim(),
+      ima_pro_app_kind: (localInputs.ima_pro_app_kind || '').trim(),
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -1770,6 +1801,9 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.ima_pro_tenant_id;
+    delete localInputs.ima_pro_app_id;
+    delete localInputs.ima_pro_app_kind;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -2267,6 +2301,50 @@ const EditChannelModal = (props) => {
                       onChange={(value) => handleInputChange('name', value)}
                       autoComplete='new-password'
                     />
+
+                    {(inputs.type === 60 || hasImaProModelSelected) && (
+                      <>
+                        <Form.Input
+                          field='ima_pro_tenant_id'
+                          label={t('IMA-Pro Tenant ID')}
+                          placeholder={t(
+                            '可选，留空则使用默认值或请求 metadata.tenant_id',
+                          )}
+                          onChange={(value) =>
+                            handleChannelSettingsChange(
+                              'ima_pro_tenant_id',
+                              value,
+                            )
+                          }
+                          showClear
+                        />
+                        <Form.Input
+                          field='ima_pro_app_id'
+                          label={t('IMA-Pro App ID')}
+                          placeholder={t(
+                            '可选，留空则使用默认值或请求 metadata.app_id',
+                          )}
+                          onChange={(value) =>
+                            handleChannelSettingsChange('ima_pro_app_id', value)
+                          }
+                          showClear
+                        />
+                        <Form.Input
+                          field='ima_pro_app_kind'
+                          label={t('IMA-Pro App Kind')}
+                          placeholder={t(
+                            '可选，留空则使用默认值（例如 imagent）或请求 metadata.app_kind',
+                          )}
+                          onChange={(value) =>
+                            handleChannelSettingsChange(
+                              'ima_pro_app_kind',
+                              value,
+                            )
+                          }
+                          showClear
+                        />
+                      </>
+                    )}
 
                     {inputs.type === 33 && (
                       <>

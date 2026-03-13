@@ -330,8 +330,20 @@ export function getChannelIcon(channelType) {
     case 1: // OpenAI
     case 3: // Azure OpenAI
     case 57: // Codex
-    case 60: // ima_pro
       return <OpenAI size={iconSize} />;
+    case 60: // ima_pro
+      return (
+        <img
+          src='/ima-pro-logo.png'
+          alt='ima_pro'
+          style={{
+            width: iconSize,
+            height: iconSize,
+            borderRadius: 3,
+            objectFit: 'contain',
+          }}
+        />
+      );
     case 2: // Midjourney Proxy
     case 5: // Midjourney Proxy Plus
       return <Midjourney size={iconSize} />;
