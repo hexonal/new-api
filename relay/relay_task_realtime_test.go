@@ -1,6 +1,8 @@
 package relay
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
@@ -52,5 +54,34 @@ func TestApplyRealtimeTaskInfoToTask_FailureWithoutReasonKeepsExisting(t *testin
 	}
 	if task.Progress != "100%" {
 		t.Fatalf("task.Progress = %q, want 100%%", task.Progress)
+	}
+}
+
+func TestApplyRealtimeRawPayloadToTask_PersistsUsageAndRedactsBase64(t *testing.T) {
+	task := &model.Task{
+		TaskID: "task_demo_3",
+		Data:   json.RawMessage(`{"usage":{"total_tokens":1}}`),
+	}
+
+	raw := []byte(`{
+		"code": 200,
+		"data": {
+			"usage": {
+				"completion_tokens": 324900,
+				"total_tokens": 324900
+			}
+		},
+		"response": {
+			"bytesBase64Encoded": "AAAAABBBBBCCCCCDDDDDEEEEEFFFFFGGGGGHHHHHIIIIJJJJJ"
+		}
+	}`)
+
+	applyRealtimeRawPayloadToTask(task, raw)
+
+	if !bytes.Contains(task.Data, []byte(`"total_tokens":324900`)) {
+		t.Fatalf("task.Data should contain latest usage, got: %s", string(task.Data))
+	}
+	if bytes.Contains(task.Data, []byte("bytesBase64Encoded")) {
+		t.Fatalf("task.Data should redact bytesBase64Encoded, got: %s", string(task.Data))
 	}
 }

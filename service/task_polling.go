@@ -648,6 +648,12 @@ func redactVideoResponseBody(body []byte) []byte {
 	return b
 }
 
+// RedactVideoResponseBodyForStorage removes oversized sensitive blobs from
+// upstream task payloads before storing them in task.Data.
+func RedactVideoResponseBodyForStorage(body []byte) []byte {
+	return redactVideoResponseBody(body)
+}
+
 func truncateBase64(s string) string {
 	const maxKeep = 256
 	if len(s) <= maxKeep {

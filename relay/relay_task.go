@@ -566,6 +566,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	snap := task.Snapshot()
 
 	applyRealtimeTaskInfoToTask(task, ti)
+	applyRealtimeRawPayloadToTask(task, body)
 
 	if !snap.Equal(task.Snapshot()) {
 		_, _ = task.UpdateWithStatus(snap.Status)
@@ -625,6 +626,15 @@ func applyRealtimeTaskInfoToTask(task *model.Task, ti *relaycommon.TaskInfo) {
 		// No URL from adaptor — construct proxy URL using public task ID
 		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
 	}
+}
+
+// applyRealtimeRawPayloadToTask snapshots latest upstream response body
+// into task.Data for downstream OpenAI-video conversion.
+func applyRealtimeRawPayloadToTask(task *model.Task, rawBody []byte) {
+	if task == nil || len(rawBody) == 0 {
+		return
+	}
+	task.Data = service.RedactVideoResponseBodyForStorage(rawBody)
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

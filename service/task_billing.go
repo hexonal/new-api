@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -151,6 +153,67 @@ func taskModelName(task *model.Task) string {
 	return task.Properties.OriginModelName
 }
 
+func readPositiveIntFromTaskData(data []byte, paths ...string) int {
+	if len(data) == 0 {
+		return 0
+	}
+	for _, path := range paths {
+		v := gjson.GetBytes(data, path)
+		if !v.Exists() {
+			continue
+		}
+		switch v.Type {
+		case gjson.Number:
+			if n := int(v.Int()); n > 0 {
+				return n
+			}
+		case gjson.String:
+			raw := strings.TrimSpace(v.String())
+			if raw == "" {
+				continue
+			}
+			n, err := strconv.Atoi(raw)
+			if err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+func extractTaskTokenUsage(task *model.Task) (promptTokens int, completionTokens int, totalTokens int) {
+	if task == nil {
+		return 0, 0, 0
+	}
+
+	promptTokens = readPositiveIntFromTaskData(task.Data,
+		"usage.prompt_tokens",
+		"data.usage.prompt_tokens",
+		"response.usage.prompt_tokens",
+	)
+	completionTokens = readPositiveIntFromTaskData(task.Data,
+		"usage.completion_tokens",
+		"data.usage.completion_tokens",
+		"response.usage.completion_tokens",
+	)
+	totalTokens = readPositiveIntFromTaskData(task.Data,
+		"usage.total_tokens",
+		"data.usage.total_tokens",
+		"response.usage.total_tokens",
+		"metadata.usage.total_tokens",
+	)
+
+	if totalTokens <= 0 {
+		totalTokens = promptTokens + completionTokens
+	}
+
+	// Some async video providers report only total usage.
+	if promptTokens == 0 && completionTokens == 0 && totalTokens > 0 {
+		completionTokens = totalTokens
+	}
+	return promptTokens, completionTokens, totalTokens
+}
+
 func IsDeferredSettleTask(task *model.Task) bool {
 	if task == nil || task.PrivateData.BillingContext == nil {
 		return false
@@ -219,16 +282,32 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	other["estimated_quota"] = bc.EstimatedQuota
 	other["terminal_charge_state"] = bc.TerminalChargeState
 	other["terminal_charge_reason"] = reason
+	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
+	if totalTokens > 0 {
+		other["task_total_tokens"] = totalTokens
+	}
+	if promptTokens > 0 {
+		other["task_prompt_tokens"] = promptTokens
+	}
+	if completionTokens > 0 {
+		other["task_completion_tokens"] = completionTokens
+	}
+	logContent := reason
+	if totalTokens > 0 {
+		logContent = fmt.Sprintf("%s, tokens=%d", reason, totalTokens)
+	}
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   model.LogTypeConsume,
-		Content:   reason,
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     actualQuota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
+		UserId:           task.UserId,
+		LogType:          model.LogTypeConsume,
+		Content:          logContent,
+		ChannelId:        task.ChannelId,
+		ModelName:        taskModelName(task),
+		Quota:            actualQuota,
+		TokenId:          task.PrivateData.TokenId,
+		Group:            task.Group,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		Other:            other,
 	})
 	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)
 	model.UpdateChannelUsedQuota(task.ChannelId, actualQuota)
@@ -320,16 +399,32 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	//other["reason"] = reason
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
+	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
+	if totalTokens > 0 {
+		other["task_total_tokens"] = totalTokens
+	}
+	if promptTokens > 0 {
+		other["task_prompt_tokens"] = promptTokens
+	}
+	if completionTokens > 0 {
+		other["task_completion_tokens"] = completionTokens
+	}
+	logContent := reason
+	if totalTokens > 0 {
+		logContent = fmt.Sprintf("%s, tokens=%d", reason, totalTokens)
+	}
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   logType,
-		Content:   reason,
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     logQuota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
+		UserId:           task.UserId,
+		LogType:          logType,
+		Content:          logContent,
+		ChannelId:        task.ChannelId,
+		ModelName:        taskModelName(task),
+		Quota:            logQuota,
+		TokenId:          task.PrivateData.TokenId,
+		Group:            task.Group,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		Other:            other,
 	})
 }
 

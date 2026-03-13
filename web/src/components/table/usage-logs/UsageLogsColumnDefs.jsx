@@ -330,6 +330,33 @@ function getPromptCacheSummary(other) {
   };
 }
 
+function buildTokenUsageSummary(record, other, t) {
+  if (!record || record.type !== 2) {
+    return '';
+  }
+  const promptTokens = toTokenNumber(
+    record?.prompt_tokens || other?.task_prompt_tokens,
+  );
+  const completionTokens = toTokenNumber(
+    record?.completion_tokens || other?.task_completion_tokens,
+  );
+  let totalTokens = promptTokens + completionTokens;
+  if (totalTokens <= 0) {
+    totalTokens = toTokenNumber(other?.task_total_tokens);
+  }
+  if (totalTokens <= 0) {
+    return '';
+  }
+
+  const parts = [`${t('Token 消耗')}：${formatTokenCount(totalTokens)}`];
+  if (promptTokens > 0 || completionTokens > 0) {
+    parts.push(
+      `${t('输入 Tokens')} ${formatTokenCount(promptTokens)} / ${t('输出 Tokens')} ${formatTokenCount(completionTokens)}`,
+    );
+  }
+  return parts.join(' | ');
+}
+
 export const getLogsColumns = ({
   t,
   COLUMN_KEYS,
@@ -741,6 +768,10 @@ export const getLogsColumns = ({
           );
         }
         if (other == null || record.type !== 2) {
+          const tokenSummary = buildTokenUsageSummary(record, other, t);
+          const plainContent = tokenSummary
+            ? [tokenSummary, text].filter(Boolean).join('\n')
+            : text;
           return (
             <Typography.Paragraph
               ellipsis={{
@@ -752,7 +783,7 @@ export const getLogsColumns = ({
               }}
               style={{ maxWidth: 240 }}
             >
-              {text}
+              {plainContent}
             </Typography.Paragraph>
           );
         }
@@ -831,6 +862,7 @@ export const getLogsColumns = ({
               billingDisplayMode,
             );
         let cacheSummary = '';
+        const tokenSummary = buildTokenUsageSummary(record, other, t);
         if (other?.cache_status) {
           let upstreamMissReason = other?.cache_miss_reason || '';
           let localHint = other?.cache_miss_local_hint || '';
@@ -868,7 +900,7 @@ export const getLogsColumns = ({
                   wordBreak: 'break-word',
                 }}
             >
-              {cacheSummary ? `${cacheSummary}\n${content}` : content}
+              {[tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
             </Typography.Paragraph>
         );
       },
