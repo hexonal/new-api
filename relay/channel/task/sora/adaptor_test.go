@@ -715,6 +715,31 @@ func TestParseTaskResult_CompatFailurePrefersReasonOverGenericMessage(t *testing
 	}
 }
 
+func TestParseTaskResult_CompatFailureUsesTaskMsg(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"code":200,
+		"data":{
+			"id_task":"ima_task_903",
+			"task_status":"failed",
+			"task_code":1001,
+			"task_msg":"video generation failed: internal error: 601300"
+		},
+		"message":"Success"
+	}`)
+
+	got, err := adaptor.ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult returned error: %v", err)
+	}
+	if got.Status != model.TaskStatusFailure {
+		t.Fatalf("Status = %q, want %q", got.Status, model.TaskStatusFailure)
+	}
+	if got.Reason != "video generation failed: internal error: 601300" {
+		t.Fatalf("Reason = %q, want task_msg", got.Reason)
+	}
+}
+
 func TestParseTaskResult_CompatWrappedDataFields(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	body := []byte(`{

@@ -565,21 +565,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 
 	snap := task.Snapshot()
 
-	// 将上游最新状态更新到 task
-	if ti.Status != "" {
-		task.Status = model.TaskStatus(ti.Status)
-	}
-	if ti.Progress != "" {
-		task.Progress = ti.Progress
-	}
-	if strings.HasPrefix(ti.Url, "data:") {
-		// data: URI — kept in Data, not ResultURL
-	} else if ti.Url != "" {
-		task.PrivateData.ResultURL = ti.Url
-	} else if task.Status == model.TaskStatusSuccess {
-		// No URL from adaptor — construct proxy URL using public task ID
-		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-	}
+	applyRealtimeTaskInfoToTask(task, ti)
 
 	if !snap.Equal(task.Snapshot()) {
 		_, _ = task.UpdateWithStatus(snap.Status)
@@ -605,6 +591,40 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		Data: out,
 	})
 	return respBody
+}
+
+// applyRealtimeTaskInfoToTask normalizes realtime task state patching.
+// It keeps terminal task progress stable and preserves failure reason when upstream omits it.
+func applyRealtimeTaskInfoToTask(task *model.Task, ti *relaycommon.TaskInfo) {
+	if task == nil || ti == nil {
+		return
+	}
+	if ti.Status != "" {
+		task.Status = model.TaskStatus(ti.Status)
+	}
+	switch task.Status {
+	case model.TaskStatusSuccess, model.TaskStatusFailure:
+		// Terminal tasks should always be reported as complete progress.
+		task.Progress = taskcommon.ProgressComplete
+	default:
+		if ti.Progress != "" {
+			task.Progress = ti.Progress
+		}
+	}
+
+	if task.Status == model.TaskStatusFailure {
+		if reason := strings.TrimSpace(ti.Reason); reason != "" {
+			task.FailReason = reason
+		}
+	}
+	if strings.HasPrefix(ti.Url, "data:") {
+		// data: URI — kept in Data, not ResultURL
+	} else if ti.Url != "" {
+		task.PrivateData.ResultURL = ti.Url
+	} else if task.Status == model.TaskStatusSuccess {
+		// No URL from adaptor — construct proxy URL using public task ID
+		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+	}
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

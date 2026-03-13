@@ -502,7 +502,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	default:
 		return fmt.Errorf("unknown task status %s for task %s", taskResult.Status, task.TaskID)
 	}
-	if taskResult.Progress != "" {
+	if taskResult.Progress != "" &&
+		task.Status != model.TaskStatusFailure &&
+		task.Status != model.TaskStatusSuccess {
 		task.Progress = taskResult.Progress
 	}
 
