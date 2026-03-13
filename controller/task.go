@@ -68,6 +68,7 @@ func GetUserTask(c *gin.Context) {
 
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 	var userIdMap map[int]*model.UserBase
+	channelIdMap := make(map[int]string)
 	if fillUser {
 		userIdMap = make(map[int]*model.UserBase)
 		userIds := types.NewSet[int]()
@@ -81,6 +82,34 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 	}
+
+	channelIds := types.NewSet[int]()
+	for _, task := range tasks {
+		if task.ChannelId != 0 {
+			channelIds.Add(task.ChannelId)
+		}
+	}
+	if channelIds.Len() > 0 {
+		channelIDItems := channelIds.Items()
+		if common.MemoryCacheEnabled {
+			for _, channelId := range channelIDItems {
+				if cacheChannel, err := model.CacheGetChannel(channelId); err == nil {
+					channelIdMap[channelId] = cacheChannel.Name
+				}
+			}
+		} else {
+			var channels []struct {
+				Id   int    `gorm:"column:id"`
+				Name string `gorm:"column:name"`
+			}
+			if err := model.DB.Table("channels").Select("id, name").Where("id IN ?", channelIDItems).Find(&channels).Error; err == nil {
+				for _, channel := range channels {
+					channelIdMap[channel.Id] = channel.Name
+				}
+			}
+		}
+	}
+
 	result := make([]*dto.TaskDto, len(tasks))
 	for i, task := range tasks {
 		if fillUser {
@@ -88,7 +117,11 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 				task.Username = user.Username
 			}
 		}
-		result[i] = relay.TaskModel2Dto(task)
+		taskDto := relay.TaskModel2Dto(task)
+		if channelName, ok := channelIdMap[task.ChannelId]; ok {
+			taskDto.ChannelName = channelName
+		}
+		result[i] = taskDto
 	}
 	return result
 }

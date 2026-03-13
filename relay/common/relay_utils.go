@@ -78,6 +78,15 @@ func validatePrompt(prompt string) *dto.TaskError {
 	return nil
 }
 
+func isPromptOptionalTaskModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "ima-pro", "ima-pro-fast":
+		return true
+	default:
+		return false
+	}
+}
+
 func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string) (TaskSubmitReq, error) {
 	var req TaskSubmitReq
 	if _, err := c.MultipartForm(); err != nil {
@@ -152,12 +161,18 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
 	}
 
-	if req.HasImage() || hasTaskReferenceMetadata(req.Metadata) {
+	if req.HasImage() ||
+		strings.TrimSpace(req.Image) != "" ||
+		strings.TrimSpace(req.InputReference) != "" ||
+		hasTaskReferenceMetadata(req.Metadata) {
 		hasInputReference = true
 	}
 
 	if taskErr := validatePrompt(prompt); taskErr != nil {
-		return taskErr
+		allowPromptless := isPromptOptionalTaskModel(model) && hasInputReference
+		if !allowPromptless {
+			return taskErr
+		}
 	}
 
 	action := constant.TaskActionTextGenerate

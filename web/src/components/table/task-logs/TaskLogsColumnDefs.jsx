@@ -272,18 +272,21 @@ export const getTaskLogsColumns = ({
       title: t('渠道'),
       dataIndex: 'channel_id',
       render: (text, record, index) => {
+        const displayChannel = record.channel_name || text;
         return isAdminUser ? (
           <div>
-            <Tag
-              color={colors[parseInt(text) % colors.length]}
-              size='large'
-              shape='circle'
-              onClick={() => {
-                copyText(text);
-              }}
-            >
-              {text}
-            </Tag>
+            <Tooltip content={record.channel_name ? `ID: ${text}` : t('未知渠道')}>
+              <Tag
+                color={colors[parseInt(text) % colors.length]}
+                size='large'
+                shape='circle'
+                onClick={() => {
+                  copyText(text);
+                }}
+              >
+                {displayChannel}
+              </Tag>
+            </Tooltip>
           </div>
         ) : (
           <></>
