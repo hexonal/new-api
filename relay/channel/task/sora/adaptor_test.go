@@ -386,7 +386,7 @@ func TestBuildImaProPayload_MultiModalArrays_MapToElementList(t *testing.T) {
 	}
 }
 
-func TestBuildImaProPayload_TwoImagesUseFirstAndLastFrame(t *testing.T) {
+func TestBuildImaProPayload_TwoImagesUseReferenceImageRole(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Set("username", "ima_user")
@@ -418,10 +418,10 @@ func TestBuildImaProPayload_TwoImagesUseFirstAndLastFrame(t *testing.T) {
 	if len(got) < 3 {
 		t.Fatalf("element_list len = %d, want >= 3", len(got))
 	}
-	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "reference_image" {
 		t.Fatalf("got[1] invalid role: %+v", got[1])
 	}
-	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "last_frame" {
+	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "reference_image" {
 		t.Fatalf("got[2] invalid role: %+v", got[2])
 	}
 }
