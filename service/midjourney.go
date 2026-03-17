@@ -293,6 +293,7 @@ func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL st
 	// 以支持按请求动态切换上游能力。
 	if ycSetting := strings.TrimSpace(c.GetHeader("x-youchuan-setting")); ycSetting != "" {
 		req.Header.Set("x-youchuan-setting", ycSetting)
+		log.Printf("youchuan submit passthrough: x-youchuan-setting=%s", ycSetting)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
