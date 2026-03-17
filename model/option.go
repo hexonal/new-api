@@ -19,6 +19,7 @@ import (
 )
 
 const optionSyncRedisChannel = "new-api:option-sync"
+const optionSyncActionRefreshRuntime = "__refresh_runtime_cache__"
 
 type optionSyncMessage struct {
 	Key    string `json:"key"`
@@ -268,6 +269,12 @@ func runOptionSyncSubscriber() error {
 		if payload.NodeID == optionSyncNodeID || strings.TrimSpace(payload.Key) == "" {
 			continue
 		}
+		if payload.Key == optionSyncActionRefreshRuntime {
+			if err := RefreshRuntimeCaches(); err != nil {
+				common.SysError("runtime cache refresh sync apply failed: " + err.Error())
+			}
+			continue
+		}
 		if err := updateOptionMap(payload.Key, payload.Value); err != nil {
 			common.SysError("option sync apply failed: " + err.Error())
 		}
@@ -291,13 +298,15 @@ func UpdateOption(key string, value string) error {
 	if err := updateOptionMap(key, value); err != nil {
 		return err
 	}
-	publishOptionUpdate(key, value)
+	if err := publishOptionUpdate(key, value); err != nil {
+		common.SysError("publish option sync failed: " + err.Error())
+	}
 	return nil
 }
 
-func publishOptionUpdate(key string, value string) {
+func publishOptionUpdate(key string, value string) error {
 	if !common.RedisEnabled || common.RDB == nil {
-		return
+		return nil
 	}
 	body, err := json.Marshal(optionSyncMessage{
 		Key:    key,
@@ -305,12 +314,16 @@ func publishOptionUpdate(key string, value string) {
 		NodeID: optionSyncNodeID,
 	})
 	if err != nil {
-		common.SysError("marshal option sync payload failed: " + err.Error())
-		return
+		return fmt.Errorf("marshal option sync payload failed: %w", err)
 	}
 	if err := common.RDB.Publish(context.Background(), optionSyncRedisChannel, body).Err(); err != nil {
-		common.SysError("publish option sync failed: " + err.Error())
+		return err
 	}
+	return nil
+}
+
+func BroadcastRuntimeCacheRefreshSignal() error {
+	return publishOptionUpdate(optionSyncActionRefreshRuntime, strconv.FormatInt(time.Now().UnixNano(), 10))
 }
 
 func upsertOptionValue(key string, value string) error {
