@@ -268,8 +268,8 @@ func TestBuildImaProPayload_MapsOpenAIStyleRequest(t *testing.T) {
 	if payload.Parameters.ElementList[1].ReferenceType != "image" {
 		t.Fatalf("second element type = %q, want image", payload.Parameters.ElementList[1].ReferenceType)
 	}
-	if payload.Parameters.ElementList[1].ReferenceRole != "first_frame" {
-		t.Fatalf("second element role = %q, want first_frame", payload.Parameters.ElementList[1].ReferenceRole)
+	if payload.Parameters.ElementList[1].ReferenceRole != "reference_image" {
+		t.Fatalf("second element role = %q, want reference_image", payload.Parameters.ElementList[1].ReferenceRole)
 	}
 	if payload.Parameters.ElementList[1].Image == nil || payload.Parameters.ElementList[1].Image.URL != "https://example.com/frame.png" {
 		t.Fatalf("image element mapping is invalid: %#v", payload.Parameters.ElementList[1].Image)
@@ -423,6 +423,99 @@ func TestBuildImaProPayload_TwoImagesUseReferenceImageRole(t *testing.T) {
 	}
 	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "reference_image" {
 		t.Fatalf("got[2] invalid role: %+v", got[2])
+	}
+}
+
+func TestBuildImaProPayload_SingleImageFrameModeUsesFirstFrame(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "single image frame mode",
+		Images: []string{"https://file.fashionlabs.cn/doc_image/first.png"},
+		Metadata: map[string]any{
+			"role_mode": "frame",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	got := payload.Parameters.ElementList
+	if len(got) < 2 {
+		t.Fatalf("element_list len = %d, want >= 2", len(got))
+	}
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
+		t.Fatalf("got[1] invalid frame role: %+v", got[1])
+	}
+}
+
+func TestBuildImaProPayload_TwoImagesFrameModeUsesFirstLastFrame(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "two images frame mode",
+		Images: []string{
+			"https://file.fashionlabs.cn/doc_image/first.png",
+			"https://file.fashionlabs.cn/doc_image/last.png",
+		},
+		Metadata: map[string]any{
+			"image_role_mode": "frame",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	got := payload.Parameters.ElementList
+	if len(got) < 3 {
+		t.Fatalf("element_list len = %d, want >= 3", len(got))
+	}
+	if got[1].ReferenceType != "image" || got[1].ReferenceRole != "first_frame" {
+		t.Fatalf("got[1] invalid frame role: %+v", got[1])
+	}
+	if got[2].ReferenceType != "image" || got[2].ReferenceRole != "last_frame" {
+		t.Fatalf("got[2] invalid frame role: %+v", got[2])
+	}
+}
+
+func TestBuildImaProPayload_FrameModeConflictWithReferenceMedia(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "frame mode with reference video",
+		Images: []string{"https://file.fashionlabs.cn/doc_image/first.png"},
+		Metadata: map[string]any{
+			"image_role_mode":      "frame",
+			"reference_video_urls": []string{"https://file.fashionlabs.cn/doc_video/v1.mp4"},
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	_, err := buildImaProPayload(ctx, req, info)
+	if err == nil {
+		t.Fatalf("expected error for frame mode mixed with reference media")
+	}
+	if !strings.Contains(err.Error(), "frame mode cannot be mixed") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

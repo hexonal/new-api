@@ -334,7 +334,10 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 
 	duration := resolveTaskDurationSeconds(req, metadata)
 	resolution, aspectRatio := resolveResolutionAndAspectRatio(req, metadata)
-	elements := buildImaProElementList(req, metadata)
+	elements, err := buildImaProElementList(req, metadata)
+	if err != nil {
+		return nil, err
+	}
 	if len(elements) == 0 {
 		return nil, fmt.Errorf("element_list is empty")
 	}
@@ -372,7 +375,7 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	return payload, nil
 }
 
-func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]any) []imaProElement {
+func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]any) ([]imaProElement, error) {
 	elements := make([]imaProElement, 0, 4)
 	if prompt := strings.TrimSpace(req.Prompt); prompt != "" {
 		elements = append(elements, imaProElement{
@@ -395,21 +398,38 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 		"reference_audio_url",
 		"audio_url",
 	)
-	hasReferenceMedia := len(videoURLs) > 0 || len(audioURLs) > 0
+	imageRoleMode := strings.ToLower(strings.TrimSpace(
+		pickString(metadata, "role_mode", "roleMode", "image_role_mode", "imageRoleMode"),
+	))
+	if imageRoleMode == "" {
+		imageRoleMode = "reference"
+	}
+	if imageRoleMode != "reference" && imageRoleMode != "frame" {
+		return nil, fmt.Errorf("metadata.role_mode must be one of [reference, frame]")
+	}
 
 	imageURLs := collectImaProImageURLs(req)
-	for _, imageURL := range imageURLs {
+	hasReferenceMedia := len(videoURLs) > 0 || len(audioURLs) > 0
+	if imageRoleMode == "frame" {
+		if len(imageURLs) == 0 {
+			return nil, fmt.Errorf("frame mode requires at least one image")
+		}
+		if len(imageURLs) > 2 {
+			return nil, fmt.Errorf("frame mode supports up to 2 images")
+		}
+		if hasReferenceMedia {
+			return nil, fmt.Errorf("frame mode cannot be mixed with reference video/audio")
+		}
+	}
+
+	for i, imageURL := range imageURLs {
 		role := "reference_image"
-		// Upstream validation disallows mixing first/last frame with reference media.
-		// Strategy:
-		// - with reference media (video/audio): all images use reference_image
-		// - 1 image (without reference media): first_frame
-		// - >=2 images (without reference media): reference_image
-		//
-		// Rationale:
-		// - two-image "character + scene" requests should not be forced into first/last-frame mode.
-		if !hasReferenceMedia && len(imageURLs) == 1 {
-			role = "first_frame"
+		if imageRoleMode == "frame" {
+			if len(imageURLs) == 1 || i == 0 {
+				role = "first_frame"
+			} else if i == len(imageURLs)-1 {
+				role = "last_frame"
+			}
 		}
 		elements = append(elements, imaProElement{
 			ReferenceType: "image",
@@ -433,7 +453,7 @@ func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]
 			Audio:         &imaProResourceURL{URL: audioURL},
 		})
 	}
-	return elements
+	return elements, nil
 }
 
 func resolveImaProTraceTaskID(info *relaycommon.RelayInfo) string {
