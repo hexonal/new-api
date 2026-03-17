@@ -54,8 +54,10 @@ func Distribute() func(c *gin.Context) {
 		} else {
 			// Select a channel for the user
 			// check token model mapping
+			// Enforce model-level permission only when model is explicitly provided.
+			// Query/fetch endpoints may not carry a model in request body.
 			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
-			if modelLimitEnable {
+			if modelLimitEnable && strings.TrimSpace(modelRequest.Model) != "" {
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
 				if !ok {
 					// token model limit is empty, all models are not allowed

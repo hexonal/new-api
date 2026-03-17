@@ -555,6 +555,39 @@ func TestBuildImaProPayload_ImagesPriorityOverInputReference(t *testing.T) {
 	}
 }
 
+func TestBuildImaProPayload_PreservesAssetSchemeImageURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "asset scheme image should pass through",
+		Images: []string{
+			"asset://asset-20260310030618-88hlb",
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ima-pro",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+
+	var got string
+	for _, item := range payload.Parameters.ElementList {
+		if item.ReferenceType == "image" && item.Image != nil {
+			got = item.Image.URL
+			break
+		}
+	}
+	if got != "asset://asset-20260310030618-88hlb" {
+		t.Fatalf("asset url was not preserved, got=%q", got)
+	}
+}
+
 func TestBuildRequestHeader_ImaProForcesJSONContentType(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
