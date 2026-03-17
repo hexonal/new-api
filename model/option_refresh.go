@@ -2,6 +2,8 @@ package model
 
 import (
 	"fmt"
+
+	"gorm.io/gorm/clause"
 )
 
 // ReloadPricingOptionsFromDatabase 仅重载定价相关 Option 到内存配置。
@@ -21,7 +23,7 @@ func ReloadPricingOptionsFromDatabase() error {
 	}
 	for _, key := range keys {
 		var option Option
-		if err := DB.Where("`key` = ?", key).First(&option).Error; err != nil {
+		if err := DB.Where(clause.Eq{Column: "key", Value: key}).First(&option).Error; err != nil {
 			return fmt.Errorf("load option %s failed: %w", key, err)
 		}
 		if err := updateOptionMap(option.Key, option.Value); err != nil {

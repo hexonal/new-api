@@ -289,6 +289,11 @@ func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL st
 		req.Header.Set("x-youchuan-app", strings.TrimSpace(parts[0]))
 		req.Header.Set("x-youchuan-secret", strings.TrimSpace(parts[1]))
 	}
+	// 透传调用方指定的悠船参数（如 x-youchuan-setting），
+	// 以支持按请求动态切换上游能力。
+	if ycSetting := strings.TrimSpace(c.GetHeader("x-youchuan-setting")); ycSetting != "" {
+		req.Header.Set("x-youchuan-setting", ycSetting)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
