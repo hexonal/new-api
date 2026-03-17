@@ -217,12 +217,14 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
+	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
+	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
 	if len(info.ParamOverride) > 0 {
 		bodyBytes, readErr := io.ReadAll(requestBody)
 		if readErr != nil {
 			return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
 		}
-		bodyBytes, err = relaycommon.ApplyParamOverride(bodyBytes, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
 		}
