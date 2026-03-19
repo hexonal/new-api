@@ -48,7 +48,7 @@ type operatorProvisionRequest struct {
 	Remark             string   `json:"remark"`
 }
 
-var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z]{1,48}$`)
+var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
 
 func validateOperatorProvisionToken(token string) bool {
 	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
@@ -113,12 +113,12 @@ func OperatorProvision(c *gin.Context) {
 
 	tokenKey := ""
 	responseSK := ""
-	if strings.TrimSpace(req.Token) != "" {
-		req.Token = strings.TrimSpace(req.Token)
-		if !validateOperatorProvisionToken(req.Token) {
-			common.ApiErrorMsg(c, "token must be alphanumeric and 1-48 characters")
-			return
-		}
+		if strings.TrimSpace(req.Token) != "" {
+			req.Token = strings.TrimSpace(req.Token)
+			if !validateOperatorProvisionToken(req.Token) {
+				common.ApiErrorMsg(c, "token must contain only letters, numbers, or underscore, and be 1-48 characters")
+				return
+			}
 		tokenKey = req.Token
 		req.TokenName = "customer-sk-" + req.Token
 		responseSK = "customer-sk-" + req.Token

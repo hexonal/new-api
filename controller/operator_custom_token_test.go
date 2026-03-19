@@ -18,7 +18,7 @@ func TestValidateOperatorProvisionToken(t *testing.T) {
 		{name: "empty", token: "", want: false},
 		{name: "too long", token: strings.Repeat("a", 49), want: false},
 		{name: "contains dash", token: "abc-123", want: false},
-		{name: "contains underscore", token: "abc_123", want: false},
+		{name: "contains underscore", token: "abc_123", want: true},
 		{name: "contains space", token: "abc 123", want: false},
 		{name: "contains unicode", token: "令牌", want: false},
 	}
