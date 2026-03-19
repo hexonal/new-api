@@ -209,11 +209,48 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 
 func TestResolveUserPointsExternalSK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	t.Run("prefer explicit header prefix when provided", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		c.Request.Header.Set(userPointsSKPrefixHeader, "customer-sk-")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "customer-sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("ignore invalid explicit header prefix", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		c.Request.Header.Set(userPointsSKPrefixHeader, "invalid-prefix")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
 	t.Run("prefer authorization header with customer prefix", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "customer-sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("without explicit header keep customer authorization prefix", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
+		// token_name intentionally set to raw key to ensure Authorization remains higher priority.
+		c.Set("token_name", "abc123")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
 		if got != "customer-sk-abc123" {
 			t.Fatalf("unexpected external sk: %s", got)

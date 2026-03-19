@@ -33,6 +33,7 @@ const (
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
 	skPrefixStandard                      = "sk-"
 	skPrefixCustomer                      = "customer-sk-"
+	userPointsSKPrefixHeader              = "X-User-Points-SK-Prefix"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -403,10 +404,32 @@ func normalizeExternalSK(raw string) string {
 	return skPrefixStandard + strings.TrimPrefix(key, skPrefixStandard)
 }
 
+func baseTokenKey(tokenKey string, token *model.Token) string {
+	key := strings.TrimSpace(tokenKey)
+	if key == "" && token != nil {
+		key = strings.TrimSpace(token.Key)
+	}
+	key = strings.TrimPrefix(key, skPrefixStandard)
+	key = strings.TrimPrefix(key, skPrefixCustomer)
+	return strings.TrimSpace(key)
+}
+
 func hasKnownSKPrefix(value string) bool {
 	value = strings.TrimSpace(value)
 	return strings.HasPrefix(value, skPrefixStandard) ||
 		strings.HasPrefix(value, skPrefixCustomer)
+}
+
+func normalizeHeaderSKPrefix(raw string) (string, bool) {
+	prefix := strings.ToLower(strings.TrimSpace(raw))
+	switch prefix {
+	case skPrefixCustomer:
+		return skPrefixCustomer, true
+	case skPrefixStandard:
+		return skPrefixStandard, true
+	default:
+		return "", false
+	}
 }
 
 func prefixFromTokenName(tokenName string) string {
@@ -418,6 +441,13 @@ func prefixFromTokenName(tokenName string) string {
 }
 
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
+	baseKey := baseTokenKey(tokenKey, token)
+	if c != nil && c.Request != nil {
+		if forcedPrefix, ok := normalizeHeaderSKPrefix(c.GetHeader(userPointsSKPrefixHeader)); ok && baseKey != "" {
+			return forcedPrefix + baseKey
+		}
+	}
+
 	if c != nil && c.Request != nil {
 		auth := strings.TrimSpace(c.Request.Header.Get("Authorization"))
 		if strings.HasPrefix(auth, "Bearer ") || strings.HasPrefix(auth, "bearer ") {
@@ -436,12 +466,8 @@ func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey st
 		prefix = prefixFromTokenName(token.Name)
 	}
 	if prefix != "" {
-		key := strings.TrimSpace(tokenKey)
-		if key == "" && token != nil {
-			key = strings.TrimSpace(token.Key)
-		}
-		if key != "" {
-			return prefix + strings.TrimPrefix(key, skPrefixStandard)
+		if baseKey != "" {
+			return prefix + baseKey
 		}
 	}
 
