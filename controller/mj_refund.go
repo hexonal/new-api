@@ -9,9 +9,9 @@ import (
 	"github.com/QuantumNous/new-api/service"
 )
 
-func resolveMJRefundToken(task *model.Midjourney) (int, string) {
+func resolveMJRefundToken(task *model.Midjourney) (int, string, string) {
 	if task == nil || task.MjId == "" {
-		return 0, ""
+		return 0, "", ""
 	}
 	modelName := service.CovertMjpActionToModelName(task.Action)
 	var consume model.Log
@@ -30,9 +30,9 @@ func resolveMJRefundToken(task *model.Midjourney) (int, string) {
 		Order("id DESC").
 		First(&consume).Error
 	if err != nil {
-		return 0, ""
+		return 0, "", ""
 	}
-	return consume.TokenId, consume.TokenName
+	return consume.TokenId, consume.TokenName, consume.Group
 }
 
 func refundMJTaskCharge(ctx context.Context, task *model.Midjourney, reason string) {
@@ -44,7 +44,7 @@ func refundMJTaskCharge(ctx context.Context, task *model.Midjourney, reason stri
 		return
 	}
 
-	tokenID, tokenName := resolveMJRefundToken(task)
+	tokenID, tokenName, refundGroup := resolveMJRefundToken(task)
 	if tokenID > 0 {
 		if token, err := model.GetTokenById(tokenID); err == nil && token != nil {
 			if err := model.IncreaseTokenQuota(tokenID, token.Key, task.Quota); err != nil {
@@ -72,6 +72,7 @@ func refundMJTaskCharge(ctx context.Context, task *model.Midjourney, reason stri
 		ModelName: service.CovertMjpActionToModelName(task.Action),
 		Quota:     task.Quota,
 		TokenId:   tokenID,
+		Group:     refundGroup,
 		Other:     other,
 	})
 }
