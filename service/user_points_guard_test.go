@@ -322,3 +322,144 @@ func TestBuildUserPointsQuotaRejectMessage(t *testing.T) {
 		t.Fatalf("url should be appended when placeholder absent, got: %s", msgWithoutPlaceholder)
 	}
 }
+
+func TestResolveUserPointsRouting(t *testing.T) {
+	defaultQueryURL := "https://default.example.com/query?sk={sk}"
+	defaultRechargeURL := "https://default.example.com/recharge"
+	defaultInsufficientMessage := "Insufficient quota. Recharge at {recharge_url}"
+
+	t.Run("no rules -> defaults", func(t *testing.T) {
+		resolved := resolveUserPointsRouting(
+			"ima_user",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			nil,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("expected defaults, got %+v", resolved)
+		}
+	})
+
+	t.Run("rule match -> overrides", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             true,
+				PrefixPattern:       "ima_",
+				QueryURL:            "https://r1.example.com/query",
+				RechargeURL:         "https://r1.example.com/recharge",
+				InsufficientMessage: "r1 insufficient {recharge_url}",
+				Priority:            10,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://r1.example.com/query" ||
+			resolved.rechargeURL != "https://r1.example.com/recharge" ||
+			resolved.insufficientMessage != "r1 insufficient {recharge_url}" {
+			t.Fatalf("unexpected resolved config: %+v", resolved)
+		}
+	})
+
+	t.Run("disabled rule skipped", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             false,
+				PrefixPattern:       "ima_",
+				QueryURL:            "https://disabled.example.com/query",
+				RechargeURL:         "https://disabled.example.com/recharge",
+				InsufficientMessage: "disabled message",
+				Priority:            100,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("disabled rule should be skipped, got %+v", resolved)
+		}
+	})
+
+	t.Run("no match -> defaults", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             true,
+				PrefixPattern:       "vip_",
+				QueryURL:            "https://vip.example.com/query",
+				RechargeURL:         "https://vip.example.com/recharge",
+				InsufficientMessage: "vip message",
+				Priority:            1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("unmatched rules should fallback to defaults, got %+v", resolved)
+		}
+	})
+
+	t.Run("partial override (URL only)", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://partial.example.com/query",
+				Priority:      1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://partial.example.com/query" {
+			t.Fatalf("query url should be overridden, got %+v", resolved)
+		}
+		if resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("partial override should keep defaults for missing fields, got %+v", resolved)
+		}
+	})
+
+	t.Run("priority ordering", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://low.example.com/query",
+				Priority:      1,
+			},
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://high.example.com/query",
+				Priority:      9,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://high.example.com/query" {
+			t.Fatalf("higher priority rule should win, got %+v", resolved)
+		}
+	})
+}

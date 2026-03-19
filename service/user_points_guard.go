@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,76 @@ type userPointsPrefixCacheEntry struct {
 // Value keeps last username and match result to avoid repeated prefix parsing/matching.
 var userPointsPrefixCache sync.Map
 
+type resolvedUserPointsConfig struct {
+	queryURL            string
+	rechargeURL         string
+	insufficientMessage string
+}
+
+func resolveUserPointsRouting(
+	username string,
+	defaultQueryURL string,
+	defaultRechargeURL string,
+	defaultInsufficientMessage string,
+	rules []operation_setting.UserPointsRoutingRule,
+) resolvedUserPointsConfig {
+	resolved := resolvedUserPointsConfig{
+		queryURL:            strings.TrimSpace(defaultQueryURL),
+		rechargeURL:         strings.TrimSpace(defaultRechargeURL),
+		insufficientMessage: strings.TrimSpace(defaultInsufficientMessage),
+	}
+	if strings.TrimSpace(username) == "" || len(rules) == 0 {
+		return resolved
+	}
+
+	sortedRules := append([]operation_setting.UserPointsRoutingRule(nil), rules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+	for _, rule := range sortedRules {
+		if !rule.Enabled {
+			continue
+		}
+		prefixes := model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)
+		matched := false
+		for _, prefix := range prefixes {
+			prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+			if prefix == "" {
+				continue
+			}
+			if strings.HasPrefix(username, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		if value := strings.TrimSpace(rule.QueryURL); value != "" {
+			resolved.queryURL = value
+		}
+		if value := strings.TrimSpace(rule.RechargeURL); value != "" {
+			resolved.rechargeURL = value
+		}
+		if value := strings.TrimSpace(rule.InsufficientMessage); value != "" {
+			resolved.insufficientMessage = value
+		}
+		return resolved
+	}
+	return resolved
+}
+
+func buildEffectivePrefixFilter(globalPrefixFilter string, rules []operation_setting.UserPointsRoutingRule) string {
+	prefixes := model.ParseDailyUserUsagePrefixes(globalPrefixFilter)
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		prefixes = append(prefixes, model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)...)
+	}
+	return strings.Join(prefixes, ",")
+}
+
 // RunUserPointsPreDeductGuard checks external user points API after token auth.
 // On external errors, behavior follows configured policy:
 // allow => fail-open, deny => fail-close.
@@ -58,8 +129,8 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		return nil
 	}
 
-	rawPrefixFilter := strings.TrimSpace(cfg.UserPointsUsernamePrefixFilter)
-	if rawPrefixFilter == "" {
+	effectivePrefixFilter := buildEffectivePrefixFilter(cfg.UserPointsUsernamePrefixFilter, cfg.UserPointsRoutingRules)
+	if strings.TrimSpace(effectivePrefixFilter) == "" {
 		return nil
 	}
 
@@ -76,9 +147,17 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		return nil
 	}
 
-	if !shouldCheckUserPoints(tokenKey, username, rawPrefixFilter) {
+	if !shouldCheckUserPoints(tokenKey, username, effectivePrefixFilter) {
 		return nil
 	}
+
+	resolved := resolveUserPointsRouting(
+		username,
+		cfg.UserPointsQueryURL,
+		cfg.UserPointsRechargeURL,
+		cfg.UserPointsInsufficientMessage,
+		cfg.UserPointsRoutingRules,
+	)
 
 	jsonPath := normalizeUserPointsJSONPath(cfg.UserPointsCanPreDeductJSONPath)
 	onErrorDecision := normalizeUserPointsOnErrorDecision(cfg.UserPointsOnErrorDecision)
@@ -87,30 +166,48 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	// on_error_decision only controls request/parse error behavior.
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
 		c.Request.Context(),
-		strings.TrimSpace(cfg.UserPointsQueryURL),
+		resolved.queryURL,
 		tokenKey,
 		jsonPath,
 	)
 	if err != nil {
 		failOpen := onErrorDecision == userPointsOnErrorAllow
 		// Persist diagnostics to callback logs for observability/troubleshooting.
-		reportUserPointsGuardFailureCallbackLog(c, strings.TrimSpace(cfg.UserPointsQueryURL), jsonPath, tokenKey, err, failOpen)
+		reportUserPointsGuardFailureCallbackLog(c, resolved.queryURL, jsonPath, tokenKey, err, failOpen)
 		if failOpen {
 			logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
 			return nil
 		}
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed close, request blocked: %s", err.Error()))
-		return buildUserPointsQuotaRejectError()
+		return buildUserPointsQuotaRejectErrorWithOverride(resolved.rechargeURL, resolved.insufficientMessage)
 	}
 	if canPreDeduct {
 		return nil
 	}
 
-	return buildUserPointsQuotaRejectError()
+	return buildUserPointsQuotaRejectErrorWithOverride(resolved.rechargeURL, resolved.insufficientMessage)
 }
 
 func buildUserPointsQuotaRejectError() *types.NewAPIError {
 	message := buildUserPointsQuotaRejectMessage(operation_setting.GetPaymentSetting())
+	return types.NewErrorWithStatusCode(
+		errors.New(message),
+		types.ErrorCodeInsufficientUserQuota,
+		http.StatusForbidden,
+		types.ErrOptionWithSkipRetry(),
+		types.ErrOptionWithNoRecordErrorLog(),
+	)
+}
+
+func buildUserPointsQuotaRejectErrorWithOverride(rechargeURL, insufficientMessage string) *types.NewAPIError {
+	cfg := operation_setting.GetPaymentSetting()
+	override := operation_setting.PaymentSetting{}
+	if cfg != nil {
+		override = *cfg
+	}
+	override.UserPointsRechargeURL = strings.TrimSpace(rechargeURL)
+	override.UserPointsInsufficientMessage = strings.TrimSpace(insufficientMessage)
+	message := buildUserPointsQuotaRejectMessage(&override)
 	return types.NewErrorWithStatusCode(
 		errors.New(message),
 		types.ErrorCodeInsufficientUserQuota,

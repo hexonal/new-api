@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 
 // resolveTargetUser looks up a User and Token by the sk- prefixed key.
 func resolveTargetUser(sk string) (*model.User, *model.Token, error) {
-	rawKey := strings.TrimPrefix(sk, "sk-")
+	rawKey := normalizeOperatorSKToRawKey(sk)
 	if rawKey == "" {
 		return nil, nil, errors.New("sk is empty")
 	}
@@ -40,10 +41,25 @@ type operatorProvisionRequest struct {
 	Password           string   `json:"password"`
 	Group              string   `json:"group"`
 	AmountUSD          float64  `json:"amount_usd"` // 充值金额（美元），1.0 = $1 = 500000 quota
+	Token              string   `json:"token"`
 	TokenName          string   `json:"token_name"`
 	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
 	ModelLimits        []string `json:"model_limits"`
 	Remark             string   `json:"remark"`
+}
+
+var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z]{1,48}$`)
+
+func validateOperatorProvisionToken(token string) bool {
+	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
+}
+
+func normalizeOperatorSKToRawKey(sk string) string {
+	key := strings.TrimSpace(sk)
+	if strings.HasPrefix(key, "customer-sk-") {
+		return strings.TrimPrefix(key, "customer-sk-")
+	}
+	return strings.TrimPrefix(key, "sk-")
 }
 
 func isDuplicateError(err error) bool {
@@ -95,10 +111,25 @@ func OperatorProvision(c *gin.Context) {
 		req.DisplayName = req.DisplayName[:model.UserNameMaxLength]
 	}
 
-	tokenKey, err := common.GenerateKey()
-	if err != nil {
-		common.ApiError(c, err)
-		return
+	tokenKey := ""
+	responseSK := ""
+	if strings.TrimSpace(req.Token) != "" {
+		req.Token = strings.TrimSpace(req.Token)
+		if !validateOperatorProvisionToken(req.Token) {
+			common.ApiErrorMsg(c, "token must be alphanumeric and 1-48 characters")
+			return
+		}
+		tokenKey = req.Token
+		req.TokenName = "customer-sk-" + req.Token
+		responseSK = "customer-sk-" + req.Token
+	} else {
+		var err error
+		tokenKey, err = common.GenerateKey()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		responseSK = "sk-" + tokenKey
 	}
 
 	// Check user existence first to decide whether to create the user or reuse it.
@@ -137,6 +168,10 @@ func OperatorProvision(c *gin.Context) {
 			return t.InsertWithTx(tx)
 		})
 		if err != nil {
+			if req.Token != "" && isDuplicateError(err) {
+				common.ApiErrorMsg(c, "token already exists")
+				return
+			}
 			common.ApiError(c, err)
 			return
 		}
@@ -145,6 +180,10 @@ func OperatorProvision(c *gin.Context) {
 		userId = existingUser.Id
 		t := buildProvisionToken(existingUser.Id, tokenKey, req)
 		if err := t.Insert(); err != nil {
+			if req.Token != "" && isDuplicateError(err) {
+				common.ApiErrorMsg(c, "token already exists")
+				return
+			}
 			common.ApiError(c, err)
 			return
 		}
@@ -159,7 +198,7 @@ func OperatorProvision(c *gin.Context) {
 		"message": "",
 		"data": gin.H{
 			"user_id": userId,
-			"sk":      "sk-" + tokenKey,
+			"sk":      responseSK,
 		},
 	})
 }

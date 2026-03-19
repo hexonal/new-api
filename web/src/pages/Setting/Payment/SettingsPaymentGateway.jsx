@@ -18,7 +18,21 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Form, Row, Col, Typography, Spin } from '@douyinfe/semi-ui';
+import {
+  Button,
+  Form,
+  Row,
+  Col,
+  Typography,
+  Spin,
+  Collapsible,
+  Space,
+  InputNumber,
+  Switch as SemiSwitch,
+  Input,
+  Popconfirm,
+} from '@douyinfe/semi-ui';
+import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 const { Text } = Typography;
 import {
   API,
@@ -52,6 +66,8 @@ export default function SettingsPaymentGateway(props) {
     UserPointsInsufficientMessage: '',
   });
   const [originInputs, setOriginInputs] = useState({});
+  const [routingRules, setRoutingRules] = useState([]);
+  const [originRoutingRules, setOriginRoutingRules] = useState([]);
   const formApiRef = useRef(null);
 
   useEffect(() => {
@@ -86,6 +102,9 @@ export default function SettingsPaymentGateway(props) {
         UserPointsInsufficientMessage:
           props.options.UserPointsInsufficientMessage || '',
       };
+      const currentRoutingRules = Array.isArray(props.options.UserPointsRoutingRules)
+        ? props.options.UserPointsRoutingRules
+        : [];
 
       // 美化 JSON 展示
       try {
@@ -109,12 +128,39 @@ export default function SettingsPaymentGateway(props) {
 
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
+      setRoutingRules(currentRoutingRules);
+      setOriginRoutingRules(structuredClone(currentRoutingRules));
       formApiRef.current.setValues(currentInputs);
     }
   }, [props.options]);
 
   const handleFormChange = (values) => {
     setInputs(values);
+  };
+
+  const addRoutingRule = () => {
+    setRoutingRules([
+      ...routingRules,
+      {
+        name: '',
+        enabled: true,
+        prefix_pattern: '',
+        query_url: '',
+        recharge_url: '',
+        insufficient_message: '',
+        priority: 0,
+      },
+    ]);
+  };
+
+  const updateRoutingRule = (index, key, value) => {
+    setRoutingRules((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)),
+    );
+  };
+
+  const removeRoutingRule = (index) => {
+    setRoutingRules((prev) => prev.filter((_, i) => i !== index));
   };
 
   const submitPayAddress = async () => {
@@ -184,6 +230,37 @@ export default function SettingsPaymentGateway(props) {
     ) {
       showError(t('文案使用了 {recharge_url}，请同时填写充值链接 URL'));
       return;
+    }
+    for (let i = 0; i < routingRules.length; i++) {
+      const rule = routingRules[i];
+      const ruleName = (rule.name || '').trim() || `${i + 1}`;
+      if (rule.enabled && (rule.prefix_pattern || '').trim() === '') {
+        showError(
+          t('规则 {{name}} 已启用，请填写用户名前缀', {
+            name: ruleName,
+          }),
+        );
+        return;
+      }
+      if (rule.enabled && (rule.query_url || '').trim() === '') {
+        showError(
+          t('规则 {{name}} 已启用，请填写查询 URL', {
+            name: ruleName,
+          }),
+        );
+        return;
+      }
+      if (
+        (rule.insufficient_message || '').includes('{recharge_url}') &&
+        (rule.recharge_url || '').trim() === ''
+      ) {
+        showError(
+          t('规则 {{name}} 文案使用了 {recharge_url}，请同时填写充值链接 URL', {
+            name: ruleName,
+          }),
+        );
+        return;
+      }
     }
 
     setLoading(true);
@@ -284,6 +361,14 @@ export default function SettingsPaymentGateway(props) {
           value: inputs.UserPointsInsufficientMessage,
         });
       }
+      if (
+        JSON.stringify(originRoutingRules) !== JSON.stringify(routingRules)
+      ) {
+        options.push({
+          key: 'payment_setting.user_points_routing_rules',
+          value: JSON.stringify(routingRules),
+        });
+      }
 
       // 发送请求
       const requestQueue = options.map((opt) =>
@@ -305,6 +390,7 @@ export default function SettingsPaymentGateway(props) {
         showSuccess(t('更新成功'));
         // 更新本地存储的原始值
         setOriginInputs({ ...inputs });
+        setOriginRoutingRules(structuredClone(routingRules));
         props.refresh && props.refresh();
       }
     } catch (error) {
@@ -532,6 +618,129 @@ export default function SettingsPaymentGateway(props) {
                   '默认英文为 Insufficient quota；支持 {recharge_url} 占位符',
                 )}
               />
+            </Col>
+          </Row>
+          <Row style={{ marginTop: 16 }}>
+            <Col span={24}>
+              <Space>
+                <Text strong>{t('User Points 路由规则（按用户名前缀）')}</Text>
+                <Button
+                  icon={<IconPlus />}
+                  theme='light'
+                  onClick={addRoutingRule}
+                >
+                  {t('新增规则')}
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+          <Row style={{ marginTop: 12 }}>
+            <Col span={24}>
+              <Text>{t('查看/编辑规则')}</Text>
+              <Collapsible isOpen keepDOM>
+                <Space vertical style={{ width: '100%' }}>
+                  {routingRules.map((rule, index) => (
+                    <div
+                      key={`rule-${index}`}
+                      style={{
+                        border: '1px solid var(--semi-color-border)',
+                        borderRadius: 8,
+                        padding: 12,
+                      }}
+                    >
+                      <Row gutter={12}>
+                        <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                          <Input
+                            value={rule.name || ''}
+                            placeholder={t('规则名称')}
+                            onChange={(v) => updateRoutingRule(index, 'name', v)}
+                          />
+                        </Col>
+                        <Col xs={12} sm={4} md={4} lg={4} xl={4}>
+                          <SemiSwitch
+                            checked={!!rule.enabled}
+                            checkedText='｜'
+                            uncheckedText='〇'
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'enabled', !!v)
+                            }
+                          />
+                        </Col>
+                        <Col xs={12} sm={4} md={4} lg={4} xl={4}>
+                          <InputNumber
+                            value={rule.priority ?? 0}
+                            min={-9999}
+                            max={9999}
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'priority', v ?? 0)
+                            }
+                          />
+                        </Col>
+                        <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                          <Popconfirm
+                            title={t('确认删除该规则吗？')}
+                            onConfirm={() => removeRoutingRule(index)}
+                          >
+                            <Button
+                              icon={<IconDelete />}
+                              theme='borderless'
+                              type='danger'
+                            >
+                              {t('删除')}
+                            </Button>
+                          </Popconfirm>
+                        </Col>
+                      </Row>
+                      <Row gutter={12} style={{ marginTop: 10 }}>
+                        <Col span={24}>
+                          <Input
+                            value={rule.prefix_pattern || ''}
+                            placeholder={t('前缀模式，例如：ima_,vip_')}
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'prefix_pattern', v)
+                            }
+                          />
+                        </Col>
+                      </Row>
+                      <Row gutter={12} style={{ marginTop: 10 }}>
+                        <Col xs={24} sm={12} md={12} lg={12} xl={12}>
+                          <Input
+                            value={rule.query_url || ''}
+                            placeholder={t('查询 URL')}
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'query_url', v)
+                            }
+                          />
+                        </Col>
+                        <Col xs={24} sm={12} md={12} lg={12} xl={12}>
+                          <Input
+                            value={rule.recharge_url || ''}
+                            placeholder={t('充值 URL（可选）')}
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'recharge_url', v)
+                            }
+                          />
+                        </Col>
+                      </Row>
+                      <Row gutter={12} style={{ marginTop: 10 }}>
+                        <Col span={24}>
+                          <Input
+                            value={rule.insufficient_message || ''}
+                            placeholder={t('额度不足文案（可选，支持 {recharge_url}）')}
+                            onChange={(v) =>
+                              updateRoutingRule(
+                                index,
+                                'insufficient_message',
+                                v,
+                              )
+                            }
+                          />
+                        </Col>
+                      </Row>
+                    </div>
+                  ))}
+                </Space>
+              </Collapsible>
             </Col>
           </Row>
 

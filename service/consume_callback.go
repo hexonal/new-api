@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 )
 
@@ -24,6 +26,11 @@ type ConsumeCallbackUsage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+}
+
+type resolvedConsumeCallbackConfig struct {
+	callbackURL string
+	secret      string
 }
 
 type consumeCallbackPayload struct {
@@ -203,10 +210,26 @@ func quotaToAmountUSD(quota int) float64 {
 
 func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	enabled, callbackURL, secret, usernamePrefixFilter := getConsumeCallbackOptions()
-	if !enabled || callbackURL == "" {
+	if !enabled {
 		return
 	}
-	if !shouldDispatchConsumeCallbackForUserID(payload.UserID, usernamePrefixFilter) {
+
+	cfg := operation_setting.GetPaymentSetting()
+	var routingRules []operation_setting.ConsumeCallbackRoutingRule
+	if cfg != nil {
+		routingRules = cfg.ConsumeCallbackRoutingRules
+	}
+	effectivePrefixFilter := buildEffectiveConsumeCallbackPrefixFilter(usernamePrefixFilter, routingRules)
+	username := strings.TrimSpace(payload.Username)
+	if username != "" {
+		if !shouldDispatchConsumeCallbackForUsername(username, effectivePrefixFilter) {
+			return
+		}
+	} else if !shouldDispatchConsumeCallbackForUserID(payload.UserID, effectivePrefixFilter) {
+		return
+	}
+	resolved := resolveConsumeCallbackRouting(username, callbackURL, secret)
+	if resolved.callbackURL == "" {
 		return
 	}
 
@@ -218,8 +241,8 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 
 	timestamp := strconv.FormatInt(payload.Timestamp, 10)
 	signature := ""
-	if secret != "" {
-		signature = signOperatorCallback(secret, timestamp, payloadBytes)
+	if resolved.secret != "" {
+		signature = signOperatorCallback(resolved.secret, timestamp, payloadBytes)
 	}
 
 	headers := map[string]string{
@@ -245,7 +268,7 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 		Username:       payload.Username,
 		TokenName:      payload.TokenName,
 		TokenSK:        payload.SK,
-		CallbackURL:    callbackURL,
+		CallbackURL:    resolved.callbackURL,
 		HTTPMethod:     "POST",
 		Headers:        headers,
 		ContentType:    "application/json",
@@ -254,6 +277,64 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	}); err != nil {
 		common.SysError(fmt.Sprintf("enqueue consume callback failed for user %d: %s", payload.UserID, err.Error()))
 	}
+}
+
+func resolveConsumeCallbackRouting(username, globalURL, globalSecret string) resolvedConsumeCallbackConfig {
+	resolved := resolvedConsumeCallbackConfig{
+		callbackURL: strings.TrimSpace(globalURL),
+		secret:      strings.TrimSpace(globalSecret),
+	}
+	if strings.TrimSpace(username) == "" {
+		return resolved
+	}
+
+	cfg := operation_setting.GetPaymentSetting()
+	if cfg == nil || len(cfg.ConsumeCallbackRoutingRules) == 0 {
+		return resolved
+	}
+	sortedRules := append([]operation_setting.ConsumeCallbackRoutingRule(nil), cfg.ConsumeCallbackRoutingRules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+	for _, rule := range sortedRules {
+		if !rule.Enabled {
+			continue
+		}
+		prefixes := model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)
+		matched := false
+		for _, prefix := range prefixes {
+			prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+			if prefix == "" {
+				continue
+			}
+			if strings.HasPrefix(username, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		if v := strings.TrimSpace(rule.CallbackURL); v != "" {
+			resolved.callbackURL = v
+		}
+		if v := strings.TrimSpace(rule.Secret); v != "" {
+			resolved.secret = v
+		}
+		return resolved
+	}
+	return resolved
+}
+
+func buildEffectiveConsumeCallbackPrefixFilter(globalFilter string, rules []operation_setting.ConsumeCallbackRoutingRule) string {
+	prefixes := model.ParseDailyUserUsagePrefixes(globalFilter)
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		prefixes = append(prefixes, model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)...)
+	}
+	return strings.Join(prefixes, ",")
 }
 
 func getConsumeCallbackOptions() (bool, string, string, string) {
@@ -302,6 +383,9 @@ func parseConsumeCallbackUserPrefixFilter(rawPrefixFilter string) []string {
 	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
 		prefix := strings.TrimSpace(part)
+		// Keep first-layer prefix semantics consistent with routing rules:
+		// "ima_*" should match usernames starting with "ima_".
+		prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
 		if prefix == "" {
 			continue
 		}
@@ -324,7 +408,11 @@ func matchConsumeCallbackUsernamePrefixes(username string, prefixes []string) bo
 	}
 	// Case-sensitive by design: prefix and username must match exactly by case.
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(normalizedUsername, prefix) {
+		normalizedPrefix := strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+		if normalizedPrefix == "" {
+			continue
+		}
+		if strings.HasPrefix(normalizedUsername, normalizedPrefix) {
 			return true
 		}
 	}

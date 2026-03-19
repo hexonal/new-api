@@ -122,6 +122,13 @@ const PaymentSetting = () => {
           case 'payment_setting.user_points_insufficient_message':
             newInputs['UserPointsInsufficientMessage'] = item.value || '';
             break;
+          case 'payment_setting.user_points_routing_rules':
+            try {
+              newInputs['UserPointsRoutingRules'] = JSON.parse(item.value);
+            } catch {
+              newInputs['UserPointsRoutingRules'] = [];
+            }
+            break;
           case 'Price':
           case 'MinTopUp':
           case 'StripeUnitPrice':

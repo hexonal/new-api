@@ -170,6 +170,16 @@ func WssAuth(c *gin.Context) {
 
 }
 
+func extractTokenKeyAndParts(key string) (string, []string) {
+	if strings.HasPrefix(key, "customer-sk-") {
+		key = strings.TrimPrefix(key, "customer-sk-")
+	} else {
+		key = strings.TrimPrefix(key, "sk-")
+	}
+	parts := strings.Split(key, "-")
+	return parts[0], parts
+}
+
 // TokenOrUserAuth allows either session-based user auth or API token auth.
 // Used for endpoints that need to be accessible from both the dashboard and API clients.
 func TokenOrUserAuth() func(c *gin.Context) {
@@ -206,9 +216,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
-		key = strings.TrimPrefix(key, "sk-")
-		parts := strings.Split(key, "-")
-		key = parts[0]
+		key, _ = extractTokenKeyAndParts(key)
 
 		token, err := model.GetTokenByKey(key, false)
 		if err != nil {
@@ -293,13 +301,9 @@ func TokenAuth() func(c *gin.Context) {
 			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 				key = strings.TrimSpace(key[7:])
 			}
-			key = strings.TrimPrefix(key, "sk-")
-			parts = strings.Split(key, "-")
-			key = parts[0]
+			key, parts = extractTokenKeyAndParts(key)
 		} else {
-			key = strings.TrimPrefix(key, "sk-")
-			parts = strings.Split(key, "-")
-			key = parts[0]
+			key, parts = extractTokenKeyAndParts(key)
 		}
 		token, err := model.ValidateUserToken(key)
 		if token != nil {

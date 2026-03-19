@@ -18,7 +18,20 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
+import {
+  Button,
+  Col,
+  Form,
+  Row,
+  Spin,
+  Collapsible,
+  Space,
+  Input,
+  InputNumber,
+  Switch as SemiSwitch,
+  Popconfirm,
+} from '@douyinfe/semi-ui';
+import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 import {
   compareObjects,
   API,
@@ -41,6 +54,8 @@ const consumeCallbackOptionKeys = new Set([
   'ConsumeCallbackMaxBackoffMs',
   'ConsumeCallbackWorkerCount',
   'ConsumeCallbackQueueCapacity',
+  'ConsumeCallbackRoutingRules',
+  'payment_setting.consume_callback_routing_rules',
   'CallbackLogMaskSensitiveEnabled',
 ]);
 
@@ -77,6 +92,7 @@ const defaultInputs = {
   ConsumeCallbackMaxBackoffMs: 5000,
   ConsumeCallbackWorkerCount: 2,
   ConsumeCallbackQueueCapacity: 256,
+  ConsumeCallbackRoutingRules: [],
   CallbackLogMaskSensitiveEnabled: false,
 };
 
@@ -87,12 +103,38 @@ export default function SettingsMonitoring(props) {
   const [inputs, setInputs] = useState(defaultInputs);
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(defaultInputs);
+  const [consumeRoutingRules, setConsumeRoutingRules] = useState([]);
+  const [originConsumeRoutingRules, setOriginConsumeRoutingRules] = useState([]);
   const parsedAutoDisableStatusCodes = parseHttpStatusCodeRules(
     inputs.AutomaticDisableStatusCodes || '',
   );
   const parsedAutoRetryStatusCodes = parseHttpStatusCodeRules(
     inputs.AutomaticRetryStatusCodes || '',
   );
+
+  const addConsumeRoutingRule = () => {
+    setConsumeRoutingRules((prev) => [
+      ...prev,
+      {
+        name: '',
+        enabled: true,
+        prefix_pattern: '',
+        callback_url: '',
+        secret: '',
+        priority: 0,
+      },
+    ]);
+  };
+
+  const updateConsumeRoutingRule = (index, key, value) => {
+    setConsumeRoutingRules((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)),
+    );
+  };
+
+  const removeConsumeRoutingRule = (index) => {
+    setConsumeRoutingRules((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const validateConsumeCallbackConfig = () => {
     if (!inputs.ConsumeCallbackEnabled) {
@@ -151,6 +193,37 @@ export default function SettingsMonitoring(props) {
       showError(t('回调队列容量必须在 1 到 20000 之间'));
       return false;
     }
+    for (let i = 0; i < consumeRoutingRules.length; i++) {
+      const rule = consumeRoutingRules[i];
+      const ruleName = (rule.name || '').trim() || `${i + 1}`;
+      if (rule.enabled && (rule.prefix_pattern || '').trim() === '') {
+        showError(
+          t('规则 {{name}} 已启用，请填写用户名前缀', {
+            name: ruleName,
+          }),
+        );
+        return false;
+      }
+      const ruleCallbackUrl = (rule.callback_url || '').trim();
+      if (ruleCallbackUrl !== '') {
+        try {
+          const parsedRuleUrl = new URL(ruleCallbackUrl);
+          if (
+            parsedRuleUrl.protocol !== 'http:' &&
+            parsedRuleUrl.protocol !== 'https:'
+          ) {
+            throw new Error('invalid protocol');
+          }
+        } catch {
+          showError(
+            t('规则 {{name}} 的回调 URL 必须是有效的 http:// 或 https:// 地址', {
+              name: ruleName,
+            }),
+          );
+          return false;
+        }
+      }
+    }
 
     return true;
   };
@@ -170,9 +243,20 @@ export default function SettingsMonitoring(props) {
       );
 
     let updateArray = compareObjects(inputs, inputsRow);
+    if (
+      JSON.stringify(consumeRoutingRules) !==
+      JSON.stringify(originConsumeRoutingRules)
+    ) {
+      updateArray.push({
+        key: 'payment_setting.consume_callback_routing_rules',
+        value: JSON.stringify(consumeRoutingRules),
+      });
+    }
     if (!isRootUser) {
       updateArray = updateArray.filter(
-        (item) => !consumeCallbackOptionKeys.has(item.key),
+        (item) =>
+          !consumeCallbackOptionKeys.has(item.key) &&
+          item.key !== 'payment_setting.consume_callback_routing_rules',
       );
     }
     if (
@@ -213,7 +297,9 @@ export default function SettingsMonitoring(props) {
     }
     const requestQueue = updateArray.map((item) => {
       let value = '';
-      if (typeof inputs[item.key] === 'boolean') {
+      if (item.value !== undefined) {
+        value = item.value;
+      } else if (typeof inputs[item.key] === 'boolean') {
         value = String(inputs[item.key]);
       } else {
         const normalizedMap = {
@@ -255,6 +341,7 @@ export default function SettingsMonitoring(props) {
             return showError(t('部分保存失败，请重试'));
         }
         showSuccess(t('保存成功'));
+        setOriginConsumeRoutingRules(structuredClone(consumeRoutingRules));
         props.refresh();
       })
       .catch(() => {
@@ -267,9 +354,28 @@ export default function SettingsMonitoring(props) {
 
   useEffect(() => {
     const currentInputs = structuredClone(defaultInputs);
+    let currentConsumeRoutingRules = [];
     for (let key in props.options) {
       if (Object.keys(defaultInputs).includes(key)) {
         currentInputs[key] = props.options[key];
+      }
+    }
+    if (Array.isArray(props.options.ConsumeCallbackRoutingRules)) {
+      currentConsumeRoutingRules = props.options.ConsumeCallbackRoutingRules;
+    } else {
+      const legacyValue =
+        props.options['payment_setting.consume_callback_routing_rules'];
+      if (Array.isArray(legacyValue)) {
+        currentConsumeRoutingRules = legacyValue;
+      } else if (typeof legacyValue === 'string' && legacyValue.trim() !== '') {
+        try {
+          const parsed = JSON.parse(legacyValue);
+          if (Array.isArray(parsed)) {
+            currentConsumeRoutingRules = parsed;
+          }
+        } catch (error) {
+          console.error('解析 consume callback 路由规则失败:', error);
+        }
       }
     }
     // Secret 只写不回显，每次加载后清空输入框，避免暴露已保存值
@@ -283,6 +389,8 @@ export default function SettingsMonitoring(props) {
       );
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
+    setConsumeRoutingRules(currentConsumeRoutingRules);
+    setOriginConsumeRoutingRules(structuredClone(currentConsumeRoutingRules));
     refForm.current?.setValues(currentInputs);
   }, [props.options]);
 
@@ -520,6 +628,134 @@ export default function SettingsMonitoring(props) {
                       }
                     />
                   </Col>
+                </Row>
+                <Row style={{ marginTop: 8 }}>
+                  <Col span={24}>
+                    <Space>
+                      <span>{t('消费回调路由规则（按用户名前缀）')}</span>
+                      <Button
+                        icon={<IconPlus />}
+                        theme='light'
+                        onClick={addConsumeRoutingRule}
+                      >
+                        {t('新增规则')}
+                      </Button>
+                    </Space>
+                  </Col>
+                </Row>
+                <Row style={{ marginTop: 8 }}>
+                  <Col span={24}>
+                    <span>{t('查看/编辑回调路由规则')}</span>
+                    <Collapsible isOpen keepDOM>
+                      <Space vertical style={{ width: '100%' }}>
+                        {consumeRoutingRules.map((rule, index) => (
+                          <div
+                            key={`consume-rule-${index}`}
+                            style={{
+                              border: '1px solid var(--semi-color-border)',
+                              borderRadius: 8,
+                              padding: 12,
+                            }}
+                          >
+                            <Row gutter={12}>
+                              <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                                <Input
+                                  value={rule.name || ''}
+                                  placeholder={t('规则名称')}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(index, 'name', v)
+                                  }
+                                />
+                              </Col>
+                              <Col xs={12} sm={4} md={4} lg={4} xl={4}>
+                                <SemiSwitch
+                                  checked={!!rule.enabled}
+                                  checkedText='｜'
+                                  uncheckedText='〇'
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(
+                                      index,
+                                      'enabled',
+                                      !!v,
+                                    )
+                                  }
+                                />
+                              </Col>
+                              <Col xs={12} sm={4} md={4} lg={4} xl={4}>
+                                <InputNumber
+                                  value={rule.priority ?? 0}
+                                  min={-9999}
+                                  max={9999}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(
+                                      index,
+                                      'priority',
+                                      v ?? 0,
+                                    )
+                                  }
+                                />
+                              </Col>
+                              <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                                <Popconfirm
+                                  title={t('确认删除该规则吗？')}
+                                  onConfirm={() => removeConsumeRoutingRule(index)}
+                                >
+                                  <Button
+                                    icon={<IconDelete />}
+                                    theme='borderless'
+                                    type='danger'
+                                  >
+                                    {t('删除')}
+                                  </Button>
+                                </Popconfirm>
+                              </Col>
+                            </Row>
+                            <Row gutter={12} style={{ marginTop: 10 }}>
+                              <Col span={24}>
+                                <Input
+                                  value={rule.prefix_pattern || ''}
+                                  placeholder={t('前缀模式，例如：vip_,team_')}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(
+                                      index,
+                                      'prefix_pattern',
+                                      v,
+                                    )
+                                  }
+                                />
+                              </Col>
+                            </Row>
+                            <Row gutter={12} style={{ marginTop: 10 }}>
+                              <Col xs={24} sm={12} md={12} lg={12} xl={12}>
+                                <Input
+                                  value={rule.callback_url || ''}
+                                  placeholder={t('回调 URL')}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(
+                                      index,
+                                      'callback_url',
+                                      v,
+                                    )
+                                  }
+                                />
+                              </Col>
+                              <Col xs={24} sm={12} md={12} lg={12} xl={12}>
+                                <Input
+                                  value={rule.secret || ''}
+                                  placeholder={t('回调 Secret（可选）')}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(index, 'secret', v)
+                                  }
+                                />
+                              </Col>
+                            </Row>
+                          </div>
+                        ))}
+                      </Space>
+                    </Collapsible>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
                   <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                     <Form.Switch
                       field={'CallbackLogMaskSensitiveEnabled'}
