@@ -78,7 +78,7 @@ func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, re
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	upstreamGroup, err := client.CreateAssetGroup(ctx, req)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func HandleListAssetGroups(ctx context.Context, userID int, userName string, req
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	result, err := client.ListAssetGroups(ctx, req)
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func HandleGetAssetGroup(ctx context.Context, userID int, userName string, req d
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	return client.GetAssetGroup(ctx, req.Id, req.ProjectName)
 }
 
@@ -159,7 +159,7 @@ func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, re
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	result, err := client.UpdateAssetGroup(ctx, req)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 
 	quota := getAssetUploadQuota()
 	var token *model.Token
@@ -294,7 +294,7 @@ func HandleListAssets(ctx context.Context, userID int, userName string, req dto.
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	result, err := client.ListAssets(ctx, req)
 	if err != nil {
 		return nil, err
@@ -332,7 +332,7 @@ func HandleGetAsset(ctx context.Context, userID int, userName string, req dto.As
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	result, err := client.GetAsset(ctx, req.Id, req.ProjectName)
 	if err != nil {
 		return nil, err
@@ -369,7 +369,7 @@ func HandleUpdateAsset(ctx context.Context, userID int, userName string, req dto
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName)
+	client := NewAssetProxyClient(channel, userName, userID)
 	result, err := client.UpdateAsset(ctx, req)
 	if err != nil {
 		return nil, err

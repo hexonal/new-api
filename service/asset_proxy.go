@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,13 +18,15 @@ import (
 const doubaoAssetBasePath = "/api/v1/doubao/asset"
 
 type AssetProxyClient struct {
-	baseURL  string
-	apiKey   string
-	userName string // new-api 用户名，注入到上游请求的 user_id 字段
+	baseURL string
+	apiKey  string
+	// 优先使用用户名作为上游 user_id，缺失时回退为数字 userID 字符串，避免空 uid 导致上游 403。
+	userName string
+	userID   int
 	client   *http.Client
 }
 
-func NewAssetProxyClient(channel *model.Channel, userName string) *AssetProxyClient {
+func NewAssetProxyClient(channel *model.Channel, userName string, userID int) *AssetProxyClient {
 	baseURL := ""
 	if channel != nil && channel.BaseURL != nil {
 		baseURL = strings.TrimRight(*channel.BaseURL, "/")
@@ -36,6 +39,7 @@ func NewAssetProxyClient(channel *model.Channel, userName string) *AssetProxyCli
 		baseURL:  baseURL,
 		apiKey:   apiKey,
 		userName: userName,
+		userID:   userID,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -49,9 +53,14 @@ func (c *AssetProxyClient) doRequest(ctx context.Context, subPath string, body m
 	if body == nil {
 		body = map[string]any{}
 	}
-	// 注入 user_id（new-api userName）到所有上游请求，实现用户隔离
-	if c.userName != "" {
-		body["user_id"] = c.userName
+	// 注入 user_id 到上游请求，优先 username，空值则回退到 userID 字符串。
+	uid := strings.TrimSpace(c.userName)
+	if uid == "" && c.userID > 0 {
+		uid = strconv.Itoa(c.userID)
+		common.SysLog(fmt.Sprintf("doubao asset request warning: username empty, fallback uid=%s", uid))
+	}
+	if uid != "" {
+		body["user_id"] = uid
 	}
 
 	payload, err := common.Marshal(body)
