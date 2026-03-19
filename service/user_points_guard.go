@@ -123,6 +123,29 @@ func matchUserPointsRoutingRule(rule operation_setting.UserPointsRoutingRule, us
 	}
 }
 
+func selectUserPointsRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.UserPointsRoutingRule) (operation_setting.UserPointsRoutingRule, bool) {
+	sortedRules := sortUserPointsRoutingRules(rules)
+	// Conflict policy: token-prefix rules always have higher precedence than username rules.
+	for _, matchBy := range []string{
+		operation_setting.RoutingMatchByTokenPrefix,
+		operation_setting.RoutingMatchByUsername,
+	} {
+		for _, rule := range sortedRules {
+			if !rule.Enabled {
+				continue
+			}
+			if operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) != matchBy {
+				continue
+			}
+			if !matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
+				continue
+			}
+			return rule, true
+		}
+	}
+	return operation_setting.UserPointsRoutingRule{}, false
+}
+
 func hasEnabledUserPointsRoutingRules(rules []operation_setting.UserPointsRoutingRule) bool {
 	for _, rule := range rules {
 		if rule.Enabled {
@@ -177,24 +200,18 @@ func resolveUserPointsRouting(
 		return resolved
 	}
 
-	sortedRules := sortUserPointsRoutingRules(rules)
-	for _, rule := range sortedRules {
-		if !rule.Enabled {
-			continue
-		}
-		if !matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
-			continue
-		}
-		if value := strings.TrimSpace(rule.QueryURL); value != "" {
-			resolved.queryURL = value
-		}
-		if value := strings.TrimSpace(rule.RechargeURL); value != "" {
-			resolved.rechargeURL = value
-		}
-		if value := strings.TrimSpace(rule.InsufficientMessage); value != "" {
-			resolved.insufficientMessage = value
-		}
+	rule, matched := selectUserPointsRoutingRule(username, tokenPrefixCandidates, rules)
+	if !matched {
 		return resolved
+	}
+	if value := strings.TrimSpace(rule.QueryURL); value != "" {
+		resolved.queryURL = value
+	}
+	if value := strings.TrimSpace(rule.RechargeURL); value != "" {
+		resolved.rechargeURL = value
+	}
+	if value := strings.TrimSpace(rule.InsufficientMessage); value != "" {
+		resolved.insufficientMessage = value
 	}
 	return resolved
 }

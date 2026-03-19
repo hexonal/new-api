@@ -404,6 +404,33 @@ func matchConsumeCallbackRoutingRule(rule operation_setting.ConsumeCallbackRouti
 	}
 }
 
+func selectConsumeCallbackRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.ConsumeCallbackRoutingRule) (operation_setting.ConsumeCallbackRoutingRule, bool) {
+	sortedRules := append([]operation_setting.ConsumeCallbackRoutingRule(nil), rules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+
+	// Conflict policy: token-prefix rules always have higher precedence than username rules.
+	for _, matchBy := range []string{
+		operation_setting.RoutingMatchByTokenPrefix,
+		operation_setting.RoutingMatchByUsername,
+	} {
+		for _, rule := range sortedRules {
+			if !rule.Enabled {
+				continue
+			}
+			if operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) != matchBy {
+				continue
+			}
+			if !matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
+				continue
+			}
+			return rule, true
+		}
+	}
+	return operation_setting.ConsumeCallbackRoutingRule{}, false
+}
+
 func hasEnabledConsumeCallbackRoutingRules(rules []operation_setting.ConsumeCallbackRoutingRule) bool {
 	for _, rule := range rules {
 		if rule.Enabled {
@@ -414,15 +441,8 @@ func hasEnabledConsumeCallbackRoutingRules(rules []operation_setting.ConsumeCall
 }
 
 func hasMatchedConsumeCallbackRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.ConsumeCallbackRoutingRule) bool {
-	for _, rule := range rules {
-		if !rule.Enabled {
-			continue
-		}
-		if matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
-			return true
-		}
-	}
-	return false
+	_, matched := selectConsumeCallbackRoutingRule(username, tokenPrefixCandidates, rules)
+	return matched
 }
 
 func resolveConsumeCallbackRouting(username string, tokenPrefixCandidates []string, globalURL, globalSecret string) resolvedConsumeCallbackConfig {
@@ -435,24 +455,15 @@ func resolveConsumeCallbackRouting(username string, tokenPrefixCandidates []stri
 	if cfg == nil || len(cfg.ConsumeCallbackRoutingRules) == 0 {
 		return resolved
 	}
-	sortedRules := append([]operation_setting.ConsumeCallbackRoutingRule(nil), cfg.ConsumeCallbackRoutingRules...)
-	sort.SliceStable(sortedRules, func(i, j int) bool {
-		return sortedRules[i].Priority > sortedRules[j].Priority
-	})
-	for _, rule := range sortedRules {
-		if !rule.Enabled {
-			continue
-		}
-		if !matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
-			continue
-		}
-		if v := strings.TrimSpace(rule.CallbackURL); v != "" {
-			resolved.callbackURL = v
-		}
-		if v := strings.TrimSpace(rule.Secret); v != "" {
-			resolved.secret = v
-		}
+	rule, matched := selectConsumeCallbackRoutingRule(username, tokenPrefixCandidates, cfg.ConsumeCallbackRoutingRules)
+	if !matched {
 		return resolved
+	}
+	if v := strings.TrimSpace(rule.CallbackURL); v != "" {
+		resolved.callbackURL = v
+	}
+	if v := strings.TrimSpace(rule.Secret); v != "" {
+		resolved.secret = v
 	}
 	return resolved
 }

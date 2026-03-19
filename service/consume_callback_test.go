@@ -336,6 +336,31 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 		assert.Equal(t, "https://token.example.com/callback", resolved.callbackURL)
 		assert.Equal(t, "token-secret", resolved.secret)
 	})
+
+	t.Run("conflict token-prefix over username", func(t *testing.T) {
+		cfg := operation_setting.GetPaymentSetting()
+		cfg.ConsumeCallbackRoutingRules = []operation_setting.ConsumeCallbackRoutingRule{
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByUsername,
+				PrefixPattern: "ima_",
+				CallbackURL:   "https://username.example.com/callback",
+				Secret:        "username-secret",
+				Priority:      999,
+			},
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+				PrefixPattern: "ima_",
+				CallbackURL:   "https://token.example.com/callback",
+				Secret:        "token-secret",
+				Priority:      1,
+			},
+		}
+		resolved := resolveConsumeCallbackRouting("ima_1", []string{"ima_abc"}, globalURL, globalSecret)
+		assert.Equal(t, "https://token.example.com/callback", resolved.callbackURL)
+		assert.Equal(t, "token-secret", resolved.secret)
+	})
 }
 
 func TestNormalizeConsumeCallbackTokenPrefixCandidates(t *testing.T) {

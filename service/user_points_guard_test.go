@@ -601,6 +601,36 @@ func TestResolveUserPointsRouting(t *testing.T) {
 			t.Fatalf("token prefix rule should match, got %+v", resolved)
 		}
 	})
+
+	t.Run("conflict token-prefix over username", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByUsername,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://username.example.com/query",
+				Priority:      999,
+			},
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://token.example.com/query",
+				Priority:      1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			[]string{"ima_abc"},
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://token.example.com/query" {
+			t.Fatalf("token-prefix rule should win on conflict, got %+v", resolved)
+		}
+	})
 }
 
 func TestShouldRunUserPointsGuard_MatchByTokenPrefix(t *testing.T) {
