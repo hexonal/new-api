@@ -19,13 +19,12 @@ const doubaoAssetBasePath = "/api/v1/doubao/asset"
 type AssetProxyClient struct {
 	baseURL string
 	apiKey  string
-	// 优先使用用户名作为上游 user_id，缺失时按 userID 反查 username。
-	userName string
-	userID   int
-	client   *http.Client
+	// uid 对应上游要求的字符串用户名。
+	uid    string
+	client *http.Client
 }
 
-func NewAssetProxyClient(channel *model.Channel, userName string, userID int) *AssetProxyClient {
+func NewAssetProxyClient(channel *model.Channel, uid string) *AssetProxyClient {
 	baseURL := ""
 	if channel != nil && channel.BaseURL != nil {
 		baseURL = strings.TrimRight(*channel.BaseURL, "/")
@@ -35,10 +34,9 @@ func NewAssetProxyClient(channel *model.Channel, userName string, userID int) *A
 		apiKey = channel.Key
 	}
 	return &AssetProxyClient{
-		baseURL:  baseURL,
-		apiKey:   apiKey,
-		userName: userName,
-		userID:   userID,
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		uid:     strings.TrimSpace(uid),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -52,17 +50,9 @@ func (c *AssetProxyClient) doRequest(ctx context.Context, subPath string, body m
 	if body == nil {
 		body = map[string]any{}
 	}
-	// 注入 user_id 到上游请求，优先 username，空值则按 userID 反查 username。
-	uid := strings.TrimSpace(c.userName)
-	if uid == "" && c.userID > 0 {
-		userName, err := model.GetUsernameById(c.userID, false)
-		if err == nil {
-			uid = strings.TrimSpace(userName)
-		}
-		if uid == "" {
-			return nil, fmt.Errorf("asset uid resolve failed: username is empty for user_id=%d", c.userID)
-		}
-		common.SysLog(fmt.Sprintf("doubao asset request info: resolved uid(username)=%s from user_id=%d", uid, c.userID))
+	uid := c.uid
+	if uid == "" {
+		return nil, fmt.Errorf("asset uid resolve failed: username is empty")
 	}
 	if uid != "" {
 		// 兼容上游不同字段命名：部分环境要求 uid，部分环境要求 user_id。

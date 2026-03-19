@@ -18,6 +18,25 @@ import (
 
 const assetUploadModelName = "ima-pro-upload"
 
+func resolveAssetUID(userID int, userName string) (string, error) {
+	uid := strings.TrimSpace(userName)
+	if uid != "" {
+		return uid, nil
+	}
+	if userID <= 0 {
+		return "", errors.New("asset uid resolve failed: invalid user id")
+	}
+	name, err := model.GetUsernameById(userID, false)
+	if err != nil {
+		return "", err
+	}
+	uid = strings.TrimSpace(name)
+	if uid == "" {
+		return "", errors.New("asset uid resolve failed: username is empty")
+	}
+	return uid, nil
+}
+
 func getAssetChannel() (*model.Channel, error) {
 	channel := &model.Channel{}
 	err := model.DB.Where("type = ? AND status = ?", constant.ChannelTypeImaPro, common.ChannelStatusEnabled).
@@ -78,7 +97,11 @@ func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, re
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	upstreamGroup, err := client.CreateAssetGroup(ctx, req)
 	if err != nil {
 		return nil, err
@@ -106,7 +129,11 @@ func HandleListAssetGroups(ctx context.Context, userID int, userName string, req
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	result, err := client.ListAssetGroups(ctx, req)
 	if err != nil {
 		return nil, err
@@ -146,7 +173,11 @@ func HandleGetAssetGroup(ctx context.Context, userID int, userName string, req d
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	return client.GetAssetGroup(ctx, req.Id, req.ProjectName)
 }
 
@@ -159,7 +190,11 @@ func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, re
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	result, err := client.UpdateAssetGroup(ctx, req)
 	if err != nil {
 		return nil, err
@@ -196,7 +231,11 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 
 	quota := getAssetUploadQuota()
 	var token *model.Token
@@ -294,7 +333,11 @@ func HandleListAssets(ctx context.Context, userID int, userName string, req dto.
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	result, err := client.ListAssets(ctx, req)
 	if err != nil {
 		return nil, err
@@ -332,7 +375,11 @@ func HandleGetAsset(ctx context.Context, userID int, userName string, req dto.As
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	result, err := client.GetAsset(ctx, req.Id, req.ProjectName)
 	if err != nil {
 		return nil, err
@@ -369,7 +416,11 @@ func HandleUpdateAsset(ctx context.Context, userID int, userName string, req dto
 	if err != nil {
 		return nil, err
 	}
-	client := NewAssetProxyClient(channel, userName, userID)
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, uid)
 	result, err := client.UpdateAsset(ctx, req)
 	if err != nil {
 		return nil, err
