@@ -179,17 +179,31 @@ export const useModelPricingData = () => {
   );
 
   const displayPrice = (usdPrice) => {
+    const formatPriceNumber = (value) => {
+      const abs = Math.abs(Number(value) || 0);
+      let precision = 3;
+      if (abs > 0 && abs < 0.01) {
+        precision = 6;
+      } else if (abs < 0.1) {
+        precision = 5;
+      } else if (abs < 1) {
+        precision = 4;
+      }
+      const fixed = Number(value || 0).toFixed(precision);
+      return fixed.replace(/(\.\d*?[1-9])0+$/u, '$1').replace(/\.0+$/u, '');
+    };
+
     let priceInUSD = usdPrice;
     if (showWithRecharge) {
       priceInUSD = (usdPrice * priceRate) / usdExchangeRate;
     }
 
     if (currency === 'CNY') {
-      return `¥${(priceInUSD * usdExchangeRate).toFixed(3)}`;
+      return `¥${formatPriceNumber(priceInUSD * usdExchangeRate)}`;
     } else if (currency === 'CUSTOM') {
-      return `${customCurrencySymbol}${(priceInUSD * customExchangeRate).toFixed(3)}`;
+      return `${customCurrencySymbol}${formatPriceNumber(priceInUSD * customExchangeRate)}`;
     }
-    return `$${priceInUSD.toFixed(3)}`;
+    return `$${formatPriceNumber(priceInUSD)}`;
   };
 
   const setModelsFormat = (models, groupRatio, vendorMap) => {

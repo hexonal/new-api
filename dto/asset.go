@@ -348,22 +348,26 @@ func (r *AssetGroupUpdateRequest) UnmarshalJSON(data []byte) error {
 }
 
 type AssetCreateRequest struct {
-	GroupId     string `json:"group_id" binding:"required"`
-	URL         string `json:"url" binding:"required"`
-	Name        string `json:"name,omitempty"`
-	AssetType   string `json:"asset_type,omitempty"`
-	ProjectName string `json:"project_name,omitempty"`
+	GroupId        string `json:"group_id" binding:"required"`
+	URL            string `json:"url" binding:"required"`
+	Name           string `json:"name,omitempty"`
+	AssetType      string `json:"asset_type,omitempty"`
+	ProjectName    string `json:"project_name,omitempty"`
+	BillingTokenID int    `json:"billing_token_id,omitempty"`
 }
 
 func (r *AssetCreateRequest) UnmarshalJSON(data []byte) error {
 	type Alias AssetCreateRequest
 	aux := struct {
 		Alias
-		GroupIdAlt     string `json:"groupId"`
-		URLAlt         string `json:"Url"`
-		NameAlt        string `json:"Name"`
-		AssetTypeAlt   string `json:"assetType"`
-		ProjectNameAlt string `json:"projectName"`
+		GroupIdAlt        string `json:"groupId"`
+		URLAlt            string `json:"Url"`
+		NameAlt           string `json:"Name"`
+		AssetTypeAlt      string `json:"assetType"`
+		ProjectNameAlt    string `json:"projectName"`
+		BillingTokenIDAlt int    `json:"billingTokenId"`
+		TokenIDAlt        int    `json:"token_id"`
+		TokenIDCamelAlt   int    `json:"tokenId"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -383,6 +387,16 @@ func (r *AssetCreateRequest) UnmarshalJSON(data []byte) error {
 	}
 	if r.ProjectName == "" {
 		r.ProjectName = aux.ProjectNameAlt
+	}
+	if r.BillingTokenID == 0 {
+		switch {
+		case aux.BillingTokenIDAlt > 0:
+			r.BillingTokenID = aux.BillingTokenIDAlt
+		case aux.TokenIDAlt > 0:
+			r.BillingTokenID = aux.TokenIDAlt
+		case aux.TokenIDCamelAlt > 0:
+			r.BillingTokenID = aux.TokenIDCamelAlt
+		}
 	}
 	return nil
 }

@@ -26,12 +26,14 @@ const UploadAssetModal = ({
   onCancel,
   onSubmit,
   groups,
+  billingTokens,
   loading,
   t,
 }) => {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [groupId, setGroupId] = useState(null);
+  const [billingTokenId, setBillingTokenId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
@@ -39,6 +41,7 @@ const UploadAssetModal = ({
       setUrl('');
       setName('');
       setGroupId(null);
+      setBillingTokenId(null);
       setPreviewUrl('');
     }
   }, [visible]);
@@ -50,6 +53,15 @@ const UploadAssetModal = ({
         value: group.id,
       })),
     [groups, t],
+  );
+
+  const tokenOptions = useMemo(
+    () =>
+      (billingTokens || []).map((token) => ({
+        label: token.name ? `${token.name} (#${token.id})` : `#${token.id}`,
+        value: token.id,
+      })),
+    [billingTokens],
   );
 
   return (
@@ -67,10 +79,15 @@ const UploadAssetModal = ({
           showError(t('请选择分组'));
           return;
         }
+        if (!billingTokenId) {
+          showError(t('请选择扣费密钥'));
+          return;
+        }
         await onSubmit({
           url: normalizedUrl,
           name: name.trim(),
           groupId,
+          billingTokenId,
         });
       }}
       okText={t('上传')}
@@ -102,6 +119,16 @@ const UploadAssetModal = ({
             optionList={groupOptions}
             onChange={setGroupId}
             placeholder={t('请选择分组')}
+          />
+        </Form.Slot>
+        <Form.Slot label={t('扣费密钥')}>
+          <Select
+            value={billingTokenId}
+            optionList={tokenOptions}
+            onChange={setBillingTokenId}
+            placeholder={t('请选择用于扣费的密钥')}
+            emptyContent={t('暂无可用密钥')}
+            filter
           />
         </Form.Slot>
 

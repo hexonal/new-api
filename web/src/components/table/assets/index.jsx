@@ -37,6 +37,7 @@ const AssetsManager = () => {
     t,
     assets,
     groups,
+    billingTokens,
     quota,
     loading,
     quotaLoading,
@@ -78,6 +79,7 @@ const AssetsManager = () => {
         onCancel={() => setUploadVisible(false)}
         onSubmit={uploadAsset}
         groups={groups}
+        billingTokens={billingTokens}
         loading={submitting}
         t={t}
       />

@@ -173,6 +173,7 @@ export default function useAssetsData() {
   const [assets, setAssets] = useState([]);
   const [groups, setGroups] = useState([]);
   const [quota, setQuota] = useState(null);
+  const [billingTokens, setBillingTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [activePage, setActivePage] = useState(1);
@@ -237,6 +238,20 @@ export default function useAssetsData() {
     } finally {
       setQuotaLoading(false);
     }
+  }, [t]);
+
+  const fetchBillingTokens = useCallback(async () => {
+    const res = await API.get('/api/token/?p=1&size=1000');
+    const { success, message, data } = res.data || {};
+    if (!success) {
+      showError(message || t('获取可用密钥失败'));
+      return;
+    }
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const enabledTokens = items.filter(
+      (token) => Number(token?.status) === 1 && token?.id,
+    );
+    setBillingTokens(enabledTokens);
   }, [t]);
 
   const fetchAssets = useCallback(
@@ -371,13 +386,18 @@ export default function useAssetsData() {
   );
 
   const uploadAsset = useCallback(
-    async ({ groupId, url, name }) => {
+    async ({ groupId, url, name, billingTokenId }) => {
       setSubmitting(true);
       try {
+        if (!billingTokenId) {
+          showError(t('请选择扣费密钥'));
+          return false;
+        }
         const res = await API.post('/v1/assets/create', {
           group_id: groupId,
           url,
           name: name || '',
+          billing_token_id: billingTokenId,
         });
         const { success, message } = res.data || {};
         if (!success) {
@@ -454,6 +474,7 @@ export default function useAssetsData() {
         await Promise.all([
           fetchGroups(),
           fetchQuota(),
+          fetchBillingTokens(),
           fetchAssets(1, stateRef.current.pageSize),
         ]);
       } finally {
@@ -466,7 +487,7 @@ export default function useAssetsData() {
     return () => {
       cancelled = true;
     };
-  }, [fetchAssets, fetchGroups, fetchQuota]);
+  }, [fetchAssets, fetchGroups, fetchQuota, fetchBillingTokens]);
 
   useEffect(() => {
     if (!initializedRef.current) {
@@ -493,6 +514,7 @@ export default function useAssetsData() {
     assets,
     groups,
     quota,
+    billingTokens,
     loading,
     quotaLoading,
     activePage,

@@ -69,7 +69,11 @@ func CreateAsset(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetInt("token_id"), c.GetString("token_name"), req)
+	preferredTokenID := c.GetInt("token_id")
+	if req.BillingTokenID > 0 {
+		preferredTokenID = req.BillingTokenID
+	}
+	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), preferredTokenID, c.GetString("token_name"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return

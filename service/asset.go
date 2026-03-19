@@ -93,9 +93,16 @@ func pickAssetBillingToken(userID int, preferredTokenID int, quota int) (*model.
 
 	if preferredTokenID > 0 {
 		preferred, err := model.GetTokenById(preferredTokenID)
-		if err == nil && preferred != nil && preferred.UserId == userID && canAfford(preferred) {
-			return preferred, nil
+		if err != nil || preferred == nil || preferred.UserId != userID {
+			return nil, errors.New("selected token is invalid")
 		}
+		if preferred.Status != common.TokenStatusEnabled {
+			return nil, errors.New("selected token is disabled")
+		}
+		if !canAfford(preferred) {
+			return nil, errors.New("selected token quota is not enough")
+		}
+		return preferred, nil
 	}
 
 	tokens := make([]*model.Token, 0)
