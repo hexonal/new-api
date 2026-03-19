@@ -457,22 +457,11 @@ func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []strin
 			continue
 		}
 		if won && task.Status == "FAILURE" && task.Quota != 0 {
-			err = model.IncreaseUserQuota(task.UserId, task.Quota, false)
-			if err != nil {
-				logger.LogError(ctx, fmt.Sprintf("youchuan poll: refund error for %s: %v", mjId, err))
+			refundReason := task.FailReason
+			if refundReason == "" {
+				refundReason = "构图失败"
 			}
-			model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-				UserId:    task.UserId,
-				LogType:   model.LogTypeRefund,
-				Content:   "",
-				ChannelId: task.ChannelId,
-				ModelName: service.CovertMjpActionToModelName(task.Action),
-				Quota:     task.Quota,
-				Other: map[string]any{
-					"task_id": mjId,
-					"reason":  "构图失败",
-				},
-			})
+			refundMJTaskCharge(ctx, task, refundReason)
 		}
 	}
 }

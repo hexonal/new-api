@@ -166,22 +166,7 @@ func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) b
 
 	// 失败退款
 	if mjTask.Status == "FAILURE" && mjTask.Quota != 0 {
-		err = model.IncreaseUserQuota(mjTask.UserId, mjTask.Quota, false)
-		if err != nil {
-			logger.LogError(c, "youchuan notify(mj): refund failed: "+err.Error())
-		}
-		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-			UserId:    mjTask.UserId,
-			LogType:   model.LogTypeRefund,
-			Content:   "",
-			ChannelId: mjTask.ChannelId,
-			ModelName: service.CovertMjpActionToModelName(mjTask.Action),
-			Quota:     mjTask.Quota,
-			Other: map[string]any{
-				"task_id": mjTask.MjId,
-				"reason":  mjTask.FailReason,
-			},
-		})
+		refundMJTaskCharge(c, mjTask, mjTask.FailReason)
 	}
 
 	logger.LogInfo(c, "youchuan notify(mj): task "+mjTask.MjId+" updated to "+mjTask.Status)
