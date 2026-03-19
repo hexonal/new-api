@@ -1,0 +1,410 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/asset_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"gorm.io/gorm"
+)
+
+const assetUploadModelName = "ima-pro-upload"
+
+func getAssetChannel() (*model.Channel, error) {
+	channel := &model.Channel{}
+	err := model.DB.Where("type = ? AND status = ?", constant.ChannelTypeImaPro, common.ChannelStatusEnabled).
+		Order("priority desc").
+		First(channel).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("no active ima-pro channel available")
+		}
+		return nil, err
+	}
+	if channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "" {
+		return nil, errors.New("ima-pro channel base_url is empty")
+	}
+	if strings.TrimSpace(channel.Key) == "" {
+		return nil, errors.New("ima-pro channel key is empty")
+	}
+	return channel, nil
+}
+
+func getAssetUploadQuota() int {
+	modelPrice, ok := ratio_setting.GetModelPrice(assetUploadModelName, false)
+	if !ok || modelPrice <= 0 {
+		modelPrice = 0.005
+	}
+	quota := int(modelPrice * common.QuotaPerUnit)
+	if quota <= 0 {
+		quota = 2500
+	}
+	return quota
+}
+
+func getAssetChannelByID(channelID int) (*model.Channel, error) {
+	channel, err := model.GetChannelById(channelID, true)
+	if err != nil {
+		return nil, err
+	}
+	if channel.Type != constant.ChannelTypeImaPro {
+		return nil, errors.New("channel type is not ima-pro")
+	}
+	if channel.Status != common.ChannelStatusEnabled {
+		return nil, errors.New("ima-pro channel is disabled")
+	}
+	if channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "" {
+		return nil, errors.New("ima-pro channel base_url is empty")
+	}
+	if strings.TrimSpace(channel.Key) == "" {
+		return nil, errors.New("ima-pro channel key is empty")
+	}
+	return channel, nil
+}
+
+func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, req dto.AssetGroupCreateRequest) (*dto.DoubaoAssetGroupResult, error) {
+	if !asset_setting.GetAssetSetting().Enabled {
+		return nil, errors.New("asset feature is disabled")
+	}
+	channel, err := getAssetChannel()
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	upstreamGroup, err := client.CreateAssetGroup(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	group := &model.UserAssetGroup{
+		UserId:          userID,
+		ChannelId:       channel.Id,
+		UpstreamGroupId: upstreamGroup.NormalizedID(),
+		Name:            upstreamGroup.Name,
+		Description:     upstreamGroup.Description,
+		Title:           upstreamGroup.Title,
+		GroupType:       upstreamGroup.GroupType,
+		ProjectName:     upstreamGroup.ProjectName,
+		Status:          1,
+	}
+	if err = group.Create(); err != nil {
+		return nil, err
+	}
+	return upstreamGroup, nil
+}
+
+func HandleListAssetGroups(ctx context.Context, userID int, userName string, req dto.AssetGroupListRequest) (*dto.DoubaoListResult, error) {
+	channel, err := getAssetChannel()
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	result, err := client.ListAssetGroups(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make([]dto.DoubaoAssetGroupResult, 0)
+	if len(result.Items) > 0 {
+		if err = common.Unmarshal(result.Items, &groups); err == nil {
+			for _, item := range groups {
+				upstreamID := item.NormalizedID()
+				if upstreamID == "" {
+					continue
+				}
+				group := &model.UserAssetGroup{}
+				if group.GetByUpstreamID(userID, upstreamID) == nil {
+					group.Name = item.Name
+					group.Description = item.Description
+					group.Title = item.Title
+					if item.GroupType != "" {
+						group.GroupType = item.GroupType
+					}
+					_ = group.Update()
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func HandleGetAssetGroup(ctx context.Context, userID int, userName string, req dto.AssetGroupGetRequest) (*dto.DoubaoAssetGroupResult, error) {
+	group := &model.UserAssetGroup{}
+	if err := group.GetByUpstreamID(userID, req.Id); err != nil {
+		return nil, errors.New("asset group not found")
+	}
+	channel, err := getAssetChannelByID(group.ChannelId)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	return client.GetAssetGroup(ctx, req.Id, req.ProjectName)
+}
+
+func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, req dto.AssetGroupUpdateRequest) (*dto.DoubaoIDResult, error) {
+	group := &model.UserAssetGroup{}
+	if err := group.GetByUpstreamID(userID, req.Id); err != nil {
+		return nil, errors.New("asset group not found")
+	}
+	channel, err := getAssetChannelByID(group.ChannelId)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	result, err := client.UpdateAssetGroup(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Name != "" {
+		group.Name = req.Name
+	}
+	if req.Description != "" {
+		group.Description = req.Description
+	}
+	_ = group.Update()
+	return result, nil
+}
+
+func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID int, tokenName string, req dto.AssetCreateRequest) (*dto.DoubaoIDResult, error) {
+	setting := asset_setting.GetAssetSetting()
+	if !setting.Enabled {
+		return nil, errors.New("asset feature is disabled")
+	}
+	count, err := model.CountUserAssets(userID)
+	if err != nil {
+		return nil, err
+	}
+	if setting.MaxCountPerUser > 0 && count >= int64(setting.MaxCountPerUser) {
+		return nil, fmt.Errorf("asset count exceeds max limit %d", setting.MaxCountPerUser)
+	}
+
+	group := &model.UserAssetGroup{}
+	if err = group.GetByUpstreamID(userID, req.GroupId); err != nil {
+		return nil, errors.New("asset group not found")
+	}
+	channel, err := getAssetChannelByID(group.ChannelId)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+
+	quota := getAssetUploadQuota()
+	var token *model.Token
+	if tokenID > 0 {
+		token, err = model.GetTokenById(tokenID)
+		if err != nil {
+			return nil, err
+		}
+		if !token.UnlimitedQuota && token.RemainQuota < quota {
+			return nil, fmt.Errorf("token quota is not enough, need: %d", quota)
+		}
+	}
+
+	userQuota, err := model.GetUserQuota(userID, false)
+	if err != nil {
+		return nil, err
+	}
+	if userQuota < quota {
+		return nil, fmt.Errorf("user quota is not enough, need: %d", quota)
+	}
+
+	upstreamResult, err := client.CreateAsset(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	upstreamAssetID := upstreamResult.NormalizedID()
+	if upstreamAssetID == "" {
+		return nil, errors.New("upstream asset id is empty")
+	}
+
+	quotaCost := 0
+	billingOk := false
+	if token != nil && !token.UnlimitedQuota {
+		if err = model.DecreaseTokenQuota(tokenID, token.Key, quota); err != nil {
+			common.SysLog(fmt.Sprintf("asset billing warning: token deduction failed, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, tokenID, upstreamAssetID, err.Error()))
+		} else if err = model.DecreaseUserQuota(userID, quota); err != nil {
+			_ = model.IncreaseTokenQuota(tokenID, token.Key, quota)
+			common.SysLog(fmt.Sprintf("asset billing warning: user deduction failed after token deduction, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, tokenID, upstreamAssetID, err.Error()))
+		} else {
+			billingOk = true
+			quotaCost = quota
+		}
+	} else {
+		if err = model.DecreaseUserQuota(userID, quota); err != nil {
+			common.SysLog(fmt.Sprintf("asset billing warning: user deduction failed, user_id=%d upstream_asset_id=%s err=%s", userID, upstreamAssetID, err.Error()))
+		} else {
+			billingOk = true
+			quotaCost = quota
+		}
+	}
+
+	asset := &model.UserAsset{
+		UserId:          userID,
+		GroupId:         group.Id,
+		ChannelId:       channel.Id,
+		UpstreamAssetId: upstreamAssetID,
+		FileName:        req.Name,
+		SourceUrl:       req.URL,
+		AssetType:       req.AssetType,
+		Status:          "Processing",
+		QuotaCost:       quotaCost,
+	}
+	if asset.AssetType == "" {
+		asset.AssetType = "Image"
+	}
+	if err = asset.Create(); err != nil {
+		common.SysLog(fmt.Sprintf("asset persistence warning: upstream asset created but local save failed, user_id=%d channel_id=%d upstream_asset_id=%s err=%s", userID, channel.Id, upstreamAssetID, err.Error()))
+		return upstreamResult, nil
+	}
+
+	_ = model.RefreshUserAssetGroupCount(group.Id)
+	if billingOk {
+		model.UpdateUserUsedQuotaAndRequestCount(userID, quota)
+		model.UpdateChannelUsedQuota(channel.Id, quota)
+		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+			UserId:    userID,
+			LogType:   model.LogTypeConsume,
+			Content:   fmt.Sprintf("asset upload charged, model=%s", assetUploadModelName),
+			ChannelId: channel.Id,
+			ModelName: assetUploadModelName,
+			Quota:     quota,
+			TokenId:   tokenID,
+			Group:     tokenName,
+		})
+	} else {
+		common.SysLog(fmt.Sprintf("asset billing warning: upstream asset created without successful billing, user_id=%d channel_id=%d upstream_asset_id=%s", userID, channel.Id, upstreamAssetID))
+	}
+
+	go pollAssetStatus(client, asset.Id, upstreamAssetID)
+	return upstreamResult, nil
+}
+
+func HandleListAssets(ctx context.Context, userID int, userName string, req dto.AssetListRequest) (*dto.DoubaoListResult, error) {
+	channel, err := getAssetChannel()
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	result, err := client.ListAssets(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]dto.DoubaoAssetResult, 0)
+	if len(result.Items) > 0 {
+		if err = common.Unmarshal(result.Items, &items); err == nil {
+			now := time.Now().Unix()
+			for _, item := range items {
+				upstreamID := item.NormalizedID()
+				if upstreamID == "" {
+					continue
+				}
+				asset := &model.UserAsset{}
+				if asset.GetByUpstreamID(userID, upstreamID) != nil {
+					continue
+				}
+				// 仅对本地已存在且长期 processing 的素材触发补偿轮询。
+				if item.Status == "Processing" && now-asset.CreatedAt > 30 {
+					go pollAssetStatus(client, asset.Id, upstreamID)
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
+func HandleGetAsset(ctx context.Context, userID int, userName string, req dto.AssetGetRequest) (*dto.DoubaoAssetResult, error) {
+	asset := &model.UserAsset{}
+	if err := asset.GetByUpstreamID(userID, req.Id); err != nil {
+		return nil, errors.New("asset not found")
+	}
+	channel, err := getAssetChannelByID(asset.ChannelId)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	result, err := client.GetAsset(ctx, req.Id, req.ProjectName)
+	if err != nil {
+		return nil, err
+	}
+	if result.Status == "Active" {
+		_ = model.UpdateUserAssetByUpstreamID(userID, req.Id, map[string]any{
+			"status":        "Active",
+			"asset_ref":     fmt.Sprintf("asset://%s", req.Id),
+			"error_code":    "",
+			"error_message": "",
+		})
+	} else if result.Status == "Failed" {
+		errorCode := ""
+		errorMessage := ""
+		if result.Error != nil {
+			errorCode = result.Error.Code
+			errorMessage = result.Error.Message
+		}
+		_ = model.UpdateUserAssetByUpstreamID(userID, req.Id, map[string]any{
+			"status":        "Failed",
+			"error_code":    errorCode,
+			"error_message": errorMessage,
+		})
+	}
+	return result, nil
+}
+
+func HandleUpdateAsset(ctx context.Context, userID int, userName string, req dto.AssetUpdateRequest) (*dto.DoubaoIDResult, error) {
+	asset := &model.UserAsset{}
+	if err := asset.GetByUpstreamID(userID, req.Id); err != nil {
+		return nil, errors.New("asset not found")
+	}
+	channel, err := getAssetChannelByID(asset.ChannelId)
+	if err != nil {
+		return nil, err
+	}
+	client := NewAssetProxyClient(channel, userName)
+	result, err := client.UpdateAsset(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	asset.FileName = req.Name
+	_ = asset.Update()
+	return result, nil
+}
+
+func HandleDeleteAsset(userID int, req dto.AssetDeleteRequest) error {
+	asset := &model.UserAsset{}
+	if err := asset.GetByUpstreamID(userID, req.Id); err != nil {
+		if id, ok := model.ParseAssetDeleteID(req.Id); ok {
+			if err = asset.GetByID(userID, id); err != nil {
+				return errors.New("asset not found")
+			}
+		} else {
+			return errors.New("asset not found")
+		}
+	}
+	if err := asset.SoftDelete(); err != nil {
+		return err
+	}
+	return model.RefreshUserAssetGroupCount(asset.GroupId)
+}
+
+func HandleGetAssetQuota(userID int) (*dto.AssetQuotaResponse, error) {
+	count, err := model.CountUserAssets(userID)
+	if err != nil {
+		return nil, err
+	}
+	cfg := asset_setting.GetAssetSetting()
+	return &dto.AssetQuotaResponse{
+		Enabled:         cfg.Enabled,
+		MaxCountPerUser: cfg.MaxCountPerUser,
+		CurrentCount:    count,
+	}, nil
+}

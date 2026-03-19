@@ -397,6 +397,7 @@ func RelayMidjourneyTask(c *gin.Context, relayMode int) *dto.MidjourneyResponse 
 
 func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dto.MidjourneyResponse {
 	consumeQuota := true
+	var originTask *model.Midjourney
 	var midjRequest dto.MidjourneyRequest
 	err := common.UnmarshalBodyReusable(c, &midjRequest)
 	if err != nil {
@@ -469,7 +470,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			mjId = midjRequest.TaskId
 		}
 
-		originTask := model.GetByMJId(relayInfo.UserId, mjId)
+		originTask = model.GetByMJId(relayInfo.UserId, mjId)
 		if originTask == nil {
 			return service.MidjourneyErrorWrapper(constant.MjRequestError, "task_not_found")
 		} else { //原任务的Status=SUCCESS，则可以做放大UPSCALE、变换VARIATION等动作，此时必须使用原来的请求地址才能正确处理
@@ -541,6 +542,10 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 	var midjResponseWithStatus *dto.MidjourneyResponseWithStatusCode
 	var responseBody []byte
 	channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
+	// For action operations on Youchuan channel, pass the parent task's upstream ID.
+	if channelType == constant.ChannelTypeYouchuan && originTask != nil {
+		midjRequest.ParentJobId = originTask.MjId
+	}
 	if channelType == constant.ChannelTypeYouchuan {
 		midjResponseWithStatus, responseBody, err = service.DoYouchuanMjRequest(c, midjRequest, baseURL)
 	} else {

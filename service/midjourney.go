@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -261,20 +262,264 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 	}, responseBody, nil
 }
 
-// DoYouchuanMjRequest 将 MJ 提交请求转换为悠船 /v1/tob/diffusion 请求，
+// DoYouchuanMjRequest 将 MJ 请求按 action 路由到对应的悠船端点，
 // 并将悠船响应转换回 MJ 格式。
 func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL string) (*dto.MidjourneyResponseWithStatusCode, []byte, error) {
-	// 构建悠船请求体
-	ycBody := map[string]string{"text": mjReq.Prompt}
-	if serverAddr := system_setting.ServerAddress; serverAddr != "" {
-		ycBody["callback"] = serverAddr + "/youchuan/notify"
+	action := strings.ToUpper(strings.TrimSpace(mjReq.Action))
+	callbackURL := ""
+	if serverAddr := strings.TrimSpace(system_setting.ServerAddress); serverAddr != "" {
+		callbackURL = strings.TrimRight(serverAddr, "/") + "/youchuan/notify"
 	}
-	bodyData, err := common.Marshal(ycBody)
+
+	getParentJobID := func() string {
+		if id := strings.TrimSpace(mjReq.ParentJobId); id != "" {
+			return id
+		}
+		return strings.TrimSpace(mjReq.TaskId)
+	}
+	getImageNo := func() (int, bool) {
+		if mjReq.Index <= 0 {
+			return 0, false
+		}
+		imageNo := mjReq.Index - 1
+		if imageNo < 0 || imageNo > 3 {
+			return 0, false
+		}
+		return imageNo, true
+	}
+	parseUpscaleType := func() int {
+		custom := strings.ToLower(strings.TrimSpace(mjReq.CustomId))
+		if strings.Contains(custom, "creative") {
+			return 1
+		}
+		return 0
+	}
+	parsePanDirection := func() int {
+		// 默认向下，若 customId 含方向关键词则覆盖。
+		custom := strings.ToLower(strings.TrimSpace(mjReq.CustomId))
+		switch {
+		case strings.Contains(custom, "right"):
+			return 1
+		case strings.Contains(custom, "up"):
+			return 2
+		case strings.Contains(custom, "left"):
+			return 3
+		default:
+			return 0
+		}
+	}
+	parseZoomScaleFromCustomID := func() (float64, bool) {
+		splits := strings.Split(strings.TrimSpace(mjReq.CustomId), "::")
+		for i := 0; i+1 < len(splits); i++ {
+			if strings.EqualFold(splits[i], "outpaint") {
+				percent, err := strconv.Atoi(strings.TrimSpace(splits[i+1]))
+				if err != nil {
+					return 0, false
+				}
+				switch percent {
+				case 50:
+					return 2.0, true
+				case 75:
+					return 1.5, true
+				default:
+					return 0, false
+				}
+			}
+		}
+		return 0, false
+	}
+	zoomPattern := regexp.MustCompile(`(?i)\s*--zoom\s+([0-9]*\.?[0-9]+)`)
+	parseCustomZoomScaleAndPrompt := func(prompt string) (float64, string, bool) {
+		matches := zoomPattern.FindStringSubmatch(prompt)
+		if len(matches) < 2 {
+			return 0, strings.TrimSpace(prompt), false
+		}
+		scale, err := strconv.ParseFloat(matches[1], 64)
+		if err != nil {
+			return 0, strings.TrimSpace(prompt), false
+		}
+		cleanedPrompt := strings.Join(strings.Fields(zoomPattern.ReplaceAllString(prompt, " ")), " ")
+		return scale, cleanedPrompt, true
+	}
+	scalePattern := regexp.MustCompile(`(?i)\s*--scale\s+([0-9]*\.?[0-9]+)`)
+	parsePanScaleAndPrompt := func(prompt string) (float64, string, bool) {
+		matches := scalePattern.FindStringSubmatch(prompt)
+		if len(matches) < 2 {
+			return 0, strings.TrimSpace(prompt), false
+		}
+		scale, err := strconv.ParseFloat(matches[1], 64)
+		if err != nil {
+			return 0, strings.TrimSpace(prompt), false
+		}
+		cleanedPrompt := strings.Join(strings.Fields(scalePattern.ReplaceAllString(prompt, " ")), " ")
+		return scale, cleanedPrompt, true
+	}
+
+	var endpoint string
+	body := map[string]any{}
+	switch action {
+	case constant.MjActionImagine:
+		if strings.TrimSpace(mjReq.Prompt) == "" {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "prompt_is_required", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/diffusion"
+		body["text"] = mjReq.Prompt
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionUpscale:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/upscale"
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		body["type"] = parseUpscaleType()
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionVariation, constant.MjActionLowVariation, constant.MjActionHighVariation:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/variation"
+		variationType := 1
+		if action == constant.MjActionLowVariation {
+			variationType = 0
+		}
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		body["type"] = variationType
+		if strings.TrimSpace(mjReq.Prompt) != "" {
+			body["remixPrompt"] = mjReq.Prompt
+		}
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionZoom, constant.MjActionCustomZoom:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/outpaint"
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		scale := 1.5
+		remixPrompt := strings.TrimSpace(mjReq.Prompt)
+		if action == constant.MjActionZoom {
+			if parsedScale, ok := parseZoomScaleFromCustomID(); ok {
+				scale = parsedScale
+			}
+		}
+		if action == constant.MjActionCustomZoom {
+			if parsedScale, cleanedPrompt, ok := parseCustomZoomScaleAndPrompt(mjReq.Prompt); ok {
+				// Youchuan outpaint scale range: 1.1 ~ 2.0
+				if parsedScale >= 1.1 && parsedScale <= 2.0 {
+					scale = parsedScale
+				}
+				remixPrompt = cleanedPrompt
+			}
+		}
+		body["scale"] = scale
+		if remixPrompt != "" {
+			body["remixPrompt"] = remixPrompt
+		}
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionPan:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/pan"
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		body["direction"] = parsePanDirection()
+		panScale := 1.5
+		remixPrompt := strings.TrimSpace(mjReq.Prompt)
+		if parsedScale, cleanedPrompt, ok := parsePanScaleAndPrompt(mjReq.Prompt); ok {
+			// Youchuan pan scale range: 1.1 ~ 3.0
+			if parsedScale >= 1.1 && parsedScale <= 3.0 {
+				panScale = parsedScale
+			}
+			remixPrompt = cleanedPrompt
+		}
+		body["scale"] = panScale
+		if remixPrompt != "" {
+			body["remixPrompt"] = remixPrompt
+		}
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionModal:
+		mjResp := dto.MidjourneyResponse{
+			Code:        1,
+			Result:      getParentJobID(),
+			Description: "modal_triggered",
+		}
+		mjBody, _ := common.Marshal(mjResp)
+		return &dto.MidjourneyResponseWithStatusCode{Response: mjResp, StatusCode: http.StatusOK}, mjBody, nil
+	case constant.MjActionInPaint:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		mask := strings.TrimSpace(mjReq.MaskBase64)
+		if mask == "" {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "mask_is_required_for_inpaint", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/inpaint"
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		body["mask"] = map[string]any{"url": mask}
+		if strings.TrimSpace(mjReq.Prompt) != "" {
+			body["remixPrompt"] = mjReq.Prompt
+		}
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionReRoll:
+		parentJobID := getParentJobID()
+		if parentJobID == "" {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_is_required", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/reroll"
+		body["jobId"] = parentJobID
+	case constant.MjActionRemix:
+		parentJobID := getParentJobID()
+		imageNo, ok := getImageNo()
+		if parentJobID == "" || !ok {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "task_id_or_index_invalid", http.StatusBadRequest), nil, nil
+		}
+		if strings.TrimSpace(mjReq.Prompt) == "" {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "prompt_is_required", http.StatusBadRequest), nil, nil
+		}
+		endpoint = "/v1/tob/remix"
+		body["jobId"] = parentJobID
+		body["imageNo"] = imageNo
+		body["remixPrompt"] = mjReq.Prompt
+		body["mode"] = 0
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	default:
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "youchuan_unsupported_action:"+action, http.StatusBadRequest), nil, nil
+	}
+
+	bodyData, err := common.Marshal(body)
 	if err != nil {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "marshal_youchuan_body_failed", http.StatusInternalServerError), nil, err
 	}
 
-	url := fmt.Sprintf("%s/v1/tob/diffusion", baseURL)
+	url := fmt.Sprintf("%s%s", strings.TrimRight(baseURL, "/"), endpoint)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyData))
 	if err != nil {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "create_request_failed", http.StatusInternalServerError), nil, err

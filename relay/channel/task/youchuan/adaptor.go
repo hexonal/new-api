@@ -26,15 +26,22 @@ import (
 const (
 	ChannelName       = "youchuan"
 	DiffusionEndpoint = "/v1/tob/diffusion"
-	TaskQueryEndpoint = "/v1/tob/task"
+	TaskQueryEndpoint = "/v1/tob/job"
 )
 
 var ModelList = []string{
 	"mj_imagine",
 	"mj_variation",
 	"mj_upscale",
+	"mj_zoom",
+	"mj_pan",
+	"mj_inpaint",
+	"mj_reroll",
+	"mj_remix",
+	"mj_low_variation",
+	"mj_high_variation",
+	"mj_creative_upscale",
 }
-
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
@@ -248,4 +255,3 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 	}
 	return dr, nil
 }
-

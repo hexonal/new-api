@@ -75,6 +75,7 @@ import {
   Package,
   Server,
   CalendarClock,
+  Image,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -124,6 +125,8 @@ export function getLucideIcon(key, selected = false) {
       return <MessageSquare {...commonProps} color={iconColor} />;
     case 'token':
       return <Key {...commonProps} color={iconColor} />;
+    case 'asset':
+      return <Image {...commonProps} color={iconColor} />;
     case 'log':
       return <BarChart3 {...commonProps} color={iconColor} />;
     case 'midjourney':
@@ -336,6 +339,10 @@ export function getChannelIcon(channelType) {
         <img
           src='/ima-pro-logo.png'
           alt='ima_pro'
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/logo.png';
+          }}
           style={{
             width: iconSize,
             height: iconSize,
@@ -446,6 +453,10 @@ export function getLobeHubIcon(iconName, size = 14) {
       <img
         src={iconName}
         alt='model icon'
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = '/logo.png';
+        }}
         width={size}
         height={size}
         style={{ borderRadius: 4, objectFit: 'cover' }}
@@ -590,6 +601,10 @@ export function getOAuthProviderIcon(iconName, size = 20) {
       <img
         src={raw}
         alt='provider icon'
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = '/logo.png';
+        }}
         width={iconSize}
         height={iconSize}
         style={{ borderRadius: 4, objectFit: 'cover' }}

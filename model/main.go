@@ -282,6 +282,8 @@ func migrateDB() error {
 		&CallbackEventAttempt{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
+		&UserAssetGroup{},
+		&UserAsset{},
 	)
 	if err != nil {
 		return err
@@ -294,6 +296,9 @@ func migrateDB() error {
 		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
 			return err
 		}
+	}
+	if err := migrateAssetIndexCompatibility(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -332,6 +337,8 @@ func migrateDBFast() error {
 		{&CallbackEventAttempt{}, "CallbackEventAttempt"},
 		{&CustomOAuthProvider{}, "CustomOAuthProvider"},
 		{&UserOAuthBinding{}, "UserOAuthBinding"},
+		{&UserAssetGroup{}, "UserAssetGroup"},
+		{&UserAsset{}, "UserAsset"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -364,6 +371,9 @@ func migrateDBFast() error {
 		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
 			return err
 		}
+	}
+	if err := migrateAssetIndexCompatibility(); err != nil {
+		return err
 	}
 	common.SysLog("database migrated")
 	return nil
@@ -502,6 +512,45 @@ func migrateTokenModelLimitsToText() error {
 			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
 		}
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateAssetIndexCompatibility ensures legacy unique indexes do not cause cross-user collisions.
+func migrateAssetIndexCompatibility() error {
+	migrator := DB.Migrator()
+	if migrator == nil {
+		return nil
+	}
+
+	legacyIndexes := []struct {
+		model interface{}
+		name  string
+	}{
+		{&UserAssetGroup{}, "idx_user_asset_groups_upstream_group_id"},
+		{&UserAsset{}, "idx_user_assets_upstream_asset_id"},
+	}
+	for _, idx := range legacyIndexes {
+		if migrator.HasIndex(idx.model, idx.name) {
+			if err := migrator.DropIndex(idx.model, idx.name); err != nil {
+				return fmt.Errorf("drop legacy index %s failed: %w", idx.name, err)
+			}
+		}
+	}
+
+	requiredIndexes := []struct {
+		model interface{}
+		name  string
+	}{
+		{&UserAssetGroup{}, "idx_uag_user_upstream"},
+		{&UserAsset{}, "idx_ua_user_upstream"},
+	}
+	for _, idx := range requiredIndexes {
+		if !migrator.HasIndex(idx.model, idx.name) {
+			if err := migrator.CreateIndex(idx.model, idx.name); err != nil {
+				return fmt.Errorf("create index %s failed: %w", idx.name, err)
+			}
+		}
 	}
 	return nil
 }

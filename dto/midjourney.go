@@ -15,6 +15,7 @@ type SwapFaceRequest struct {
 type MidjourneyRequest struct {
 	Prompt      string   `json:"prompt"`
 	CustomId    string   `json:"customId"`
+	ParentJobId string   `json:"parentJobId,omitempty"` // Youchuan upstream job ID for action operations
 	BotType     string   `json:"botType"`
 	NotifyHook  string   `json:"notifyHook"`
 	Action      string   `json:"action"`

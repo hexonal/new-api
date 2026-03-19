@@ -24,6 +24,7 @@ const (
 	MjActionUpload        = "UPLOAD"
 	MjActionVideo         = "VIDEO"
 	MjActionEdits         = "EDITS"
+	MjActionRemix         = "REMIX"
 )
 
 var MidjourneyModel2Action = map[string]string{
@@ -45,4 +46,5 @@ var MidjourneyModel2Action = map[string]string{
 	"mj_upload":         MjActionUpload,
 	"mj_video":          MjActionVideo,
 	"mj_edits":          MjActionEdits,
+	"mj_remix":          MjActionRemix,
 }

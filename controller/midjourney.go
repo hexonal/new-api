@@ -79,8 +79,9 @@ func UpdateMidjourneyTaskBulk() {
 				}
 				continue
 			}
-			// ── 悠船渠道：仅依赖 callback 更新，不做轮询（上游无任务查询端点）──
+			// ── 悠船渠道：按 /v1/tob/job/{jobId} 逐任务轮询（callback 仍是主通道）──
 			if midjourneyChannel.Type == constant.ChannelTypeYouchuan {
+				pollYouchuanMjTasks(ctx, midjourneyChannel, taskIds, taskM)
 				continue
 			}
 
@@ -358,7 +359,7 @@ func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []strin
 			continue
 		}
 
-		url := fmt.Sprintf("%s/v1/tob/task/%s", *ch.BaseURL, mjId)
+		url := fmt.Sprintf("%s/v1/tob/job/%s", *ch.BaseURL, mjId)
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			logger.LogError(ctx, fmt.Sprintf("youchuan poll: create request error: %v", err))
