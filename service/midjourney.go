@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -354,6 +355,31 @@ func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL st
 		cleanedPrompt := strings.Join(strings.Fields(scalePattern.ReplaceAllString(prompt, " ")), " ")
 		return scale, cleanedPrompt, true
 	}
+	isLikelyURL := func(v string) bool {
+		s := strings.ToLower(strings.TrimSpace(v))
+		return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+	}
+	buildBlendPrompt := func(items []string, textPrompt string) (string, error) {
+		urls := make([]string, 0, len(items))
+		for _, item := range items {
+			v := strings.TrimSpace(item)
+			if v == "" {
+				continue
+			}
+			if !isLikelyURL(v) {
+				return "", errors.New("blend_requires_image_urls")
+			}
+			urls = append(urls, v)
+		}
+		if len(urls) < 2 {
+			return "", errors.New("blend_requires_at_least_two_image_urls")
+		}
+		promptParts := append([]string{}, urls...)
+		if strings.TrimSpace(textPrompt) != "" {
+			promptParts = append(promptParts, strings.TrimSpace(textPrompt))
+		}
+		return strings.Join(promptParts, " "), nil
+	}
 
 	var endpoint string
 	body := map[string]any{}
@@ -364,6 +390,16 @@ func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL st
 		}
 		endpoint = "/v1/tob/diffusion"
 		body["text"] = mjReq.Prompt
+		if callbackURL != "" {
+			body["callback"] = callbackURL
+		}
+	case constant.MjActionBlend:
+		endpoint = "/v1/tob/diffusion"
+		blendPrompt, err := buildBlendPrompt(mjReq.Base64Array, mjReq.Prompt)
+		if err != nil {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, err.Error(), http.StatusBadRequest), nil, nil
+		}
+		body["text"] = blendPrompt
 		if callbackURL != "" {
 			body["callback"] = callbackURL
 		}
