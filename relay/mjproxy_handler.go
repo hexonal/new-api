@@ -439,7 +439,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 				return service.MidjourneyErrorWrapper(constant.MjRequestError, "task_id_is_required")
 			} else if midjRequest.Action == "" {
 				return service.MidjourneyErrorWrapper(constant.MjRequestError, "action_is_required")
-			} else if midjRequest.Index == 0 {
+			} else if midjRequest.Index == 0 && strings.ToUpper(strings.TrimSpace(midjRequest.Action)) != constant.MjActionReRoll {
 				return service.MidjourneyErrorWrapper(constant.MjRequestError, "index_is_required")
 			}
 			//action = midjRequest.Action

@@ -511,7 +511,15 @@ func DoYouchuanMjRequest(c *gin.Context, mjReq dto.MidjourneyRequest, baseURL st
 			body["callback"] = callbackURL
 		}
 	default:
-		return MidjourneyErrorWithStatusCodeWrapper(constant.MjRequestError, "youchuan_unsupported_action:"+action, http.StatusBadRequest), nil, nil
+		mjResp := dto.MidjourneyResponse{
+			Code:        4,
+			Description: "youchuan_unsupported_action:" + action,
+		}
+		mjBody, _ := common.Marshal(mjResp)
+		return &dto.MidjourneyResponseWithStatusCode{
+			StatusCode: http.StatusBadRequest,
+			Response:   mjResp,
+		}, mjBody, nil
 	}
 
 	bodyData, err := common.Marshal(body)
