@@ -215,7 +215,6 @@ func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {
 		relayMjRouter.POST("/submit/imagine", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/change", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/simple-change", controller.RelayMidjourney)
-		relayMjRouter.POST("/submit/describe", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/blend", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/edits", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/video", controller.RelayMidjourney)

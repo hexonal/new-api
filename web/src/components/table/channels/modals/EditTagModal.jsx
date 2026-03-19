@@ -112,7 +112,6 @@ const EditTagModal = (props) => {
             'mj_reroll',
             'mj_blend',
             'mj_upscale',
-            'mj_describe',
             'mj_uploads',
           ];
           break;
@@ -126,7 +125,6 @@ const EditTagModal = (props) => {
             'mj_reroll',
             'mj_blend',
             'mj_upscale',
-            'mj_describe',
             'mj_zoom',
             'mj_shorten',
             'mj_modal',
