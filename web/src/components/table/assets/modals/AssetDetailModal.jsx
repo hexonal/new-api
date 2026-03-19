@@ -40,6 +40,24 @@ const renderField = (label, value) => {
   );
 };
 
+const formatAssetTime = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return timestamp2string(value);
+  }
+  if (typeof value === 'string') {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && value.trim() !== '') {
+      return timestamp2string(numeric);
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString('zh-CN', { hour12: false });
+    }
+  }
+  return '-';
+};
+
 const AssetDetailModal = ({
   visible,
   loading,
@@ -116,9 +134,7 @@ const AssetDetailModal = ({
             {renderField(t('分组'), asset?.group_name || asset?.group?.name || '-')}
             {renderField(
               t('创建时间'),
-              asset?.created_at || asset?.createTime
-                ? timestamp2string(asset?.created_at || asset?.createTime)
-                : '-',
+              formatAssetTime(asset?.created_at || asset?.createTime),
             )}
           </div>
 
