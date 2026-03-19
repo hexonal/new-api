@@ -15,6 +15,7 @@ import (
 )
 
 const doubaoAssetBasePath = "/api/v1/doubao/asset"
+const doubaoAssetMaxPageSize int64 = 100
 
 type AssetProxyClient struct {
 	baseURL string
@@ -40,6 +41,33 @@ func NewAssetProxyClient(channel *model.Channel, uid string) *AssetProxyClient {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+	}
+}
+
+func normalizeDoubaoPageSize(size *int64) *int64 {
+	if size == nil {
+		return nil
+	}
+	v := *size
+	if v < 1 {
+		v = 1
+	}
+	if v > doubaoAssetMaxPageSize {
+		v = doubaoAssetMaxPageSize
+	}
+	return &v
+}
+
+func normalizeDoubaoSortBy(sortBy string) string {
+	switch strings.TrimSpace(sortBy) {
+	case "", "create_time", "update_time", "name":
+		return strings.TrimSpace(sortBy)
+	case "created_at":
+		return "create_time"
+	case "updated_at":
+		return "update_time"
+	default:
+		return ""
 	}
 }
 
@@ -151,11 +179,11 @@ func (c *AssetProxyClient) ListAssetGroups(ctx context.Context, req dto.AssetGro
 	if req.PageNumber != nil {
 		body["page_number"] = *req.PageNumber
 	}
-	if req.PageSize != nil {
-		body["page_size"] = *req.PageSize
+	if size := normalizeDoubaoPageSize(req.PageSize); size != nil {
+		body["page_size"] = *size
 	}
-	if req.SortBy != "" {
-		body["sort_by"] = req.SortBy
+	if sortBy := normalizeDoubaoSortBy(req.SortBy); sortBy != "" {
+		body["sort_by"] = sortBy
 	}
 	if req.SortOrder != "" {
 		body["sort_order"] = req.SortOrder
@@ -245,11 +273,11 @@ func (c *AssetProxyClient) ListAssets(ctx context.Context, req dto.AssetListRequ
 	if req.PageNumber != nil {
 		body["page_number"] = *req.PageNumber
 	}
-	if req.PageSize != nil {
-		body["page_size"] = *req.PageSize
+	if size := normalizeDoubaoPageSize(req.PageSize); size != nil {
+		body["page_size"] = *size
 	}
-	if req.SortBy != "" {
-		body["sort_by"] = req.SortBy
+	if sortBy := normalizeDoubaoSortBy(req.SortBy); sortBy != "" {
+		body["sort_by"] = sortBy
 	}
 	if req.SortOrder != "" {
 		body["sort_order"] = req.SortOrder
