@@ -758,12 +758,20 @@ export const getLogsColumns = ({
       render: (text, record, index) => {
         let other = getLogOther(record.other);
         if (record.type === 6) {
+          const refundTarget = [
+            record?.token_name ? `${t('令牌')}：${record.token_name}` : null,
+            record?.token_id ? `${t('令牌ID')}：${record.token_id}` : null,
+            record?.model_name ? `${t('模型')}：${record.model_name}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const summary = [t('异步任务退款'), refundTarget].filter(Boolean).join('\n');
           return (
             <Typography.Paragraph
               ellipsis={{ rows: 2 }}
               style={{ maxWidth: 240 }}
             >
-              {t('异步任务退款')}
+              {summary}
             </Typography.Paragraph>
           );
         }

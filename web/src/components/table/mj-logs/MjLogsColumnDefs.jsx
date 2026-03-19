@@ -146,6 +146,12 @@ function renderType(type, t) {
           {t('重绘')}
         </Tag>
       );
+    case 'REMIX':
+      return (
+        <Tag color='violet' shape='circle' prefixIcon={<RotateCcw size={14} />}>
+          {t('重塑')}
+        </Tag>
+      );
     case 'INPAINT':
       return (
         <Tag
@@ -194,7 +200,8 @@ function renderType(type, t) {
 }
 
 function renderCode(code, t) {
-  switch (code) {
+  const normalizedCode = Number(code);
+  switch (normalizedCode) {
     case 1:
       return (
         <Tag

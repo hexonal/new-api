@@ -587,6 +587,18 @@ export const useLogsData = () => {
         }
       }
       if (logs[i].type === 6) {
+        if (logs[i]?.token_name) {
+          expandDataLocal.push({
+            key: t('令牌'),
+            value: `${logs[i].token_name}${logs[i]?.token_id ? ` (#${logs[i].token_id})` : ''}`,
+          });
+        }
+        if (logs[i]?.model_name) {
+          expandDataLocal.push({
+            key: t('模型'),
+            value: logs[i].model_name,
+          });
+        }
         if (other?.task_id) {
           expandDataLocal.push({
             key: t('任务ID'),
