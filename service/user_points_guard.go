@@ -31,6 +31,9 @@ const (
 	userPointsOnErrorDeny                 = "deny"
 	userPointsRechargeURLPlaceholder      = "{recharge_url}"
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
+	skPrefixStandard                      = "sk-"
+	skPrefixCustomer                      = "customer-sk-"
+	skPrefixCustom                        = "custom-sk-"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -164,16 +167,18 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	// Gate rule: request is allowed only when resolved can_pre_deduct value is true.
 	// If resolved value is false, request is always blocked.
 	// on_error_decision only controls request/parse error behavior.
+	externalSK := resolveUserPointsExternalSK(c, token, tokenKey)
+
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
 		c.Request.Context(),
 		resolved.queryURL,
-		tokenKey,
+		externalSK,
 		jsonPath,
 	)
 	if err != nil {
 		failOpen := onErrorDecision == userPointsOnErrorAllow
 		// Persist diagnostics to callback logs for observability/troubleshooting.
-		reportUserPointsGuardFailureCallbackLog(c, resolved.queryURL, jsonPath, tokenKey, err, failOpen)
+		reportUserPointsGuardFailureCallbackLog(c, resolved.queryURL, jsonPath, externalSK, err, failOpen)
 		if failOpen {
 			logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
 			return nil
@@ -321,8 +326,8 @@ func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter str
 
 // fetchUserPointsCanPreDeduct requests external points service and extracts
 // can_pre_deduct value using JSONPath-like path (resolved to gjson path) from response JSON.
-func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenKey string, jsonPath string) (bool, error) {
-	requestURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey))
+func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, externalSK string, jsonPath string) (bool, error) {
+	requestURL, err := buildUserPointsRequestURL(rawQueryURL, normalizeExternalSK(externalSK))
 	if err != nil {
 		return false, err
 	}
@@ -388,16 +393,65 @@ func buildUserPointsRequestURL(rawQueryURL string, tokenKey string) (string, err
 	return parsedURL.String(), nil
 }
 
-// formatSKWithPrefix guarantees sk value uses "sk-" prefix in outbound request.
-func formatSKWithPrefix(tokenKey string) string {
-	key := strings.TrimSpace(tokenKey)
+func normalizeExternalSK(raw string) string {
+	key := strings.TrimSpace(raw)
 	if key == "" {
 		return key
 	}
-	if strings.HasPrefix(key, "sk-") {
+	if hasKnownSKPrefix(key) {
 		return key
 	}
-	return "sk-" + key
+	return skPrefixStandard + strings.TrimPrefix(key, skPrefixStandard)
+}
+
+func hasKnownSKPrefix(value string) bool {
+	value = strings.TrimSpace(value)
+	return strings.HasPrefix(value, skPrefixStandard) ||
+		strings.HasPrefix(value, skPrefixCustomer) ||
+		strings.HasPrefix(value, skPrefixCustom)
+}
+
+func prefixFromTokenName(tokenName string) string {
+	tokenName = strings.TrimSpace(tokenName)
+	switch {
+	case strings.HasPrefix(tokenName, skPrefixCustomer):
+		return skPrefixCustomer
+	case strings.HasPrefix(tokenName, skPrefixCustom):
+		return skPrefixCustom
+	default:
+		return ""
+	}
+}
+
+func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
+	if c != nil && c.Request != nil {
+		auth := strings.TrimSpace(c.Request.Header.Get("Authorization"))
+		if strings.HasPrefix(auth, "Bearer ") || strings.HasPrefix(auth, "bearer ") {
+			auth = strings.TrimSpace(auth[7:])
+		}
+		if hasKnownSKPrefix(auth) {
+			return auth
+		}
+	}
+
+	prefix := ""
+	if c != nil {
+		prefix = prefixFromTokenName(c.GetString("token_name"))
+	}
+	if prefix == "" && token != nil {
+		prefix = prefixFromTokenName(token.Name)
+	}
+	if prefix != "" {
+		key := strings.TrimSpace(tokenKey)
+		if key == "" && token != nil {
+			key = strings.TrimSpace(token.Key)
+		}
+		if key != "" {
+			return prefix + strings.TrimPrefix(key, skPrefixStandard)
+		}
+	}
+
+	return normalizeExternalSK(tokenKey)
 }
 
 // gjsonResultToBool accepts typical boolean-like values from external API:
@@ -427,12 +481,12 @@ func gjsonResultToBool(result gjson.Result) (bool, bool) {
 
 // reportUserPointsGuardFailureCallbackLog writes a terminal callback-event row for
 // user_points guard failures. It never affects request flow.
-func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) {
+func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, externalSK string, guardErr error, failOpen bool) {
 	if c == nil || guardErr == nil || model.DB == nil {
 		return
 	}
 
-	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, tokenKey, guardErr, failOpen)
+	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, externalSK, guardErr, failOpen)
 	if err != nil {
 		logger.LogWarn(context.Background(), fmt.Sprintf("build user_points failure callback log failed: %s", err.Error()))
 		return
@@ -448,7 +502,7 @@ func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string,
 
 // buildUserPointsFailureCallbackEvent builds a non-dispatching callback-event record.
 // Status is set to terminal(dead), so dispatcher won't claim it.
-func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) (*model.CallbackEvent, error) {
+func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, externalSK string, guardErr error, failOpen bool) (*model.CallbackEvent, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil context")
 	}
@@ -462,7 +516,8 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		requestPath = c.Request.URL.Path
 	}
 	resolvedQueryURL := strings.TrimSpace(rawQueryURL)
-	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey)); err == nil {
+	externalSK = normalizeExternalSK(externalSK)
+	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, externalSK); err == nil {
 		resolvedQueryURL = builtURL
 	}
 	jsonPath = normalizeUserPointsJSONPath(jsonPath)
@@ -502,7 +557,7 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		TokenID:           c.GetInt("token_id"),
 		UsernameSnapshot:  trimSnapshotField(strings.TrimSpace(c.GetString("username")), 64),
 		TokenNameSnapshot: trimSnapshotField(strings.TrimSpace(c.GetString("token_name")), 100),
-		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(formatSKWithPrefix(tokenKey)), 128),
+		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(externalSK), 128),
 		CallbackURL:       resolvedQueryURL,
 		HTTPMethod:        http.MethodGet,
 		Headers:           "{}",

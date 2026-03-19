@@ -123,11 +123,16 @@ func normalizeContentType(contentType string) string {
 }
 
 func normalizeSnapshotSK(rawSK string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSK), "sk-"))
+	key := strings.TrimSpace(rawSK)
 	if key == "" {
 		return ""
 	}
-	return "sk-" + key
+	if strings.HasPrefix(key, "customer-sk-") ||
+		strings.HasPrefix(key, "custom-sk-") ||
+		strings.HasPrefix(key, "sk-") {
+		return key
+	}
+	return "sk-" + strings.TrimPrefix(key, "sk-")
 }
 
 func trimSnapshotField(value string, maxLen int) string {

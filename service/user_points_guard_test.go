@@ -141,6 +141,32 @@ func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
 	}
 }
 
+func TestBuildUserPointsFailureCallbackEventKeepsCustomerSKPrefix(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	c.Set(common.RequestIdKey, "req-user-points-customer")
+
+	event, err := buildUserPointsFailureCallbackEvent(
+		c,
+		"https://example.com/api/v1/user_points?sk={sk}",
+		"data.can_pre_deduct",
+		"customer-sk-abc123",
+		errors.New("request timeout"),
+		false,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if event.TokenSKSnapshot != "customer-sk-abc123" {
+		t.Fatalf("unexpected token sk snapshot: %s", event.TokenSKSnapshot)
+	}
+	if !strings.Contains(event.CallbackURL, "sk=customer-sk-abc123") {
+		t.Fatalf("unexpected callback url: %s", event.CallbackURL)
+	}
+}
+
 func TestNormalizeUserPointsOnErrorDecision(t *testing.T) {
 	cases := []struct {
 		name string
@@ -179,6 +205,43 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 	if url2 != "https://example.com/api/v1/user_points?sk=sk-abc123" {
 		t.Fatalf("unexpected url with query append: %s", url2)
 	}
+}
+
+func TestResolveUserPointsExternalSK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Run("prefer authorization header with customer prefix", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "customer-sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("fallback to token name prefix when auth header is raw key", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer abc123")
+		c.Set("token_name", "customer-sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123", Name: "customer-sk-abc123"}, "abc123")
+		if got != "customer-sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("default to sk prefix", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
 }
 
 func TestNormalizeUserPointsJSONPath(t *testing.T) {

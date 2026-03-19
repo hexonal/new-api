@@ -251,23 +251,46 @@ func batchLoadCallbackEventIdentityMaps(events []*model.CallbackEvent) (map[int]
 	return userMap, tokenMap
 }
 
+func splitSKPrefixAndKey(raw string) (string, string) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", ""
+	}
+	switch {
+	case strings.HasPrefix(value, "customer-sk-"):
+		return "customer-sk-", strings.TrimSpace(strings.TrimPrefix(value, "customer-sk-"))
+	case strings.HasPrefix(value, "custom-sk-"):
+		return "custom-sk-", strings.TrimSpace(strings.TrimPrefix(value, "custom-sk-"))
+	case strings.HasPrefix(value, "sk-"):
+		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
+	default:
+		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
+	}
+}
+
 func normalizeSK(rawKey string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
 	}
-	return "sk-" + key
+	if prefix == "" {
+		prefix = "sk-"
+	}
+	return prefix + key
 }
 
 func buildMaskedSK(rawKey string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
 	}
-	if len(key) <= 8 {
-		return "sk-" + key
+	if prefix == "" {
+		prefix = "sk-"
 	}
-	return fmt.Sprintf("sk-%s***%s", key[:4], key[len(key)-4:])
+	if len(key) <= 8 {
+		return prefix + key
+	}
+	return fmt.Sprintf("%s%s***%s", prefix, key[:4], key[len(key)-4:])
 }
 
 func getCallbackTokenInfoCached(tokenID int) (callbackEventTokenInfo, error) {
