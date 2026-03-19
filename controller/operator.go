@@ -113,12 +113,12 @@ func OperatorProvision(c *gin.Context) {
 
 	tokenKey := ""
 	responseSK := ""
-		if strings.TrimSpace(req.Token) != "" {
-			req.Token = strings.TrimSpace(req.Token)
-			if !validateOperatorProvisionToken(req.Token) {
-				common.ApiErrorMsg(c, "token must contain only letters, numbers, or underscore, and be 1-48 characters")
-				return
-			}
+	if strings.TrimSpace(req.Token) != "" {
+		req.Token = strings.TrimSpace(req.Token)
+		if !validateOperatorProvisionToken(req.Token) {
+			common.ApiErrorMsg(c, "token must contain only letters, numbers, or underscore, and be 1-48 characters")
+			return
+		}
 		tokenKey = req.Token
 		req.TokenName = "customer-sk-" + req.Token
 		responseSK = "customer-sk-" + req.Token
@@ -440,6 +440,31 @@ func OperatorDisable(c *gin.Context) {
 	}
 
 	token.Status = common.TokenStatusDisabled
+	if err := token.Update(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
+func OperatorEnable(c *gin.Context) {
+	var req operatorDisableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	_, token, err := resolveTargetUser(req.SK)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	token.Status = common.TokenStatusEnabled
 	if err := token.Update(); err != nil {
 		common.ApiError(c, err)
 		return
