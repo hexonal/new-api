@@ -49,16 +49,49 @@ type operatorProvisionRequest struct {
 }
 
 var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
+var operatorProvisionIMASuffixPattern = regexp.MustCompile(`^(ima_[0-9]+)_[0-9A-Za-z]+$`)
 
 func validateOperatorProvisionToken(token string) bool {
 	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
 }
 
+func getOperatorProvisionUsernameCandidates(username string) []string {
+	normalized := strings.TrimSpace(username)
+	if normalized == "" {
+		return nil
+	}
+	candidates := []string{normalized}
+	match := operatorProvisionIMASuffixPattern.FindStringSubmatch(normalized)
+	if len(match) != 2 {
+		return candidates
+	}
+	baseUsername := strings.TrimSpace(match[1])
+	if baseUsername != "" && baseUsername != normalized {
+		candidates = append(candidates, baseUsername)
+	}
+	return candidates
+}
+
+func findOperatorProvisionUserByCandidates(tx *gorm.DB, candidates []string) (model.User, bool, error) {
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		var existing model.User
+		err := tx.Where("username = ?", candidate).First(&existing).Error
+		if err == nil {
+			return existing, true, nil
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			continue
+		}
+		return model.User{}, false, err
+	}
+	return model.User{}, false, nil
+}
+
 func normalizeOperatorSKToRawKey(sk string) string {
 	key := strings.TrimSpace(sk)
-	if strings.HasPrefix(key, "customer-sk-") {
-		return strings.TrimPrefix(key, "customer-sk-")
-	}
 	return strings.TrimPrefix(key, "sk-")
 }
 
@@ -120,8 +153,10 @@ func OperatorProvision(c *gin.Context) {
 			return
 		}
 		tokenKey = req.Token
-		req.TokenName = "customer-sk-" + req.Token
-		responseSK = "customer-sk-" + req.Token
+		if req.TokenName == "default" {
+			req.TokenName = req.Token
+		}
+		responseSK = req.Token
 	} else {
 		var err error
 		tokenKey, err = common.GenerateKey()
@@ -132,28 +167,46 @@ func OperatorProvision(c *gin.Context) {
 		responseSK = "sk-" + tokenKey
 	}
 
-	// Check user existence first to decide whether to create the user or reuse it.
-	var existingUser model.User
-	userExists := model.DB.Where("username = ?", req.Username).First(&existingUser).Error == nil
-
 	var userId int
+	usernameCandidates := getOperatorProvisionUsernameCandidates(req.Username)
 
-	if !userExists {
-		// Normal path: new user — create user + token in one transaction.
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			cleanUser := model.User{
-				Username:    req.Username,
-				DisplayName: req.DisplayName,
-				Password:    req.Password,
-				Group:       req.Group,
-				Status:      common.UserStatusEnabled,
-				Role:        common.RoleCommonUser,
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		if existingUser, found, findErr := findOperatorProvisionUserByCandidates(tx, usernameCandidates); findErr != nil {
+			return findErr
+		} else if found {
+			userId = existingUser.Id
+		}
+
+		if userId > 0 {
+			t := buildProvisionToken(userId, tokenKey, req)
+			return t.InsertWithTx(tx)
+		}
+
+		// Try to create user inside the transaction to avoid race conditions.
+		cleanUser := model.User{
+			Username:    req.Username,
+			DisplayName: req.DisplayName,
+			Password:    req.Password,
+			Group:       req.Group,
+			Status:      common.UserStatusEnabled,
+			Role:        common.RoleCommonUser,
+		}
+		if insertErr := cleanUser.InsertWithTx(tx, 0); insertErr != nil {
+			if isDuplicateError(insertErr) {
+				// User already exists — look up within the same transaction.
+				existingUser, found, findErr := findOperatorProvisionUserByCandidates(tx, usernameCandidates)
+				if findErr != nil {
+					return findErr
+				}
+				if !found {
+					return insertErr
+				}
+				userId = existingUser.Id
+			} else {
+				return insertErr
 			}
-			if err := cleanUser.InsertWithTx(tx, 0); err != nil {
-				return err
-			}
+		} else {
 			userId = cleanUser.Id
-
 			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
 			// explicitly set the requested quota if provided (converted from USD).
 			if req.AmountUSD > 0 {
@@ -163,30 +216,18 @@ func OperatorProvision(c *gin.Context) {
 					return err
 				}
 			}
+		}
 
-			t := buildProvisionToken(cleanUser.Id, tokenKey, req)
-			return t.InsertWithTx(tx)
-		})
-		if err != nil {
-			if req.Token != "" && isDuplicateError(err) {
-				common.ApiErrorMsg(c, "token already exists")
-				return
-			}
-			common.ApiError(c, err)
+		t := buildProvisionToken(userId, tokenKey, req)
+		return t.InsertWithTx(tx)
+	})
+	if err != nil {
+		if req.Token != "" && isDuplicateError(err) {
+			common.ApiErrorMsg(c, "token already exists")
 			return
 		}
-	} else {
-		// User already exists — add a new token to the existing user.
-		userId = existingUser.Id
-		t := buildProvisionToken(existingUser.Id, tokenKey, req)
-		if err := t.Insert(); err != nil {
-			if req.Token != "" && isDuplicateError(err) {
-				common.ApiErrorMsg(c, "token already exists")
-				return
-			}
-			common.ApiError(c, err)
-			return
-		}
+		common.ApiError(c, err)
+		return
 	}
 
 	if req.Remark != "" {
@@ -249,8 +290,14 @@ func OperatorTokens(c *gin.Context) {
 		if t.ModelLimits != "" {
 			modelLimits = strings.Split(t.ModelLimits, ",")
 		}
+		sk := t.Key
+		// Auto-generated keys are 48-char random strings; prepend "sk-".
+		// Custom tokens (shorter or non-standard) are returned as-is.
+		if len(t.Key) == 48 {
+			sk = "sk-" + t.Key
+		}
 		items = append(items, operatorTokenItem{
-			SK:                 "sk-" + t.Key,
+			SK:                 sk,
 			Name:               t.Name,
 			Status:             t.Status,
 			CreatedTime:        t.CreatedTime,
