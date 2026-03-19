@@ -395,13 +395,7 @@ func buildUserPointsRequestURL(rawQueryURL string, tokenKey string) (string, err
 
 func normalizeExternalSK(raw string) string {
 	key := strings.TrimSpace(raw)
-	if key == "" {
-		return key
-	}
-	if hasKnownSKPrefix(key) {
-		return key
-	}
-	return skPrefixStandard + strings.TrimPrefix(key, skPrefixStandard)
+	return key
 }
 
 func baseTokenKey(tokenKey string, token *model.Token) string {
@@ -414,30 +408,15 @@ func baseTokenKey(tokenKey string, token *model.Token) string {
 	return strings.TrimSpace(key)
 }
 
-func hasKnownSKPrefix(value string) bool {
-	value = strings.TrimSpace(value)
-	return strings.HasPrefix(value, skPrefixStandard) ||
-		strings.HasPrefix(value, skPrefixCustomer)
-}
-
 func normalizeHeaderSKPrefix(raw string) (string, bool) {
-	prefix := strings.ToLower(strings.TrimSpace(raw))
-	switch prefix {
-	case skPrefixCustomer:
-		return skPrefixCustomer, true
+	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case skPrefixStandard:
 		return skPrefixStandard, true
+	case skPrefixCustomer:
+		return skPrefixCustomer, true
 	default:
 		return "", false
 	}
-}
-
-func prefixFromTokenName(tokenName string) string {
-	tokenName = strings.TrimSpace(tokenName)
-	if strings.HasPrefix(tokenName, skPrefixCustomer) {
-		return skPrefixCustomer
-	}
-	return ""
 }
 
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
@@ -448,30 +427,8 @@ func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey st
 		}
 	}
 
-	if c != nil && c.Request != nil {
-		auth := strings.TrimSpace(c.Request.Header.Get("Authorization"))
-		if strings.HasPrefix(auth, "Bearer ") || strings.HasPrefix(auth, "bearer ") {
-			auth = strings.TrimSpace(auth[7:])
-		}
-		if hasKnownSKPrefix(auth) {
-			return auth
-		}
-	}
-
-	prefix := ""
-	if c != nil {
-		prefix = prefixFromTokenName(c.GetString("token_name"))
-	}
-	if prefix == "" && token != nil {
-		prefix = prefixFromTokenName(token.Name)
-	}
-	if prefix != "" {
-		if baseKey != "" {
-			return prefix + baseKey
-		}
-	}
-
-	return normalizeExternalSK(tokenKey)
+	// Default behavior: keep original raw token key for downstream user_points query.
+	return baseKey
 }
 
 // gjsonResultToBool accepts typical boolean-like values from external API:

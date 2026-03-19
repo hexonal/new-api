@@ -85,7 +85,7 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 	if event.HTTPMethod != http.MethodGet {
 		t.Fatalf("unexpected method: %s", event.HTTPMethod)
 	}
-	if event.TokenSKSnapshot != "sk-abc123" {
+	if event.TokenSKSnapshot != "abc123" {
 		t.Fatalf("unexpected token sk snapshot: %s", event.TokenSKSnapshot)
 	}
 	if event.RequestID != "req-user-points-1" {
@@ -141,28 +141,28 @@ func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
 	}
 }
 
-func TestBuildUserPointsFailureCallbackEventKeepsCustomerSKPrefix(t *testing.T) {
+func TestBuildUserPointsFailureCallbackEventNoPrefixToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	c.Set(common.RequestIdKey, "req-user-points-customer")
+	c.Set(common.RequestIdKey, "req-user-points-noprefix")
 
 	event, err := buildUserPointsFailureCallbackEvent(
 		c,
 		"https://example.com/api/v1/user_points?sk={sk}",
 		"data.can_pre_deduct",
-		"customer-sk-abc123",
+		"ima_abc123",
 		errors.New("request timeout"),
 		false,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if event.TokenSKSnapshot != "customer-sk-abc123" {
+	if event.TokenSKSnapshot != "ima_abc123" {
 		t.Fatalf("unexpected token sk snapshot: %s", event.TokenSKSnapshot)
 	}
-	if !strings.Contains(event.CallbackURL, "sk=customer-sk-abc123") {
+	if !strings.Contains(event.CallbackURL, "sk=ima_abc123") {
 		t.Fatalf("unexpected callback url: %s", event.CallbackURL)
 	}
 }
@@ -209,73 +209,65 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 
 func TestResolveUserPointsExternalSK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Run("prefer explicit header prefix when provided", func(t *testing.T) {
+
+	t.Run("default keeps raw token key when no forced header", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("customer authorization also falls back to raw key by default", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("no-prefix token like ima_abc123 returned as-is", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer ima_abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "ima_abc123"}, "ima_abc123")
+		if got != "ima_abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("forced header customer-sk prefix", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set(userPointsSKPrefixHeader, "customer-sk-")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "customer-sk-abc123" {
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "ima_abc123"}, "ima_abc123")
+		if got != "customer-sk-ima_abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
 
-	t.Run("ignore invalid explicit header prefix", func(t *testing.T) {
+	t.Run("forced header sk prefix", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
-		c.Request.Header.Set(userPointsSKPrefixHeader, "invalid-prefix")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "sk-abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
-	t.Run("prefer authorization header with customer prefix", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "customer-sk-abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
-	t.Run("without explicit header keep customer authorization prefix", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
-		// token_name intentionally set to raw key to ensure Authorization remains higher priority.
-		c.Set("token_name", "abc123")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "customer-sk-abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
-	t.Run("fallback to token name prefix when auth header is raw key", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set("Authorization", "Bearer abc123")
-		c.Set("token_name", "customer-sk-abc123")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123", Name: "customer-sk-abc123"}, "abc123")
-		if got != "customer-sk-abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
-	t.Run("default to sk prefix", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set("Authorization", "Bearer abc123")
+		c.Request.Header.Set(userPointsSKPrefixHeader, "sk-")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
 		if got != "sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("nil context returns base key from token", func(t *testing.T) {
+		got := resolveUserPointsExternalSK(nil, &model.Token{Key: "sk-abc123"}, "sk-abc123")
+		if got != "abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
