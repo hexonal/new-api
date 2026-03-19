@@ -77,11 +77,11 @@ const PricingCardView = ({
   openModelDetail,
 }) => {
   const showSkeleton = useMinimumLoadingTime(loading);
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedModels = filteredModels.slice(
-    startIndex,
-    startIndex + pageSize,
+  const validModels = (filteredModels || []).filter(
+    (model) => model && typeof model === 'object',
   );
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedModels = validModels.slice(startIndex, startIndex + pageSize);
   const getModelKey = (model) => model.key ?? model.model_name ?? model.id;
   const isMobile = useIsMobile();
 
@@ -219,7 +219,7 @@ const PricingCardView = ({
     );
   }
 
-  if (!filteredModels || filteredModels.length === 0) {
+  if (validModels.length === 0) {
     return (
       <div className='flex justify-center items-center py-20'>
         <Empty
@@ -341,9 +341,13 @@ const PricingCardView = ({
                         </div>
                         <div>
                           {t('补全')}:{' '}
-                          {model.quota_type === 0
-                            ? parseFloat(model.completion_ratio.toFixed(3))
-                            : t('无')}
+                          {(() => {
+                            if (model.quota_type !== 0) return t('无');
+                            const ratioValue = Number(model?.completion_ratio);
+                            return Number.isFinite(ratioValue)
+                              ? parseFloat(ratioValue.toFixed(3))
+                              : '-';
+                          })()}
                         </div>
                         <div>
                           {t('分组')}: {priceData?.usedGroupRatio ?? '-'}
@@ -359,12 +363,12 @@ const PricingCardView = ({
       </div>
 
       {/* 分页 */}
-      {filteredModels.length > 0 && (
+      {validModels.length > 0 && (
         <div className='flex justify-center mt-6 py-4 border-t pricing-pagination-divider'>
           <Pagination
             currentPage={currentPage}
             pageSize={pageSize}
-            total={filteredModels.length}
+            total={validModels.length}
             showSizeChanger={true}
             pageSizeOptions={[10, 20, 50, 100]}
             size={isMobile ? 'small' : 'default'}

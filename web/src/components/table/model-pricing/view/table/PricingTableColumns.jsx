@@ -208,7 +208,13 @@ export const getPricingTableColumns = ({
     ),
     dataIndex: 'model_ratio',
     render: (text, record, index) => {
-      const completionRatio = parseFloat(record.completion_ratio.toFixed(3));
+      if (!record || typeof record !== 'object') {
+        return <div className='text-gray-700'>-</div>;
+      }
+      const completionRatioValue = Number(record.completion_ratio);
+      const completionRatio = Number.isFinite(completionRatioValue)
+        ? parseFloat(completionRatioValue.toFixed(3))
+        : '-';
       const priceData = getPriceData(record);
 
       return (
