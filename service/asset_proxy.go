@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,7 +19,7 @@ const doubaoAssetBasePath = "/api/v1/doubao/asset"
 type AssetProxyClient struct {
 	baseURL string
 	apiKey  string
-	// 优先使用用户名作为上游 user_id，缺失时回退为数字 userID 字符串，避免空 uid 导致上游 403。
+	// 优先使用用户名作为上游 user_id，缺失时按 userID 反查 username。
 	userName string
 	userID   int
 	client   *http.Client
@@ -53,11 +52,17 @@ func (c *AssetProxyClient) doRequest(ctx context.Context, subPath string, body m
 	if body == nil {
 		body = map[string]any{}
 	}
-	// 注入 user_id 到上游请求，优先 username，空值则回退到 userID 字符串。
+	// 注入 user_id 到上游请求，优先 username，空值则按 userID 反查 username。
 	uid := strings.TrimSpace(c.userName)
 	if uid == "" && c.userID > 0 {
-		uid = strconv.Itoa(c.userID)
-		common.SysLog(fmt.Sprintf("doubao asset request warning: username empty, fallback uid=%s", uid))
+		userName, err := model.GetUsernameById(c.userID, false)
+		if err == nil {
+			uid = strings.TrimSpace(userName)
+		}
+		if uid == "" {
+			return nil, fmt.Errorf("asset uid resolve failed: username is empty for user_id=%d", c.userID)
+		}
+		common.SysLog(fmt.Sprintf("doubao asset request info: resolved uid(username)=%s from user_id=%d", uid, c.userID))
 	}
 	if uid != "" {
 		body["user_id"] = uid
