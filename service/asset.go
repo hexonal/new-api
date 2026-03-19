@@ -350,6 +350,7 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	if billingOk {
 		model.UpdateUserUsedQuotaAndRequestCount(userID, quota)
 		model.UpdateChannelUsedQuota(channel.Id, quota)
+		modelPrice := float64(quota) / float64(common.QuotaPerUnit)
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 			UserId:    userID,
 			LogType:   model.LogTypeConsume,
@@ -359,6 +360,12 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 			Quota:     quota,
 			TokenId:   billedTokenID,
 			Group:     billedTokenName,
+			Other: map[string]interface{}{
+				"model_price":   modelPrice,
+				"group_ratio":   1.0,
+				"actual_quota":  quota,
+				"billing_stage": "asset_upload",
+			},
 		})
 	} else {
 		common.SysLog(fmt.Sprintf("asset billing warning: upstream asset created without successful billing, user_id=%d channel_id=%d upstream_asset_id=%s", userID, channel.Id, upstreamAssetID))

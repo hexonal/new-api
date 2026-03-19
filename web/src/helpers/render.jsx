@@ -1491,6 +1491,15 @@ export function renderModelPrice(
   imageGenerationCallPrice = 0,
   displayMode = 'price',
 ) {
+  const normalizedModelPrice = Number(modelPrice);
+  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice >= 0;
+  const normalizedModelRatio = Number(modelRatio);
+  const hasModelRatio = Number.isFinite(normalizedModelRatio);
+  const normalizedCompletionRatio = Number(completionRatio);
+  const safeCompletionRatio = Number.isFinite(normalizedCompletionRatio)
+    ? normalizedCompletionRatio
+    : 1;
+
   const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
     groupRatio,
     user_group_ratio,
@@ -1499,15 +1508,15 @@ export function renderModelPrice(
 
   const { symbol, rate } = getCurrencyConfig();
 
-  if (!shouldUseRatioBillingProcess(modelPrice)) {
-    if (modelPrice !== -1) {
+  if (!shouldUseRatioBillingProcess(hasModelPrice ? normalizedModelPrice : -1)) {
+    if (hasModelPrice) {
       return (
         <>
           <article>
             <p>
               {i18next.t('模型价格：{{symbol}}{{price}} / 次', {
                 symbol,
-                price: (modelPrice * rate).toFixed(6),
+                price: (normalizedModelPrice * rate).toFixed(6),
               })}
             </p>
             <p>
@@ -1515,10 +1524,10 @@ export function renderModelPrice(
                 '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
                 {
                   symbol,
-                  price: (modelPrice * rate).toFixed(6),
+                  price: (normalizedModelPrice * rate).toFixed(6),
                   ratioType: ratioLabel,
                   ratio: groupRatio,
-                  total: (modelPrice * groupRatio * rate).toFixed(6),
+                  total: (normalizedModelPrice * groupRatio * rate).toFixed(6),
                 },
               )}
             </p>
@@ -1528,13 +1537,20 @@ export function renderModelPrice(
       );
     }
 
-    if (completionRatio === undefined) {
-      completionRatio = 0;
+    if (!hasModelRatio) {
+      return (
+        <>
+          <article>
+            <p>{i18next.t('计费参数缺失')}</p>
+            <p>{i18next.t('仅供参考，以实际扣费为准')}</p>
+          </article>
+        </>
+      );
     }
-    const inputRatioPrice = modelRatio * 2.0;
-    const completionRatioPrice = modelRatio * 2.0 * completionRatio;
-    const cacheRatioPrice = modelRatio * 2.0 * cacheRatio;
-    const imageRatioPrice = modelRatio * 2.0 * imageRatio;
+    const inputRatioPrice = normalizedModelRatio * 2.0;
+    const completionRatioPrice = normalizedModelRatio * 2.0 * safeCompletionRatio;
+    const cacheRatioPrice = normalizedModelRatio * 2.0 * cacheRatio;
+    const imageRatioPrice = normalizedModelRatio * 2.0 * imageRatio;
     let effectiveInputTokens =
       inputTokens - cacheTokens + cacheTokens * cacheRatio;
     if (image && imageOutputTokens > 0) {
@@ -1961,6 +1977,15 @@ export function renderLogContent(
   fileSearchCallCount = 0,
   displayMode = 'price',
 ) {
+  const normalizedModelPrice = Number(modelPrice);
+  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice >= 0;
+  const normalizedModelRatio = Number(modelRatio);
+  const hasModelRatio = Number.isFinite(normalizedModelRatio);
+  const normalizedCompletionRatio = Number(completionRatio);
+  const safeCompletionRatio = Number.isFinite(normalizedCompletionRatio)
+    ? normalizedCompletionRatio
+    : 1;
+
   const {
     ratio,
     label: ratioLabel,
@@ -1970,34 +1995,37 @@ export function renderLogContent(
   // 获取货币配置
   const { symbol, rate } = getCurrencyConfig();
 
-  if (isPriceDisplayMode(displayMode, modelPrice)) {
-    if (modelPrice !== -1) {
+  if (isPriceDisplayMode(displayMode, hasModelPrice ? normalizedModelPrice : -1)) {
+    if (hasModelPrice) {
       return joinBillingSummary([
         i18next.t('模型价格 {{symbol}}{{price}} / 次', {
           symbol,
-          price: (modelPrice * rate).toFixed(6),
+          price: (normalizedModelPrice * rate).toFixed(6),
         }),
         getGroupRatioText(groupRatio, user_group_ratio),
       ]);
+    }
+    if (!hasModelRatio) {
+      return i18next.t('计费参数缺失');
     }
 
     const parts = [
       i18next.t('输入价格 {{symbol}}{{price}} / 1M tokens', {
         symbol,
-        price: (modelRatio * 2.0 * rate).toFixed(6),
+        price: (normalizedModelRatio * 2.0 * rate).toFixed(6),
       }),
       i18next.t('补全价格 {{symbol}}{{price}} / 1M tokens', {
         symbol,
-        price: (modelRatio * 2.0 * completionRatio * rate).toFixed(6),
+        price: (normalizedModelRatio * 2.0 * safeCompletionRatio * rate).toFixed(6),
       }),
     ];
     appendPricePart(parts, cacheRatio !== 1.0, '缓存读取价格 {{symbol}}{{price}} / 1M tokens', {
       symbol,
-      price: (modelRatio * 2.0 * cacheRatio * rate).toFixed(6),
+      price: (normalizedModelRatio * 2.0 * cacheRatio * rate).toFixed(6),
     });
     appendPricePart(parts, image, '图片输入价格 {{symbol}}{{price}} / 1M tokens', {
       symbol,
-      price: (modelRatio * 2.0 * imageRatio * rate).toFixed(6),
+      price: (normalizedModelRatio * 2.0 * imageRatio * rate).toFixed(6),
     });
     appendPricePart(parts, webSearch, 'Web 搜索调用 {{webSearchCallCount}} 次', {
       webSearchCallCount,
@@ -2009,21 +2037,24 @@ export function renderLogContent(
     return joinBillingSummary(parts);
   }
 
-  if (modelPrice !== -1) {
+  if (hasModelPrice) {
     return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
       symbol: symbol,
-      price: (modelPrice * rate).toFixed(6),
+      price: (normalizedModelPrice * rate).toFixed(6),
       ratioType: ratioLabel,
       ratio,
     });
   } else {
+    if (!hasModelRatio) {
+      return i18next.t('计费参数缺失');
+    }
     if (image) {
       return i18next.t(
         '模型倍率 {{modelRatio}}，缓存倍率 {{cacheRatio}}，输出倍率 {{completionRatio}}，图片输入倍率 {{imageRatio}}，{{ratioType}} {{ratio}}',
         {
-          modelRatio: modelRatio,
+          modelRatio: normalizedModelRatio,
           cacheRatio: cacheRatio,
-          completionRatio: completionRatio,
+          completionRatio: safeCompletionRatio,
           imageRatio: imageRatio,
           ratioType: ratioLabel,
           ratio,
@@ -2033,9 +2064,9 @@ export function renderLogContent(
       return i18next.t(
         '模型倍率 {{modelRatio}}，缓存倍率 {{cacheRatio}}，输出倍率 {{completionRatio}}，{{ratioType}} {{ratio}}，Web 搜索调用 {{webSearchCallCount}} 次',
         {
-          modelRatio: modelRatio,
+          modelRatio: normalizedModelRatio,
           cacheRatio: cacheRatio,
-          completionRatio: completionRatio,
+          completionRatio: safeCompletionRatio,
           ratioType: ratioLabel,
           ratio,
           webSearchCallCount,
@@ -2045,9 +2076,9 @@ export function renderLogContent(
       return i18next.t(
         '模型倍率 {{modelRatio}}，缓存倍率 {{cacheRatio}}，输出倍率 {{completionRatio}}，{{ratioType}} {{ratio}}',
         {
-          modelRatio: modelRatio,
+          modelRatio: normalizedModelRatio,
           cacheRatio: cacheRatio,
-          completionRatio: completionRatio,
+          completionRatio: safeCompletionRatio,
           ratioType: ratioLabel,
           ratio,
         },
