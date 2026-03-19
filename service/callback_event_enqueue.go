@@ -128,7 +128,6 @@ func normalizeSnapshotSK(rawSK string) string {
 		return ""
 	}
 	if strings.HasPrefix(key, "customer-sk-") ||
-		strings.HasPrefix(key, "custom-sk-") ||
 		strings.HasPrefix(key, "sk-") {
 		return key
 	}

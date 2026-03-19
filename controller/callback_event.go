@@ -259,8 +259,6 @@ func splitSKPrefixAndKey(raw string) (string, string) {
 	switch {
 	case strings.HasPrefix(value, "customer-sk-"):
 		return "customer-sk-", strings.TrimSpace(strings.TrimPrefix(value, "customer-sk-"))
-	case strings.HasPrefix(value, "custom-sk-"):
-		return "custom-sk-", strings.TrimSpace(strings.TrimPrefix(value, "custom-sk-"))
 	case strings.HasPrefix(value, "sk-"):
 		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
 	default:

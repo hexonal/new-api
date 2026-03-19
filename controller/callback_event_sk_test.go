@@ -14,7 +14,6 @@ func TestNormalizeSKKeepsCustomPrefixes(t *testing.T) {
 		{name: "default sk", input: "abc123", want: "sk-abc123"},
 		{name: "already sk", input: "sk-abc123", want: "sk-abc123"},
 		{name: "customer sk", input: "customer-sk-abc123", want: "customer-sk-abc123"},
-		{name: "custom sk", input: "custom-sk-abc123", want: "custom-sk-abc123"},
 	}
 
 	for _, tc := range cases {
@@ -34,7 +33,6 @@ func TestBuildMaskedSKKeepsPrefix(t *testing.T) {
 	}{
 		{name: "sk prefix", input: "sk-abcdefgh12345678", wantPrefix: "sk-", wantContain: "***"},
 		{name: "customer prefix", input: "customer-sk-abcdefgh12345678", wantPrefix: "customer-sk-", wantContain: "***"},
-		{name: "custom prefix", input: "custom-sk-abcdefgh12345678", wantPrefix: "custom-sk-", wantContain: "***"},
 	}
 
 	for _, tc := range cases {

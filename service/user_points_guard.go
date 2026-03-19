@@ -33,7 +33,6 @@ const (
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
 	skPrefixStandard                      = "sk-"
 	skPrefixCustomer                      = "customer-sk-"
-	skPrefixCustom                        = "custom-sk-"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -407,20 +406,15 @@ func normalizeExternalSK(raw string) string {
 func hasKnownSKPrefix(value string) bool {
 	value = strings.TrimSpace(value)
 	return strings.HasPrefix(value, skPrefixStandard) ||
-		strings.HasPrefix(value, skPrefixCustomer) ||
-		strings.HasPrefix(value, skPrefixCustom)
+		strings.HasPrefix(value, skPrefixCustomer)
 }
 
 func prefixFromTokenName(tokenName string) string {
 	tokenName = strings.TrimSpace(tokenName)
-	switch {
-	case strings.HasPrefix(tokenName, skPrefixCustomer):
+	if strings.HasPrefix(tokenName, skPrefixCustomer) {
 		return skPrefixCustomer
-	case strings.HasPrefix(tokenName, skPrefixCustom):
-		return skPrefixCustom
-	default:
-		return ""
 	}
+	return ""
 }
 
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
