@@ -16,6 +16,12 @@ func TestExtractTokenKeyAndParts(t *testing.T) {
 			wantPart: []string{"abc123-extra"},
 		},
 		{
+			name:     "customer-sk prefix strips customer-sk-",
+			input:    "customer-sk-abc123-extra",
+			wantKey:  "abc123-extra",
+			wantPart: []string{"abc123-extra"},
+		},
+		{
 			name:     "no-prefix token kept as-is",
 			input:    "ima_abc123",
 			wantKey:  "ima_abc123",
@@ -118,6 +124,7 @@ func TestDetectTokenAuthPrefix(t *testing.T) {
 		want  string
 	}{
 		{name: "sk prefix", input: "sk-abc123", want: "sk-"},
+		{name: "customer prefix", input: "customer-sk-abc123", want: "customer-sk-"},
 		{name: "raw token", input: "ima_abc123", want: ""},
 		{name: "empty", input: "", want: ""},
 	}

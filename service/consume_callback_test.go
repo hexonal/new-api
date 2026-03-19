@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -45,6 +46,7 @@ func TestNewConsumeCallbackPayload_Normalization(t *testing.T) {
 		100,
 		200,
 		"",
+		"",
 		"gpt-4o-mini",
 		300,
 		"",
@@ -78,6 +80,11 @@ func TestBuildConsumeCallbackSK_WithSKAuthPrefix(t *testing.T) {
 	assert.Equal(t, "sk-ima_demo_token", got)
 }
 
+func TestBuildConsumeCallbackSK_WithCustomerSKAuthPrefix(t *testing.T) {
+	got := buildConsumeCallbackSK("ima_demo_token", "", "customer-sk-")
+	assert.Equal(t, "customer-sk-ima_demo_token", got)
+}
+
 func TestBuildConsumeCallbackSK_NoPrefixAuthSupportsArbitraryCustomKeys(t *testing.T) {
 	got := buildConsumeCallbackSK("Abc123Def456", "", "")
 	assert.Equal(t, "Abc123Def456", got)
@@ -91,6 +98,41 @@ func TestBuildConsumeCallbackSK_FallbackSKWithSKPrefix(t *testing.T) {
 func TestBuildConsumeCallbackSK_FallbackSKNoPrefixAuth(t *testing.T) {
 	got := buildConsumeCallbackSK("", "sk-ima_demo_token", "")
 	assert.Equal(t, "ima_demo_token", got)
+}
+
+func TestResolveConsumeCallbackPresentedSK(t *testing.T) {
+	assert.Equal(t,
+		"customer-sk-ima_demo_token",
+		resolveConsumeCallbackPresentedSK("Bearer customer-sk-ima_demo_token", "ima_demo_token"),
+	)
+	assert.Equal(t,
+		"sk-ima_demo_token",
+		resolveConsumeCallbackPresentedSK("Bearer sk-ima_demo_token", "ima_demo_token"),
+	)
+	assert.Equal(t,
+		"ima_demo_token",
+		resolveConsumeCallbackPresentedSK("Bearer ima_demo_token", "ima_demo_token"),
+	)
+	assert.Equal(t,
+		"",
+		resolveConsumeCallbackPresentedSK("Bearer customer-sk-other_token", "ima_demo_token"),
+	)
+}
+
+func TestExtractConsumeCallbackPresentedToken(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RequestHeaders: map[string]string{
+			"Authorization": "Bearer customer-sk-ima_demo_token",
+		},
+	}
+	assert.Equal(t, "customer-sk-ima_demo_token", extractConsumeCallbackPresentedToken(info))
+
+	info = &relaycommon.RelayInfo{
+		RequestHeaders: map[string]string{
+			"authorization": "bearer sk-ima_demo_token",
+		},
+	}
+	assert.Equal(t, "sk-ima_demo_token", extractConsumeCallbackPresentedToken(info))
 }
 
 func TestIsConsumeCallbackRelayFormatSupported(t *testing.T) {

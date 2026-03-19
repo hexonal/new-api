@@ -20,6 +20,8 @@ import (
 const (
 	ConsumeCallbackPhaseSettle      = "settle"
 	ConsumeCallbackPhaseFinalAdjust = "final_adjust"
+	consumeCallbackPrefixSK         = "sk-"
+	consumeCallbackPrefixCustomerSK = "customer-sk-"
 )
 
 type ConsumeCallbackUsage struct {
@@ -58,11 +60,13 @@ func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usag
 		return
 	}
 	requestID := strings.TrimSpace(relayInfo.RequestId)
+	presentedToken := extractConsumeCallbackPresentedToken(relayInfo)
 	payload := newConsumeCallbackPayload(
 		requestID,
 		relayInfo.UserId,
 		relayInfo.TokenId,
 		relayInfo.TokenAuthPrefix,
+		presentedToken,
 		relayInfo.OriginModelName,
 		relayInfo.ChannelId,
 		relayInfo.BillingSource,
@@ -87,6 +91,7 @@ func newConsumeCallbackPayload(
 	userID int,
 	tokenID int,
 	tokenAuthPrefix string,
+	presentedToken string,
 	modelName string,
 	channelID int,
 	billingSource string,
@@ -97,7 +102,7 @@ func newConsumeCallbackPayload(
 	normalizedUsage := normalizeConsumeUsage(usage)
 	normalizedUserID := maxInt(userID, 0)
 	normalizedTokenID := maxInt(tokenID, 0)
-	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID, tokenAuthPrefix)
+	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID, tokenAuthPrefix, presentedToken)
 	return consumeCallbackPayload{
 		RequestID:        requestID,
 		UserID:           normalizedUserID,
@@ -129,14 +134,17 @@ func extractConsumeCallbackRawTokenKey(raw string) string {
 	if key == "" {
 		return ""
 	}
-	key = strings.TrimPrefix(key, "sk-")
+	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
 	return strings.TrimSpace(key)
 }
 
 func normalizeConsumeCallbackAuthPrefix(raw string) string {
 	switch strings.TrimSpace(raw) {
-	case "sk-":
-		return "sk-"
+	case consumeCallbackPrefixSK:
+		return consumeCallbackPrefixSK
+	case consumeCallbackPrefixCustomerSK:
+		return consumeCallbackPrefixCustomerSK
 	default:
 		return ""
 	}
@@ -150,14 +158,71 @@ func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix 
 	if rawKey == "" {
 		return ""
 	}
-	if normalizeConsumeCallbackAuthPrefix(tokenAuthPrefix) == "sk-" {
-		return "sk-" + rawKey
+	switch normalizeConsumeCallbackAuthPrefix(tokenAuthPrefix) {
+	case consumeCallbackPrefixSK:
+		return consumeCallbackPrefixSK + rawKey
+	case consumeCallbackPrefixCustomerSK:
+		return consumeCallbackPrefixCustomerSK + rawKey
 	}
 	// No explicit sk- auth prefix => keep raw key (supports arbitrary custom key formats).
 	return rawKey
 }
 
-func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix string) (username string, tokenName string, sk string) {
+func normalizeConsumeCallbackPresentedToken(raw string) string {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "Bearer ") || strings.HasPrefix(value, "bearer ") {
+		value = strings.TrimSpace(value[7:])
+	}
+	return strings.TrimSpace(value)
+}
+
+func baseConsumeCallbackTokenKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
+	return strings.TrimSpace(key)
+}
+
+func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) string {
+	presented := normalizeConsumeCallbackPresentedToken(presentedToken)
+	if presented == "" {
+		return ""
+	}
+	basePresented := baseConsumeCallbackTokenKey(presented)
+	if basePresented == "" {
+		return ""
+	}
+	baseToken := baseConsumeCallbackTokenKey(tokenKey)
+	if baseToken == "" || baseToken == basePresented {
+		return presented
+	}
+	return ""
+}
+
+func consumeCallbackHeaderValue(headers map[string]string, headerName string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	for key, value := range headers {
+		if strings.EqualFold(strings.TrimSpace(key), headerName) {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func extractConsumeCallbackPresentedToken(relayInfo *relaycommon.RelayInfo) string {
+	if relayInfo == nil {
+		return ""
+	}
+	token := normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "Authorization"))
+	if token == "" || token == "midjourney-proxy" {
+		token = normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "mj-api-secret"))
+	}
+	return strings.TrimSpace(token)
+}
+
+func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix string, presentedToken string) (username string, tokenName string, sk string) {
 	// Allow pure unit tests to run without requiring DB bootstrap.
 	if model.DB == nil {
 		return "", "", ""
@@ -177,6 +242,10 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix str
 				var cached consumeCallbackTokenIdentity
 				if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
 					tokenName = strings.TrimSpace(cached.Name)
+					sk = resolveConsumeCallbackPresentedSK(presentedToken, strings.TrimSpace(cached.TokenKey))
+					if sk != "" {
+						return username, tokenName, sk
+					}
 					sk = buildConsumeCallbackSK(strings.TrimSpace(cached.TokenKey), strings.TrimSpace(cached.SK), tokenAuthPrefix)
 					if sk == "" {
 						sk = strings.TrimSpace(cached.SK)
@@ -192,6 +261,10 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix str
 			return username, "", ""
 		}
 		tokenName = strings.TrimSpace(token.Name)
+		sk = resolveConsumeCallbackPresentedSK(presentedToken, token.Key)
+		if sk != "" {
+			return username, tokenName, sk
+		}
 		sk = buildConsumeCallbackSK(token.Key, "", tokenAuthPrefix)
 
 		if common.RedisEnabled {

@@ -52,6 +52,21 @@ func TestExtractMonitorAlertDomain(t *testing.T) {
 	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai, proxy.local"))
 }
 
+func TestBuildMonitorAlertTitleWithDomain(t *testing.T) {
+	require.Equal(t,
+		"API request rejected-zcheap.ai",
+		buildMonitorAlertTitleWithDomain("API request rejected", map[string]interface{}{"site_domain": "zcheap.ai"}),
+	)
+	require.Equal(t,
+		"API request rejected-zcheap.ai",
+		buildMonitorAlertTitleWithDomain("API request rejected-zcheap.ai", map[string]interface{}{"site_domain": "zcheap.ai"}),
+	)
+	require.Equal(t,
+		"API request rejected",
+		buildMonitorAlertTitleWithDomain("API request rejected", map[string]interface{}{}),
+	)
+}
+
 func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {
 	cfg := monitorAlertConfig{MaskSensitive: false}
 	output := sanitizeMonitorAlertData(cfg, map[string]interface{}{

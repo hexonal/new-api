@@ -172,6 +172,9 @@ func WssAuth(c *gin.Context) {
 
 func detectTokenAuthPrefix(key string) string {
 	key = strings.TrimSpace(key)
+	if strings.HasPrefix(key, "customer-sk-") {
+		return "customer-sk-"
+	}
 	if strings.HasPrefix(key, "sk-") {
 		return "sk-"
 	}
@@ -179,6 +182,9 @@ func detectTokenAuthPrefix(key string) string {
 }
 
 func extractTokenKeyAndParts(key string) (string, []string) {
+	if strings.HasPrefix(key, "customer-sk-") {
+		key = strings.TrimPrefix(key, "customer-sk-")
+	}
 	if strings.HasPrefix(key, "sk-") {
 		key = strings.TrimPrefix(key, "sk-")
 	}

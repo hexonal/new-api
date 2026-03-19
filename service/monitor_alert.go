@@ -285,6 +285,7 @@ func allowMonitorAlertByCooldown(key string, now time.Time, cooldownMinutes int)
 
 func enqueueMonitorAlert(cfg monitorAlertConfig, title string, requestID string, data map[string]interface{}, idempotencyKey string) error {
 	data = sanitizeMonitorAlertData(cfg, data)
+	title = buildMonitorAlertTitleWithDomain(title, data)
 	switch cfg.AlertType {
 	case monitorAlertTypeWebhook:
 		return enqueueMonitorAlertWebhook(cfg, title, requestID, data, idempotencyKey)
@@ -489,6 +490,26 @@ func nonEmptyMonitorAlertID(value string) string {
 		return value
 	}
 	return common.GetUUID()
+}
+
+func buildMonitorAlertTitleWithDomain(title string, data map[string]interface{}) string {
+	baseTitle := strings.TrimSpace(title)
+	if baseTitle == "" {
+		baseTitle = "monitor alert"
+	}
+	rawDomain, hasDomain := data["site_domain"]
+	if !hasDomain || rawDomain == nil {
+		return baseTitle
+	}
+	domain := extractMonitorAlertDomain(strings.TrimSpace(fmt.Sprintf("%v", rawDomain)))
+	if domain == "" {
+		return baseTitle
+	}
+	suffix := "-" + domain
+	if strings.HasSuffix(baseTitle, suffix) {
+		return baseTitle
+	}
+	return baseTitle + suffix
 }
 
 func monitorAlertAlreadySent(c *gin.Context) bool {
