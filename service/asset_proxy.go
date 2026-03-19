@@ -65,6 +65,8 @@ func (c *AssetProxyClient) doRequest(ctx context.Context, subPath string, body m
 		common.SysLog(fmt.Sprintf("doubao asset request info: resolved uid(username)=%s from user_id=%d", uid, c.userID))
 	}
 	if uid != "" {
+		// 兼容上游不同字段命名：部分环境要求 uid，部分环境要求 user_id。
+		body["uid"] = uid
 		body["user_id"] = uid
 	}
 
@@ -100,6 +102,7 @@ func (c *AssetProxyClient) doRequest(ctx context.Context, subPath string, body m
 	}
 
 	if parsed.Code != 200 {
+		common.SysLog(fmt.Sprintf("doubao asset upstream error: path=%s code=%d log_id=%s uid=%v message=%s", subPath, parsed.Code, parsed.LogID, body["uid"], parsed.Message))
 		return nil, fmt.Errorf("doubao asset request failed: %s (code=%d, log_id=%s)", parsed.Message, parsed.Code, parsed.LogID)
 	}
 
