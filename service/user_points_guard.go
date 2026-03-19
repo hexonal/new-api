@@ -52,8 +52,117 @@ type resolvedUserPointsConfig struct {
 	insufficientMessage string
 }
 
+func sortUserPointsRoutingRules(rules []operation_setting.UserPointsRoutingRule) []operation_setting.UserPointsRoutingRule {
+	sortedRules := append([]operation_setting.UserPointsRoutingRule(nil), rules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+	return sortedRules
+}
+
+func normalizeUserPointsTokenPrefixCandidates(raw ...string) []string {
+	candidates := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for _, item := range raw {
+		value := strings.TrimSpace(item)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		candidates = append(candidates, value)
+	}
+	return candidates
+}
+
+func buildUserPointsTokenPrefixCandidates(c *gin.Context, token *model.Token, tokenKey string) []string {
+	baseKey := baseTokenKey(tokenKey, token)
+	presentedKey := extractPresentedTokenFromRequest(c)
+	return normalizeUserPointsTokenPrefixCandidates(
+		presentedKey,
+		baseTokenKey(presentedKey, nil),
+		baseKey,
+	)
+}
+
+func matchPrefixPattern(value string, rawPattern string) bool {
+	normalizedValue := strings.TrimSpace(value)
+	if normalizedValue == "" {
+		return false
+	}
+	prefixes := model.ParseDailyUserUsagePrefixes(rawPattern)
+	for _, prefix := range prefixes {
+		prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+		if prefix == "" {
+			continue
+		}
+		if strings.HasPrefix(normalizedValue, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchPrefixPatternCandidates(candidates []string, rawPattern string) bool {
+	for _, candidate := range candidates {
+		if matchPrefixPattern(candidate, rawPattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchUserPointsRoutingRule(rule operation_setting.UserPointsRoutingRule, username string, tokenPrefixCandidates []string) bool {
+	switch operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) {
+	case operation_setting.RoutingMatchByTokenPrefix:
+		return matchPrefixPatternCandidates(tokenPrefixCandidates, rule.PrefixPattern)
+	default:
+		return matchPrefixPattern(username, rule.PrefixPattern)
+	}
+}
+
+func hasEnabledUserPointsRoutingRules(rules []operation_setting.UserPointsRoutingRule) bool {
+	for _, rule := range rules {
+		if rule.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldRunUserPointsGuard(tokenKey string, username string, tokenPrefixCandidates []string, globalPrefixFilter string, rules []operation_setting.UserPointsRoutingRule) bool {
+	hasGlobalPrefixFilter := len(model.ParseDailyUserUsagePrefixes(globalPrefixFilter)) > 0
+	hasRuleFilter := hasEnabledUserPointsRoutingRules(rules)
+	if !hasGlobalPrefixFilter && !hasRuleFilter {
+		return false
+	}
+
+	globalMatched := false
+	if hasGlobalPrefixFilter && strings.TrimSpace(username) != "" {
+		globalMatched = shouldCheckUserPoints(tokenKey, username, globalPrefixFilter)
+	}
+
+	ruleMatched := false
+	if hasRuleFilter {
+		for _, rule := range rules {
+			if !rule.Enabled {
+				continue
+			}
+			if matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
+				ruleMatched = true
+				break
+			}
+		}
+	}
+
+	return globalMatched || ruleMatched
+}
+
 func resolveUserPointsRouting(
 	username string,
+	tokenPrefixCandidates []string,
 	defaultQueryURL string,
 	defaultRechargeURL string,
 	defaultInsufficientMessage string,
@@ -64,31 +173,16 @@ func resolveUserPointsRouting(
 		rechargeURL:         strings.TrimSpace(defaultRechargeURL),
 		insufficientMessage: strings.TrimSpace(defaultInsufficientMessage),
 	}
-	if strings.TrimSpace(username) == "" || len(rules) == 0 {
+	if len(rules) == 0 {
 		return resolved
 	}
 
-	sortedRules := append([]operation_setting.UserPointsRoutingRule(nil), rules...)
-	sort.SliceStable(sortedRules, func(i, j int) bool {
-		return sortedRules[i].Priority > sortedRules[j].Priority
-	})
+	sortedRules := sortUserPointsRoutingRules(rules)
 	for _, rule := range sortedRules {
 		if !rule.Enabled {
 			continue
 		}
-		prefixes := model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)
-		matched := false
-		for _, prefix := range prefixes {
-			prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
-			if prefix == "" {
-				continue
-			}
-			if strings.HasPrefix(username, prefix) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		if !matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
 			continue
 		}
 		if value := strings.TrimSpace(rule.QueryURL); value != "" {
@@ -103,17 +197,6 @@ func resolveUserPointsRouting(
 		return resolved
 	}
 	return resolved
-}
-
-func buildEffectivePrefixFilter(globalPrefixFilter string, rules []operation_setting.UserPointsRoutingRule) string {
-	prefixes := model.ParseDailyUserUsagePrefixes(globalPrefixFilter)
-	for _, rule := range rules {
-		if !rule.Enabled {
-			continue
-		}
-		prefixes = append(prefixes, model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)...)
-	}
-	return strings.Join(prefixes, ",")
 }
 
 // RunUserPointsPreDeductGuard checks external user points API after token auth.
@@ -132,11 +215,6 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		return nil
 	}
 
-	effectivePrefixFilter := buildEffectivePrefixFilter(cfg.UserPointsUsernamePrefixFilter, cfg.UserPointsRoutingRules)
-	if strings.TrimSpace(effectivePrefixFilter) == "" {
-		return nil
-	}
-
 	tokenKey := strings.TrimSpace(c.GetString("token_key"))
 	if tokenKey == "" && token != nil {
 		tokenKey = strings.TrimSpace(token.Key)
@@ -146,16 +224,20 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	}
 
 	username := strings.TrimSpace(c.GetString("username"))
-	if username == "" {
-		return nil
-	}
-
-	if !shouldCheckUserPoints(tokenKey, username, effectivePrefixFilter) {
+	tokenPrefixCandidates := buildUserPointsTokenPrefixCandidates(c, token, tokenKey)
+	if !shouldRunUserPointsGuard(
+		tokenKey,
+		username,
+		tokenPrefixCandidates,
+		cfg.UserPointsUsernamePrefixFilter,
+		cfg.UserPointsRoutingRules,
+	) {
 		return nil
 	}
 
 	resolved := resolveUserPointsRouting(
 		username,
+		tokenPrefixCandidates,
 		cfg.UserPointsQueryURL,
 		cfg.UserPointsRechargeURL,
 		cfg.UserPointsInsufficientMessage,

@@ -27,6 +27,7 @@ import {
   Collapsible,
   Space,
   Input,
+  Select,
   InputNumber,
   Switch as SemiSwitch,
   Popconfirm,
@@ -118,6 +119,7 @@ export default function SettingsMonitoring(props) {
       {
         name: '',
         enabled: true,
+        match_by: 'username',
         prefix_pattern: '',
         callback_url: '',
         secret: '',
@@ -197,9 +199,14 @@ export default function SettingsMonitoring(props) {
       const rule = consumeRoutingRules[i];
       const ruleName = (rule.name || '').trim() || `${i + 1}`;
       if (rule.enabled && (rule.prefix_pattern || '').trim() === '') {
+        const matchByLabel =
+          (rule.match_by || 'username') === 'token_prefix'
+            ? t('Token 前缀')
+            : t('用户名前缀');
         showError(
-          t('规则 {{name}} 已启用，请填写用户名前缀', {
+          t('规则 {{name}} 已启用，请填写{{matchByLabel}}', {
             name: ruleName,
+            matchByLabel,
           }),
         );
         return false;
@@ -389,6 +396,10 @@ export default function SettingsMonitoring(props) {
       );
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
+    currentConsumeRoutingRules = currentConsumeRoutingRules.map((rule) => ({
+      ...rule,
+      match_by: rule.match_by || 'username',
+    }));
     setConsumeRoutingRules(currentConsumeRoutingRules);
     setOriginConsumeRoutingRules(structuredClone(currentConsumeRoutingRules));
     refForm.current?.setValues(currentInputs);
@@ -632,7 +643,7 @@ export default function SettingsMonitoring(props) {
                 <Row style={{ marginTop: 8 }}>
                   <Col span={24}>
                     <Space>
-                      <span>{t('消费回调路由规则（按用户名前缀）')}</span>
+                      <span>{t('消费回调路由规则（按用户名或 Token 前缀）')}</span>
                       <Button
                         icon={<IconPlus />}
                         theme='light'
@@ -711,10 +722,40 @@ export default function SettingsMonitoring(props) {
                               </Col>
                             </Row>
                             <Row gutter={12} style={{ marginTop: 10 }}>
+                              <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                                <Select
+                                  value={rule.match_by || 'username'}
+                                  placeholder={t('匹配维度')}
+                                  optionList={[
+                                    {
+                                      label: t('按用户名前缀'),
+                                      value: 'username',
+                                    },
+                                    {
+                                      label: t('按 Token 前缀'),
+                                      value: 'token_prefix',
+                                    },
+                                  ]}
+                                  onChange={(v) =>
+                                    updateConsumeRoutingRule(
+                                      index,
+                                      'match_by',
+                                      v || 'username',
+                                    )
+                                  }
+                                />
+                              </Col>
+                            </Row>
+                            <Row gutter={12} style={{ marginTop: 10 }}>
                               <Col span={24}>
                                 <Input
                                   value={rule.prefix_pattern || ''}
-                                  placeholder={t('前缀模式，例如：vip_,team_')}
+                                  placeholder={
+                                    (rule.match_by || 'username') ===
+                                    'token_prefix'
+                                      ? t('前缀模式，例如：ima_,sk-ima_')
+                                      : t('前缀模式，例如：vip_,team_')
+                                  }
                                   onChange={(v) =>
                                     updateConsumeRoutingRule(
                                       index,

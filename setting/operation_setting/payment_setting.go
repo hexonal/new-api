@@ -1,11 +1,30 @@
 package operation_setting
 
-import "github.com/QuantumNous/new-api/setting/config"
+import (
+	"strings"
 
-// UserPointsRoutingRule defines a username-prefix-based routing rule for user_points queries.
+	"github.com/QuantumNous/new-api/setting/config"
+)
+
+const (
+	RoutingMatchByUsername    = "username"
+	RoutingMatchByTokenPrefix = "token_prefix"
+)
+
+func NormalizeRoutingMatchBy(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case RoutingMatchByTokenPrefix:
+		return RoutingMatchByTokenPrefix
+	default:
+		return RoutingMatchByUsername
+	}
+}
+
+// UserPointsRoutingRule defines a routing rule for user_points queries.
 type UserPointsRoutingRule struct {
 	Name                string `json:"name"`
 	Enabled             bool   `json:"enabled"`
+	MatchBy             string `json:"match_by,omitempty"` // username | token_prefix
 	PrefixPattern       string `json:"prefix_pattern"`
 	QueryURL            string `json:"query_url"`
 	RechargeURL         string `json:"recharge_url"`
@@ -16,6 +35,7 @@ type UserPointsRoutingRule struct {
 type ConsumeCallbackRoutingRule struct {
 	Name          string `json:"name"`
 	Enabled       bool   `json:"enabled"`
+	MatchBy       string `json:"match_by,omitempty"` // username | token_prefix
 	PrefixPattern string `json:"prefix_pattern"`
 	CallbackURL   string `json:"callback_url"`
 	Secret        string `json:"secret"`

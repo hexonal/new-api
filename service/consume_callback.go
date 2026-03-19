@@ -257,16 +257,16 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	if cfg != nil {
 		routingRules = cfg.ConsumeCallbackRoutingRules
 	}
-	effectivePrefixFilter := buildEffectiveConsumeCallbackPrefixFilter(usernamePrefixFilter, routingRules)
 	username := strings.TrimSpace(payload.Username)
-	if username != "" {
-		if !shouldDispatchConsumeCallbackForUsername(username, effectivePrefixFilter) {
-			return
-		}
-	} else if !shouldDispatchConsumeCallbackForUserID(payload.UserID, effectivePrefixFilter) {
+	tokenPrefixCandidates := normalizeConsumeCallbackTokenPrefixCandidates(payload.SK)
+	hasGlobalPrefixFilter := len(parseConsumeCallbackUserPrefixFilter(usernamePrefixFilter)) > 0
+	hasRuleFilter := hasEnabledConsumeCallbackRoutingRules(routingRules)
+	globalMatched := shouldDispatchConsumeCallbackForUsernameOrUserID(username, payload.UserID, usernamePrefixFilter)
+	ruleMatched := hasMatchedConsumeCallbackRoutingRule(username, tokenPrefixCandidates, routingRules)
+	if (hasGlobalPrefixFilter || hasRuleFilter) && !globalMatched && !ruleMatched {
 		return
 	}
-	resolved := resolveConsumeCallbackRouting(username, callbackURL, secret)
+	resolved := resolveConsumeCallbackRouting(username, tokenPrefixCandidates, callbackURL, secret)
 	if resolved.callbackURL == "" {
 		return
 	}
@@ -317,13 +317,45 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	}
 }
 
-func resolveConsumeCallbackRouting(username, globalURL, globalSecret string) resolvedConsumeCallbackConfig {
+func matchConsumeCallbackRoutingRule(rule operation_setting.ConsumeCallbackRoutingRule, username string, tokenPrefixCandidates []string) bool {
+	switch operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) {
+	case operation_setting.RoutingMatchByTokenPrefix:
+		for _, candidate := range tokenPrefixCandidates {
+			if matchConsumeCallbackUsernamePrefixes(candidate, []string{rule.PrefixPattern}) {
+				return true
+			}
+		}
+		return false
+	default:
+		return matchConsumeCallbackUsernamePrefixes(username, []string{rule.PrefixPattern})
+	}
+}
+
+func hasEnabledConsumeCallbackRoutingRules(rules []operation_setting.ConsumeCallbackRoutingRule) bool {
+	for _, rule := range rules {
+		if rule.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMatchedConsumeCallbackRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.ConsumeCallbackRoutingRule) bool {
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		if matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveConsumeCallbackRouting(username string, tokenPrefixCandidates []string, globalURL, globalSecret string) resolvedConsumeCallbackConfig {
 	resolved := resolvedConsumeCallbackConfig{
 		callbackURL: strings.TrimSpace(globalURL),
 		secret:      strings.TrimSpace(globalSecret),
-	}
-	if strings.TrimSpace(username) == "" {
-		return resolved
 	}
 
 	cfg := operation_setting.GetPaymentSetting()
@@ -338,19 +370,7 @@ func resolveConsumeCallbackRouting(username, globalURL, globalSecret string) res
 		if !rule.Enabled {
 			continue
 		}
-		prefixes := model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)
-		matched := false
-		for _, prefix := range prefixes {
-			prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
-			if prefix == "" {
-				continue
-			}
-			if strings.HasPrefix(username, prefix) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		if !matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
 			continue
 		}
 		if v := strings.TrimSpace(rule.CallbackURL); v != "" {
@@ -362,6 +382,31 @@ func resolveConsumeCallbackRouting(username, globalURL, globalSecret string) res
 		return resolved
 	}
 	return resolved
+}
+
+func shouldDispatchConsumeCallbackForUsernameOrUserID(username string, userID int, rawPrefixFilter string) bool {
+	if strings.TrimSpace(username) != "" {
+		return shouldDispatchConsumeCallbackForUsername(username, rawPrefixFilter)
+	}
+	return shouldDispatchConsumeCallbackForUserID(userID, rawPrefixFilter)
+}
+
+func normalizeConsumeCallbackTokenPrefixCandidates(rawSK string) []string {
+	normalized := strings.TrimSpace(rawSK)
+	base := strings.TrimPrefix(strings.TrimPrefix(normalized, "sk-"), "customer-sk-")
+	candidates := make([]string, 0, 2)
+	seen := make(map[string]struct{}, 2)
+	for _, candidate := range []string{normalized, strings.TrimSpace(base)} {
+		if candidate == "" {
+			continue
+		}
+		if _, exists := seen[candidate]; exists {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		candidates = append(candidates, candidate)
+	}
+	return candidates
 }
 
 func buildEffectiveConsumeCallbackPrefixFilter(globalFilter string, rules []operation_setting.ConsumeCallbackRoutingRule) string {

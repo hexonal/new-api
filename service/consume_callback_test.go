@@ -172,7 +172,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 	t.Run("no rules -> defaults", func(t *testing.T) {
 		cfg := operation_setting.GetPaymentSetting()
 		cfg.ConsumeCallbackRoutingRules = nil
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, globalURL, resolved.callbackURL)
 		assert.Equal(t, globalSecret, resolved.secret)
 	})
@@ -188,7 +188,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      10,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, "https://rule.example.com/callback", resolved.callbackURL)
 		assert.Equal(t, "rule-secret", resolved.secret)
 	})
@@ -204,7 +204,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      10,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, globalURL, resolved.callbackURL)
 		assert.Equal(t, globalSecret, resolved.secret)
 	})
@@ -220,7 +220,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      10,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, globalURL, resolved.callbackURL)
 		assert.Equal(t, globalSecret, resolved.secret)
 	})
@@ -235,7 +235,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      10,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, "https://partial.example.com/callback", resolved.callbackURL)
 		assert.Equal(t, globalSecret, resolved.secret)
 	})
@@ -250,7 +250,7 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      10,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, globalURL, resolved.callbackURL)
 		assert.Equal(t, "partial-secret", resolved.secret)
 	})
@@ -273,10 +273,33 @@ func TestResolveConsumeCallbackRouting(t *testing.T) {
 				Priority:      9,
 			},
 		}
-		resolved := resolveConsumeCallbackRouting("ima_1", globalURL, globalSecret)
+		resolved := resolveConsumeCallbackRouting("ima_1", nil, globalURL, globalSecret)
 		assert.Equal(t, "https://high.example.com/callback", resolved.callbackURL)
 		assert.Equal(t, "high-secret", resolved.secret)
 	})
+
+	t.Run("token prefix match -> overrides", func(t *testing.T) {
+		cfg := operation_setting.GetPaymentSetting()
+		cfg.ConsumeCallbackRoutingRules = []operation_setting.ConsumeCallbackRoutingRule{
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+				PrefixPattern: "ima_",
+				CallbackURL:   "https://token.example.com/callback",
+				Secret:        "token-secret",
+				Priority:      10,
+			},
+		}
+		resolved := resolveConsumeCallbackRouting("other_user", []string{"sk-ima_abc", "ima_abc"}, globalURL, globalSecret)
+		assert.Equal(t, "https://token.example.com/callback", resolved.callbackURL)
+		assert.Equal(t, "token-secret", resolved.secret)
+	})
+}
+
+func TestNormalizeConsumeCallbackTokenPrefixCandidates(t *testing.T) {
+	assert.Equal(t, []string{"sk-ima_abc", "ima_abc"}, normalizeConsumeCallbackTokenPrefixCandidates("sk-ima_abc"))
+	assert.Equal(t, []string{"ima_abc"}, normalizeConsumeCallbackTokenPrefixCandidates("ima_abc"))
+	assert.Equal(t, []string{}, normalizeConsumeCallbackTokenPrefixCandidates("   "))
 }
 
 func TestBuildEffectiveConsumeCallbackPrefixFilter(t *testing.T) {

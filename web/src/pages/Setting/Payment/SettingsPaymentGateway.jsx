@@ -30,6 +30,7 @@ import {
   InputNumber,
   Switch as SemiSwitch,
   Input,
+  Select,
   Popconfirm,
 } from '@douyinfe/semi-ui';
 import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
@@ -102,9 +103,15 @@ export default function SettingsPaymentGateway(props) {
         UserPointsInsufficientMessage:
           props.options.UserPointsInsufficientMessage || '',
       };
-      const currentRoutingRules = Array.isArray(props.options.UserPointsRoutingRules)
+      const currentRoutingRules = Array.isArray(
+        props.options.UserPointsRoutingRules,
+      )
         ? props.options.UserPointsRoutingRules
         : [];
+      const normalizedRoutingRules = currentRoutingRules.map((rule) => ({
+        ...rule,
+        match_by: rule.match_by || 'username',
+      }));
 
       // 美化 JSON 展示
       try {
@@ -128,8 +135,8 @@ export default function SettingsPaymentGateway(props) {
 
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
-      setRoutingRules(currentRoutingRules);
-      setOriginRoutingRules(structuredClone(currentRoutingRules));
+      setRoutingRules(normalizedRoutingRules);
+      setOriginRoutingRules(structuredClone(normalizedRoutingRules));
       formApiRef.current.setValues(currentInputs);
     }
   }, [props.options]);
@@ -144,6 +151,7 @@ export default function SettingsPaymentGateway(props) {
       {
         name: '',
         enabled: true,
+        match_by: 'username',
         prefix_pattern: '',
         query_url: '',
         recharge_url: '',
@@ -235,9 +243,14 @@ export default function SettingsPaymentGateway(props) {
       const rule = routingRules[i];
       const ruleName = (rule.name || '').trim() || `${i + 1}`;
       if (rule.enabled && (rule.prefix_pattern || '').trim() === '') {
+        const matchByLabel =
+          (rule.match_by || 'username') === 'token_prefix'
+            ? t('Token 前缀')
+            : t('用户名前缀');
         showError(
-          t('规则 {{name}} 已启用，请填写用户名前缀', {
+          t('规则 {{name}} 已启用，请填写{{matchByLabel}}', {
             name: ruleName,
+            matchByLabel,
           }),
         );
         return;
@@ -623,7 +636,7 @@ export default function SettingsPaymentGateway(props) {
           <Row style={{ marginTop: 16 }}>
             <Col span={24}>
               <Space>
-                <Text strong>{t('User Points 路由规则（按用户名前缀）')}</Text>
+                <Text strong>{t('User Points 路由规则（按用户名或 Token 前缀）')}</Text>
                 <Button
                   icon={<IconPlus />}
                   theme='light'
@@ -692,10 +705,29 @@ export default function SettingsPaymentGateway(props) {
                         </Col>
                       </Row>
                       <Row gutter={12} style={{ marginTop: 10 }}>
+                        <Col xs={24} sm={8} md={8} lg={8} xl={8}>
+                          <Select
+                            value={rule.match_by || 'username'}
+                            placeholder={t('匹配维度')}
+                            optionList={[
+                              { label: t('按用户名前缀'), value: 'username' },
+                              { label: t('按 Token 前缀'), value: 'token_prefix' },
+                            ]}
+                            onChange={(v) =>
+                              updateRoutingRule(index, 'match_by', v || 'username')
+                            }
+                          />
+                        </Col>
+                      </Row>
+                      <Row gutter={12} style={{ marginTop: 10 }}>
                         <Col span={24}>
                           <Input
                             value={rule.prefix_pattern || ''}
-                            placeholder={t('前缀模式，例如：ima_,vip_')}
+                            placeholder={
+                              (rule.match_by || 'username') === 'token_prefix'
+                                ? t('前缀模式，例如：ima_,sk-ima_')
+                                : t('前缀模式，例如：ima_,vip_')
+                            }
                             onChange={(v) =>
                               updateRoutingRule(index, 'prefix_pattern', v)
                             }
