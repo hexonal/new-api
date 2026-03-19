@@ -73,3 +73,33 @@ func ResetModelRatio(c *gin.Context) {
 		"message": "重置模型倍率成功",
 	})
 }
+
+// RefreshPricingCache 从数据库重新加载定价相关配置并强制刷新内存定价缓存。
+// 用于绕过直接改库后等待自动刷新或重启服务。
+func RefreshPricingCache(c *gin.Context) {
+	if err := model.RefreshRuntimeCaches(); err != nil {
+		c.JSON(200, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	affinityDeleted := service.ClearChannelAffinityCacheAll()
+	if err := model.BroadcastRuntimeCacheRefreshSignal(); err != nil {
+		c.JSON(200, gin.H{
+			"success": false,
+			"message": "本机刷新成功，但跨 Pod 广播失败: " + err.Error(),
+			"data": gin.H{
+				"channel_affinity_cache_deleted": affinityDeleted,
+			},
+		})
+		return
+	}
+	c.JSON(200, gin.H{
+		"success": true,
+		"message": "全局缓存刷新成功（已广播到所有 Pod）",
+		"data": gin.H{
+			"channel_affinity_cache_deleted": affinityDeleted,
+		},
+	})
+}
