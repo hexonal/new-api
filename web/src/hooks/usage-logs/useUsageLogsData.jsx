@@ -438,12 +438,12 @@ export const useLogsData = () => {
           value: other?.claude
             ? renderClaudeLogContent(
                 other?.model_ratio,
-                other.completion_ratio,
-                other.model_price,
-                other.group_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
                 other?.user_group_ratio,
-                other.cache_ratio || 1.0,
-                other.cache_creation_ratio || 1.0,
+                other?.cache_ratio || 1.0,
+                other?.cache_creation_ratio || 1.0,
                 other.cache_creation_tokens_5m || 0,
                 other.cache_creation_ratio_5m ||
                   other.cache_creation_ratio ||
@@ -456,11 +456,11 @@ export const useLogsData = () => {
               )
             : renderLogContent(
                 other?.model_ratio,
-                other.completion_ratio,
-                other.model_price,
-                other.group_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
                 other?.user_group_ratio,
-                other.cache_ratio || 1.0,
+                other?.cache_ratio || 1.0,
                 false,
                 1.0,
                 other.web_search || false,
@@ -527,10 +527,10 @@ export const useLogsData = () => {
             content = renderClaudeModelPrice(
               logs[i].prompt_tokens,
               logs[i].completion_tokens,
-              other.model_ratio,
-              other.model_price,
-              other.completion_ratio,
-              other.group_ratio,
+              other?.model_ratio,
+              other?.model_price,
+              other?.completion_ratio,
+              other?.group_ratio,
               other?.user_group_ratio,
               other.cache_tokens || 0,
               other.cache_ratio || 1.0,
