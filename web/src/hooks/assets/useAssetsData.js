@@ -261,8 +261,8 @@ export default function useAssetsData() {
           filters: requestFilters,
           page_number: page,
           page_size: size,
-          sort_by: 'create_time',
-          sort_order: 'desc',
+          sort_by: 'CreateTime',
+          sort_order: 'Desc',
         });
         const { success, message, data } = res.data || {};
         if (!success) {

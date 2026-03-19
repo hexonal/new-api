@@ -27,8 +27,8 @@ import { showError } from '../../helpers';
  * @param {Object} options - 配置选项
  * @param {Object} options.initialFilters - 初始筛选条件
  * @param {number} options.pageSize - 每页数量（默认 10）
- * @param {string} options.sortBy - 排序字段（默认 'created_at'）
- * @param {string} options.sortOrder - 排序顺序（默认 'desc'）
+ * @param {string} options.sortBy - 排序字段（默认 'CreateTime'）
+ * @param {string} options.sortOrder - 排序顺序（默认 'Desc'）
  *
  * @returns {Object} {
  *   assets: Array,
@@ -45,8 +45,8 @@ export function useAssetList(options = {}) {
   const {
     initialFilters = {},
     pageSize = 10,
-    sortBy = 'created_at',
-    sortOrder = 'desc',
+    sortBy = 'CreateTime',
+    sortOrder = 'Desc',
   } = options;
 
   const [assets, setAssets] = useState([]);

@@ -130,16 +130,16 @@ export async function batchCreateAssets(groupId, assets = []) {
  * @param {Object} filters - 筛选条件 { groupId, name_search, url_search, status, tags }
  * @param {number} page - 页码（1-based）
  * @param {number} pageSize - 每页数量
- * @param {string} sortBy - 排序字段 (created_at, updated_at, name, size)
- * @param {string} sortOrder - 排序顺序 (asc, desc)
+ * @param {string} sortBy - 排序字段 (CreateTime, UpdateTime, GroupId)
+ * @param {string} sortOrder - 排序顺序 (Asc, Desc)
  * @returns {Promise<Object>} { success, data: { assets: Array, total, page, pageSize }, message }
  */
 export async function listAssets(
   filters = {},
   page = 1,
   pageSize = 10,
-  sortBy = 'created_at',
-  sortOrder = 'desc',
+  sortBy = 'CreateTime',
+  sortOrder = 'Desc',
 ) {
   const res = await API.post('/api/assets/list', {
     filters,
