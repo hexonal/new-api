@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -94,19 +93,14 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 	if !strings.Contains(event.CallbackURL, "/api/v1/user_points") {
 		t.Fatalf("unexpected callback url: %s", event.CallbackURL)
 	}
-	if !strings.Contains(event.Body, "dial tcp timeout") {
-		t.Fatalf("event body should contain error detail, got: %s", event.Body)
+	if strings.TrimSpace(event.Body) != "{}" {
+		t.Fatalf("event body should represent outbound GET body, got: %s", event.Body)
 	}
-
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
-		t.Fatalf("unexpected payload json error: %v", err)
+	if !strings.Contains(event.LastError, "user_points_guard_failed_open") {
+		t.Fatalf("last error should contain fail-open reason, got: %s", event.LastError)
 	}
-	if payload["reason"] != "user_points_guard_failed_open" {
-		t.Fatalf("unexpected reason: %v", payload["reason"])
-	}
-	if payload["fail_open"] != true {
-		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	if !strings.Contains(event.LastError, "dial tcp timeout") {
+		t.Fatalf("last error should contain guard error detail, got: %s", event.LastError)
 	}
 }
 
@@ -129,15 +123,14 @@ func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
-		t.Fatalf("unexpected payload json error: %v", err)
+	if strings.TrimSpace(event.Body) != "{}" {
+		t.Fatalf("event body should represent outbound GET body, got: %s", event.Body)
 	}
-	if payload["reason"] != "user_points_guard_failed_close" {
-		t.Fatalf("unexpected reason: %v", payload["reason"])
+	if !strings.Contains(event.LastError, "user_points_guard_failed_close") {
+		t.Fatalf("last error should contain fail-close reason, got: %s", event.LastError)
 	}
-	if payload["fail_open"] != false {
-		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	if !strings.Contains(event.LastError, "request timeout") {
+		t.Fatalf("last error should contain guard error detail, got: %s", event.LastError)
 	}
 }
 
@@ -210,24 +203,24 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 func TestResolveUserPointsExternalSK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	t.Run("default keeps raw token key when no forced header", func(t *testing.T) {
+	t.Run("default uses request actual key", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "abc123" {
+		if got != "sk-abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
 
-	t.Run("customer authorization also falls back to raw key by default", func(t *testing.T) {
+	t.Run("customer authorization keeps request key as-is", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "abc123" {
+		if got != "customer-sk-abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
@@ -269,6 +262,31 @@ func TestResolveUserPointsExternalSK(t *testing.T) {
 		got := resolveUserPointsExternalSK(nil, &model.Token{Key: "sk-abc123"}, "sk-abc123")
 		if got != "abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+}
+
+func TestExtractPresentedTokenFromRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("authorization bearer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		if got := extractPresentedTokenFromRequest(c); got != "sk-abc123" {
+			t.Fatalf("unexpected presented token: %s", got)
+		}
+	})
+
+	t.Run("fallback mj-api-secret", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/mj/submit/imagine", nil)
+		c.Request.Header.Set("Authorization", "midjourney-proxy")
+		c.Request.Header.Set("mj-api-secret", "Bearer sk-mj-abc123")
+		if got := extractPresentedTokenFromRequest(c); got != "sk-mj-abc123" {
+			t.Fatalf("unexpected presented token from mj-api-secret: %s", got)
 		}
 	})
 }

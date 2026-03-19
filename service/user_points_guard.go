@@ -398,6 +398,26 @@ func normalizeExternalSK(raw string) string {
 	return key
 }
 
+func stripBearerTokenValue(raw string) string {
+	text := strings.TrimSpace(raw)
+	if strings.HasPrefix(text, "Bearer ") || strings.HasPrefix(text, "bearer ") {
+		text = strings.TrimSpace(text[7:])
+	}
+	return strings.TrimSpace(text)
+}
+
+func extractPresentedTokenFromRequest(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+
+	key := stripBearerTokenValue(c.GetHeader("Authorization"))
+	if key == "" || key == "midjourney-proxy" {
+		key = stripBearerTokenValue(c.GetHeader("mj-api-secret"))
+	}
+	return strings.TrimSpace(key)
+}
+
 func baseTokenKey(tokenKey string, token *model.Token) string {
 	key := strings.TrimSpace(tokenKey)
 	if key == "" && token != nil {
@@ -425,9 +445,15 @@ func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey st
 		if forcedPrefix, ok := normalizeHeaderSKPrefix(c.GetHeader(userPointsSKPrefixHeader)); ok && baseKey != "" {
 			return forcedPrefix + baseKey
 		}
+		presentedKey := extractPresentedTokenFromRequest(c)
+		if presentedKey != "" {
+			if baseKey == "" || baseTokenKey(presentedKey, nil) == baseKey {
+				return presentedKey
+			}
+		}
 	}
 
-	// Default behavior: keep original raw token key for downstream user_points query.
+	// Fallback behavior: keep original raw token key.
 	return baseKey
 }
 
@@ -504,15 +530,7 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		reason = "user_points_guard_failed_open"
 	}
 
-	payload, err := common.Marshal(map[string]interface{}{
-		"reason":                         reason,
-		"error":                          strings.TrimSpace(guardErr.Error()),
-		"request_path":                   requestPath,
-		"user_points_query_url":          strings.TrimSpace(rawQueryURL),
-		"resolved_user_points_query_url": resolvedQueryURL,
-		"can_pre_deduct_jsonpath":        jsonPath,
-		"fail_open":                      failOpen,
-	})
+	payload, err := common.Marshal(map[string]interface{}{})
 	if err != nil {
 		return nil, fmt.Errorf("marshal user_points guard failure payload: %w", err)
 	}
@@ -544,9 +562,18 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		Status:            model.CallbackEventStatusDead,
 		MaxRetries:        0,
 		NextRetryAt:       0,
-		LastError:         strings.TrimSpace(guardErr.Error()),
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		LastError: strings.TrimSpace(fmt.Sprintf(
+			"%s: %s | request_path=%s | user_points_query_url=%s | resolved_user_points_query_url=%s | can_pre_deduct_jsonpath=%s | fail_open=%t",
+			reason,
+			guardErr.Error(),
+			requestPath,
+			strings.TrimSpace(rawQueryURL),
+			resolvedQueryURL,
+			jsonPath,
+			failOpen,
+		)),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil
 }
 
