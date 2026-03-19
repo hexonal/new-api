@@ -618,9 +618,20 @@ export const calculateModelPrice = ({
   quotaDisplayType = 'USD',
   precision = 4,
 }) => {
+  if (!record || typeof record !== 'object') {
+    return {
+      price: '-',
+      isPerToken: false,
+      isTokensDisplay: false,
+      usedGroup: selectedGroup || 'default',
+      usedGroupRatio: 1,
+    };
+  }
+  const safeGroupRatio = groupRatio && typeof groupRatio === 'object' ? groupRatio : {};
+
   // 1. 选择实际使用的分组
   let usedGroup = selectedGroup;
-  let usedGroupRatio = groupRatio[selectedGroup];
+  let usedGroupRatio = safeGroupRatio[selectedGroup];
 
   if (selectedGroup === 'all' || usedGroupRatio === undefined) {
     // 在模型可用分组中选择倍率最小的分组，若无则使用 1
@@ -630,7 +641,7 @@ export const calculateModelPrice = ({
       record.enable_groups.length > 0
     ) {
       record.enable_groups.forEach((g) => {
-        const r = groupRatio[g];
+        const r = safeGroupRatio[g];
         if (r !== undefined && r < minRatio) {
           minRatio = r;
           usedGroup = g;
