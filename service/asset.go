@@ -59,6 +59,14 @@ func getAssetChannel() (*model.Channel, error) {
 
 func getAssetUploadQuota() int {
 	modelPrice, ok := ratio_setting.GetModelPrice(assetUploadModelName, false)
+	if (!ok || modelPrice <= 0) && strings.TrimSpace(assetUploadModelName) != "" {
+		// Fallback to ModelRatio configuration for this special per-call model.
+		// For ima-pro-upload we interpret configured ratio value as per-call USD price.
+		if ratioPrice, ratioOK, _ := ratio_setting.GetModelRatio(assetUploadModelName); ratioOK && ratioPrice > 0 {
+			modelPrice = ratioPrice
+			ok = true
+		}
+	}
 	if !ok || modelPrice <= 0 {
 		modelPrice = 0.005
 	}

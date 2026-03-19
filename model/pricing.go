@@ -292,6 +292,27 @@ func updatePricing() {
 			pricing.Tags = meta.Tags
 			pricing.VendorID = meta.VendorID
 		}
+		// Special case: asset upload model is charged per call, and price should come
+		// from configurable settings (ModelPrice first, then ModelRatio fallback).
+		if model == "ima-pro-upload" {
+			modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
+			if !findPrice || modelPrice <= 0 {
+				if ratioPrice, ratioOK, _ := ratio_setting.GetModelRatio(model); ratioOK && ratioPrice > 0 {
+					modelPrice = ratioPrice
+					findPrice = true
+				}
+			}
+			if findPrice {
+				pricing.ModelPrice = modelPrice
+				pricing.QuotaType = 1
+			} else {
+				pricing.ModelPrice = 0.005
+				pricing.QuotaType = 1
+			}
+			pricingMap = append(pricingMap, pricing)
+			continue
+		}
+
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {
 			pricing.ModelPrice = modelPrice
