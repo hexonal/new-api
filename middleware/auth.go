@@ -19,6 +19,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func anyToInt(v any) (int, bool) {
+	switch t := v.(type) {
+	case int:
+		return t, true
+	case int8:
+		return int(t), true
+	case int16:
+		return int(t), true
+	case int32:
+		return int(t), true
+	case int64:
+		return int(t), true
+	case uint:
+		return int(t), true
+	case uint8:
+		return int(t), true
+	case uint16:
+		return int(t), true
+	case uint32:
+		return int(t), true
+	case uint64:
+		return int(t), true
+	case float64:
+		return int(t), true
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(t))
+		if err == nil {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
 func validUserInfo(username string, role int) bool {
 	// check username is empty
 	if strings.TrimSpace(username) == "" {
@@ -176,11 +209,11 @@ func TokenOrUserAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		// Try session auth first (dashboard users)
 		session := sessions.Default(c)
-		id := session.Get("id")
+		id, idOK := anyToInt(session.Get("id"))
 		username, _ := session.Get("username").(string)
-		role, _ := session.Get("role").(int)
-		status, _ := session.Get("status").(int)
-		if id != nil && status == common.UserStatusEnabled && validUserInfo(username, role) {
+		role, roleOK := anyToInt(session.Get("role"))
+		status, statusOK := anyToInt(session.Get("status"))
+		if idOK && roleOK && statusOK && id > 0 && status == common.UserStatusEnabled && validUserInfo(username, role) {
 			c.Set("id", id)
 			c.Set("username", username)
 			c.Set("role", role)
