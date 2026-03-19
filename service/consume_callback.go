@@ -62,6 +62,7 @@ func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usag
 		requestID,
 		relayInfo.UserId,
 		relayInfo.TokenId,
+		relayInfo.TokenAuthPrefix,
 		relayInfo.OriginModelName,
 		relayInfo.ChannelId,
 		relayInfo.BillingSource,
@@ -85,6 +86,7 @@ func newConsumeCallbackPayload(
 	requestID string,
 	userID int,
 	tokenID int,
+	tokenAuthPrefix string,
 	modelName string,
 	channelID int,
 	billingSource string,
@@ -95,7 +97,7 @@ func newConsumeCallbackPayload(
 	normalizedUsage := normalizeConsumeUsage(usage)
 	normalizedUserID := maxInt(userID, 0)
 	normalizedTokenID := maxInt(tokenID, 0)
-	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID)
+	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID, tokenAuthPrefix)
 	return consumeCallbackPayload{
 		RequestID:        requestID,
 		UserID:           normalizedUserID,
@@ -117,11 +119,45 @@ func newConsumeCallbackPayload(
 }
 
 type consumeCallbackTokenIdentity struct {
-	Name string `json:"name"`
-	SK   string `json:"sk"`
+	Name     string `json:"name"`
+	TokenKey string `json:"token_key,omitempty"`
+	SK       string `json:"sk,omitempty"` // legacy cache compatibility
 }
 
-func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, tokenName string, sk string) {
+func extractConsumeCallbackRawTokenKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	if key == "" {
+		return ""
+	}
+	key = strings.TrimPrefix(key, "sk-")
+	return strings.TrimSpace(key)
+}
+
+func normalizeConsumeCallbackAuthPrefix(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case "sk-":
+		return "sk-"
+	default:
+		return ""
+	}
+}
+
+func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
+	rawKey := extractConsumeCallbackRawTokenKey(tokenKey)
+	if rawKey == "" {
+		rawKey = extractConsumeCallbackRawTokenKey(fallbackSK)
+	}
+	if rawKey == "" {
+		return ""
+	}
+	if normalizeConsumeCallbackAuthPrefix(tokenAuthPrefix) == "sk-" {
+		return "sk-" + rawKey
+	}
+	// No explicit sk- auth prefix => keep raw key (supports arbitrary custom key formats).
+	return rawKey
+}
+
+func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix string) (username string, tokenName string, sk string) {
 	// Allow pure unit tests to run without requiring DB bootstrap.
 	if model.DB == nil {
 		return "", "", ""
@@ -140,7 +176,12 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, t
 			if raw, err := common.RedisGet(cacheKey); err == nil && strings.TrimSpace(raw) != "" {
 				var cached consumeCallbackTokenIdentity
 				if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
-					return username, strings.TrimSpace(cached.Name), strings.TrimSpace(cached.SK)
+					tokenName = strings.TrimSpace(cached.Name)
+					sk = buildConsumeCallbackSK(strings.TrimSpace(cached.TokenKey), strings.TrimSpace(cached.SK), tokenAuthPrefix)
+					if sk == "" {
+						sk = strings.TrimSpace(cached.SK)
+					}
+					return username, tokenName, sk
 				}
 			}
 		}
@@ -151,15 +192,12 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, t
 			return username, "", ""
 		}
 		tokenName = strings.TrimSpace(token.Name)
-		rawKey := strings.TrimSpace(strings.TrimPrefix(token.Key, "sk-"))
-		if rawKey != "" {
-			sk = "sk-" + rawKey
-		}
+		sk = buildConsumeCallbackSK(token.Key, "", tokenAuthPrefix)
 
 		if common.RedisEnabled {
 			payload, marshalErr := json.Marshal(consumeCallbackTokenIdentity{
-				Name: tokenName,
-				SK:   sk,
+				Name:     tokenName,
+				TokenKey: strings.TrimSpace(token.Key),
 			})
 			if marshalErr == nil {
 				_ = common.RedisSet(cacheKey, string(payload), time.Duration(common.RedisKeyCacheSeconds())*time.Second)

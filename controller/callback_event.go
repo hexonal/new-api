@@ -256,23 +256,17 @@ func splitSKPrefixAndKey(raw string) (string, string) {
 	if value == "" {
 		return "", ""
 	}
-	switch {
-	case strings.HasPrefix(value, "customer-sk-"):
-		return "customer-sk-", strings.TrimSpace(strings.TrimPrefix(value, "customer-sk-"))
-	case strings.HasPrefix(value, "sk-"):
-		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
-	default:
+	if strings.HasPrefix(value, "sk-") {
 		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
 	}
+	// No-prefix custom tokens (e.g. ima_abc123)
+	return "", value
 }
 
 func normalizeSK(rawKey string) string {
 	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
-	}
-	if prefix == "" {
-		prefix = "sk-"
 	}
 	return prefix + key
 }
@@ -281,9 +275,6 @@ func buildMaskedSK(rawKey string) string {
 	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
-	}
-	if prefix == "" {
-		prefix = "sk-"
 	}
 	if len(key) <= 8 {
 		return prefix + key

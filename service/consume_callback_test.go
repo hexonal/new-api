@@ -44,6 +44,7 @@ func TestNewConsumeCallbackPayload_Normalization(t *testing.T) {
 		"req-1",
 		100,
 		200,
+		"",
 		"gpt-4o-mini",
 		300,
 		"",
@@ -65,6 +66,31 @@ func TestNewConsumeCallbackPayload_Normalization(t *testing.T) {
 	assert.Equal(t, 0.25, payload.AmountUSD)
 	assert.Equal(t, ConsumeCallbackPhaseSettle, payload.EventPhase)
 	assert.NotZero(t, payload.Timestamp)
+}
+
+func TestBuildConsumeCallbackSK_NoPrefixAuthKeepsRawKey(t *testing.T) {
+	got := buildConsumeCallbackSK("ima_demo_token", "", "")
+	assert.Equal(t, "ima_demo_token", got)
+}
+
+func TestBuildConsumeCallbackSK_WithSKAuthPrefix(t *testing.T) {
+	got := buildConsumeCallbackSK("ima_demo_token", "", "sk-")
+	assert.Equal(t, "sk-ima_demo_token", got)
+}
+
+func TestBuildConsumeCallbackSK_NoPrefixAuthSupportsArbitraryCustomKeys(t *testing.T) {
+	got := buildConsumeCallbackSK("Abc123Def456", "", "")
+	assert.Equal(t, "Abc123Def456", got)
+}
+
+func TestBuildConsumeCallbackSK_FallbackSKWithSKPrefix(t *testing.T) {
+	got := buildConsumeCallbackSK("", "sk-ima_demo_token", "sk-")
+	assert.Equal(t, "sk-ima_demo_token", got)
+}
+
+func TestBuildConsumeCallbackSK_FallbackSKNoPrefixAuth(t *testing.T) {
+	got := buildConsumeCallbackSK("", "sk-ima_demo_token", "")
+	assert.Equal(t, "ima_demo_token", got)
 }
 
 func TestIsConsumeCallbackRelayFormatSupported(t *testing.T) {

@@ -170,12 +170,19 @@ func WssAuth(c *gin.Context) {
 
 }
 
+func detectTokenAuthPrefix(key string) string {
+	key = strings.TrimSpace(key)
+	if strings.HasPrefix(key, "sk-") {
+		return "sk-"
+	}
+	return ""
+}
+
 func extractTokenKeyAndParts(key string) (string, []string) {
-	if strings.HasPrefix(key, "customer-sk-") {
-		key = strings.TrimPrefix(key, "customer-sk-")
-	} else {
+	if strings.HasPrefix(key, "sk-") {
 		key = strings.TrimPrefix(key, "sk-")
 	}
+	// No-prefix tokens (e.g. ima_abc123) are kept as-is
 	return key, []string{key}
 }
 
@@ -307,14 +314,17 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		key := c.Request.Header.Get("Authorization")
 		parts := make([]string, 0)
+		tokenAuthPrefix := ""
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
+		tokenAuthPrefix = detectTokenAuthPrefix(key)
 		if key == "" || key == "midjourney-proxy" {
 			key = c.Request.Header.Get("mj-api-secret")
 			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 				key = strings.TrimSpace(key[7:])
 			}
+			tokenAuthPrefix = detectTokenAuthPrefix(key)
 			key, parts = extractTokenKeyAndParts(key)
 		} else {
 			key, parts = extractTokenKeyAndParts(key)
@@ -338,6 +348,7 @@ func TokenAuth() func(c *gin.Context) {
 			}
 			c.Set("token_id", token.Id)
 			c.Set("token_key", token.Key)
+			common.SetContextKey(c, constant.ContextKeyTokenAuthPrefix, tokenAuthPrefix)
 			c.Set("token_name", token.Name)
 		}
 		if err != nil {

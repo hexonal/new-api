@@ -127,11 +127,11 @@ func normalizeSnapshotSK(rawSK string) string {
 	if key == "" {
 		return ""
 	}
-	if strings.HasPrefix(key, "customer-sk-") ||
-		strings.HasPrefix(key, "sk-") {
+	if strings.HasPrefix(key, "sk-") {
 		return key
 	}
-	return "sk-" + strings.TrimPrefix(key, "sk-")
+	// No-prefix custom tokens (e.g. ima_abc123) are kept as-is
+	return key
 }
 
 func trimSnapshotField(value string, maxLen int) string {

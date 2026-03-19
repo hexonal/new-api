@@ -36,11 +36,20 @@ func TestFormatMonitorAlertMarkdown(t *testing.T) {
 		"status_code": 401,
 		"error":       "invalid token",
 		"model_name":  "gpt-4.1-mini",
+		"site_domain": "zcheap.ai",
 	})
 	require.Contains(t, output, "API call error")
 	require.Contains(t, output, "Request ID: req-123")
+	require.Contains(t, output, "site domain: zcheap.ai")
 	require.Contains(t, output, "status code: 401")
 	require.Contains(t, output, "model name: gpt-4.1-mini")
+}
+
+func TestExtractMonitorAlertDomain(t *testing.T) {
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai:443"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("https://zcheap.ai/console"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai, proxy.local"))
 }
 
 func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {

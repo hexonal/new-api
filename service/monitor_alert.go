@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -84,6 +86,7 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
 	data := map[string]interface{}{
 		"kind":         "call_error",
+		"site_domain":  monitorAlertSiteDomainFromContext(c),
 		"request_id":   requestID,
 		"request_path": "",
 		"node":         monitorAlertNodeName(),
@@ -129,6 +132,7 @@ func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message
 	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
 	data := map[string]interface{}{
 		"kind":         "api_error",
+		"site_domain":  monitorAlertSiteDomainFromContext(c),
 		"request_id":   requestID,
 		"request_path": "",
 		"status_code":  statusCode,
@@ -168,6 +172,7 @@ func NotifyMonitorCallbackError(event *model.CallbackEvent, attemptNo int, statu
 
 	data := map[string]interface{}{
 		"kind":              "callback_error",
+		"site_domain":       monitorAlertSiteDomain(),
 		"request_id":        strings.TrimSpace(event.RequestID),
 		"node":              monitorAlertNodeName(),
 		"callback_event_id": event.ID,
@@ -211,6 +216,7 @@ func checkMonitorDiskAlert(now time.Time) {
 	cacheFiles, cacheBytes, _ := common.GetDiskCacheInfo()
 	data := map[string]interface{}{
 		"kind":               "disk_low",
+		"site_domain":        monitorAlertSiteDomain(),
 		"request_id":         "",
 		"cache_path":         common.GetDiskCacheDir(),
 		"used_percent":       fmt.Sprintf("%.2f%%", diskInfo.UsedPercent),
@@ -376,7 +382,7 @@ func formatMonitorAlertMarkdown(title string, requestID string, data map[string]
 		lines = append(lines, fmt.Sprintf("Request ID: %s", requestID))
 	}
 	orderedKeys := []string{
-		"kind", "request_path", "status_code", "error_type", "error_code", "error",
+		"kind", "site_domain", "request_path", "status_code", "error_type", "error_code", "error",
 		"user_id", "username", "group", "model_name", "token_name", "token_sk", "channel_id", "channel_name", "channel_type",
 		"callback_event_id", "callback_event", "sink_type", "source", "attempt_no", "http_status", "callback_url", "response",
 		"cache_path", "used_percent", "threshold_percent", "total", "used", "free", "cache_file_count", "cache_total_size",
@@ -509,6 +515,59 @@ func monitorAlertNodeName() string {
 		return ip
 	}
 	return "node"
+}
+
+func monitorAlertSiteDomainFromContext(c *gin.Context) string {
+	if c != nil && c.Request != nil {
+		if host := extractMonitorAlertDomain(c.GetHeader("X-Forwarded-Host")); host != "" {
+			return host
+		}
+		if host := extractMonitorAlertDomain(c.Request.Host); host != "" {
+			return host
+		}
+		if c.Request.URL != nil {
+			if host := extractMonitorAlertDomain(c.Request.URL.Host); host != "" {
+				return host
+			}
+		}
+	}
+	return monitorAlertSiteDomain()
+}
+
+func monitorAlertSiteDomain() string {
+	if host := extractMonitorAlertDomain(system_setting.ServerAddress); host != "" {
+		return host
+	}
+	if host := extractMonitorAlertDomain(common.GetEnvOrDefaultString("SERVER_NAME", "")); host != "" {
+		return host
+	}
+	if host := extractMonitorAlertDomain(common.GetEnvOrDefaultString("HOSTNAME", "")); host != "" {
+		return host
+	}
+	return ""
+}
+
+func extractMonitorAlertDomain(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	// X-Forwarded-Host can contain comma-separated values.
+	if idx := strings.Index(text, ","); idx >= 0 {
+		text = strings.TrimSpace(text[:idx])
+	}
+	candidate := text
+	if !strings.Contains(candidate, "://") {
+		candidate = "http://" + candidate
+	}
+	parsed, err := url.Parse(candidate)
+	if err != nil {
+		return text
+	}
+	if host := strings.TrimSpace(parsed.Hostname()); host != "" {
+		return host
+	}
+	return text
 }
 
 func isMonitorAlertCallbackEvent(event *model.CallbackEvent) bool {
