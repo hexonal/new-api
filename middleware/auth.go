@@ -176,8 +176,17 @@ func extractTokenKeyAndParts(key string) (string, []string) {
 	} else {
 		key = strings.TrimPrefix(key, "sk-")
 	}
-	parts := strings.Split(key, "-")
-	return parts[0], parts
+	return key, []string{key}
+}
+
+func splitTokenKeyAndSuffix(key string) (string, []string, bool) {
+	idx := strings.LastIndex(key, "-")
+	if idx <= 0 || idx >= len(key)-1 {
+		return "", nil, false
+	}
+	baseKey := key[:idx]
+	suffix := key[idx+1:]
+	return baseKey, []string{baseKey, suffix}, true
 }
 
 // TokenOrUserAuth allows either session-based user auth or API token auth.
@@ -219,6 +228,11 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		key, _ = extractTokenKeyAndParts(key)
 
 		token, err := model.GetTokenByKey(key, false)
+		if err != nil {
+			if keyWithSuffix, _, ok := splitTokenKeyAndSuffix(key); ok {
+				token, err = model.GetTokenByKey(keyWithSuffix, false)
+			}
+		}
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -306,6 +320,17 @@ func TokenAuth() func(c *gin.Context) {
 			key, parts = extractTokenKeyAndParts(key)
 		}
 		token, err := model.ValidateUserToken(key)
+		if err != nil {
+			if keyWithSuffix, keyPartsWithSuffix, ok := splitTokenKeyAndSuffix(key); ok {
+				legacyToken, legacyErr := model.ValidateUserToken(keyWithSuffix)
+				if legacyErr == nil {
+					token = legacyToken
+					err = nil
+					key = keyWithSuffix
+					parts = keyPartsWithSuffix
+				}
+			}
+		}
 		if token != nil {
 			id := c.GetInt("id")
 			if id == 0 {
