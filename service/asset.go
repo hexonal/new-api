@@ -69,6 +69,44 @@ func getAssetUploadQuota() int {
 	return quota
 }
 
+func pickAssetBillingToken(userID int, preferredTokenID int, quota int) (*model.Token, error) {
+	canAfford := func(t *model.Token) bool {
+		if t == nil {
+			return false
+		}
+		if t.Status != common.TokenStatusEnabled {
+			return false
+		}
+		if t.UnlimitedQuota {
+			return true
+		}
+		return t.RemainQuota >= quota
+	}
+
+	if preferredTokenID > 0 {
+		preferred, err := model.GetTokenById(preferredTokenID)
+		if err == nil && preferred != nil && preferred.UserId == userID && canAfford(preferred) {
+			return preferred, nil
+		}
+	}
+
+	tokens := make([]*model.Token, 0)
+	if err := model.DB.Where("user_id = ? AND status = ?", userID, common.TokenStatusEnabled).
+		Order("id ASC").
+		Find(&tokens).Error; err != nil {
+		return nil, err
+	}
+	for _, tk := range tokens {
+		if preferredTokenID > 0 && tk.Id == preferredTokenID {
+			continue
+		}
+		if canAfford(tk) {
+			return tk, nil
+		}
+	}
+	return nil, nil
+}
+
 func getAssetChannelByID(channelID int) (*model.Channel, error) {
 	channel, err := model.GetChannelById(channelID, true)
 	if err != nil {
@@ -238,15 +276,9 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	client := NewAssetProxyClient(channel, uid)
 
 	quota := getAssetUploadQuota()
-	var token *model.Token
-	if tokenID > 0 {
-		token, err = model.GetTokenById(tokenID)
-		if err != nil {
-			return nil, err
-		}
-		if !token.UnlimitedQuota && token.RemainQuota < quota {
-			return nil, fmt.Errorf("token quota is not enough, need: %d", quota)
-		}
+	token, err := pickAssetBillingToken(userID, tokenID, quota)
+	if err != nil {
+		return nil, err
 	}
 
 	userQuota, err := model.GetUserQuota(userID, false)
@@ -268,12 +300,20 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 
 	quotaCost := 0
 	billingOk := false
+	billedTokenID := 0
+	billedTokenName := tokenName
+	if token != nil {
+		billedTokenID = token.Id
+		if strings.TrimSpace(token.Name) != "" {
+			billedTokenName = token.Name
+		}
+	}
 	if token != nil && !token.UnlimitedQuota {
-		if err = model.DecreaseTokenQuota(tokenID, token.Key, quota); err != nil {
-			common.SysLog(fmt.Sprintf("asset billing warning: token deduction failed, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, tokenID, upstreamAssetID, err.Error()))
+		if err = model.DecreaseTokenQuota(token.Id, token.Key, quota); err != nil {
+			common.SysLog(fmt.Sprintf("asset billing warning: token deduction failed, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, token.Id, upstreamAssetID, err.Error()))
 		} else if err = model.DecreaseUserQuota(userID, quota); err != nil {
-			_ = model.IncreaseTokenQuota(tokenID, token.Key, quota)
-			common.SysLog(fmt.Sprintf("asset billing warning: user deduction failed after token deduction, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, tokenID, upstreamAssetID, err.Error()))
+			_ = model.IncreaseTokenQuota(token.Id, token.Key, quota)
+			common.SysLog(fmt.Sprintf("asset billing warning: user deduction failed after token deduction, user_id=%d token_id=%d upstream_asset_id=%s err=%s", userID, token.Id, upstreamAssetID, err.Error()))
 		} else {
 			billingOk = true
 			quotaCost = quota
@@ -317,8 +357,8 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 			ChannelId: channel.Id,
 			ModelName: assetUploadModelName,
 			Quota:     quota,
-			TokenId:   tokenID,
-			Group:     tokenName,
+			TokenId:   billedTokenID,
+			Group:     billedTokenName,
 		})
 	} else {
 		common.SysLog(fmt.Sprintf("asset billing warning: upstream asset created without successful billing, user_id=%d channel_id=%d upstream_asset_id=%s", userID, channel.Id, upstreamAssetID))
