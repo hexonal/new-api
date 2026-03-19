@@ -213,7 +213,7 @@ export default function useAssetsData() {
     const res = await API.post('/v1/assets/group/list', {
       filters: {},
       page_number: 1,
-      page_size: 200,
+      page_size: 100,
     });
     const { success, message, data } = res.data || {};
     if (!success) {
@@ -261,7 +261,7 @@ export default function useAssetsData() {
           filters: requestFilters,
           page_number: page,
           page_size: size,
-          sort_by: 'created_at',
+          sort_by: 'create_time',
           sort_order: 'desc',
         });
         const { success, message, data } = res.data || {};
