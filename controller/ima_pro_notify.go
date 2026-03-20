@@ -40,8 +40,7 @@ func RelayImaProNotify(c *gin.Context) {
 		return
 	}
 
-	platform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeImaPro))
-	task, exist, err := model.GetTaskByPlatformAndUpstreamID(platform, upstreamTaskID)
+	task, exist, err := findImaFamilyTaskByUpstreamID(c, upstreamTaskID)
 	if err != nil {
 		logger.LogError(c, "ima_pro notify: db query error: "+err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
@@ -142,4 +141,26 @@ func extractImaProCallbackResult(body []byte, paths ...string) gjson.Result {
 		}
 	}
 	return gjson.Result{}
+}
+
+func findImaFamilyTaskByUpstreamID(c *gin.Context, upstreamTaskID string) (*model.Task, bool, error) {
+	platforms := []constant.TaskPlatform{
+		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeImaPro)),
+		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeImaProOverseas)),
+	}
+	// Prefer overseas when hitting overseas callback endpoint.
+	if strings.Contains(c.FullPath(), "ima-pro-overseas") {
+		platforms[0], platforms[1] = platforms[1], platforms[0]
+	}
+
+	for _, platform := range platforms {
+		task, exist, err := model.GetTaskByPlatformAndUpstreamID(platform, upstreamTaskID)
+		if err != nil {
+			return nil, false, err
+		}
+		if exist {
+			return task, true, nil
+		}
+	}
+	return nil, false, nil
 }

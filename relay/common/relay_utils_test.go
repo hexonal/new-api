@@ -51,6 +51,28 @@ func TestValidateMultipartDirect_AllowPromptlessImaProFastWithReferenceMetadata(
 	require.Equal(t, constant.TaskActionGenerate, info.Action)
 }
 
+func TestValidateMultipartDirect_RejectImageOnlyModelsOnVideoEndpoint(t *testing.T) {
+	testCases := []string{
+		"gemini-3-pro-image-preview",
+		"gemini-3.1-flash-image-preview",
+	}
+	for _, modelName := range testCases {
+		t.Run(modelName, func(t *testing.T) {
+			ctx := newTaskTestContext(`{
+				"model":"` + modelName + `",
+				"prompt":"draw a cat",
+				"images":["https://example.com/a.jpg"],
+				"duration":10
+			}`)
+			info := &RelayInfo{TaskRelayInfo: &TaskRelayInfo{}}
+
+			taskErr := ValidateMultipartDirect(ctx, info)
+			require.NotNil(t, taskErr)
+			require.Equal(t, "invalid_model_endpoint", taskErr.Code)
+		})
+	}
+}
+
 func TestValidateMultipartDirect_KeepPromptRequiredForGenericModel(t *testing.T) {
 	ctx := newTaskTestContext(`{
 		"model":"kling-v1",

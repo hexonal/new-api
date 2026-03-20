@@ -58,6 +58,7 @@ const (
 	ChannelTypeYouchuan       = 58
 	ChannelTypePixVerse       = 59
 	ChannelTypeImaPro         = 60
+	ChannelTypeImaProOverseas = 61
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -124,6 +125,7 @@ var ChannelBaseURLs = []string{
 	"https://ali.youchuan.cn",                   //58
 	"https://app-api.pixverse.ai",               //59
 	"",                                          //60
+	"",                                          //61
 }
 
 var ChannelTypeNames = map[int]string{
@@ -184,6 +186,11 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeYouchuan:       "悠船",
 	ChannelTypePixVerse:       "PixVerse",
 	ChannelTypeImaPro:         "ima_pro",
+	ChannelTypeImaProOverseas: "ima_pro_overseas",
+}
+
+func IsImaProChannelType(channelType int) bool {
+	return channelType == ChannelTypeImaPro || channelType == ChannelTypeImaProOverseas
 }
 
 func GetChannelTypeName(channelType int) string {

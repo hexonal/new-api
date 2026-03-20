@@ -64,6 +64,30 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 	return err
 }
 
+func isAsyncImageGenerationModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gemini-3-pro-image-preview", "gemini-3.1-flash-image-preview":
+		return true
+	default:
+		return false
+	}
+}
+
+// RelayImageGeneration routes async image-task models to RelayTask, and keeps
+// classic OpenAI image models on synchronous Relay path.
+func RelayImageGeneration(c *gin.Context) {
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := common.UnmarshalBodyReusable(c, &req); err == nil {
+		if isAsyncImageGenerationModel(req.Model) {
+			RelayTask(c)
+			return
+		}
+	}
+	Relay(c, types.RelayFormatOpenAIImage)
+}
+
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	requestId := c.GetString(common.RequestIdKey)
@@ -588,7 +612,7 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
 			task.Properties.Input = relaycommon.DescribeTaskInputType(req)
-			if relayInfo.ChannelType != constant.ChannelTypeImaPro {
+			if !constant.IsImaProChannelType(relayInfo.ChannelType) {
 				if callbackURL := strings.TrimSpace(req.GetCallbackURL()); callbackURL != "" {
 					task.PrivateData.CallbackURL = callbackURL
 				}

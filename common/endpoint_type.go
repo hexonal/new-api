@@ -30,7 +30,7 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse}
 	case constant.ChannelTypeSora:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIVideo}
-	case constant.ChannelTypeImaPro:
+	case constant.ChannelTypeImaPro, constant.ChannelTypeImaProOverseas:
 		// Asset upload is an internal helper pricing model and should not expose public API endpoints in model plaza.
 		if modelName == "ima-pro-upload" {
 			endpointTypes = []constant.EndpointType{}

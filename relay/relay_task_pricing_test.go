@@ -25,6 +25,9 @@ func TestShouldUseDeferredSettleForTaskModel_ImaProOnly(t *testing.T) {
 	if !shouldUseDeferredSettleForTaskModel("ima-pro") {
 		t.Fatalf("ima-pro should use deferred settle strategy")
 	}
+	if shouldUseDeferredSettleForTaskModel("gemini-3-pro-image-preview") {
+		t.Fatalf("gemini image model should not use deferred settle strategy")
+	}
 	if shouldUseDeferredSettleForTaskModel("sora-2") {
 		t.Fatalf("non ima-pro model should not use deferred settle strategy")
 	}

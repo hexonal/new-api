@@ -87,6 +87,15 @@ func isPromptOptionalTaskModel(model string) bool {
 	}
 }
 
+func isImageOnlyModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gemini-3-pro-image-preview", "gemini-3.1-flash-image-preview":
+		return true
+	default:
+		return false
+	}
+}
+
 func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string) (TaskSubmitReq, error) {
 	var req TaskSubmitReq
 	if _, err := c.MultipartForm(); err != nil {
@@ -159,6 +168,14 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 
 	if strings.TrimSpace(req.Model) == "" {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
+	}
+	if strings.Contains(c.Request.URL.Path, "/v1/videos") && isImageOnlyModel(req.Model) {
+		return createTaskError(
+			fmt.Errorf("model %s is image-only and not supported on /v1/videos", strings.TrimSpace(req.Model)),
+			"invalid_model_endpoint",
+			http.StatusBadRequest,
+			true,
+		)
 	}
 
 	if hasTaskNonTextInput(req) {

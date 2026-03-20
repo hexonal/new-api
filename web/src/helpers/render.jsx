@@ -335,6 +335,7 @@ export function getChannelIcon(channelType) {
     case 57: // Codex
       return <OpenAI size={iconSize} />;
     case 60: // ima_pro
+    case 61: // ima_pro_overseas
       return (
         <img
           src='/ima-pro-logo.png'

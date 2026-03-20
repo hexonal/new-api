@@ -651,7 +651,7 @@ func (a *Adaptor) GetModelList() []string {
 		return xinference.ModelList
 	case constant.ChannelTypeOpenRouter:
 		return openrouter.ModelList
-	case constant.ChannelTypeImaPro:
+	case constant.ChannelTypeImaPro, constant.ChannelTypeImaProOverseas:
 		return IMAProModelList
 	default:
 		return ModelList
@@ -672,6 +672,8 @@ func (a *Adaptor) GetChannelName() string {
 		return openrouter.ChannelName
 	case constant.ChannelTypeImaPro:
 		return "ima_pro"
+	case constant.ChannelTypeImaProOverseas:
+		return "ima_pro_overseas"
 	default:
 		return ChannelName
 	}

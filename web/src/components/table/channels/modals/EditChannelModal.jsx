@@ -2300,7 +2300,8 @@ const EditChannelModal = (props) => {
                       autoComplete='new-password'
                     />
 
-                    {(inputs.type === 60 || hasImaProModelSelected) && (
+                    {((inputs.type === 60 || inputs.type === 61) ||
+                      hasImaProModelSelected) && (
                       <>
                         <Form.Input
                           field='ima_pro_tenant_id'

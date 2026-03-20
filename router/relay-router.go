@@ -109,9 +109,9 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.POST("/edits", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIImage)
 		})
-		httpRouter.POST("/images/generations", func(c *gin.Context) {
-			controller.Relay(c, types.RelayFormatOpenAIImage)
-		})
+			httpRouter.POST("/images/generations", func(c *gin.Context) {
+				controller.RelayImageGeneration(c)
+			})
 		httpRouter.POST("/images/edits", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIImage)
 		})
@@ -180,6 +180,8 @@ func SetRelayRouter(router *gin.Engine) {
 	router.POST("/youchuan/notify", controller.RelayYouchuanNotify)
 	// ima-pro 回调 — 无需 TokenAuth，由上游服务器直接推送结果
 	router.POST("/ima-pro/notify", controller.RelayImaProNotify)
+	// ima-pro-overseas 回调 — 无需 TokenAuth，由上游服务器直接推送结果
+	router.POST("/ima-pro-overseas/notify", controller.RelayImaProNotify)
 
 	relaySunoRouter := router.Group("/suno")
 	relaySunoRouter.Use(middleware.RouteTag("relay"))

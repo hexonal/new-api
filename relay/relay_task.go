@@ -483,10 +483,20 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	}
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
+	isOpenAIImageAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/images/generations/")
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
+		return
+	}
+
+	// OpenAI image-task fetch API: always return unified task-fetch payload.
+	if isOpenAIImageAPI {
+		respBody, err = buildImageFetchResponse(originTask)
+		if err != nil {
+			taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -521,6 +531,43 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	return
 }
 
+func buildImageFetchResponse(task *model.Task) ([]byte, error) {
+	errPayload := any(nil)
+	if strings.TrimSpace(task.FailReason) != "" {
+		errPayload = map[string]any{
+			"message": strings.TrimSpace(task.FailReason),
+		}
+	}
+	out := map[string]any{
+		"task_id":  task.TaskID,
+		"status":   mapTaskStatusToSimple(task.Status),
+		"format":   detectImageFormat(task.GetResultURL()),
+		"url":      task.GetResultURL(),
+		"error":    errPayload,
+		"metadata": nil,
+	}
+	return common.Marshal(dto.TaskResponse[any]{
+		Code: "success",
+		Data: out,
+	})
+}
+
+func detectImageFormat(url string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(url))
+	switch {
+	case strings.HasSuffix(trimmed, ".jpg"), strings.HasSuffix(trimmed, ".jpeg"):
+		return "jpeg"
+	case strings.HasSuffix(trimmed, ".webp"):
+		return "webp"
+	case strings.HasSuffix(trimmed, ".gif"):
+		return "gif"
+	case strings.HasSuffix(trimmed, ".bmp"):
+		return "bmp"
+	default:
+		return "png"
+	}
+}
+
 // tryRealtimeFetch 尝试从上游实时拉取任务状态。
 // 目前支持 Gemini / Vertex / IMA-Pro；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
@@ -531,7 +578,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	}
 	if channelModel.Type != constant.ChannelTypeVertexAi &&
 		channelModel.Type != constant.ChannelTypeGemini &&
-		channelModel.Type != constant.ChannelTypeImaPro {
+		!constant.IsImaProChannelType(channelModel.Type) {
 		return nil
 	}
 

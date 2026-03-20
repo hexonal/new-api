@@ -190,7 +190,8 @@ func resolveImaProMinBalanceRequiredQuota(relayInfo *relaycommon.RelayInfo) (int
 	if relayInfo == nil {
 		return 0, false
 	}
-	if !strings.EqualFold(strings.TrimSpace(relayInfo.OriginModelName), taskDeferredMinBalanceModelImaPro) {
+	modelName := strings.ToLower(strings.TrimSpace(relayInfo.OriginModelName))
+	if modelName != taskDeferredMinBalanceModelImaPro {
 		return 0, false
 	}
 	cfg := operation_setting.GetPaymentSetting()
