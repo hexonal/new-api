@@ -159,6 +159,7 @@ func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, re
 	if err != nil {
 		return nil, err
 	}
+	fillAssetGroupDefaults(upstreamGroup, req)
 
 	group := &model.UserAssetGroup{
 		UserId:          userID,
@@ -175,6 +176,32 @@ func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, re
 		return nil, err
 	}
 	return upstreamGroup, nil
+}
+
+func fillAssetGroupDefaults(group *dto.DoubaoAssetGroupResult, req dto.AssetGroupCreateRequest) {
+	if group == nil {
+		return
+	}
+	if group.Name == "" {
+		group.Name = req.Name
+	}
+	if group.Description == "" {
+		group.Description = req.Description
+	}
+	if group.GroupType == "" {
+		if req.GroupType != "" {
+			group.GroupType = req.GroupType
+		} else {
+			group.GroupType = "AIGC"
+		}
+	}
+	if group.ProjectName == "" {
+		if req.ProjectName != "" {
+			group.ProjectName = req.ProjectName
+		} else {
+			group.ProjectName = "default"
+		}
+	}
 }
 
 func HandleListAssetGroups(ctx context.Context, userID int, userName string, req dto.AssetGroupListRequest) (*dto.DoubaoListResult, error) {

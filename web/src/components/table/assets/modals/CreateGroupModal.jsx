@@ -22,54 +22,57 @@ import { Form, Modal } from '@douyinfe/semi-ui';
 import { showError } from '../../../../helpers';
 
 const CreateGroupModal = ({ visible, onCancel, onSubmit, loading, t }) => {
+  const [company, setCompany] = useState('');
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
 
   useEffect(() => {
     if (!visible) {
+      setCompany('');
       setName('');
-      setDescription('');
     }
   }, [visible]);
 
   return (
     <Modal
-      title={t('创建分组')}
+      title='Create Group'
       visible={visible}
       onCancel={onCancel}
       onOk={async () => {
+        const trimmedCompany = company.trim();
         const trimmedName = name.trim();
+        if (!trimmedCompany) {
+          showError(t('公司不能为空'));
+          return;
+        }
         if (!trimmedName) {
-          showError(t('分组名称不能为空'));
+          showError(t('名称不能为空'));
           return;
         }
         await onSubmit({
-          name: trimmedName,
-          description: description.trim(),
+          name: `${trimmedCompany}-${trimmedName}`,
+          description: '',
         });
       }}
-      okText={t('创建')}
-      cancelText={t('取消')}
+      okText='Create'
+      cancelText='Cancel'
       confirmLoading={loading}
       closeOnEsc
     >
       <Form>
         <Form.Input
-          field='group-name'
-          label={t('分组名称')}
-          value={name}
-          onChange={setName}
-          placeholder={t('请输入分组名称')}
+          field='group-company'
+          label='Company'
+          value={company}
+          onChange={setCompany}
+          placeholder='Enter company'
           showClear
         />
-        <Form.TextArea
-          field='group-description'
-          label={t('描述')}
-          value={description}
-          onChange={setDescription}
-          placeholder={t('请输入分组描述（可选）')}
-          rows={3}
-          maxCount={200}
+        <Form.Input
+          field='group-name'
+          label='Name'
+          value={name}
+          onChange={setName}
+          placeholder='Enter name'
           showClear
         />
       </Form>

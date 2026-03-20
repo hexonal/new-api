@@ -136,11 +136,11 @@ func (c *AssetProxyClient) CreateAssetGroup(ctx context.Context, req dto.AssetGr
 	if err != nil {
 		return nil, err
 	}
-	result := &dto.DoubaoAssetGroupResult{}
-	if err = common.Unmarshal(resp.Result, result); err != nil {
+	idResult := &dto.DoubaoIDResult{}
+	if err = common.Unmarshal(resp.Result, idResult); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &dto.DoubaoAssetGroupResult{Id: idResult.NormalizedID()}, nil
 }
 
 func (c *AssetProxyClient) ListAssetGroups(ctx context.Context, req dto.AssetGroupListRequest) (*dto.DoubaoListResult, error) {
@@ -155,9 +155,15 @@ func (c *AssetProxyClient) ListAssetGroups(ctx context.Context, req dto.AssetGro
 		body["page_size"] = *req.PageSize
 	}
 	if req.SortBy != "" {
+		if err := validateAssetGroupSortBy(req.SortBy); err != nil {
+			return nil, err
+		}
 		body["sort_by"] = req.SortBy
 	}
 	if req.SortOrder != "" {
+		if err := validateAssetSortOrder(req.SortOrder); err != nil {
+			return nil, err
+		}
 		body["sort_order"] = req.SortOrder
 	}
 	if req.ProjectName != "" {
@@ -249,9 +255,15 @@ func (c *AssetProxyClient) ListAssets(ctx context.Context, req dto.AssetListRequ
 		body["page_size"] = *req.PageSize
 	}
 	if req.SortBy != "" {
+		if err := validateAssetSortBy(req.SortBy); err != nil {
+			return nil, err
+		}
 		body["sort_by"] = req.SortBy
 	}
 	if req.SortOrder != "" {
+		if err := validateAssetSortOrder(req.SortOrder); err != nil {
+			return nil, err
+		}
 		body["sort_order"] = req.SortOrder
 	}
 	if req.ProjectName != "" {
@@ -301,4 +313,31 @@ func (c *AssetProxyClient) UpdateAsset(ctx context.Context, req dto.AssetUpdateR
 		return nil, err
 	}
 	return result, nil
+}
+
+func validateAssetSortBy(value string) error {
+	switch value {
+	case "CreateTime", "UpdateTime", "GroupId":
+		return nil
+	default:
+		return fmt.Errorf("invalid sort_by: %s, allowed: CreateTime, UpdateTime, GroupId", value)
+	}
+}
+
+func validateAssetGroupSortBy(value string) error {
+	switch value {
+	case "CreateTime", "UpdateTime":
+		return nil
+	default:
+		return fmt.Errorf("invalid sort_by: %s, allowed: CreateTime, UpdateTime", value)
+	}
+}
+
+func validateAssetSortOrder(value string) error {
+	switch value {
+	case "Asc", "Desc":
+		return nil
+	default:
+		return fmt.Errorf("invalid sort_order: %s, allowed: Asc, Desc", value)
+	}
 }
