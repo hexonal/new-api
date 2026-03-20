@@ -113,6 +113,8 @@ const (
 	imaProCreatePath      = "/api/v1/aigc/task/create"
 	imaProQueryPath       = "/api/v1/aigc/task/query"
 	imaProLegacyFetchPath = "/v1/videos/%s"
+	imaProChannelType     = 60
+	imaProOverseasType    = 61
 )
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
@@ -122,7 +124,7 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *TaskAdaptor) isImaProFamily() bool {
-	return constant.IsImaProChannelType(a.ChannelType)
+	return a.ChannelType == imaProChannelType || a.ChannelType == imaProOverseasType
 }
 
 func isImaImageGenerationModel(model string) bool {
@@ -410,7 +412,7 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 }
 
 func resolveImaProUpstreamCallbackURL(info *relaycommon.RelayInfo) (string, error) {
-	if info == nil || info.ChannelType != constant.ChannelTypeImaProOverseas {
+	if info == nil || info.ChannelType != imaProOverseasType {
 		return "", nil
 	}
 	serverAddr := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
@@ -605,10 +607,7 @@ func resolveResolutionAndAspectRatio(req *relaycommon.TaskSubmitReq, metadata ma
 	}
 
 	resolution := pickStringWithDefault(metadata, "720p", "resolution")
-	aspectRatio := strings.TrimSpace(req.AspectRatio)
-	if aspectRatio == "" {
-		aspectRatio = pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
-	}
+	aspectRatio := pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
 	return resolution, aspectRatio
 }
 
