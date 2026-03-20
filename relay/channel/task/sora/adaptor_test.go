@@ -1146,6 +1146,12 @@ func TestBuildImaProPayload_ImageModelUsesUpstreamImageParams(t *testing.T) {
 	if payload.Parameters.Duration != 0 {
 		t.Fatalf("Duration = %d, want 0 for image model", payload.Parameters.Duration)
 	}
+	if payload.Parameters.Prompt != "watercolor style" {
+		t.Fatalf("Prompt = %q, want watercolor style", payload.Parameters.Prompt)
+	}
+	if len(payload.Parameters.ElementList) != 0 {
+		t.Fatalf("ElementList len = %d, want 0 for image model", len(payload.Parameters.ElementList))
+	}
 }
 
 func TestBuildImaProPayload_ImageModelDefaultSize(t *testing.T) {
@@ -1168,6 +1174,47 @@ func TestBuildImaProPayload_ImageModelDefaultSize(t *testing.T) {
 	}
 	if payload.Parameters.Size != "1K" {
 		t.Fatalf("Size = %q, want 1K default", payload.Parameters.Size)
+	}
+}
+
+func TestBuildImaProPayload_ImageModelImageFieldMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	reqSingle := &relaycommon.TaskSubmitReq{
+		Prompt: "single image",
+		Image:  "https://example.com/a.jpg",
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3.1-flash-image-preview",
+		},
+	}
+	payloadSingle, err := buildImaProPayload(ctx, reqSingle, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload(single) returned error: %v", err)
+	}
+	if payloadSingle.Parameters.Image != "https://example.com/a.jpg" {
+		t.Fatalf("Image = %q, want single image url", payloadSingle.Parameters.Image)
+	}
+	if len(payloadSingle.Parameters.Images) != 0 {
+		t.Fatalf("Images len = %d, want 0 for single-image mode", len(payloadSingle.Parameters.Images))
+	}
+
+	reqMulti := &relaycommon.TaskSubmitReq{
+		Prompt: "multi image",
+		Images: []string{"https://example.com/a.jpg", "https://example.com/b.png"},
+	}
+	payloadMulti, err := buildImaProPayload(ctx, reqMulti, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload(multi) returned error: %v", err)
+	}
+	if payloadMulti.Parameters.Image != "" {
+		t.Fatalf("Image = %q, want empty for multi-image mode", payloadMulti.Parameters.Image)
+	}
+	if len(payloadMulti.Parameters.Images) != 2 {
+		t.Fatalf("Images len = %d, want 2 for multi-image mode", len(payloadMulti.Parameters.Images))
 	}
 }
 

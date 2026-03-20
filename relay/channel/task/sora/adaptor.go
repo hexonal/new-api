@@ -80,7 +80,10 @@ type imaProPayload struct {
 }
 
 type imaProPayloadParam struct {
-	ElementList []imaProElement  `json:"element_list"`
+	ElementList []imaProElement  `json:"element_list,omitempty"`
+	Prompt      string           `json:"prompt,omitempty"`
+	Image       string           `json:"image,omitempty"`
+	Images      []string         `json:"images,omitempty"`
 	Audio       string           `json:"audio,omitempty"`
 	MCPList     []map[string]any `json:"mcp_list,omitempty"`
 	Size        string           `json:"size,omitempty"`
@@ -380,14 +383,6 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		metadata = map[string]any{}
 	}
 
-	elements, err := buildImaProElementList(req, metadata)
-	if err != nil {
-		return nil, err
-	}
-	if len(elements) == 0 {
-		return nil, fmt.Errorf("element_list is empty")
-	}
-
 	requestPath := ""
 	if c != nil && c.Request != nil && c.Request.URL != nil {
 		requestPath = c.Request.URL.Path
@@ -405,7 +400,6 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		return nil, err
 	}
 	parameters := imaProPayloadParam{
-		ElementList: elements,
 		Audio:       resolveImaProAudioFlag(metadata),
 		MCPList:     resolveImaProMCPList(metadata),
 	}
@@ -416,7 +410,22 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		}
 		parameters.Size = size
 		parameters.AspectRatio = aspectRatio
+		parameters.Prompt = strings.TrimSpace(req.Prompt)
+		imageURLs := collectImaProImageURLs(req)
+		if len(imageURLs) == 1 {
+			parameters.Image = imageURLs[0]
+		} else if len(imageURLs) > 1 {
+			parameters.Images = imageURLs
+		}
 	} else {
+		elements, err := buildImaProElementList(req, metadata)
+		if err != nil {
+			return nil, err
+		}
+		if len(elements) == 0 {
+			return nil, fmt.Errorf("element_list is empty")
+		}
+		parameters.ElementList = elements
 		duration := resolveTaskDurationSeconds(req, metadata)
 		resolution, aspectRatio := resolveResolutionAndAspectRatio(req, metadata)
 		parameters.Resolution = resolution
