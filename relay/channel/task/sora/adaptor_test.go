@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -1049,5 +1050,60 @@ func TestIsTaskCodeFailure(t *testing.T) {
 		if got := IsTaskCodeFailure(tt.code); got != tt.want {
 			t.Fatalf("IsTaskCodeFailure(%q) = %v, want %v", tt.code, got, tt.want)
 		}
+	}
+}
+
+func TestBuildImaProPayload_OverseasAutoCallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	oldAddr := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://open-route.fashionlabs.cn"
+	defer func() {
+		system_setting.ServerAddress = oldAddr
+	}()
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "generate image",
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeImaProOverseas,
+			UpstreamModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	if payload.CallbackURL != "https://open-route.fashionlabs.cn/ima-pro-overseas/notify" {
+		t.Fatalf("CallbackURL = %q, want overseas callback", payload.CallbackURL)
+	}
+}
+
+func TestBuildImaProPayload_OverseasMissingServerAddress(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	oldAddr := system_setting.ServerAddress
+	system_setting.ServerAddress = ""
+	defer func() {
+		system_setting.ServerAddress = oldAddr
+	}()
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "generate image",
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeImaProOverseas,
+			UpstreamModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	_, err := buildImaProPayload(ctx, req, info)
+	if err == nil || !strings.Contains(err.Error(), "callback_url") {
+		t.Fatalf("expected callback_url error, got: %v", err)
 	}
 }

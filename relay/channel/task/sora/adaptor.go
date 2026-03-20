@@ -19,6 +19,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -120,6 +121,19 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.apiKey = info.ApiKey
 }
 
+func (a *TaskAdaptor) isImaProFamily() bool {
+	return constant.IsImaProChannelType(a.ChannelType)
+}
+
+func isImaImageGenerationModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gemini-3-pro-image-preview", "gemini-3.1-flash-image-preview":
+		return true
+	default:
+		return false
+	}
+}
+
 func validateRemixRequest(c *gin.Context, validateCallback bool) *dto.TaskError {
 	var req relaycommon.TaskSubmitReq
 	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
@@ -142,7 +156,7 @@ func validateRemixRequest(c *gin.Context, validateCallback bool) *dto.TaskError 
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
 	if info.Action == constant.TaskActionRemix {
-		return validateRemixRequest(c, a.ChannelType != constant.ChannelTypeImaPro)
+		return validateRemixRequest(c, !a.isImaProFamily())
 	}
 	if taskErr = relaycommon.ValidateMultipartDirect(c, info); taskErr != nil {
 		return taskErr
@@ -151,7 +165,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 	}
-	if a.ChannelType != constant.ChannelTypeImaPro {
+	if !a.isImaProFamily() {
 		if callbackURL := req.GetCallbackURL(); callbackURL != "" {
 			if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
 				return service.TaskErrorWrapperLocal(err, "invalid_callback_url", http.StatusBadRequest)
@@ -198,12 +212,12 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info != nil && info.TaskRelayInfo != nil && info.Action == constant.TaskActionRemix {
-		if a.ChannelType == constant.ChannelTypeImaPro {
+		if a.isImaProFamily() {
 			return "", fmt.Errorf("ima-pro does not support remix")
 		}
 		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
 	}
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		return fmt.Sprintf("%s%s", a.baseURL, imaProCreatePath), nil
 	}
 	return fmt.Sprintf("%s/v1/videos", a.baseURL), nil
@@ -220,7 +234,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 	}
 	// ima-pro receives internally converted JSON payload; force JSON content type
 	// regardless of the client-side OpenAI-style upload format.
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		req.Header.Set("Content-Type", "application/json")
 		return nil
 	}
@@ -229,7 +243,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		req, err := relaycommon.GetTaskRequest(c)
 		if err != nil {
 			return nil, errors.Wrap(err, "get_task_request_failed")
@@ -342,6 +356,21 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		return nil, fmt.Errorf("element_list is empty")
 	}
 
+	requestPath := ""
+	if c != nil && c.Request != nil && c.Request.URL != nil {
+		requestPath = c.Request.URL.Path
+	}
+	upstreamModelVersion := strings.TrimSpace(info.UpstreamModelName)
+	if upstreamModelVersion == "" {
+		upstreamModelVersion = strings.TrimSpace(info.OriginModelName)
+	}
+	if strings.HasPrefix(requestPath, "/v1/images/generations") && !isImaImageGenerationModel(upstreamModelVersion) {
+		return nil, fmt.Errorf("model must use upstream id: gemini-3-pro-image-preview or gemini-3.1-flash-image-preview")
+	}
+	callbackURL, err := resolveImaProUpstreamCallbackURL(info)
+	if err != nil {
+		return nil, err
+	}
 	payload := &imaProPayload{
 		IDTask:       resolveImaProTraceTaskID(info),
 		TenantID:     resolveImaProTenantID(info, metadata),
@@ -349,13 +378,18 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		AppID:        resolveImaProAppID(info, metadata),
 		AppKind:      resolveImaProAppKind(info, metadata),
 		TaskID:       resolveImaProTraceTaskID(info),
-		AigcCategory: pickStringWithDefault(metadata, resolveImaProCategory(req), "aigc_category", "aigcCategory"),
-		// callback_url is intentionally disabled for IMA Pro public contract.
-		// Clients must poll task status via /v1/videos/{task_id}.
-		CallbackURL:  "",
+		AigcCategory: pickStringWithDefault(
+			metadata,
+			resolveImaProCategory(req, upstreamModelVersion),
+			"aigc_category",
+			"aigcCategory",
+		),
+		// callback_url is disabled for domestic IMA Pro contract and enabled for overseas channel.
+		// Clients can still poll task status via /v1/videos/{task_id}.
+		CallbackURL:  callbackURL,
 		Watermark:    resolveImaProWatermark(metadata),
-		WatermarkImg: pickString(metadata, "watermark_img", "watermarkImg"),
-		ModelVersion: taskcommon.DefaultString(info.UpstreamModelName, info.OriginModelName),
+		WatermarkImg: "",
+		ModelVersion: upstreamModelVersion,
 		Parameters: imaProPayloadParam{
 			ElementList: elements,
 			Audio:       resolveImaProAudioFlag(metadata),
@@ -369,10 +403,25 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	if payload.UserID == "" {
 		payload.UserID = "new-api-user"
 	}
-	if payload.ModelVersion == "" {
+	if payload.ModelVersion == "" && !strings.HasPrefix(requestPath, "/v1/images/generations") {
 		payload.ModelVersion = "ima-pro"
 	}
 	return payload, nil
+}
+
+func resolveImaProUpstreamCallbackURL(info *relaycommon.RelayInfo) (string, error) {
+	if info == nil || info.ChannelType != constant.ChannelTypeImaProOverseas {
+		return "", nil
+	}
+	serverAddr := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
+	if serverAddr == "" {
+		return "", fmt.Errorf("ima-pro-overseas requires non-empty server address for callback_url")
+	}
+	callbackURL := serverAddr + "/ima-pro-overseas/notify"
+	if err := service.ValidateVideoTaskCallbackURL(callbackURL); err != nil {
+		return "", fmt.Errorf("invalid ima-pro-overseas callback_url: %w", err)
+	}
+	return callbackURL, nil
 }
 
 func buildImaProElementList(req *relaycommon.TaskSubmitReq, metadata map[string]any) ([]imaProElement, error) {
@@ -556,7 +605,10 @@ func resolveResolutionAndAspectRatio(req *relaycommon.TaskSubmitReq, metadata ma
 	}
 
 	resolution := pickStringWithDefault(metadata, "720p", "resolution")
-	aspectRatio := pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
+	aspectRatio := strings.TrimSpace(req.AspectRatio)
+	if aspectRatio == "" {
+		aspectRatio = pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
+	}
 	return resolution, aspectRatio
 }
 
@@ -594,7 +646,13 @@ func gcdInt(a int, b int) int {
 	return a
 }
 
-func resolveImaProCategory(req *relaycommon.TaskSubmitReq) string {
+func resolveImaProCategory(req *relaycommon.TaskSubmitReq, modelName string) string {
+	if isImaImageGenerationModel(modelName) {
+		if req != nil && (req.HasImage() || strings.TrimSpace(req.Image) != "" || strings.TrimSpace(req.InputReference) != "") {
+			return "image_to_image"
+		}
+		return "text_to_image"
+	}
 	if req != nil && (req.HasImage() || strings.TrimSpace(req.Image) != "" || strings.TrimSpace(req.InputReference) != "") {
 		return "image_to_video"
 	}
@@ -826,10 +884,14 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	dResp.ID = info.PublicTaskID
 	dResp.TaskID = info.PublicTaskID
 	if strings.TrimSpace(dResp.Object) == "" {
-		dResp.Object = "video"
+		if isImaImageGenerationModel(strings.TrimSpace(info.UpstreamModelName)) {
+			dResp.Object = "image"
+		} else {
+			dResp.Object = "video"
+		}
 	}
-	if strings.TrimSpace(dResp.Model) == "" {
-		dResp.Model = taskcommon.DefaultString(info.OriginModelName, info.UpstreamModelName)
+	if strings.TrimSpace(dResp.Model) == "" && strings.TrimSpace(info.UpstreamModelName) != "" {
+		dResp.Model = strings.TrimSpace(info.UpstreamModelName)
 	}
 	if dResp.CreatedAt == 0 {
 		dResp.CreatedAt = time.Now().Unix()
@@ -944,7 +1006,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		client = http.DefaultClient
 	}
 
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		// Prefer provider-native query endpoint; fallback to legacy OpenAI-style path
 		// for backward compatibility with older IMA bridge deployments.
 		resp, err := a.fetchImaProTaskByPost(baseUrl, key, taskID, client)
@@ -1012,14 +1074,14 @@ func isEndpointNotFound(statusCode int) bool {
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		return IMAProModelList
 	}
 	return ModelList
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
-	if a.ChannelType == constant.ChannelTypeImaPro {
+	if a.isImaProFamily() {
 		return "ima_pro"
 	}
 	return ChannelName
