@@ -534,6 +534,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 }
 
 func buildImageFetchResponse(task *model.Task) ([]byte, error) {
+	promptTokens, completionTokens, totalTokens := service.ExtractTaskTokenUsage(task)
 	errPayload := any(nil)
 	if strings.TrimSpace(task.FailReason) != "" {
 		errPayload = map[string]any{
@@ -546,6 +547,11 @@ func buildImageFetchResponse(task *model.Task) ([]byte, error) {
 		"format":   detectImageFormat(task.GetResultURL()),
 		"url":      task.GetResultURL(),
 		"error":    errPayload,
+		"usage": map[string]any{
+			"input_tokens":  promptTokens,
+			"output_tokens": completionTokens,
+			"total_tokens":  totalTokens,
+		},
 		"metadata": nil,
 	}
 	return common.Marshal(dto.TaskResponse[any]{

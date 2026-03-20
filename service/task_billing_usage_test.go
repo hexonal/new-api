@@ -45,6 +45,24 @@ func TestExtractTaskTokenUsage(t *testing.T) {
 			}{prompt: 7, completion: 8, total: 15},
 		},
 		{
+			name: "input_output_usage_alias",
+			data: `{"usage":{"input_tokens":9,"output_tokens":1505,"total_tokens":1514}}`,
+			want: struct {
+				prompt     int
+				completion int
+				total      int
+			}{prompt: 9, completion: 1505, total: 1514},
+		},
+		{
+			name: "nested_input_output_string_alias",
+			data: `{"response":{"usage":{"input_tokens":"11","output_tokens":"22"}}}`,
+			want: struct {
+				prompt     int
+				completion int
+				total      int
+			}{prompt: 11, completion: 22, total: 33},
+		},
+		{
 			name: "empty_payload",
 			data: `{}`,
 			want: struct {

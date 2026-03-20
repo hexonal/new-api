@@ -228,13 +228,23 @@ func extractTaskTokenUsage(task *model.Task) (promptTokens int, completionTokens
 
 	promptTokens = readPositiveIntFromTaskData(task.Data,
 		"usage.prompt_tokens",
+		"usage.input_tokens",
 		"data.usage.prompt_tokens",
+		"data.usage.input_tokens",
 		"response.usage.prompt_tokens",
+		"response.usage.input_tokens",
+		"metadata.usage.prompt_tokens",
+		"metadata.usage.input_tokens",
 	)
 	completionTokens = readPositiveIntFromTaskData(task.Data,
 		"usage.completion_tokens",
+		"usage.output_tokens",
 		"data.usage.completion_tokens",
+		"data.usage.output_tokens",
 		"response.usage.completion_tokens",
+		"response.usage.output_tokens",
+		"metadata.usage.completion_tokens",
+		"metadata.usage.output_tokens",
 	)
 	totalTokens = readPositiveIntFromTaskData(task.Data,
 		"usage.total_tokens",
@@ -252,6 +262,12 @@ func extractTaskTokenUsage(task *model.Task) (promptTokens int, completionTokens
 		completionTokens = totalTokens
 	}
 	return promptTokens, completionTokens, totalTokens
+}
+
+// ExtractTaskTokenUsage exposes normalized task usage for non-billing consumers
+// (e.g. task query response rendering), while keeping billing parser logic centralized.
+func ExtractTaskTokenUsage(task *model.Task) (promptTokens int, completionTokens int, totalTokens int) {
+	return extractTaskTokenUsage(task)
 }
 
 func IsDeferredSettleTask(task *model.Task) bool {
