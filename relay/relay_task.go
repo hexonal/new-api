@@ -656,6 +656,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 
 	// 非 OpenAI Video API: 构建自定义格式响应
 	format := detectVideoFormat(body)
+	promptTokens, completionTokens, totalTokens := service.ExtractTaskTokenUsage(task)
 	out := map[string]any{
 		"error":    nil,
 		"format":   format,
@@ -663,6 +664,11 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		"status":   mapTaskStatusToSimple(task.Status),
 		"task_id":  task.TaskID,
 		"url":      task.GetResultURL(),
+		"usage": map[string]any{
+			"input_tokens":  promptTokens,
+			"output_tokens": completionTokens,
+			"total_tokens":  totalTokens,
+		},
 	}
 	respBody, _ := common.Marshal(dto.TaskResponse[any]{
 		Code: "success",
