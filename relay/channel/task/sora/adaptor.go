@@ -80,6 +80,7 @@ type imaProPayloadParam struct {
 	ElementList []imaProElement  `json:"element_list"`
 	Audio       string           `json:"audio,omitempty"`
 	MCPList     []map[string]any `json:"mcp_list,omitempty"`
+	Size        string           `json:"size,omitempty"`
 	Resolution  string           `json:"resolution,omitempty"`
 	AspectRatio string           `json:"aspect_ratio,omitempty"`
 	Duration    int              `json:"duration,omitempty"`
@@ -348,8 +349,6 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		metadata = map[string]any{}
 	}
 
-	duration := resolveTaskDurationSeconds(req, metadata)
-	resolution, aspectRatio := resolveResolutionAndAspectRatio(req, metadata)
 	elements, err := buildImaProElementList(req, metadata)
 	if err != nil {
 		return nil, err
@@ -369,9 +368,31 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	if strings.HasPrefix(requestPath, "/v1/images/generations") && !isImaImageGenerationModel(upstreamModelVersion) {
 		return nil, fmt.Errorf("model must use upstream id: gemini-3-pro-image-preview or gemini-3.1-flash-image-preview")
 	}
+	isImageModel := isImaImageGenerationModel(upstreamModelVersion)
 	callbackURL, err := resolveImaProUpstreamCallbackURL(info)
 	if err != nil {
 		return nil, err
+	}
+	parameters := imaProPayloadParam{
+		ElementList: elements,
+		Audio:       resolveImaProAudioFlag(metadata),
+		MCPList:     resolveImaProMCPList(metadata),
+	}
+	if isImageModel {
+		parameters.Size = strings.TrimSpace(req.Size)
+		if parameters.Size == "" {
+			parameters.Size = pickString(metadata, "size")
+		}
+		parameters.AspectRatio = strings.TrimSpace(req.AspectRatio)
+		if parameters.AspectRatio == "" {
+			parameters.AspectRatio = pickString(metadata, "aspect_ratio", "aspectRatio")
+		}
+	} else {
+		duration := resolveTaskDurationSeconds(req, metadata)
+		resolution, aspectRatio := resolveResolutionAndAspectRatio(req, metadata)
+		parameters.Resolution = resolution
+		parameters.AspectRatio = aspectRatio
+		parameters.Duration = duration
 	}
 	payload := &imaProPayload{
 		IDTask:       resolveImaProTraceTaskID(info),
@@ -392,14 +413,7 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		Watermark:    resolveImaProWatermark(metadata),
 		WatermarkImg: "",
 		ModelVersion: upstreamModelVersion,
-		Parameters: imaProPayloadParam{
-			ElementList: elements,
-			Audio:       resolveImaProAudioFlag(metadata),
-			MCPList:     resolveImaProMCPList(metadata),
-			Resolution:  resolution,
-			AspectRatio: aspectRatio,
-			Duration:    duration,
-		},
+		Parameters:   parameters,
 	}
 
 	if payload.UserID == "" {

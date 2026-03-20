@@ -1107,3 +1107,43 @@ func TestBuildImaProPayload_OverseasMissingServerAddress(t *testing.T) {
 		t.Fatalf("expected callback_url error, got: %v", err)
 	}
 }
+
+func TestBuildImaProPayload_ImageModelUsesUpstreamImageParams(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt:      "watercolor style",
+		Size:        "2K",
+		AspectRatio: "4:3",
+		Duration:    9,
+		Metadata: map[string]any{
+			"resolution":   "1080p",
+			"aspect_ratio": "16:9",
+			"duration":     15,
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	if payload.Parameters.Size != "2K" {
+		t.Fatalf("Size = %q, want 2K", payload.Parameters.Size)
+	}
+	if payload.Parameters.AspectRatio != "4:3" {
+		t.Fatalf("AspectRatio = %q, want 4:3", payload.Parameters.AspectRatio)
+	}
+	if payload.Parameters.Resolution != "" {
+		t.Fatalf("Resolution = %q, want empty for image model", payload.Parameters.Resolution)
+	}
+	if payload.Parameters.Duration != 0 {
+		t.Fatalf("Duration = %d, want 0 for image model", payload.Parameters.Duration)
+	}
+}
