@@ -1147,3 +1147,47 @@ func TestBuildImaProPayload_ImageModelUsesUpstreamImageParams(t *testing.T) {
 		t.Fatalf("Duration = %d, want 0 for image model", payload.Parameters.Duration)
 	}
 }
+
+func TestBuildImaProPayload_ImageModelDefaultSize(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "a clean studio photo",
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	payload, err := buildImaProPayload(ctx, req, info)
+	if err != nil {
+		t.Fatalf("buildImaProPayload returned error: %v", err)
+	}
+	if payload.Parameters.Size != "1K" {
+		t.Fatalf("Size = %q, want 1K default", payload.Parameters.Size)
+	}
+}
+
+func TestBuildImaProPayload_ImageModelInvalidSize(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	req := &relaycommon.TaskSubmitReq{
+		Prompt: "a clean studio photo",
+		Size:   "1024x1024",
+	}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	_, err := buildImaProPayload(ctx, req, info)
+	if err == nil || !strings.Contains(err.Error(), "invalid size") {
+		t.Fatalf("expected invalid size error, got: %v", err)
+	}
+}

@@ -7,9 +7,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -135,6 +138,34 @@ func isImaImageGenerationModel(model string) bool {
 	default:
 		return false
 	}
+}
+
+type imaGeminiImageParamSpec struct {
+	allowedSizes        map[string]struct{}
+	allowedAspectRatios map[string]struct{}
+}
+
+var imaGeminiImageParamSpecs = map[string]imaGeminiImageParamSpec{
+	"gemini-3-pro-image-preview": {
+		allowedSizes: setOfStrings("1K", "2K", "4K"),
+		allowedAspectRatios: setOfStrings(
+			"1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9",
+		),
+	},
+	"gemini-3.1-flash-image-preview": {
+		allowedSizes: setOfStrings("512px", "1K", "2K", "4K"),
+		allowedAspectRatios: setOfStrings(
+			"1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
+		),
+	},
+}
+
+func setOfStrings(items ...string) map[string]struct{} {
+	out := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		out[item] = struct{}{}
+	}
+	return out
 }
 
 func validateRemixRequest(c *gin.Context, validateCallback bool) *dto.TaskError {
@@ -379,14 +410,12 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		MCPList:     resolveImaProMCPList(metadata),
 	}
 	if isImageModel {
-		parameters.Size = strings.TrimSpace(req.Size)
-		if parameters.Size == "" {
-			parameters.Size = pickString(metadata, "size")
+		size, aspectRatio, err := validateImaGeminiImageParams(req, metadata, upstreamModelVersion)
+		if err != nil {
+			return nil, err
 		}
-		parameters.AspectRatio = strings.TrimSpace(req.AspectRatio)
-		if parameters.AspectRatio == "" {
-			parameters.AspectRatio = pickString(metadata, "aspect_ratio", "aspectRatio")
-		}
+		parameters.Size = size
+		parameters.AspectRatio = aspectRatio
 	} else {
 		duration := resolveTaskDurationSeconds(req, metadata)
 		resolution, aspectRatio := resolveResolutionAndAspectRatio(req, metadata)
@@ -423,6 +452,69 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		payload.ModelVersion = "ima-pro"
 	}
 	return payload, nil
+}
+
+func validateImaGeminiImageParams(req *relaycommon.TaskSubmitReq, metadata map[string]any, modelVersion string) (string, string, error) {
+	spec, ok := imaGeminiImageParamSpecs[strings.ToLower(strings.TrimSpace(modelVersion))]
+	if !ok {
+		return "", "", fmt.Errorf("unsupported gemini image model: %s", modelVersion)
+	}
+
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		return "", "", fmt.Errorf("prompt is required for %s", modelVersion)
+	}
+	if utf8.RuneCountInString(prompt) > 10000 {
+		return "", "", fmt.Errorf("prompt length exceeds 10000 characters for %s", modelVersion)
+	}
+
+	imageURLs := collectImaProImageURLs(req)
+	if len(imageURLs) > 14 {
+		return "", "", fmt.Errorf("images count exceeds 14 for %s", modelVersion)
+	}
+	for _, imageURL := range imageURLs {
+		cleanPath := strings.ToLower(strings.Split(strings.TrimSpace(imageURL), "?")[0])
+		ext := strings.TrimPrefix(path.Ext(cleanPath), ".")
+		// Vendor schema says jpg/png; keep jpeg as jpg equivalent.
+		if ext == "jpeg" {
+			ext = "jpg"
+		}
+		if ext != "" && ext != "jpg" && ext != "png" {
+			return "", "", fmt.Errorf("images only support jpg/png for %s", modelVersion)
+		}
+	}
+
+	size := strings.TrimSpace(req.Size)
+	if size == "" {
+		size = pickString(metadata, "size")
+	}
+	if size == "" {
+		size = "1K"
+	}
+	if _, ok := spec.allowedSizes[size]; !ok {
+		return "", "", fmt.Errorf("invalid size for %s: %s (allowed: %s)", modelVersion, size, joinSetKeys(spec.allowedSizes))
+	}
+
+	aspectRatio := strings.TrimSpace(req.AspectRatio)
+	if aspectRatio == "" {
+		aspectRatio = pickString(metadata, "aspect_ratio", "aspectRatio")
+	}
+	if aspectRatio != "" {
+		if _, ok := spec.allowedAspectRatios[aspectRatio]; !ok {
+			return "", "", fmt.Errorf("invalid aspect_ratio for %s: %s (allowed: %s)", modelVersion, aspectRatio, joinSetKeys(spec.allowedAspectRatios))
+		}
+	}
+	return size, aspectRatio, nil
+}
+
+func joinSetKeys(m map[string]struct{}) string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	// Stable deterministic order for error messages.
+	sort.Strings(keys)
+	return strings.Join(keys, ",")
 }
 
 func resolveImaProUpstreamCallbackURL(info *relaycommon.RelayInfo) (string, error) {

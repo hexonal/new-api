@@ -21,14 +21,17 @@ func TestShouldUsePerCallBillingForTaskModel_ImaProAlwaysToken(t *testing.T) {
 	}
 }
 
-func TestShouldUseDeferredSettleForTaskModel_ImaProOnly(t *testing.T) {
+func TestShouldUseDeferredSettleForTaskModel_AsyncImageTaskModels(t *testing.T) {
 	if !shouldUseDeferredSettleForTaskModel("ima-pro") {
 		t.Fatalf("ima-pro should use deferred settle strategy")
 	}
-	if shouldUseDeferredSettleForTaskModel("gemini-3-pro-image-preview") {
-		t.Fatalf("gemini image model should not use deferred settle strategy")
+	if !shouldUseDeferredSettleForTaskModel("gemini-3-pro-image-preview") {
+		t.Fatalf("gemini-3-pro-image-preview should use deferred settle strategy")
+	}
+	if !shouldUseDeferredSettleForTaskModel("gemini-3.1-flash-image-preview") {
+		t.Fatalf("gemini-3.1-flash-image-preview should use deferred settle strategy")
 	}
 	if shouldUseDeferredSettleForTaskModel("sora-2") {
-		t.Fatalf("non ima-pro model should not use deferred settle strategy")
+		t.Fatalf("non async-image model should not use deferred settle strategy")
 	}
 }

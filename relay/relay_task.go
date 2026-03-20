@@ -36,8 +36,10 @@ type TaskSubmitResult struct {
 }
 
 var taskDeferredSettleModels = map[string]struct{}{
-	"ima-pro":      {},
-	"ima-pro-fast": {},
+	"ima-pro":                        {},
+	"ima-pro-fast":                   {},
+	"gemini-3-pro-image-preview":     {},
+	"gemini-3.1-flash-image-preview": {},
 }
 
 func isDeferredSettleTaskModel(modelName string) bool {

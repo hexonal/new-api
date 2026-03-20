@@ -208,6 +208,7 @@ type RecordTaskBillingLogParams struct {
 	Quota     int
 	TokenId   int
 	Group     string
+	RequestId string
 	// PromptTokens/CompletionTokens are optional for async task billing logs.
 	// When provider only reports total usage, callers may map it to completion tokens.
 	PromptTokens     int
@@ -238,6 +239,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		ChannelId:        params.ChannelId,
 		TokenId:          params.TokenId,
 		Group:            params.Group,
+		RequestId:        params.RequestId,
 		PromptTokens:     params.PromptTokens,
 		CompletionTokens: params.CompletionTokens,
 		Other:            common.MapToJsonStr(params.Other),

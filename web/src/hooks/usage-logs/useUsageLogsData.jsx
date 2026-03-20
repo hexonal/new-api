@@ -393,6 +393,16 @@ export const useLogsData = () => {
           key: t('Request ID'),
           value: logs[i].request_id,
         });
+      } else if (other?.request_id) {
+        expandDataLocal.push({
+          key: t('Request ID'),
+          value: other.request_id,
+        });
+      } else if (other?.task_id) {
+        expandDataLocal.push({
+          key: t('Request ID'),
+          value: other.task_id,
+        });
       }
       expandDataLocal.push({
         key: t('输入 Tokens'),
@@ -545,6 +555,34 @@ export const useLogsData = () => {
                 other.cache_creation_ratio ||
                 1.0,
               billingDisplayMode,
+            );
+          } else if (
+            other?.deferred_settle &&
+            Number(other?.actual_quota || 0) > 0 &&
+            Number(other?.model_price || 0) === 0
+          ) {
+            const billedQuota = Number(logs[i].quota || 0);
+            content = (
+              <article>
+                <p>
+                  {t('终态重算扣费：{{cost}}', {
+                    cost: renderQuota(billedQuota, 6),
+                  })}
+                </p>
+                <p>
+                  {t('结算原因：{{reason}}', {
+                    reason: other?.terminal_charge_reason || logs[i].content || '-',
+                  })}
+                </p>
+                {Number(other?.task_total_tokens || 0) > 0 && (
+                  <p>
+                    {t('任务总 Tokens：{{tokens}}', {
+                      tokens: renderNumber(other.task_total_tokens),
+                    })}
+                  </p>
+                )}
+                <p>{t('仅供参考，以实际扣费为准')}</p>
+              </article>
             );
           } else {
             content = renderModelPrice(

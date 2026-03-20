@@ -345,6 +345,7 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		Quota:            actualQuota,
 		TokenId:          task.PrivateData.TokenId,
 		Group:            task.Group,
+		RequestId:        task.TaskID,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		Other:            other,
@@ -385,6 +386,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 		Quota:     quota,
 		TokenId:   task.PrivateData.TokenId,
 		Group:     task.Group,
+		RequestId: task.TaskID,
 		Other:     other,
 	})
 }
@@ -463,6 +465,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Quota:            logQuota,
 		TokenId:          task.PrivateData.TokenId,
 		Group:            task.Group,
+		RequestId:        task.TaskID,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		Other:            other,
