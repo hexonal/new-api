@@ -35,6 +35,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     detail: true,
     token: true,
+    asset: true,
     log: true,
     callback: true,
     midjourney: true,
@@ -48,7 +49,6 @@ export const DEFAULT_ADMIN_CONFIG = {
   admin: {
     enabled: true,
     channel: true,
-    asset: true,
     models: true,
     deployment: true,
     redemption: true,

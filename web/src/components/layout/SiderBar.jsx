@@ -92,6 +92,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/log',
       },
       {
+        text: t('素材管理'),
+        itemKey: 'asset',
+        to: '/asset',
+      },
+      {
         text: t('回调日志'),
         itemKey: 'callback',
         to: '/callback',
@@ -165,12 +170,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('订阅管理'),
         itemKey: 'subscription',
         to: '/subscription',
-        className: isAdmin() ? '' : 'tableHiddle',
-      },
-      {
-        text: t('素材管理'),
-        itemKey: 'asset',
-        to: '/asset',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
