@@ -116,6 +116,28 @@ const renderInputType = (inputType, t) => {
 };
 
 const renderType = (type, record, t) => {
+  const modelName = String(
+    record?.model_name ||
+      record?.model ||
+      record?.properties?.origin_model_name ||
+      record?.properties?.upstream_model_name ||
+      '',
+  ).toLowerCase();
+  const inputType = String(record?.properties?.input || '').toLowerCase();
+  const isImageModel =
+    modelName.includes('image-preview') ||
+    modelName.includes('gpt-image') ||
+    modelName.includes('imagen');
+
+  if (isImageModel) {
+    const isImageToImage = inputType.includes('image');
+    return (
+      <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
+        {isImageToImage ? t('图生图') : t('文生图')}
+      </Tag>
+    );
+  }
+
   const inputTypeTag = renderInputType(record?.properties?.input, t);
   if (inputTypeTag) {
     return inputTypeTag;
