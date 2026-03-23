@@ -436,6 +436,7 @@ func HandleListAssets(ctx context.Context, userID int, userName string, req dto.
 	if len(result.Items) > 0 {
 		if err = common.Unmarshal(result.Items, &items); err == nil {
 			now := time.Now().Unix()
+			filtered := make([]dto.DoubaoAssetResult, 0, len(items))
 			for _, item := range items {
 				upstreamID := item.NormalizedID()
 				if upstreamID == "" {
@@ -445,10 +446,15 @@ func HandleListAssets(ctx context.Context, userID int, userName string, req dto.
 				if asset.GetByUpstreamID(userID, upstreamID) != nil {
 					continue
 				}
+				filtered = append(filtered, item)
 				// 仅对本地已存在且长期 processing 的素材触发补偿轮询。
 				if item.Status == "Processing" && now-asset.CreatedAt > 30 {
 					go pollAssetStatus(client, asset.Id, upstreamID)
 				}
+			}
+			if payload, marshalErr := common.Marshal(filtered); marshalErr == nil {
+				result.Items = payload
+				result.TotalCount = int64(len(filtered))
 			}
 		}
 	}
@@ -519,7 +525,7 @@ func HandleUpdateAsset(ctx context.Context, userID int, userName string, req dto
 	return result, nil
 }
 
-func HandleDeleteAsset(ctx context.Context, userID int, userName string, req dto.AssetDeleteRequest) error {
+func HandleDeleteAsset(userID int, req dto.AssetDeleteRequest) error {
 	asset := &model.UserAsset{}
 	if err := asset.GetByUpstreamID(userID, req.Id); err != nil {
 		if id, ok := model.ParseAssetDeleteID(req.Id); ok {
@@ -530,23 +536,7 @@ func HandleDeleteAsset(ctx context.Context, userID int, userName string, req dto
 			return errors.New("asset not found")
 		}
 	}
-	channel, err := getAssetChannelByID(asset.ChannelId)
-	if err != nil {
-		return err
-	}
-	uid, err := resolveAssetUID(userID, userName)
-	if err != nil {
-		return err
-	}
-	client := NewAssetProxyClient(channel, uid)
-	upstreamID := asset.UpstreamAssetId
-	if upstreamID == "" {
-		upstreamID = req.Id
-	}
-	if _, err = client.DeleteAsset(ctx, upstreamID, ""); err != nil {
-		return err
-	}
-	if err := asset.SoftDelete(); err != nil {
+	if err := asset.HardDelete(); err != nil {
 		return err
 	}
 	return model.RefreshUserAssetGroupCount(asset.GroupId)

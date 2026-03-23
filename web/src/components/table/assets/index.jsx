@@ -69,7 +69,6 @@ const AssetsManager = () => {
     closeAssetDetail,
     copyReference,
     renameAsset,
-    removeAsset,
   } = assetsData;
 
   return (
@@ -146,7 +145,6 @@ const AssetsManager = () => {
           onViewDetail={openAssetDetail}
           onCopyReference={copyReference}
           onRename={renameAsset}
-          onDelete={removeAsset}
           t={t}
         />
       </CardPro>

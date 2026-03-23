@@ -33,7 +33,6 @@ const AssetCard = ({
   onViewDetail,
   onCopyReference,
   onRename,
-  onDelete,
   t,
 }) => {
   const assetId = asset.id || asset.Id;
@@ -59,16 +58,6 @@ const AssetCard = ({
           return Promise.reject(new Error('empty-name'));
         }
         await onRename(assetId, nextName);
-      },
-    });
-  };
-
-  const handleDelete = () => {
-    Modal.confirm({
-      title: t('确认删除'),
-      content: t('确定要删除此素材吗？'),
-      onOk: async () => {
-        await onDelete(assetId);
       },
     });
   };
@@ -117,12 +106,6 @@ const AssetCard = ({
                 name: t('重命名'),
                 onClick: handleRename,
               },
-              {
-                node: 'item',
-                name: t('删除'),
-                type: 'danger',
-                onClick: handleDelete,
-              },
             ]}
           >
             <Button icon={<IconMore />} size='small' type='tertiary' />
@@ -140,7 +123,6 @@ const AssetsTable = ({
   onViewDetail,
   onCopyReference,
   onRename,
-  onDelete,
   t,
 }) => {
   if (loading && assets.length === 0) {
@@ -169,7 +151,6 @@ const AssetsTable = ({
           onViewDetail={onViewDetail}
           onCopyReference={onCopyReference}
           onRename={onRename}
-          onDelete={onDelete}
           t={t}
         />
       ))}

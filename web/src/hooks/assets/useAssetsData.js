@@ -442,7 +442,7 @@ export default function useAssetsData() {
         showError(message || t('删除素材失败'));
         return false;
       }
-      showSuccess(t('删除成功'));
+      showSuccess(t('已删除素材'));
       await fetchAssets();
       await fetchQuota();
       return true;

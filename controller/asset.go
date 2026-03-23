@@ -129,7 +129,7 @@ func DeleteAsset(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := service.HandleDeleteAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), req); err != nil {
+	if err := service.HandleDeleteAsset(c.GetInt("id"), req); err != nil {
 		common.ApiError(c, err)
 		return
 	}

@@ -163,6 +163,13 @@ func (a *UserAsset) SoftDelete() error {
 	return DB.Where("id = ? AND user_id = ?", a.Id, a.UserId).Delete(&UserAsset{}).Error
 }
 
+func (a *UserAsset) HardDelete() error {
+	if a.Id == 0 || a.UserId == 0 {
+		return errors.New("id or user_id is empty")
+	}
+	return DB.Unscoped().Where("id = ? AND user_id = ?", a.Id, a.UserId).Delete(&UserAsset{}).Error
+}
+
 func CountUserAssets(userID int) (int64, error) {
 	var count int64
 	err := DB.Model(&UserAsset{}).Where("user_id = ?", userID).Count(&count).Error
