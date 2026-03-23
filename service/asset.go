@@ -519,7 +519,7 @@ func HandleUpdateAsset(ctx context.Context, userID int, userName string, req dto
 	return result, nil
 }
 
-func HandleDeleteAsset(userID int, req dto.AssetDeleteRequest) error {
+func HandleDeleteAsset(ctx context.Context, userID int, userName string, req dto.AssetDeleteRequest) error {
 	asset := &model.UserAsset{}
 	if err := asset.GetByUpstreamID(userID, req.Id); err != nil {
 		if id, ok := model.ParseAssetDeleteID(req.Id); ok {
@@ -529,6 +529,22 @@ func HandleDeleteAsset(userID int, req dto.AssetDeleteRequest) error {
 		} else {
 			return errors.New("asset not found")
 		}
+	}
+	channel, err := getAssetChannelByID(asset.ChannelId)
+	if err != nil {
+		return err
+	}
+	uid, err := resolveAssetUID(userID, userName)
+	if err != nil {
+		return err
+	}
+	client := NewAssetProxyClient(channel, uid)
+	upstreamID := asset.UpstreamAssetId
+	if upstreamID == "" {
+		upstreamID = req.Id
+	}
+	if _, err = client.DeleteAsset(ctx, upstreamID, ""); err != nil {
+		return err
 	}
 	if err := asset.SoftDelete(); err != nil {
 		return err

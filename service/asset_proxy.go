@@ -315,6 +315,22 @@ func (c *AssetProxyClient) UpdateAsset(ctx context.Context, req dto.AssetUpdateR
 	return result, nil
 }
 
+func (c *AssetProxyClient) DeleteAsset(ctx context.Context, id string, projectName string) (*dto.DoubaoIDResult, error) {
+	body := map[string]any{"id": id}
+	if projectName != "" {
+		body["project_name"] = projectName
+	}
+	resp, err := c.doRequest(ctx, "/delete", body)
+	if err != nil {
+		return nil, err
+	}
+	result := &dto.DoubaoIDResult{}
+	if err = common.Unmarshal(resp.Result, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func validateAssetSortBy(value string) error {
 	switch value {
 	case "CreateTime", "UpdateTime", "GroupId":
