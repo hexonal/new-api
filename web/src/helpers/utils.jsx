@@ -618,6 +618,11 @@ export const calculateModelPrice = ({
   quotaDisplayType = 'USD',
   precision = 4,
 }) => {
+  const recordModelName =
+    record?.model ||
+    record?.model_name ||
+    record?.name ||
+    '';
   const GEMINI_THOUGHT_RATIO_MAP = {
     'gemini-3-pro-image-preview': 6,
     'gemini-3.1-flash-image-preview': 6,
@@ -677,7 +682,7 @@ export const calculateModelPrice = ({
       hasRatioValue(value) ? Number(Number(value).toFixed(6)) : null;
 
     if (isTokensDisplay) {
-      const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[record.model] ?? null;
+      const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[recordModelName] ?? null;
       return {
         inputRatio: formatRatio(record.model_ratio),
         completionRatio: formatRatio(record.completion_ratio),
@@ -719,7 +724,7 @@ export const calculateModelPrice = ({
     };
 
     const inputPrice = formatTokenPrice(inputRatioPriceUSD);
-    const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[record.model] ?? null;
+    const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[recordModelName] ?? null;
     const audioInputPrice = hasRatioValue(record.audio_ratio)
       ? formatTokenPrice(inputRatioPriceUSD * Number(record.audio_ratio))
       : null;
