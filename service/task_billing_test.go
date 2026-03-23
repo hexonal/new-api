@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -778,4 +779,57 @@ func TestSettle_DeferredSettle_UsesEstimatedFallback(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeConsume, log.Type)
 	assert.Contains(t, log.Content, "estimated_quota_fallback")
+}
+
+func withTempRatios(t *testing.T, model string, modelRatio float64, completionRatio float64) {
+	t.Helper()
+	backupModel := ratio_setting.GetModelRatioCopy()
+	backupCompletion := ratio_setting.GetCompletionRatioCopy()
+	t.Cleanup(func() {
+		b1, _ := json.Marshal(backupModel)
+		b2, _ := json.Marshal(backupCompletion)
+		_ = ratio_setting.UpdateModelRatioByJSONString(string(b1))
+		_ = ratio_setting.UpdateCompletionRatioByJSONString(string(b2))
+	})
+
+	backupModel[model] = modelRatio
+	backupCompletion[model] = completionRatio
+	b1, _ := json.Marshal(backupModel)
+	b2, _ := json.Marshal(backupCompletion)
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(b1)))
+	require.NoError(t, ratio_setting.UpdateCompletionRatioByJSONString(string(b2)))
+}
+
+func TestCalculateTaskQuotaByTokens_UsesPromptAndCompletionRatios(t *testing.T) {
+	truncate(t)
+	const modelName = "gemini-3-pro-image-preview"
+	withTempRatios(t, modelName, 1, 60)
+
+	task := makeTask(1, 1, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.Group = "default"
+	task.Data = json.RawMessage(`{"usage":{"input_tokens":12,"output_tokens":1214,"total_tokens":1414}}`)
+
+	quota, ok := calculateTaskQuotaByTokens(task, 1414)
+	require.True(t, ok)
+	// 12*1 + 1214*60 = 72852
+	assert.Equal(t, 72852, quota)
+}
+
+func TestCalculateTaskQuotaByTokens_GeminiThoughtUsesTextOutputTier(t *testing.T) {
+	truncate(t)
+	const modelName = "gemini-3-pro-image-preview"
+	withTempRatios(t, modelName, 1, 60)
+
+	task := makeTask(1, 1, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.Group = "default"
+	task.Data = json.RawMessage(`{"usage":{"input_tokens":12,"output_tokens":1214,"thought_tokens":100,"total_tokens":1414}}`)
+
+	quota, ok := calculateTaskQuotaByTokens(task, 1414)
+	require.True(t, ok)
+	// prompt + imageOutput*60 + thought*6 = 12 + 1214*60 + 100*6 = 73452
+	assert.Equal(t, 73452, quota)
 }

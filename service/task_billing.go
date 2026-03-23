@@ -221,6 +221,28 @@ func readPositiveIntFromTaskData(data []byte, paths ...string) int {
 	return 0
 }
 
+func extractTaskThoughtTokens(task *model.Task) int {
+	if task == nil {
+		return 0
+	}
+	return readPositiveIntFromTaskData(task.Data,
+		"usage.thought_tokens",
+		"usage.thinking_tokens",
+		"usage.reasoning_tokens",
+		"usage.thoughts_tokens",
+		"usage.thought_tokens_count",
+		"data.usage.thought_tokens",
+		"data.usage.thinking_tokens",
+		"data.usage.reasoning_tokens",
+		"response.usage.thought_tokens",
+		"response.usage.thinking_tokens",
+		"response.usage.reasoning_tokens",
+		"metadata.usage.thought_tokens",
+		"metadata.usage.thinking_tokens",
+		"metadata.usage.reasoning_tokens",
+	)
+}
+
 func extractTaskTokenUsage(task *model.Task) (promptTokens int, completionTokens int, totalTokens int) {
 	if task == nil {
 		return 0, 0, 0
@@ -533,5 +555,35 @@ func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
 		finalGroupRatio = userGroupRatio
 	}
 
+	// Prefer structured usage charging when task payload carries prompt/output/thought details.
+	// This avoids under-billing for models where completion/output has a different unit price.
+	promptTokens, completionTokens, extractedTotal := extractTaskTokenUsage(task)
+	thoughtTokens := extractTaskThoughtTokens(task)
+	if promptTokens > 0 || completionTokens > 0 || thoughtTokens > 0 {
+		completionRatio := ratio_setting.GetCompletionRatio(modelName)
+		thoughtRatio := getTaskThoughtRatio(modelName, completionRatio)
+		weightedTokens := float64(promptTokens) +
+			float64(completionTokens)*completionRatio +
+			float64(thoughtTokens)*thoughtRatio
+		if weightedTokens > 0 {
+			return int(weightedTokens * modelRatio * finalGroupRatio), true
+		}
+	}
+
+	if extractedTotal > 0 {
+		return int(float64(extractedTotal) * modelRatio * finalGroupRatio), true
+	}
 	return int(float64(totalTokens) * modelRatio * finalGroupRatio), true
+}
+
+// getTaskThoughtRatio returns the per-model thought-token multiplier relative to input price.
+// For Gemini image preview models, thought tokens should be billed by text-output tier
+// instead of image-output tier.
+func getTaskThoughtRatio(modelName string, completionRatio float64) float64 {
+	switch modelName {
+	case "gemini-3-pro-image-preview", "gemini-3.1-flash-image-preview":
+		return 6.0
+	default:
+		return completionRatio
+	}
 }
