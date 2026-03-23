@@ -76,6 +76,7 @@ type imaProPayload struct {
 	Watermark    int                `json:"watermark"`
 	WatermarkImg string             `json:"watermark_img,omitempty"`
 	ModelVersion string             `json:"model_version_id"`
+	InputImages  []string           `json:"input_images,omitempty"`
 	Parameters   imaProPayloadParam `json:"parameters"`
 }
 
@@ -411,12 +412,6 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		parameters.Size = size
 		parameters.AspectRatio = aspectRatio
 		parameters.Prompt = strings.TrimSpace(req.Prompt)
-		imageURLs := collectImaProImageURLs(req)
-		if len(imageURLs) == 1 {
-			parameters.Image = imageURLs[0]
-		} else if len(imageURLs) > 1 {
-			parameters.Images = imageURLs
-		}
 	} else {
 		elements, err := buildImaProElementList(req, metadata)
 		if err != nil {
@@ -459,6 +454,9 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 	}
 	if payload.ModelVersion == "" && !strings.HasPrefix(requestPath, "/v1/images/generations") {
 		payload.ModelVersion = "ima-pro"
+	}
+	if isImageModel {
+		payload.InputImages = collectImaProImageURLs(req)
 	}
 	return payload, nil
 }

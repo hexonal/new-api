@@ -1177,7 +1177,7 @@ func TestBuildImaProPayload_ImageModelDefaultSize(t *testing.T) {
 	}
 }
 
-func TestBuildImaProPayload_ImageModelImageFieldMapping(t *testing.T) {
+func TestBuildImaProPayload_ImageModelInputImagesMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
@@ -1195,11 +1195,11 @@ func TestBuildImaProPayload_ImageModelImageFieldMapping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildImaProPayload(single) returned error: %v", err)
 	}
-	if payloadSingle.Parameters.Image != "https://example.com/a.jpg" {
-		t.Fatalf("Image = %q, want single image url", payloadSingle.Parameters.Image)
+	if len(payloadSingle.InputImages) != 1 || payloadSingle.InputImages[0] != "https://example.com/a.jpg" {
+		t.Fatalf("InputImages = %#v, want single image url", payloadSingle.InputImages)
 	}
-	if len(payloadSingle.Parameters.Images) != 0 {
-		t.Fatalf("Images len = %d, want 0 for single-image mode", len(payloadSingle.Parameters.Images))
+	if payloadSingle.Parameters.Image != "" || len(payloadSingle.Parameters.Images) != 0 {
+		t.Fatalf("parameters image fields should be empty, got image=%q images=%d", payloadSingle.Parameters.Image, len(payloadSingle.Parameters.Images))
 	}
 
 	reqMulti := &relaycommon.TaskSubmitReq{
@@ -1210,11 +1210,11 @@ func TestBuildImaProPayload_ImageModelImageFieldMapping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildImaProPayload(multi) returned error: %v", err)
 	}
-	if payloadMulti.Parameters.Image != "" {
-		t.Fatalf("Image = %q, want empty for multi-image mode", payloadMulti.Parameters.Image)
+	if len(payloadMulti.InputImages) != 2 {
+		t.Fatalf("InputImages len = %d, want 2 for multi-image mode", len(payloadMulti.InputImages))
 	}
-	if len(payloadMulti.Parameters.Images) != 2 {
-		t.Fatalf("Images len = %d, want 2 for multi-image mode", len(payloadMulti.Parameters.Images))
+	if payloadMulti.Parameters.Image != "" || len(payloadMulti.Parameters.Images) != 0 {
+		t.Fatalf("parameters image fields should be empty, got image=%q images=%d", payloadMulti.Parameters.Image, len(payloadMulti.Parameters.Images))
 	}
 }
 
