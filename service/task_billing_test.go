@@ -833,3 +833,20 @@ func TestCalculateTaskQuotaByTokens_GeminiThoughtUsesTextOutputTier(t *testing.T
 	// prompt + imageOutput*60 + thought*6 = 12 + 1214*60 + 100*6 = 73452
 	assert.Equal(t, 73452, quota)
 }
+
+func TestCalculateTaskQuotaByTokens_GeminiThoughtsTokensAlias(t *testing.T) {
+	truncate(t)
+	const modelName = "gemini-3-pro-image-preview"
+	withTempRatios(t, modelName, 1, 60)
+
+	task := makeTask(1, 1, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.Group = "default"
+	task.Data = json.RawMessage(`{"usage":{"input_tokens":15,"output_tokens":1228,"thoughts_tokens":66,"total_tokens":1309}}`)
+
+	quota, ok := calculateTaskQuotaByTokens(task, 1309)
+	require.True(t, ok)
+	// prompt + imageOutput*60 + thoughts*6 = 15 + 1228*60 + 66*6 = 74091
+	assert.Equal(t, 74091, quota)
+}

@@ -618,6 +618,10 @@ export const calculateModelPrice = ({
   quotaDisplayType = 'USD',
   precision = 4,
 }) => {
+  const GEMINI_THOUGHT_RATIO_MAP = {
+    'gemini-3-pro-image-preview': 6,
+    'gemini-3.1-flash-image-preview': 6,
+  };
   if (!record || typeof record !== 'object') {
     return {
       price: '-',
@@ -673,9 +677,11 @@ export const calculateModelPrice = ({
       hasRatioValue(value) ? Number(Number(value).toFixed(6)) : null;
 
     if (isTokensDisplay) {
+      const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[record.model] ?? null;
       return {
         inputRatio: formatRatio(record.model_ratio),
         completionRatio: formatRatio(record.completion_ratio),
+        thoughtRatio: formatRatio(thoughtRatio),
         cacheRatio: formatRatio(record.cache_ratio),
         createCacheRatio: formatRatio(record.create_cache_ratio),
         imageRatio: formatRatio(record.image_ratio),
@@ -713,6 +719,7 @@ export const calculateModelPrice = ({
     };
 
     const inputPrice = formatTokenPrice(inputRatioPriceUSD);
+    const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[record.model] ?? null;
     const audioInputPrice = hasRatioValue(record.audio_ratio)
       ? formatTokenPrice(inputRatioPriceUSD * Number(record.audio_ratio))
       : null;
@@ -722,6 +729,10 @@ export const calculateModelPrice = ({
       completionPrice: formatTokenPrice(
         inputRatioPriceUSD * Number(record.completion_ratio),
       ),
+      thoughtPrice:
+        thoughtRatio !== null
+          ? formatTokenPrice(inputRatioPriceUSD * Number(thoughtRatio))
+          : null,
       cachePrice: hasRatioValue(record.cache_ratio)
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.cache_ratio))
         : null,
@@ -793,6 +804,12 @@ export const getModelPriceItems = (
           suffix: 'x',
         },
         {
+          key: 'thought-ratio',
+          label: t('思考倍率'),
+          value: priceData.thoughtRatio,
+          suffix: 'x',
+        },
+        {
           key: 'cache-ratio',
           label: t('缓存读取倍率'),
           value: priceData.cacheRatio,
@@ -840,6 +857,12 @@ export const getModelPriceItems = (
         key: 'completion',
         label: t('补全价格'),
         value: priceData.completionPrice,
+        suffix: unitSuffix,
+      },
+      {
+        key: 'thought',
+        label: t('思考价格'),
+        value: priceData.thoughtPrice,
         suffix: unitSuffix,
       },
       {
