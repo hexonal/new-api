@@ -19,7 +19,6 @@ func SetAssetRouter(router *gin.Engine) {
 		r.POST("/list", controller.ListAssets)
 		r.POST("/get", controller.GetAsset)
 		r.POST("/update", controller.UpdateAsset)
-		r.POST("/delete", controller.DeleteAsset)
 		r.POST("/quota", controller.GetAssetQuota)
 	}
 }

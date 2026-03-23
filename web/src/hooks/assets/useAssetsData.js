@@ -434,21 +434,6 @@ export default function useAssetsData() {
     [currentAsset?.id, fetchAssets, t],
   );
 
-  const removeAsset = useCallback(
-    async (id) => {
-      const res = await API.post('/v1/assets/delete', { id });
-      const { success, message } = res.data || {};
-      if (!success) {
-        showError(message || t('删除素材失败'));
-        return false;
-      }
-      showSuccess(t('已删除素材'));
-      await fetchAssets();
-      await fetchQuota();
-      return true;
-    },
-    [fetchAssets, fetchQuota, t],
-  );
 
   const copyReference = useCallback(
     async (asset) => {
@@ -545,7 +530,6 @@ export default function useAssetsData() {
     closeAssetDetail,
     copyReference,
     renameAsset,
-    removeAsset,
     getAssetReference,
   };
 }
