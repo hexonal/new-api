@@ -61,6 +61,7 @@ var (
 type monitorCallErrorThresholdState struct {
 	mu       sync.Mutex
 	failures []time.Time
+	lastSent time.Time
 }
 
 func StartMonitorAlertTask() {
@@ -139,6 +140,7 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 func allowMonitorChannelCallErrorAlert(channelID int, now time.Time) (bool, int, int) {
 	thresholdCount := 1
 	thresholdWindowMinutes := 1
+	channelCooldownMinutes := 0
 	if channelID > 0 {
 		channel, err := model.GetChannelById(channelID, false)
 		if err == nil && channel != nil {
@@ -152,6 +154,9 @@ func allowMonitorChannelCallErrorAlert(channelID int, now time.Time) (bool, int,
 			if other.CallErrorThresholdWindowMinutes != nil && *other.CallErrorThresholdWindowMinutes > 0 {
 				thresholdWindowMinutes = *other.CallErrorThresholdWindowMinutes
 			}
+			if other.CallErrorCooldownMinutes != nil && *other.CallErrorCooldownMinutes > 0 {
+				channelCooldownMinutes = *other.CallErrorCooldownMinutes
+			}
 		}
 	}
 	if thresholdCount <= 1 {
@@ -160,10 +165,10 @@ func allowMonitorChannelCallErrorAlert(channelID int, now time.Time) (bool, int,
 	if thresholdWindowMinutes <= 0 {
 		thresholdWindowMinutes = 1
 	}
-	return allowMonitorCallErrorByThreshold(channelID, now, thresholdCount, thresholdWindowMinutes), thresholdCount, thresholdWindowMinutes
+	return allowMonitorCallErrorByThreshold(channelID, now, thresholdCount, thresholdWindowMinutes, channelCooldownMinutes), thresholdCount, thresholdWindowMinutes
 }
 
-func allowMonitorCallErrorByThreshold(channelID int, now time.Time, thresholdCount int, thresholdWindowMinutes int) bool {
+func allowMonitorCallErrorByThreshold(channelID int, now time.Time, thresholdCount int, thresholdWindowMinutes int, cooldownMinutes int) bool {
 	if channelID <= 0 || thresholdCount <= 1 {
 		return true
 	}
@@ -186,7 +191,11 @@ func allowMonitorCallErrorByThreshold(channelID int, now time.Time, thresholdCou
 	if len(state.failures) < thresholdCount {
 		return false
 	}
+	if cooldownMinutes > 0 && !state.lastSent.IsZero() && now.Sub(state.lastSent) < time.Duration(cooldownMinutes)*time.Minute {
+		return false
+	}
 	// Trigger once per threshold batch to avoid noisy per-request alerts.
+	state.lastSent = now
 	state.failures = state.failures[:0]
 	return true
 }
