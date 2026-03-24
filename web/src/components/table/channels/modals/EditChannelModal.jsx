@@ -209,6 +209,10 @@ const EditChannelModal = (props) => {
     upstream_model_update_last_check_time: 0,
     upstream_model_update_last_detected_models: [],
     upstream_model_update_ignored_models: '',
+    call_error_alert_enabled: false,
+    call_error_threshold_count: 10,
+    call_error_threshold_window_minutes: 5,
+    call_error_cooldown_minutes: '',
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -901,6 +905,20 @@ const EditChannelModal = (props) => {
           )
             ? parsedSettings.upstream_model_update_ignored_models.join(',')
             : '';
+          data.call_error_alert_enabled =
+            parsedSettings.call_error_alert_enabled === true;
+          data.call_error_threshold_count =
+            Number(parsedSettings.call_error_threshold_count) > 0
+              ? Number(parsedSettings.call_error_threshold_count)
+              : 10;
+          data.call_error_threshold_window_minutes =
+            Number(parsedSettings.call_error_threshold_window_minutes) > 0
+              ? Number(parsedSettings.call_error_threshold_window_minutes)
+              : 5;
+          data.call_error_cooldown_minutes =
+            Number(parsedSettings.call_error_cooldown_minutes) > 0
+              ? Number(parsedSettings.call_error_cooldown_minutes)
+              : '';
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
@@ -919,6 +937,10 @@ const EditChannelModal = (props) => {
           data.upstream_model_update_last_check_time = 0;
           data.upstream_model_update_last_detected_models = [];
           data.upstream_model_update_ignored_models = '';
+          data.call_error_alert_enabled = false;
+          data.call_error_threshold_count = 10;
+          data.call_error_threshold_window_minutes = 5;
+          data.call_error_cooldown_minutes = '';
         }
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
@@ -936,6 +958,10 @@ const EditChannelModal = (props) => {
         data.upstream_model_update_last_check_time = 0;
         data.upstream_model_update_last_detected_models = [];
         data.upstream_model_update_ignored_models = '';
+        data.call_error_alert_enabled = false;
+        data.call_error_threshold_count = 10;
+        data.call_error_threshold_window_minutes = 5;
+        data.call_error_cooldown_minutes = '';
       }
 
       if (
@@ -1761,6 +1787,42 @@ const EditChannelModal = (props) => {
       settings.upstream_model_update_last_check_time = 0;
     }
 
+    const callErrorThresholdCount = Number(localInputs.call_error_threshold_count);
+    const callErrorThresholdWindowMinutes = Number(
+      localInputs.call_error_threshold_window_minutes,
+    );
+    const callErrorCooldownMinutes = Number(localInputs.call_error_cooldown_minutes);
+    settings.call_error_alert_enabled = localInputs.call_error_alert_enabled === true;
+
+    if (settings.call_error_alert_enabled) {
+      if (!Number.isFinite(callErrorThresholdCount) || callErrorThresholdCount <= 0) {
+        showError(t('调用错误次数阈值必须大于 0'));
+        return;
+      }
+      if (
+        !Number.isFinite(callErrorThresholdWindowMinutes) ||
+        callErrorThresholdWindowMinutes <= 0
+      ) {
+        showError(t('调用错误统计窗口必须大于 0 分钟'));
+        return;
+      }
+    }
+
+    settings.call_error_threshold_count =
+      Number.isFinite(callErrorThresholdCount) && callErrorThresholdCount > 0
+        ? Math.floor(callErrorThresholdCount)
+        : 10;
+    settings.call_error_threshold_window_minutes =
+      Number.isFinite(callErrorThresholdWindowMinutes) &&
+      callErrorThresholdWindowMinutes > 0
+        ? Math.floor(callErrorThresholdWindowMinutes)
+        : 5;
+    if (Number.isFinite(callErrorCooldownMinutes) && callErrorCooldownMinutes > 0) {
+      settings.call_error_cooldown_minutes = Math.floor(callErrorCooldownMinutes);
+    } else {
+      delete settings.call_error_cooldown_minutes;
+    }
+
     localInputs.settings = JSON.stringify(settings);
 
     // 清理不需要发送到后端的字段
@@ -1787,6 +1849,10 @@ const EditChannelModal = (props) => {
     delete localInputs.upstream_model_update_last_check_time;
     delete localInputs.upstream_model_update_last_detected_models;
     delete localInputs.upstream_model_update_ignored_models;
+    delete localInputs.call_error_alert_enabled;
+    delete localInputs.call_error_threshold_count;
+    delete localInputs.call_error_threshold_window_minutes;
+    delete localInputs.call_error_cooldown_minutes;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -3453,6 +3519,66 @@ const EditChannelModal = (props) => {
                         '仅当自动禁用开启时有效，关闭后不会自动禁用该渠道',
                       )}
                       initValue={autoBan}
+                    />
+
+                    <Form.Switch
+                      field='call_error_alert_enabled'
+                      label={t('启用渠道级调用错误告警')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelOtherSettingsChange(
+                          'call_error_alert_enabled',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后按阈值统计调用错误并触发告警冷却机制',
+                      )}
+                    />
+
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='call_error_threshold_count'
+                          label={t('调用错误次数阈值')}
+                          placeholder={t('请输入大于 0 的次数')}
+                          min={1}
+                          disabled={!inputs.call_error_alert_enabled}
+                          onNumberChange={(value) =>
+                            handleInputChange('call_error_threshold_count', value)
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='call_error_threshold_window_minutes'
+                          label={t('统计窗口（分钟）')}
+                          placeholder={t('请输入大于 0 的分钟数')}
+                          min={1}
+                          disabled={!inputs.call_error_alert_enabled}
+                          onNumberChange={(value) =>
+                            handleInputChange(
+                              'call_error_threshold_window_minutes',
+                              value,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                    </Row>
+
+                    <Form.InputNumber
+                      field='call_error_cooldown_minutes'
+                      label={t('告警冷却（分钟，可选）')}
+                      placeholder={t('留空表示不单独设置冷却时间')}
+                      min={1}
+                      disabled={!inputs.call_error_alert_enabled}
+                      onNumberChange={(value) =>
+                        handleInputChange('call_error_cooldown_minutes', value)
+                      }
+                      style={{ width: '100%' }}
                     />
 
                     <Form.Switch
