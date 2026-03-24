@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  new-api:
+    image: hexonal/new-api:latest
+    container_name: new-api
+    restart: always
+    command: --log-dir /app/logs
+    expose:
+      - "3000"
+    volumes:
+      - /data/NewAPI/data:/data
+      - /data/NewAPI/logs/new-api:/app/logs
+    environment:
+      - SQL_DSN=postgresql://root:qLQ2Cs8iqc76@postgres:5432/new-api
+      - REDIS_CONN_STRING=redis://:redis123456@redis:6379/3
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+    depends_on:
+      - redis
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123456
+    ports:
+      - "63790:6379"
+    volumes:
+      - /data/NewAPI/redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: qLQ2Cs8iqc76
+      POSTGRES_DB: new-api
+    ports:
+      - "54320:5432"
+    volumes:
+      - /data/NewAPI/pg_data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  caddy:
+    build:
+      context: /data/NewAPI/caddy
+    image: new-api-caddy
+    container_name: caddy
+    restart: unless-stopped
+    depends_on:
+      - new-api
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - .env
+    environment:
+      - CF_API_TOKEN=${CF_API_TOKEN}
+    volumes:
+      - /data/NewAPI/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  caddy_data:
+  caddy_config:
