@@ -236,28 +236,6 @@ func TestResolveUserPointsExternalSK(t *testing.T) {
 		}
 	})
 
-	t.Run("forced header customer-sk prefix", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set(userPointsSKPrefixHeader, "customer-sk-")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "ima_abc123"}, "ima_abc123")
-		if got != "customer-sk-ima_abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
-	t.Run("forced header sk prefix", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-		c.Request.Header.Set(userPointsSKPrefixHeader, "sk-")
-		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "sk-abc123" {
-			t.Fatalf("unexpected external sk: %s", got)
-		}
-	})
-
 	t.Run("nil context returns base key from token", func(t *testing.T) {
 		got := resolveUserPointsExternalSK(nil, &model.Token{Key: "sk-abc123"}, "sk-abc123")
 		if got != "abc123" {

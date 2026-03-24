@@ -33,7 +33,6 @@ const (
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
 	skPrefixStandard                      = "sk-"
 	skPrefixCustomer                      = "customer-sk-"
-	userPointsSKPrefixHeader              = "X-User-Points-SK-Prefix"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -527,23 +526,9 @@ func baseTokenKey(tokenKey string, token *model.Token) string {
 	return strings.TrimSpace(key)
 }
 
-func normalizeHeaderSKPrefix(raw string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case skPrefixStandard:
-		return skPrefixStandard, true
-	case skPrefixCustomer:
-		return skPrefixCustomer, true
-	default:
-		return "", false
-	}
-}
-
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
 	baseKey := baseTokenKey(tokenKey, token)
 	if c != nil && c.Request != nil {
-		if forcedPrefix, ok := normalizeHeaderSKPrefix(c.GetHeader(userPointsSKPrefixHeader)); ok && baseKey != "" {
-			return forcedPrefix + baseKey
-		}
 		presentedKey := extractPresentedTokenFromRequest(c)
 		if presentedKey != "" {
 			if baseKey == "" || baseTokenKey(presentedKey, nil) == baseKey {
