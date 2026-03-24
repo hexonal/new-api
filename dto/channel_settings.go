@@ -27,6 +27,10 @@ type ChannelOtherSettings struct {
 	AzureResponsesVersion                 string        `json:"azure_responses_version,omitempty"`
 	VertexKeyType                         VertexKeyType `json:"vertex_key_type,omitempty"` // "json" or "api_key"
 	OpenRouterEnterprise                  *bool         `json:"openrouter_enterprise,omitempty"`
+	CallErrorAlertEnabled                 *bool         `json:"call_error_alert_enabled,omitempty"`          // 渠道级 call_error 告警开关（nil=继承全局）
+	CallErrorThresholdCount               *int          `json:"call_error_threshold_count,omitempty"`        // 渠道级 call_error 告警阈值次数
+	CallErrorThresholdWindowMinutes       *int          `json:"call_error_threshold_window_minutes,omitempty"` // 渠道级 call_error 告警窗口（分钟）
+	CallErrorCooldownMinutes              *int          `json:"call_error_cooldown_minutes,omitempty"`       // 渠道级 call_error 告警冷却（分钟，预留）
 	ClaudeBetaQuery                       bool          `json:"claude_beta_query,omitempty"`         // Claude 渠道是否强制追加 ?beta=true
 	AllowServiceTier                      bool          `json:"allow_service_tier,omitempty"`        // 是否允许 service_tier 透传（默认过滤以避免额外计费）
 	AllowInferenceGeo                     bool          `json:"allow_inference_geo,omitempty"`       // 是否允许 inference_geo 透传（仅 Claude，默认过滤以满足数据驻留合规

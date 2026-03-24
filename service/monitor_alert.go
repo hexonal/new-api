@@ -54,8 +54,14 @@ type monitorAlertWebhookPayload struct {
 var (
 	monitorAlertOnce      sync.Once
 	monitorAlertCooldowns sync.Map
+	monitorCallErrorStats sync.Map
 	maskedSKPattern       = regexp.MustCompile(`sk-[A-Za-z0-9]{1,8}\*{3}[A-Za-z0-9]{1,8}`)
 )
+
+type monitorCallErrorThresholdState struct {
+	mu       sync.Mutex
+	failures []time.Time
+}
 
 func StartMonitorAlertTask() {
 	monitorAlertOnce.Do(func() {
@@ -82,6 +88,15 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	if !cfg.Enabled || !cfg.CallErrorEnabled || strings.TrimSpace(cfg.CallbackURL) == "" {
 		return
 	}
+	channelID := channelError.ChannelId
+	if channelID <= 0 {
+		channelID = c.GetInt("channel_id")
+	}
+	now := time.Now()
+	allowed, thresholdCount, thresholdWindowMinutes := allowMonitorChannelCallErrorAlert(channelID, now)
+	if !allowed {
+		return
+	}
 
 	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
 	data := map[string]interface{}{
@@ -100,9 +115,13 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 		"model_name":   strings.TrimSpace(c.GetString("original_model")),
 		"token_name":   strings.TrimSpace(c.GetString("token_name")),
 		"token_sk":     strings.TrimSpace(c.GetString("token_key")),
-		"channel_id":   channelError.ChannelId,
+		"channel_id":   channelID,
 		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
 		"channel_type": c.GetInt("channel_type"),
+	}
+	if channelID > 0 && thresholdCount > 1 {
+		data["alert_threshold_count"] = thresholdCount
+		data["alert_threshold_window_minutes"] = thresholdWindowMinutes
 	}
 	if c.Request != nil && c.Request.URL != nil {
 		data["request_path"] = c.Request.URL.Path
@@ -115,6 +134,61 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 			common.SysError("enqueue monitor call error alert failed: " + enqueueErr.Error())
 		}
 	})
+}
+
+func allowMonitorChannelCallErrorAlert(channelID int, now time.Time) (bool, int, int) {
+	thresholdCount := 1
+	thresholdWindowMinutes := 1
+	if channelID > 0 {
+		channel, err := model.GetChannelById(channelID, false)
+		if err == nil && channel != nil {
+			other := channel.GetOtherSettings()
+			if other.CallErrorAlertEnabled != nil && !*other.CallErrorAlertEnabled {
+				return false, thresholdCount, thresholdWindowMinutes
+			}
+			if other.CallErrorThresholdCount != nil && *other.CallErrorThresholdCount > 0 {
+				thresholdCount = *other.CallErrorThresholdCount
+			}
+			if other.CallErrorThresholdWindowMinutes != nil && *other.CallErrorThresholdWindowMinutes > 0 {
+				thresholdWindowMinutes = *other.CallErrorThresholdWindowMinutes
+			}
+		}
+	}
+	if thresholdCount <= 1 {
+		return true, thresholdCount, thresholdWindowMinutes
+	}
+	if thresholdWindowMinutes <= 0 {
+		thresholdWindowMinutes = 1
+	}
+	return allowMonitorCallErrorByThreshold(channelID, now, thresholdCount, thresholdWindowMinutes), thresholdCount, thresholdWindowMinutes
+}
+
+func allowMonitorCallErrorByThreshold(channelID int, now time.Time, thresholdCount int, thresholdWindowMinutes int) bool {
+	if channelID <= 0 || thresholdCount <= 1 {
+		return true
+	}
+	cutoff := now.Add(-time.Duration(thresholdWindowMinutes) * time.Minute)
+	value, _ := monitorCallErrorStats.LoadOrStore(channelID, &monitorCallErrorThresholdState{})
+	state, ok := value.(*monitorCallErrorThresholdState)
+	if !ok || state == nil {
+		return true
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	filtered := state.failures[:0]
+	for _, ts := range state.failures {
+		if !ts.Before(cutoff) {
+			filtered = append(filtered, ts)
+		}
+	}
+	state.failures = append(filtered, now)
+	if len(state.failures) < thresholdCount {
+		return false
+	}
+	// Trigger once per threshold batch to avoid noisy per-request alerts.
+	state.failures = state.failures[:0]
+	return true
 }
 
 func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message string, errorType string, errorCode string) {
