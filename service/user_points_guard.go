@@ -528,6 +528,11 @@ func baseTokenKey(tokenKey string, token *model.Token) string {
 
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
 	baseKey := baseTokenKey(tokenKey, token)
+	// Canonical strategy: prefer base key whenever available.
+	// This avoids forwarding synthetic "sk-" / "customer-sk-" variants.
+	if baseKey != "" {
+		return baseKey
+	}
 	if c != nil && c.Request != nil {
 		presentedKey := extractPresentedTokenFromRequest(c)
 		if presentedKey != "" {

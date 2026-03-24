@@ -139,18 +139,18 @@ func extractConsumeCallbackRawTokenKey(raw string) string {
 	return strings.TrimSpace(key)
 }
 
-func normalizeConsumeCallbackAuthPrefix(raw string) string {
-	switch strings.TrimSpace(raw) {
-	case consumeCallbackPrefixSK:
-		return consumeCallbackPrefixSK
-	case consumeCallbackPrefixCustomerSK:
-		return consumeCallbackPrefixCustomerSK
-	default:
-		return ""
-	}
+func hasConsumeCallbackSKPrefix(raw string) bool {
+	value := strings.TrimSpace(raw)
+	return strings.HasPrefix(value, consumeCallbackPrefixSK) || strings.HasPrefix(value, consumeCallbackPrefixCustomerSK)
 }
 
 func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
+	_ = tokenAuthPrefix
+	tokenKey = strings.TrimSpace(tokenKey)
+	if hasConsumeCallbackSKPrefix(tokenKey) {
+		// Keep explicitly prefixed token keys unchanged.
+		return tokenKey
+	}
 	rawKey := extractConsumeCallbackRawTokenKey(tokenKey)
 	if rawKey == "" {
 		rawKey = extractConsumeCallbackRawTokenKey(fallbackSK)
@@ -158,13 +158,7 @@ func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix 
 	if rawKey == "" {
 		return ""
 	}
-	switch normalizeConsumeCallbackAuthPrefix(tokenAuthPrefix) {
-	case consumeCallbackPrefixSK:
-		return consumeCallbackPrefixSK + rawKey
-	case consumeCallbackPrefixCustomerSK:
-		return consumeCallbackPrefixCustomerSK + rawKey
-	}
-	// No explicit sk- auth prefix => keep raw key (supports arbitrary custom key formats).
+	// Base-key-first strategy: do not append synthetic "sk-" prefixes.
 	return rawKey
 }
 
@@ -193,7 +187,15 @@ func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) s
 		return ""
 	}
 	baseToken := baseConsumeCallbackTokenKey(tokenKey)
-	if baseToken == "" || baseToken == basePresented {
+	if baseToken == "" {
+		return presented
+	}
+	if baseToken == basePresented {
+		if !hasConsumeCallbackSKPrefix(strings.TrimSpace(tokenKey)) {
+			// Token key itself is no-prefix: always use base key to avoid
+			// forwarding synthetic prefixed variants like "sk-ima_*".
+			return baseToken
+		}
 		return presented
 	}
 	return ""

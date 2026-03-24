@@ -209,7 +209,7 @@ func TestResolveUserPointsExternalSK(t *testing.T) {
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "sk-abc123" {
+		if got != "abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
@@ -220,7 +220,7 @@ func TestResolveUserPointsExternalSK(t *testing.T) {
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
 		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
-		if got != "customer-sk-abc123" {
+		if got != "abc123" {
 			t.Fatalf("unexpected external sk: %s", got)
 		}
 	})
