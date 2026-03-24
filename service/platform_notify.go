@@ -25,6 +25,18 @@ type operatorCallbackData struct {
 	RemainingUSD   string `json:"remaining_usd"`
 }
 
+func normalizeOperatorCallbackSK(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	if strings.HasPrefix(value, "sk-") || strings.HasPrefix(value, "customer-sk-") {
+		return value
+	}
+	// Keep no-prefix custom token forms (e.g. ima_abc123) unchanged.
+	return value
+}
+
 // SendFeishuQuotaNotify writes a quota-warning callback event for Feishu webhook delivery.
 func SendFeishuQuotaNotify(userId int, username string, requestID string, remainingQuota int, threshold int) {
 	common.OptionMapRWMutex.RLock()
@@ -85,7 +97,7 @@ func SendOperatorCallback(userId int, sk string, requestID string, remainingQuot
 		Event:     "quota.warning",
 		Timestamp: timestamp,
 		Data: operatorCallbackData{
-			Sk:             "sk-" + sk,
+			Sk:             normalizeOperatorCallbackSK(sk),
 			UserID:         userId,
 			RemainingQuota: remainingQuota,
 			Threshold:      threshold,
@@ -111,7 +123,7 @@ func SendOperatorCallback(userId int, sk string, requestID string, remainingQuot
 		SinkType:       "operator_webhook",
 		RequestID:      requestID,
 		UserID:         userId,
-		TokenSK:        "sk-" + strings.TrimSpace(strings.TrimPrefix(sk, "sk-")),
+		TokenSK:        normalizeOperatorCallbackSK(sk),
 		CallbackURL:    callbackURL,
 		HTTPMethod:     "POST",
 		Headers:        headers,

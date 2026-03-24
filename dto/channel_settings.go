@@ -9,6 +9,8 @@ import (
 type ChannelSettings struct {
 	ForceFormat            bool   `json:"force_format,omitempty"`
 	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
+	ImageURLAutoBase64     bool   `json:"image_url_auto_base64,omitempty"`
+	ImageURLSupported      *bool  `json:"image_url_supported,omitempty"` // 是否允许图片 URL 直传下游（nil=兼容旧行为按支持处理）
 	Proxy                  string `json:"proxy"`
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`

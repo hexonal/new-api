@@ -74,8 +74,8 @@ func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {
 		"token_sk": "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
 	})
 
-	require.Equal(t, "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn", output["token_sk"])
-	require.Contains(t, output["error"], "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn")
+	require.Equal(t, "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn", output["token_sk"])
+	require.Contains(t, output["error"], "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn")
 }
 
 func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
@@ -86,7 +86,15 @@ func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
 		"token_sk":     "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
 	})
 
-	require.Equal(t, "sk-Bmr1***2Zsn", output["token_sk"])
+	require.Equal(t, "Bmr1***2Zsn", output["token_sk"])
 	require.NotContains(t, output["error"], "open.feishu.cn")
 	require.NotContains(t, output["callback_url"], "open.feishu.cn")
+}
+
+func TestMonitorAlertTokenSKNoPrefixKeptAsIs(t *testing.T) {
+	cfg := monitorAlertConfig{MaskSensitive: false}
+	output := sanitizeMonitorAlertData(cfg, map[string]interface{}{
+		"token_sk": "ima_61f24b472a5640a8b5860944b6178abf",
+	})
+	require.Equal(t, "ima_61f24b472a5640a8b5860944b6178abf", output["token_sk"])
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -24,6 +25,47 @@ func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dt
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	if info != nil {
+		if policyErr := validateImageURLPolicy(info.ChannelSetting); policyErr != nil {
+			return nil, policyErr
+		}
+		for i, message := range request.Messages {
+			if message.IsStringContent() {
+				continue
+			}
+			content, err := message.ParseContent()
+			if err != nil {
+				return nil, err
+			}
+			updated := false
+			for i2, mediaMessage := range content {
+				if mediaMessage.Source == nil || mediaMessage.Source.Type != "url" {
+					continue
+				}
+				if !info.ChannelSetting.ImageURLAutoBase64 {
+					if !isImageURLSupported(info.ChannelSetting) {
+						return nil, newImageURLUnsupportedRetryError()
+					}
+					continue
+				}
+				source := types.NewURLFileSource(mediaMessage.Source.Url)
+				base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
+				if err != nil {
+					return nil, err
+				}
+				mediaMessage.Source.Type = "base64"
+				mediaMessage.Source.MediaType = mimeType
+				mediaMessage.Source.Data = base64Data
+				mediaMessage.Source.Url = ""
+				content[i2] = mediaMessage
+				updated = true
+			}
+			if updated {
+				message.SetContent(content)
+				request.Messages[i] = message
+			}
+		}
+	}
 	return request, nil
 }
 
@@ -72,6 +114,9 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
 	if request == nil {
 		return nil, errors.New("request is nil")
+	}
+	if info != nil {
+		return RequestOpenAI2ClaudeMessageWithChannelSetting(c, *request, info.ChannelSetting)
 	}
 	return RequestOpenAI2ClaudeMessage(c, *request)
 }

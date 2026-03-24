@@ -534,22 +534,34 @@ func normalizeMonitorAlertTokenSK(raw interface{}) string {
 	if text == "" || text == "<nil>" {
 		return ""
 	}
-	if strings.HasPrefix(text, "sk-") {
+	if strings.HasPrefix(text, "sk-") || strings.HasPrefix(text, "customer-sk-") {
 		return text
 	}
-	return "sk-" + text
+	// Keep no-prefix custom token forms (e.g. ima_abc123) as-is.
+	return text
 }
 
 func maskMonitorAlertSK(raw string) string {
-	raw = normalizeMonitorAlertTokenSK(raw)
+	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
-	key := strings.TrimPrefix(raw, "sk-")
-	if len(key) <= 8 {
-		return "sk-***"
+	prefix := ""
+	key := raw
+	if strings.HasPrefix(key, "customer-sk-") {
+		prefix = "customer-sk-"
+		key = strings.TrimPrefix(key, "customer-sk-")
+	} else if strings.HasPrefix(key, "sk-") {
+		prefix = "sk-"
+		key = strings.TrimPrefix(key, "sk-")
 	}
-	return fmt.Sprintf("sk-%s***%s", key[:4], key[len(key)-4:])
+	if len(key) <= 8 {
+		if prefix == "" {
+			return "***"
+		}
+		return prefix + "***"
+	}
+	return fmt.Sprintf("%s%s***%s", prefix, key[:4], key[len(key)-4:])
 }
 
 func restoreMonitorAlertSK(text string, tokenSK string) string {

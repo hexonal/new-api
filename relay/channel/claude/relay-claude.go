@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,7 +45,86 @@ func maybeMarkClaudeRefusal(c *gin.Context, stopReason string) {
 	}
 }
 
+func isImageURLSupported(channelSetting dto.ChannelSettings) bool {
+	if channelSetting.ImageURLSupported == nil {
+		// 兼容历史行为：未配置时按“支持 URL”处理
+		return true
+	}
+	return *channelSetting.ImageURLSupported
+}
+
+func validateImageURLPolicy(channelSetting dto.ChannelSettings) *types.NewAPIError {
+	// 两个开关不能同时开启
+	if channelSetting.ImageURLAutoBase64 &&
+		channelSetting.ImageURLSupported != nil &&
+		*channelSetting.ImageURLSupported {
+		return types.NewErrorWithStatusCode(
+			errors.New("invalid channel image url policy: image_url_auto_base64 and image_url_supported cannot both be enabled"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+	return nil
+}
+
+func newImageURLUnsupportedRetryError() *types.NewAPIError {
+	return types.NewErrorWithStatusCode(
+		errors.New("image url is not supported by current channel and auto base64 conversion is disabled"),
+		types.ErrorCodeImageURLNotSupported,
+		http.StatusUnprocessableEntity,
+	)
+}
+
+func buildClaudeImageSourceFromInput(c *gin.Context, imageInput string, channelSetting dto.ChannelSettings) (*dto.ClaudeMessageSource, error) {
+	if strings.HasPrefix(imageInput, "http") {
+		if channelSetting.ImageURLAutoBase64 {
+			source := types.NewURLFileSource(imageInput)
+			base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
+			if err != nil {
+				return nil, fmt.Errorf("get file data failed: %s", err.Error())
+			}
+			return &dto.ClaudeMessageSource{
+				Type:      "base64",
+				MediaType: mimeType,
+				Data:      base64Data,
+			}, nil
+		}
+		if !isImageURLSupported(channelSetting) {
+			return nil, newImageURLUnsupportedRetryError()
+		}
+		return &dto.ClaudeMessageSource{
+			Type: "url",
+			Url:  imageInput,
+		}, nil
+	}
+
+	source := types.NewBase64FileSource(imageInput, "")
+	base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
+	if err != nil {
+		return nil, fmt.Errorf("get file data failed: %s", err.Error())
+	}
+	return &dto.ClaudeMessageSource{
+		Type:      "base64",
+		MediaType: mimeType,
+		Data:      base64Data,
+	}, nil
+}
+
 func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRequest) (*dto.ClaudeRequest, error) {
+	channelSetting := dto.ChannelSettings{}
+	if c != nil {
+		if s, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
+			channelSetting = s
+		}
+	}
+	return RequestOpenAI2ClaudeMessageWithChannelSetting(c, textRequest, channelSetting)
+}
+
+func RequestOpenAI2ClaudeMessageWithChannelSetting(c *gin.Context, textRequest dto.GeneralOpenAIRequest, channelSetting dto.ChannelSettings) (*dto.ClaudeRequest, error) {
+	if policyErr := validateImageURLPolicy(channelSetting); policyErr != nil {
+		return nil, policyErr
+	}
 	claudeTools := make([]any, 0, len(textRequest.Tools))
 
 	for _, tool := range textRequest.Tools {
@@ -356,22 +436,11 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 					} else {
 						imageUrl := mediaMessage.GetImageMedia()
 						claudeMediaMessage.Type = "image"
-						claudeMediaMessage.Source = &dto.ClaudeMessageSource{
-							Type: "base64",
-						}
-						// 使用统一的文件服务获取图片数据
-						var source *types.FileSource
-						if strings.HasPrefix(imageUrl.Url, "http") {
-							source = types.NewURLFileSource(imageUrl.Url)
-						} else {
-							source = types.NewBase64FileSource(imageUrl.Url, "")
-						}
-						base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
+						source, err := buildClaudeImageSourceFromInput(c, imageUrl.Url, channelSetting)
 						if err != nil {
-							return nil, fmt.Errorf("get file data failed: %s", err.Error())
+							return nil, err
 						}
-						claudeMediaMessage.Source.MediaType = mimeType
-						claudeMediaMessage.Source.Data = base64Data
+						claudeMediaMessage.Source = source
 					}
 					claudeMediaMessages = append(claudeMediaMessages, claudeMediaMessage)
 				}
