@@ -202,6 +202,56 @@ func TestOperatorProvisionCreatesSuffixUsernameWhenBaseNotFound(t *testing.T) {
 	}
 }
 
+func TestOperatorProvisionTokenGroup_UsesTokenGroupWhenProvided(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	username := "ima_1998990577523736577"
+	baseUser := seedProvisionUser(t, db, username)
+
+	resp := performProvisionRequest(t, map[string]any{
+		"username":    username,
+		"group":       "default",
+		"token_group": "clawBot",
+		"token":       "ima_token_group_a",
+	})
+	if !resp.Success {
+		t.Fatalf("provision failed: %s", resp.Message)
+	}
+	if resp.Data.UserID != baseUser.Id {
+		t.Fatalf("expected reused user_id=%d, got=%d", baseUser.Id, resp.Data.UserID)
+	}
+
+	var token model.Token
+	if err := db.Where("key = ?", "ima_token_group_a").First(&token).Error; err != nil {
+		t.Fatalf("failed to query token: %v", err)
+	}
+	if token.Group != "clawBot" {
+		t.Fatalf("expected token group clawBot, got %q", token.Group)
+	}
+}
+
+func TestOperatorProvisionTokenGroup_FallbackToGroupWhenEmpty(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	username := "ima_1998990577523736578"
+	_ = seedProvisionUser(t, db, username)
+
+	resp := performProvisionRequest(t, map[string]any{
+		"username": username,
+		"group":    "clawBot",
+		"token":    "ima_token_group_b",
+	})
+	if !resp.Success {
+		t.Fatalf("provision failed: %s", resp.Message)
+	}
+
+	var token model.Token
+	if err := db.Where("key = ?", "ima_token_group_b").First(&token).Error; err != nil {
+		t.Fatalf("failed to query token: %v", err)
+	}
+	if token.Group != "clawBot" {
+		t.Fatalf("expected token group fallback to clawBot, got %q", token.Group)
+	}
+}
+
 func TestOperatorProvisionDuplicateUsernameAddsTokenOnly(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	username := "ima_1998990577523736577"

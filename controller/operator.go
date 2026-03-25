@@ -40,6 +40,7 @@ type operatorProvisionRequest struct {
 	DisplayName        string   `json:"display_name"`
 	Password           string   `json:"password"`
 	Group              string   `json:"group"`
+	TokenGroup         string   `json:"token_group"`
 	AmountUSD          float64  `json:"amount_usd"` // 充值金额（美元），1.0 = $1 = 500000 quota
 	Token              string   `json:"token"`
 	TokenName          string   `json:"token_name"`
@@ -105,6 +106,7 @@ func buildProvisionToken(userId int, tokenKey string, req operatorProvisionReque
 		UserId:             userId,
 		Name:               req.TokenName,
 		Key:                tokenKey,
+		Group:              req.TokenGroup,
 		Status:             common.TokenStatusEnabled,
 		CreatedTime:        common.GetTimestamp(),
 		AccessedTime:       common.GetTimestamp(),
@@ -133,6 +135,12 @@ func OperatorProvision(c *gin.Context) {
 
 	if req.Group == "" {
 		req.Group = "default"
+	}
+	req.TokenGroup = strings.TrimSpace(req.TokenGroup)
+	if req.TokenGroup == "" {
+		// Backward compatible behavior: when tokenGroup is omitted,
+		// reuse group as token-level routing group.
+		req.TokenGroup = req.Group
 	}
 	if req.TokenName == "" {
 		req.TokenName = "default"
