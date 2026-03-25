@@ -351,6 +351,10 @@ export const getLogsColumns = ({
       title: t('渠道'),
       dataIndex: 'channel',
       render: (text, record, index) => {
+        const fullChannelName = (record.channel_name || String(text || '')).trim();
+        const shortChannelName = fullChannelName
+          ? fullChannelName.slice(0, 2)
+          : String(text || '-');
         let isMultiKey = false;
         let multiKeyIndex = -1;
         let content = t('渠道') + `：${record.channel}`;
@@ -382,10 +386,10 @@ export const getLogsColumns = ({
               <Tooltip content={record.channel_name || t('未知渠道')}>
                 <span>
                   <Tag
-                    color={colors[parseInt(text) % colors.length]}
+                    color={colors[(parseInt(text, 10) || 0) % colors.length]}
                     shape='circle'
                   >
-                    {text}
+                    {shortChannelName}
                   </Tag>
                 </span>
               </Tooltip>
