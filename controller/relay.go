@@ -245,7 +245,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			c,
 			*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
 			newAPIError,
-			!shouldRetryCurrent,
+			true,
 		)
 
 		if !shouldRetryCurrent {
@@ -576,7 +576,7 @@ func RelayTask(c *gin.Context) {
 				*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey,
 					common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
 				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode),
-				!shouldRetryCurrent)
+				true)
 			if !shouldRetryCurrent {
 				break
 			}
