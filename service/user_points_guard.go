@@ -272,6 +272,7 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		resolved.queryURL,
 		externalSK,
 		jsonPath,
+		strings.TrimSpace(c.GetString(common.RequestIdKey)),
 	)
 	if err != nil {
 		failOpen := onErrorDecision == userPointsOnErrorAllow
@@ -424,7 +425,7 @@ func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter str
 
 // fetchUserPointsCanPreDeduct requests external points service and extracts
 // can_pre_deduct value using JSONPath-like path (resolved to gjson path) from response JSON.
-func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, externalSK string, jsonPath string) (bool, error) {
+func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, externalSK string, jsonPath string, traceID string) (bool, error) {
 	requestURL, err := buildUserPointsRequestURL(rawQueryURL, normalizeExternalSK(externalSK))
 	if err != nil {
 		return false, err
@@ -438,6 +439,9 @@ func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, extern
 	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return false, err
+	}
+	if strings.TrimSpace(traceID) != "" {
+		req.Header.Set(common.TraceIdKey, strings.TrimSpace(traceID))
 	}
 
 	client := GetHttpClient()

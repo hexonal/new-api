@@ -147,10 +147,6 @@ func hasConsumeCallbackSKPrefix(raw string) bool {
 func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
 	_ = tokenAuthPrefix
 	tokenKey = strings.TrimSpace(tokenKey)
-	if hasConsumeCallbackSKPrefix(tokenKey) {
-		// Keep explicitly prefixed token keys unchanged.
-		return tokenKey
-	}
 	rawKey := extractConsumeCallbackRawTokenKey(tokenKey)
 	if rawKey == "" {
 		rawKey = extractConsumeCallbackRawTokenKey(fallbackSK)
@@ -188,15 +184,10 @@ func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) s
 	}
 	baseToken := baseConsumeCallbackTokenKey(tokenKey)
 	if baseToken == "" {
-		return presented
+		return basePresented
 	}
 	if baseToken == basePresented {
-		if !hasConsumeCallbackSKPrefix(strings.TrimSpace(tokenKey)) {
-			// Token key itself is no-prefix: always use base key to avoid
-			// forwarding synthetic prefixed variants like "sk-ima_*".
-			return baseToken
-		}
-		return presented
+		return baseToken
 	}
 	return ""
 }
@@ -357,15 +348,18 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	if resolved.secret != "" {
 		signature = signOperatorCallback(resolved.secret, timestamp, payloadBytes)
 	}
+	requestID := strings.TrimSpace(payload.RequestID)
 
 	headers := map[string]string{
 		"X-New-Api-Timestamp": timestamp,
+	}
+	if requestID != "" {
+		headers[common.TraceIdKey] = requestID
 	}
 	if signature != "" {
 		headers["X-New-Api-Signature"] = signature
 	}
 
-	requestID := strings.TrimSpace(payload.RequestID)
 	idempotencyKey := ""
 	if requestID != "" {
 		idempotencyKey = fmt.Sprintf("consume:%s:%s", payload.EventPhase, requestID)

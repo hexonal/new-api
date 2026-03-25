@@ -300,12 +300,38 @@ func TestFetchUserPointsCanPreDeductSupportsDollarJSONPath(t *testing.T) {
 		server.URL+"?sk={sk}",
 		"abc123",
 		"$.data.can_pre_deduct",
+		"",
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if canPreDeduct {
 		t.Fatalf("expected false, got true")
+	}
+}
+
+func TestFetchUserPointsCanPreDeductPassesTraceIDHeader(t *testing.T) {
+	const traceID = "trace-user-points-001"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get(common.TraceIdKey); got != traceID {
+			t.Fatalf("unexpected trace header: %q", got)
+		}
+		_, _ = w.Write([]byte(`{"code":200,"data":{"can_pre_deduct":true}}`))
+	}))
+	defer server.Close()
+
+	canPreDeduct, err := fetchUserPointsCanPreDeduct(
+		context.Background(),
+		server.URL+"?sk={sk}",
+		"abc123",
+		"$.data.can_pre_deduct",
+		traceID,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !canPreDeduct {
+		t.Fatalf("expected true, got false")
 	}
 }
 

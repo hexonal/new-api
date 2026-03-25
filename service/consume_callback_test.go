@@ -90,9 +90,9 @@ func TestBuildConsumeCallbackSK_NoPrefixAuthSupportsArbitraryCustomKeys(t *testi
 	assert.Equal(t, "Abc123Def456", got)
 }
 
-func TestBuildConsumeCallbackSK_ExplicitPrefixedTokenKeyKeptAsIs(t *testing.T) {
+func TestBuildConsumeCallbackSK_ExplicitPrefixedTokenKeyUsesBaseKey(t *testing.T) {
 	got := buildConsumeCallbackSK("sk-explicit-token", "", "")
-	assert.Equal(t, "sk-explicit-token", got)
+	assert.Equal(t, "explicit-token", got)
 }
 
 func TestBuildConsumeCallbackSK_FallbackSKWithSKPrefix(t *testing.T) {
