@@ -82,6 +82,9 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	if c == nil || err == nil {
 		return
 	}
+	if IsExpectedFallbackError(err) {
+		return
+	}
 	if monitorAlertAlreadySent(c) {
 		return
 	}
@@ -202,6 +205,9 @@ func allowMonitorCallErrorByThreshold(channelID int, now time.Time, thresholdCou
 
 func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message string, errorType string, errorCode string) {
 	if c == nil {
+		return
+	}
+	if IsExpectedFallbackErrorCode(errorCode) {
 		return
 	}
 	if monitorAlertAlreadySent(c) {

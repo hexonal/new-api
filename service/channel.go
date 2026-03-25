@@ -51,6 +51,9 @@ func ShouldDisableChannel(channelType int, err *types.NewAPIError) bool {
 	if err == nil {
 		return false
 	}
+	if IsExpectedFallbackError(err) {
+		return false
+	}
 	if types.IsChannelError(err) {
 		return true
 	}

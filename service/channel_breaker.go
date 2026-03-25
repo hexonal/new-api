@@ -38,6 +38,9 @@ func MarkChannelBreakerFailure(channel *model.Channel, apiErr *types.NewAPIError
 	if channel == nil || apiErr == nil {
 		return
 	}
+	if IsExpectedFallbackError(apiErr) {
+		return
+	}
 	cfg := channel.GetOtherSettings().GetBreakerConfig()
 	if !cfg.Enabled {
 		return
