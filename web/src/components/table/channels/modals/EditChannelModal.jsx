@@ -310,6 +310,8 @@ const EditChannelModal = (props) => {
     // 渠道额外设置的默认值
     force_format: false,
     thinking_to_content: false,
+    image_url_auto_base64: false,
+    image_url_supported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -659,6 +661,8 @@ const EditChannelModal = (props) => {
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
     thinking_to_content: false,
+    image_url_auto_base64: false,
+    image_url_supported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -979,6 +983,10 @@ const EditChannelModal = (props) => {
           data.force_format = parsedSettings.force_format || false;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
+          data.image_url_auto_base64 =
+            parsedSettings.image_url_auto_base64 === true;
+          data.image_url_supported =
+            parsedSettings.image_url_supported === true;
           data.proxy = parsedSettings.proxy || '';
           data.pass_through_body_enabled =
             parsedSettings.pass_through_body_enabled || false;
@@ -989,6 +997,8 @@ const EditChannelModal = (props) => {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
           data.thinking_to_content = false;
+          data.image_url_auto_base64 = false;
+          data.image_url_supported = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
@@ -997,6 +1007,8 @@ const EditChannelModal = (props) => {
       } else {
         data.force_format = false;
         data.thinking_to_content = false;
+        data.image_url_auto_base64 = false;
+        data.image_url_supported = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
@@ -1158,6 +1170,8 @@ const EditChannelModal = (props) => {
       setChannelSettings({
         force_format: data.force_format,
         thinking_to_content: data.thinking_to_content,
+        image_url_auto_base64: data.image_url_auto_base64 || false,
+        image_url_supported: data.image_url_supported || false,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
@@ -1516,6 +1530,8 @@ const EditChannelModal = (props) => {
     setChannelSettings({
       force_format: false,
       thinking_to_content: false,
+      image_url_auto_base64: false,
+      image_url_supported: false,
       proxy: '',
       pass_through_body_enabled: false,
       system_prompt: '',
@@ -1883,6 +1899,8 @@ const EditChannelModal = (props) => {
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
+      image_url_auto_base64: localInputs.image_url_auto_base64 === true,
+      image_url_supported: localInputs.image_url_supported === true,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
@@ -4462,6 +4480,31 @@ const EditChannelModal = (props) => {
                       extraText={t(
                         '将 reasoning_content 转换为 <think> 标签拼接到内容中',
                       )}
+                    />
+
+                    <Form.Switch
+                      field='image_url_auto_base64'
+                      label={t('图片 URL 自动转 Base64')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'image_url_auto_base64',
+                          value,
+                        )
+                      }
+                      extraText={t('开启后会在该渠道将图片 URL 入参自动转换为 Base64')}
+                    />
+
+                    <Form.Switch
+                      field='image_url_supported'
+                      label={t('支持图片 URL 直传')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange('image_url_supported', value)
+                      }
+                      extraText={t('关闭后该渠道不接受图片 URL 入参（将尝试走下游回退）')}
                     />
 
                     <Form.Switch
