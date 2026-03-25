@@ -21,6 +21,7 @@ type Midjourney struct {
 	Progress    string `json:"progress" gorm:"type:varchar(30);index"`
 	FailReason  string `json:"fail_reason"`
 	ChannelId   int    `json:"channel_id"`
+	ChannelName string `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
 	Quota       int    `json:"quota"`
 	Buttons     string `json:"buttons"`
 	Properties  string `json:"properties"`
@@ -66,20 +67,22 @@ func GetAllTasks(startIdx int, num int, queryParams TaskQueryParams) []*Midjourn
 	var err error
 
 	// 初始化查询构建器
-	query := DB
+	query := DB.Table("midjourneys").
+		Select("midjourneys.*, channels.name AS channel_name").
+		Joins("LEFT JOIN channels ON channels.id = midjourneys.channel_id")
 
 	// 添加过滤条件
 	if queryParams.ChannelID != "" {
-		query = query.Where("channel_id = ?", queryParams.ChannelID)
+		query = query.Where("midjourneys.channel_id = ?", queryParams.ChannelID)
 	}
 	if queryParams.MjID != "" {
-		query = query.Where("mj_id = ?", queryParams.MjID)
+		query = query.Where("midjourneys.mj_id = ?", queryParams.MjID)
 	}
 	if queryParams.StartTimestamp != "" {
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
+		query = query.Where("midjourneys.submit_time >= ?", queryParams.StartTimestamp)
 	}
 	if queryParams.EndTimestamp != "" {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
+		query = query.Where("midjourneys.submit_time <= ?", queryParams.EndTimestamp)
 	}
 
 	// 获取数据

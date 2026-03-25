@@ -377,18 +377,18 @@ export const getMjLogsColumns = ({
       title: t('渠道'),
       dataIndex: 'channel_id',
       render: (text, record, index) => {
+        const channelLabel = record.channel_name || text || '-';
         return isAdminUser ? (
           <div>
             <Tag
-              color={colors[parseInt(text) % colors.length]}
+              color={colors[(parseInt(text, 10) || 0) % colors.length]}
               shape='circle'
               prefixIcon={<Hash size={14} />}
               onClick={() => {
                 copyText(text);
               }}
             >
-              {' '}
-              {text}{' '}
+              {channelLabel}
             </Tag>
           </div>
         ) : (

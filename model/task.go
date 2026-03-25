@@ -42,24 +42,25 @@ const (
 )
 
 type Task struct {
-	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
-	CreatedAt  int64                 `json:"created_at" gorm:"index"`
-	UpdatedAt  int64                 `json:"updated_at"`
-	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
-	Platform   constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
-	UserId     int                   `json:"user_id" gorm:"index"`
-	Group      string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
-	ChannelId  int                   `json:"channel_id" gorm:"index"`
-	Quota      int                   `json:"quota"`
-	Action     string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
-	Status     TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
-	FailReason string                `json:"fail_reason"`
-	SubmitTime int64                 `json:"submit_time" gorm:"index"`
-	StartTime  int64                 `json:"start_time" gorm:"index"`
-	FinishTime int64                 `json:"finish_time" gorm:"index"`
-	Progress   string                `json:"progress" gorm:"type:varchar(20);index"`
-	Properties Properties            `json:"properties" gorm:"type:json"`
-	Username   string                `json:"username,omitempty" gorm:"-"`
+	ID          int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
+	CreatedAt   int64                 `json:"created_at" gorm:"index"`
+	UpdatedAt   int64                 `json:"updated_at"`
+	TaskID      string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
+	Platform    constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
+	UserId      int                   `json:"user_id" gorm:"index"`
+	Group       string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
+	ChannelId   int                   `json:"channel_id" gorm:"index"`
+	ChannelName string                `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
+	Quota       int                   `json:"quota"`
+	Action      string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
+	Status      TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
+	FailReason  string                `json:"fail_reason"`
+	SubmitTime  int64                 `json:"submit_time" gorm:"index"`
+	StartTime   int64                 `json:"start_time" gorm:"index"`
+	FinishTime  int64                 `json:"finish_time" gorm:"index"`
+	Progress    string                `json:"progress" gorm:"type:varchar(20);index"`
+	Properties  Properties            `json:"properties" gorm:"type:json"`
+	Username    string                `json:"username,omitempty" gorm:"-"`
 	// 禁止返回给用户，内部可能包含key等隐私信息
 	PrivateData TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
 	Data        json.RawMessage `json:"data" gorm:"type:json"`
@@ -249,35 +250,37 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 	var err error
 
 	// 初始化查询构建器
-	query := DB
+	query := DB.Table("tasks").
+		Select("tasks.*, channels.name AS channel_name").
+		Joins("LEFT JOIN channels ON channels.id = tasks.channel_id")
 
 	// 添加过滤条件
 	if queryParams.ChannelID != "" {
-		query = query.Where("channel_id = ?", queryParams.ChannelID)
+		query = query.Where("tasks.channel_id = ?", queryParams.ChannelID)
 	}
 	if queryParams.Platform != "" {
-		query = query.Where("platform = ?", queryParams.Platform)
+		query = query.Where("tasks.platform = ?", queryParams.Platform)
 	}
 	if queryParams.UserID != "" {
-		query = query.Where("user_id = ?", queryParams.UserID)
+		query = query.Where("tasks.user_id = ?", queryParams.UserID)
 	}
 	if len(queryParams.UserIDs) != 0 {
-		query = query.Where("user_id in (?)", queryParams.UserIDs)
+		query = query.Where("tasks.user_id in (?)", queryParams.UserIDs)
 	}
 	if queryParams.TaskID != "" {
-		query = query.Where("task_id = ?", queryParams.TaskID)
+		query = query.Where("tasks.task_id = ?", queryParams.TaskID)
 	}
 	if queryParams.Action != "" {
-		query = query.Where("action = ?", queryParams.Action)
+		query = query.Where("tasks.action = ?", queryParams.Action)
 	}
 	if queryParams.Status != "" {
-		query = query.Where("status = ?", queryParams.Status)
+		query = query.Where("tasks.status = ?", queryParams.Status)
 	}
 	if queryParams.StartTimestamp != 0 {
-		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
+		query = query.Where("tasks.submit_time >= ?", queryParams.StartTimestamp)
 	}
 	if queryParams.EndTimestamp != 0 {
-		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
+		query = query.Where("tasks.submit_time <= ?", queryParams.EndTimestamp)
 	}
 
 	// 获取数据
