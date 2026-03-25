@@ -47,6 +47,7 @@ export const useLogsData = () => {
   const COLUMN_KEYS = {
     TIME: 'time',
     CHANNEL: 'channel',
+    CHANNEL_ID: 'channel_id',
     USERNAME: 'username',
     TOKEN: 'token',
     GROUP: 'group',
@@ -110,6 +111,7 @@ export const useLogsData = () => {
     return {
       [COLUMN_KEYS.TIME]: true,
       [COLUMN_KEYS.CHANNEL]: isAdminUser,
+      [COLUMN_KEYS.CHANNEL_ID]: isAdminUser,
       [COLUMN_KEYS.USERNAME]: isAdminUser,
       [COLUMN_KEYS.TOKEN]: true,
       [COLUMN_KEYS.GROUP]: true,
@@ -139,6 +141,7 @@ export const useLogsData = () => {
 
       if (!isAdminUser) {
         merged[COLUMN_KEYS.CHANNEL] = false;
+        merged[COLUMN_KEYS.CHANNEL_ID] = false;
         merged[COLUMN_KEYS.USERNAME] = false;
         merged[COLUMN_KEYS.RETRY] = false;
       }
@@ -203,6 +206,7 @@ export const useLogsData = () => {
     allKeys.forEach((key) => {
       if (
         (key === COLUMN_KEYS.CHANNEL ||
+          key === COLUMN_KEYS.CHANNEL_ID ||
           key === COLUMN_KEYS.USERNAME ||
           key === COLUMN_KEYS.RETRY) &&
         !isAdminUser
