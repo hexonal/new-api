@@ -147,6 +147,10 @@ func hasConsumeCallbackSKPrefix(raw string) bool {
 func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
 	_ = tokenAuthPrefix
 	tokenKey = strings.TrimSpace(tokenKey)
+	if hasConsumeCallbackSKPrefix(tokenKey) {
+		// Keep explicitly prefixed token keys unchanged.
+		return tokenKey
+	}
 	rawKey := extractConsumeCallbackRawTokenKey(tokenKey)
 	if rawKey == "" {
 		rawKey = extractConsumeCallbackRawTokenKey(fallbackSK)
@@ -184,10 +188,10 @@ func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) s
 	}
 	baseToken := baseConsumeCallbackTokenKey(tokenKey)
 	if baseToken == "" {
-		return basePresented
+		return presented
 	}
 	if baseToken == basePresented {
-		return baseToken
+		return presented
 	}
 	return ""
 }

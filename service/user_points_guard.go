@@ -532,11 +532,8 @@ func baseTokenKey(tokenKey string, token *model.Token) string {
 
 func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
 	baseKey := baseTokenKey(tokenKey, token)
-	// Canonical strategy: prefer base key whenever available.
-	// This avoids forwarding synthetic "sk-" / "customer-sk-" variants.
-	if baseKey != "" {
-		return baseKey
-	}
+	// Prefer presented token form when it matches the same base key.
+	// This keeps caller's real token shape (e.g. sk-xxx / customer-sk-xxx / ima_xxx).
 	if c != nil && c.Request != nil {
 		presentedKey := extractPresentedTokenFromRequest(c)
 		if presentedKey != "" {
@@ -546,7 +543,7 @@ func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey st
 		}
 	}
 
-	// Fallback behavior: keep original raw token key.
+	// Fallback behavior: use normalized base key.
 	return baseKey
 }
 
