@@ -311,7 +311,8 @@ const EditChannelModal = (props) => {
     force_format: false,
     thinking_to_content: false,
     image_url_auto_base64: false,
-    image_url_supported: false,
+    image_url_supported: true,
+    image_url_unsupported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -662,7 +663,8 @@ const EditChannelModal = (props) => {
     force_format: false,
     thinking_to_content: false,
     image_url_auto_base64: false,
-    image_url_supported: false,
+    image_url_supported: true,
+    image_url_unsupported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -672,20 +674,33 @@ const EditChannelModal = (props) => {
 
   // 处理渠道额外设置的更新
   const handleChannelSettingsChange = (key, value) => {
-    // 更新内部状态
-    setChannelSettings((prev) => ({ ...prev, [key]: value }));
+    const nextSettings = { ...channelSettings, [key]: value };
 
-    // 同步更新到表单字段
-    if (formApiRef.current) {
-      formApiRef.current.setValue(key, value);
+    if (key === 'image_url_unsupported') {
+      nextSettings.image_url_supported = !value;
+      // 开启“不支持 URL 直传”时，自动关闭 Base64 转换，保证二者互斥
+      if (value === true && nextSettings.image_url_auto_base64 === true) {
+        nextSettings.image_url_auto_base64 = false;
+      }
     }
 
-    // 同步更新inputs状态
-    setInputs((prev) => ({ ...prev, [key]: value }));
+    if (key === 'image_url_auto_base64' && value === true) {
+      // 开启自动转 Base64 时，自动开启 URL 直传并关闭“不支持 URL 直传”
+      nextSettings.image_url_unsupported = false;
+      nextSettings.image_url_supported = true;
+    }
 
-    // 生成setting JSON并更新
-    const newSettings = { ...channelSettings, [key]: value };
-    const settingsJson = JSON.stringify(newSettings);
+    setChannelSettings(nextSettings);
+
+    if (formApiRef.current) {
+      Object.entries(nextSettings).forEach(([k, v]) => {
+        formApiRef.current.setValue(k, v);
+      });
+    }
+
+    setInputs((prev) => ({ ...prev, ...nextSettings }));
+
+    const settingsJson = JSON.stringify(nextSettings);
     handleInputChange('setting', settingsJson);
   };
 
@@ -985,8 +1000,15 @@ const EditChannelModal = (props) => {
             parsedSettings.thinking_to_content || false;
           data.image_url_auto_base64 =
             parsedSettings.image_url_auto_base64 === true;
+          // 兼容旧行为：未配置时按支持 URL 直传处理
           data.image_url_supported =
-            parsedSettings.image_url_supported === true;
+            parsedSettings.image_url_supported !== false;
+          data.image_url_unsupported = !data.image_url_supported;
+          // 防御性归一化：两者不可同时开启；auto_base64 开启时强制视为支持 URL 直传
+          if (data.image_url_auto_base64 && data.image_url_unsupported) {
+            data.image_url_supported = true;
+            data.image_url_unsupported = false;
+          }
           data.proxy = parsedSettings.proxy || '';
           data.pass_through_body_enabled =
             parsedSettings.pass_through_body_enabled || false;
@@ -998,7 +1020,8 @@ const EditChannelModal = (props) => {
           data.force_format = false;
           data.thinking_to_content = false;
           data.image_url_auto_base64 = false;
-          data.image_url_supported = false;
+          data.image_url_supported = true;
+          data.image_url_unsupported = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
@@ -1008,7 +1031,8 @@ const EditChannelModal = (props) => {
         data.force_format = false;
         data.thinking_to_content = false;
         data.image_url_auto_base64 = false;
-        data.image_url_supported = false;
+        data.image_url_supported = true;
+        data.image_url_unsupported = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
@@ -1171,7 +1195,8 @@ const EditChannelModal = (props) => {
         force_format: data.force_format,
         thinking_to_content: data.thinking_to_content,
         image_url_auto_base64: data.image_url_auto_base64 || false,
-        image_url_supported: data.image_url_supported || false,
+        image_url_supported: data.image_url_supported !== false,
+        image_url_unsupported: data.image_url_unsupported === true,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
@@ -1531,7 +1556,8 @@ const EditChannelModal = (props) => {
       force_format: false,
       thinking_to_content: false,
       image_url_auto_base64: false,
-      image_url_supported: false,
+      image_url_supported: true,
+      image_url_unsupported: false,
       proxy: '',
       pass_through_body_enabled: false,
       system_prompt: '',
@@ -1895,12 +1921,22 @@ const EditChannelModal = (props) => {
       localInputs.other = 'v2.1';
     }
 
+    // 归一化图片 URL 互斥开关：auto_base64 与 unsupported 不能同时开启
+    if (
+      localInputs.image_url_auto_base64 === true &&
+      localInputs.image_url_unsupported === true
+    ) {
+      localInputs.image_url_unsupported = false;
+      localInputs.image_url_supported = true;
+    }
+
     // 生成渠道额外设置JSON
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
       image_url_auto_base64: localInputs.image_url_auto_base64 === true,
-      image_url_supported: localInputs.image_url_supported === true,
+      image_url_supported:
+        localInputs.image_url_unsupported === true ? false : true,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
@@ -2167,6 +2203,7 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.image_url_unsupported;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -4497,14 +4534,19 @@ const EditChannelModal = (props) => {
                     />
 
                     <Form.Switch
-                      field='image_url_supported'
-                      label={t('支持图片 URL 直传')}
+                      field='image_url_unsupported'
+                      label={t('不支持图片 URL 直传')}
                       checkedText={t('开')}
                       uncheckedText={t('关')}
                       onChange={(value) =>
-                        handleChannelSettingsChange('image_url_supported', value)
+                        handleChannelSettingsChange(
+                          'image_url_unsupported',
+                          value,
+                        )
                       }
-                      extraText={t('关闭后该渠道不接受图片 URL 入参（将尝试走下游回退）')}
+                      extraText={t(
+                        '开启后该渠道不接受图片 URL 入参（将尝试走下游回退）',
+                      )}
                     />
 
                     <Form.Switch
