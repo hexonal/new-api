@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -103,6 +104,7 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 	}
 
 	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	tokenSK := monitorAlertTokenSKFromContext(c)
 	data := map[string]interface{}{
 		"kind":         "call_error",
 		"site_domain":  monitorAlertSiteDomainFromContext(c),
@@ -118,7 +120,7 @@ func NotifyMonitorCallError(c *gin.Context, channelError types.ChannelError, err
 		"group":        strings.TrimSpace(c.GetString("group")),
 		"model_name":   strings.TrimSpace(c.GetString("original_model")),
 		"token_name":   strings.TrimSpace(c.GetString("token_name")),
-		"token_sk":     strings.TrimSpace(c.GetString("token_key")),
+		"token_sk":     tokenSK,
 		"channel_id":   channelID,
 		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
 		"channel_type": c.GetInt("channel_type"),
@@ -219,6 +221,7 @@ func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message
 	}
 
 	requestID := strings.TrimSpace(c.GetString(common.RequestIdKey))
+	tokenSK := monitorAlertTokenSKFromContext(c)
 	data := map[string]interface{}{
 		"kind":         "api_error",
 		"site_domain":  monitorAlertSiteDomainFromContext(c),
@@ -233,7 +236,7 @@ func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message
 		"group":        strings.TrimSpace(c.GetString("group")),
 		"model_name":   strings.TrimSpace(c.GetString("original_model")),
 		"token_name":   strings.TrimSpace(c.GetString("token_name")),
-		"token_sk":     strings.TrimSpace(c.GetString("token_key")),
+		"token_sk":     tokenSK,
 		"channel_id":   c.GetInt("channel_id"),
 		"channel_name": strings.TrimSpace(c.GetString("channel_name")),
 		"channel_type": c.GetInt("channel_type"),
@@ -248,6 +251,48 @@ func NotifyMonitorAPIError(c *gin.Context, title string, statusCode int, message
 			common.SysError("enqueue monitor api error alert failed: " + enqueueErr.Error())
 		}
 	})
+}
+
+func monitorAlertTokenSKFromContext(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	if presented := monitorAlertPresentedTokenFromRequest(c); presented != "" {
+		return normalizeMonitorAlertTokenSK(presented)
+	}
+	tokenKey := strings.TrimSpace(c.GetString("token_key"))
+	if tokenKey == "" {
+		return ""
+	}
+	prefix := strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyTokenAuthPrefix))
+	if prefix == "sk-" || prefix == "customer-sk-" {
+		return normalizeMonitorAlertTokenSK(prefix + tokenKey)
+	}
+	return normalizeMonitorAlertTokenSK(tokenKey)
+}
+
+func monitorAlertPresentedTokenFromRequest(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	if value := stripBearerTokenValueForAlert(c.GetHeader("Authorization")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(c.GetHeader("x-api-key")); value != "" {
+		return value
+	}
+	if value := stripBearerTokenValueForAlert(c.GetHeader("mj-api-secret")); value != "" {
+		return value
+	}
+	return ""
+}
+
+func stripBearerTokenValueForAlert(raw string) string {
+	text := strings.TrimSpace(raw)
+	if strings.HasPrefix(text, "Bearer ") || strings.HasPrefix(text, "bearer ") {
+		text = strings.TrimSpace(text[7:])
+	}
+	return strings.TrimSpace(text)
 }
 
 func NotifyMonitorCallbackError(event *model.CallbackEvent, attemptNo int, statusCode int, errMsg string, responseSnippet string) {
@@ -544,7 +589,11 @@ func normalizeMonitorAlertTokenSK(raw interface{}) string {
 		return text
 	}
 	// Keep no-prefix custom token forms (e.g. ima_abc123) as-is.
-	return text
+	if strings.HasPrefix(text, "ima_") {
+		return text
+	}
+	// Normalize plain token key to sk-* for alert readability.
+	return "sk-" + text
 }
 
 func maskMonitorAlertSK(raw string) string {

@@ -1,11 +1,13 @@
 package service
 
 import (
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,8 +76,8 @@ func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {
 		"token_sk": "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
 	})
 
-	require.Equal(t, "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn", output["token_sk"])
-	require.Contains(t, output["error"], "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn")
+	require.Equal(t, "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn", output["token_sk"])
+	require.Contains(t, output["error"], "sk-Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn")
 }
 
 func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
@@ -86,7 +88,7 @@ func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
 		"token_sk":     "Bmr1eHLOBM5UfIP9ytdwygdY0lDqOEZxNHI79oo1spR12Zsn",
 	})
 
-	require.Equal(t, "Bmr1***2Zsn", output["token_sk"])
+	require.Equal(t, "sk-Bmr1***2Zsn", output["token_sk"])
 	require.NotContains(t, output["error"], "open.feishu.cn")
 	require.NotContains(t, output["callback_url"], "open.feishu.cn")
 }
@@ -97,4 +99,22 @@ func TestMonitorAlertTokenSKNoPrefixKeptAsIs(t *testing.T) {
 		"token_sk": "ima_61f24b472a5640a8b5860944b6178abf",
 	})
 	require.Equal(t, "ima_61f24b472a5640a8b5860944b6178abf", output["token_sk"])
+}
+
+func TestMonitorAlertTokenSKFromContextPrefersPresentedAuthorization(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	ctx.Request = req
+	ctx.Set("token_key", "CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	require.Equal(t, "sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C", monitorAlertTokenSKFromContext(ctx))
+}
+
+func TestMonitorAlertTokenSKFromContextFallbackTokenKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	ctx.Set("token_key", "CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	require.Equal(t, "sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C", monitorAlertTokenSKFromContext(ctx))
 }
