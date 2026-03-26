@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -299,5 +300,55 @@ func TestOperatorProvisionDuplicateUsernameAddsTokenOnly(t *testing.T) {
 	}
 	if tokenCount != 2 {
 		t.Fatalf("expected 2 tokens for existing user, got %d", tokenCount)
+	}
+}
+
+func TestOperatorProvisionExistingUserAmountUSDAddsQuota(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	username := "ima_1888888888888888888"
+	baseUser := seedProvisionUser(t, db, username)
+	originalQuota := baseUser.Quota
+
+	amountUSD := 2.0
+	resp := performProvisionRequest(t, map[string]any{
+		"username":   username,
+		"token":      "ima_token_existing_amount_add",
+		"amount_usd": amountUSD,
+	})
+	if !resp.Success {
+		t.Fatalf("provision failed: %s", resp.Message)
+	}
+
+	var user model.User
+	if err := db.Where("id = ?", baseUser.Id).First(&user).Error; err != nil {
+		t.Fatalf("failed to query existing user: %v", err)
+	}
+	expected := originalQuota + int(math.Round(amountUSD*float64(common.QuotaPerUnit)))
+	if user.Quota != expected {
+		t.Fatalf("expected existing user quota=%d, got=%d", expected, user.Quota)
+	}
+}
+
+func TestOperatorProvisionNewUserAmountUSDOverridesQuotaAsTotal(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+
+	amountUSD := 1.25
+	resp := performProvisionRequest(t, map[string]any{
+		"username":   "ima_2999999999999999999",
+		"token":      "ima_token_amount_add",
+		"amount_usd": amountUSD,
+	})
+	if !resp.Success {
+		t.Fatalf("provision failed: %s", resp.Message)
+	}
+
+	var user model.User
+	if err := db.Where("id = ?", resp.Data.UserID).First(&user).Error; err != nil {
+		t.Fatalf("failed to query created user: %v", err)
+	}
+
+	expectedQuota := int(math.Round(amountUSD * float64(common.QuotaPerUnit)))
+	if user.Quota != expectedQuota {
+		t.Fatalf("expected quota=%d, got=%d", expectedQuota, user.Quota)
 	}
 }

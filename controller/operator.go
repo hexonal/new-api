@@ -203,6 +203,13 @@ func OperatorProvision(c *gin.Context) {
 		}
 
 		if userId > 0 {
+			if req.AmountUSD > 0 {
+				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
+				if err := tx.Model(&model.User{}).Where("id = ?", userId).
+					Update("quota", gorm.Expr("quota + ?", quota)).Error; err != nil {
+					return err
+				}
+			}
 			t := buildProvisionToken(userId, tokenKey, req)
 			return t.InsertWithTx(tx)
 		}
@@ -232,8 +239,8 @@ func OperatorProvision(c *gin.Context) {
 			}
 		} else {
 			userId = cleanUser.Id
-			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
-			// explicitly set the requested quota if provided (converted from USD).
+			// InsertWithTx initializes quota with QuotaForNewUser;
+			// amount_usd here represents total target quota for new users.
 			if req.AmountUSD > 0 {
 				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
 				if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
