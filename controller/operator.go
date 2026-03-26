@@ -211,7 +211,18 @@ func OperatorProvision(c *gin.Context) {
 				}
 			}
 			t := buildProvisionToken(userId, tokenKey, req)
-			return t.InsertWithTx(tx)
+			if err := t.InsertWithTx(tx); err != nil {
+				// Existing username + duplicate token should be idempotent success,
+				// and quota top-up has already been applied above.
+				if req.Token != "" && isDuplicateError(err) {
+					var existingToken model.Token
+					if tokenErr := tx.Where("key = ?", tokenKey).First(&existingToken).Error; tokenErr == nil && existingToken.UserId == userId {
+						return nil
+					}
+				}
+				return err
+			}
+			return nil
 		}
 
 		// Try to create user inside the transaction to avoid race conditions.

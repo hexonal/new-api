@@ -329,6 +329,45 @@ func TestOperatorProvisionExistingUserAmountUSDAddsQuota(t *testing.T) {
 	}
 }
 
+func TestOperatorProvisionExistingUserDuplicateTokenStillAddsQuota(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	baseUser := seedProvisionUser(t, db, "ima_1998990577523736577")
+
+	seedToken := model.Token{
+		UserId:         baseUser.Id,
+		Name:           "default",
+		Key:            "ima_dup_token_0001",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    common.GetTimestamp(),
+		AccessedTime:   common.GetTimestamp(),
+		ExpiredTime:    -1,
+		UnlimitedQuota: true,
+	}
+	if err := db.Create(&seedToken).Error; err != nil {
+		t.Fatalf("seed token failed: %v", err)
+	}
+
+	originalQuota := baseUser.Quota
+	amountUSD := 2.0
+	resp := performProvisionRequest(t, map[string]any{
+		"username":   baseUser.Username,
+		"token":      seedToken.Key,
+		"amount_usd": amountUSD,
+	})
+	if !resp.Success {
+		t.Fatalf("expected success for duplicate token retry, got: %s", resp.Message)
+	}
+
+	var user model.User
+	if err := db.Where("id = ?", baseUser.Id).First(&user).Error; err != nil {
+		t.Fatalf("query user failed: %v", err)
+	}
+	expected := originalQuota + int(math.Round(amountUSD*float64(common.QuotaPerUnit)))
+	if user.Quota != expected {
+		t.Fatalf("expected quota=%d, got=%d", expected, user.Quota)
+	}
+}
+
 func TestOperatorProvisionNewUserAmountUSDOverridesQuotaAsTotal(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 
