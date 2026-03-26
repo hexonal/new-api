@@ -123,11 +123,15 @@ func normalizeContentType(contentType string) string {
 }
 
 func normalizeSnapshotSK(rawSK string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSK), "sk-"))
+	key := strings.TrimSpace(rawSK)
 	if key == "" {
 		return ""
 	}
-	return "sk-" + key
+	if strings.HasPrefix(key, "sk-") {
+		return key
+	}
+	// No-prefix custom tokens (e.g. ima_abc123) are kept as-is
+	return key
 }
 
 func trimSnapshotField(value string, maxLen int) string {

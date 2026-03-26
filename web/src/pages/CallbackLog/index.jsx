@@ -29,7 +29,12 @@ import {
   Tag,
   Typography,
 } from '@douyinfe/semi-ui';
-import { IconEyeOpened, IconRefresh, IconSearch } from '@douyinfe/semi-icons';
+import {
+  IconCopy,
+  IconEyeOpened,
+  IconRefresh,
+  IconSearch,
+} from '@douyinfe/semi-icons';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
@@ -38,7 +43,14 @@ import CardPro from '../../components/common/ui/CardPro';
 import CardTable from '../../components/common/ui/CardTable';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { ITEMS_PER_PAGE } from '../../constants';
-import { API, showError, showWarning, timestamp2string } from '../../helpers';
+import {
+  API,
+  copy,
+  showError,
+  showSuccess,
+  showWarning,
+  timestamp2string,
+} from '../../helpers';
 import { createCardProPagination } from '../../helpers/utils';
 
 const { Text } = Typography;
@@ -359,11 +371,43 @@ const CallbackLog = () => {
         key: 'token_sk',
         width: 220,
         render: (value, record) => {
-          const display = value || record?.token_sk_masked || '-';
+          const raw = String(value || '').trim();
+          const masked = String(record?.token_sk_masked || '').trim();
+          const display = raw || masked || '-';
+          const copyText = raw || display;
           return (
-            <Text ellipsis={{ showTooltip: true }} style={{ maxWidth: 200 }} copyable>
-              {display}
-            </Text>
+            <div
+              style={{
+                width: 200,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                minWidth: 0,
+              }}
+            >
+              <Text
+                ellipsis={{ showTooltip: true }}
+                style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap' }}
+              >
+                {display}
+              </Text>
+              {copyText && copyText !== '-' ? (
+                <Button
+                  type='tertiary'
+                  theme='borderless'
+                  size='small'
+                  icon={<IconCopy />}
+                  style={{ padding: 0, minWidth: 20, width: 20, height: 20 }}
+                  onClick={async () => {
+                    if (await copy(copyText)) {
+                      showSuccess(t('复制成功'));
+                    } else {
+                      showWarning(t('复制失败'));
+                    }
+                  }}
+                />
+              ) : null}
+            </div>
           );
         },
       },
@@ -608,7 +652,7 @@ const CallbackLog = () => {
           loading={loading}
           className='rounded-xl overflow-hidden'
           size='middle'
-          scroll={{ x: 'max-content' }}
+          scroll={{ x: 2100 }}
           hidePagination={true}
           empty={
             <Empty

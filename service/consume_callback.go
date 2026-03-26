@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -12,18 +13,26 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 )
 
 const (
 	ConsumeCallbackPhaseSettle      = "settle"
 	ConsumeCallbackPhaseFinalAdjust = "final_adjust"
+	consumeCallbackPrefixSK         = "sk-"
+	consumeCallbackPrefixCustomerSK = "customer-sk-"
 )
 
 type ConsumeCallbackUsage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+}
+
+type resolvedConsumeCallbackConfig struct {
+	callbackURL string
+	secret      string
 }
 
 type consumeCallbackPayload struct {
@@ -51,10 +60,13 @@ func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usag
 		return
 	}
 	requestID := strings.TrimSpace(relayInfo.RequestId)
+	presentedToken := extractConsumeCallbackPresentedToken(relayInfo)
 	payload := newConsumeCallbackPayload(
 		requestID,
 		relayInfo.UserId,
 		relayInfo.TokenId,
+		relayInfo.TokenAuthPrefix,
+		presentedToken,
 		relayInfo.OriginModelName,
 		relayInfo.ChannelId,
 		relayInfo.BillingSource,
@@ -78,6 +90,8 @@ func newConsumeCallbackPayload(
 	requestID string,
 	userID int,
 	tokenID int,
+	tokenAuthPrefix string,
+	presentedToken string,
 	modelName string,
 	channelID int,
 	billingSource string,
@@ -88,7 +102,7 @@ func newConsumeCallbackPayload(
 	normalizedUsage := normalizeConsumeUsage(usage)
 	normalizedUserID := maxInt(userID, 0)
 	normalizedTokenID := maxInt(tokenID, 0)
-	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID)
+	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID, tokenAuthPrefix, presentedToken)
 	return consumeCallbackPayload{
 		RequestID:        requestID,
 		UserID:           normalizedUserID,
@@ -110,11 +124,102 @@ func newConsumeCallbackPayload(
 }
 
 type consumeCallbackTokenIdentity struct {
-	Name string `json:"name"`
-	SK   string `json:"sk"`
+	Name     string `json:"name"`
+	TokenKey string `json:"token_key,omitempty"`
+	SK       string `json:"sk,omitempty"` // legacy cache compatibility
 }
 
-func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, tokenName string, sk string) {
+func extractConsumeCallbackRawTokenKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	if key == "" {
+		return ""
+	}
+	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
+	return strings.TrimSpace(key)
+}
+
+func hasConsumeCallbackSKPrefix(raw string) bool {
+	value := strings.TrimSpace(raw)
+	return strings.HasPrefix(value, consumeCallbackPrefixSK) || strings.HasPrefix(value, consumeCallbackPrefixCustomerSK)
+}
+
+func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
+	_ = tokenAuthPrefix
+	tokenKey = strings.TrimSpace(tokenKey)
+	if hasConsumeCallbackSKPrefix(tokenKey) {
+		// Keep explicitly prefixed token keys unchanged.
+		return tokenKey
+	}
+	rawKey := extractConsumeCallbackRawTokenKey(tokenKey)
+	if rawKey == "" {
+		rawKey = extractConsumeCallbackRawTokenKey(fallbackSK)
+	}
+	if rawKey == "" {
+		return ""
+	}
+	// Base-key-first strategy: do not append synthetic "sk-" prefixes.
+	return rawKey
+}
+
+func normalizeConsumeCallbackPresentedToken(raw string) string {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "Bearer ") || strings.HasPrefix(value, "bearer ") {
+		value = strings.TrimSpace(value[7:])
+	}
+	return strings.TrimSpace(value)
+}
+
+func baseConsumeCallbackTokenKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
+	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
+	return strings.TrimSpace(key)
+}
+
+func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) string {
+	presented := normalizeConsumeCallbackPresentedToken(presentedToken)
+	if presented == "" {
+		return ""
+	}
+	basePresented := baseConsumeCallbackTokenKey(presented)
+	if basePresented == "" {
+		return ""
+	}
+	baseToken := baseConsumeCallbackTokenKey(tokenKey)
+	if baseToken == "" {
+		return presented
+	}
+	if baseToken == basePresented {
+		return presented
+	}
+	return ""
+}
+
+func consumeCallbackHeaderValue(headers map[string]string, headerName string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	for key, value := range headers {
+		if strings.EqualFold(strings.TrimSpace(key), headerName) {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func extractConsumeCallbackPresentedToken(relayInfo *relaycommon.RelayInfo) string {
+	if relayInfo == nil {
+		return ""
+	}
+	token := normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "Authorization"))
+	if token == "" || token == "midjourney-proxy" {
+		token = normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "mj-api-secret"))
+	}
+	return strings.TrimSpace(token)
+}
+
+func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix string, presentedToken string) (username string, tokenName string, sk string) {
 	// Allow pure unit tests to run without requiring DB bootstrap.
 	if model.DB == nil {
 		return "", "", ""
@@ -133,7 +238,16 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, t
 			if raw, err := common.RedisGet(cacheKey); err == nil && strings.TrimSpace(raw) != "" {
 				var cached consumeCallbackTokenIdentity
 				if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
-					return username, strings.TrimSpace(cached.Name), strings.TrimSpace(cached.SK)
+					tokenName = strings.TrimSpace(cached.Name)
+					sk = resolveConsumeCallbackPresentedSK(presentedToken, strings.TrimSpace(cached.TokenKey))
+					if sk != "" {
+						return username, tokenName, sk
+					}
+					sk = buildConsumeCallbackSK(strings.TrimSpace(cached.TokenKey), strings.TrimSpace(cached.SK), tokenAuthPrefix)
+					if sk == "" {
+						sk = strings.TrimSpace(cached.SK)
+					}
+					return username, tokenName, sk
 				}
 			}
 		}
@@ -144,15 +258,16 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int) (username string, t
 			return username, "", ""
 		}
 		tokenName = strings.TrimSpace(token.Name)
-		rawKey := strings.TrimSpace(strings.TrimPrefix(token.Key, "sk-"))
-		if rawKey != "" {
-			sk = "sk-" + rawKey
+		sk = resolveConsumeCallbackPresentedSK(presentedToken, token.Key)
+		if sk != "" {
+			return username, tokenName, sk
 		}
+		sk = buildConsumeCallbackSK(token.Key, "", tokenAuthPrefix)
 
 		if common.RedisEnabled {
 			payload, marshalErr := json.Marshal(consumeCallbackTokenIdentity{
-				Name: tokenName,
-				SK:   sk,
+				Name:     tokenName,
+				TokenKey: strings.TrimSpace(token.Key),
 			})
 			if marshalErr == nil {
 				_ = common.RedisSet(cacheKey, string(payload), time.Duration(common.RedisKeyCacheSeconds())*time.Second)
@@ -203,10 +318,26 @@ func quotaToAmountUSD(quota int) float64 {
 
 func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	enabled, callbackURL, secret, usernamePrefixFilter := getConsumeCallbackOptions()
-	if !enabled || callbackURL == "" {
+	if !enabled {
 		return
 	}
-	if !shouldDispatchConsumeCallbackForUserID(payload.UserID, usernamePrefixFilter) {
+
+	cfg := operation_setting.GetPaymentSetting()
+	var routingRules []operation_setting.ConsumeCallbackRoutingRule
+	if cfg != nil {
+		routingRules = cfg.ConsumeCallbackRoutingRules
+	}
+	username := strings.TrimSpace(payload.Username)
+	tokenPrefixCandidates := normalizeConsumeCallbackTokenPrefixCandidates(payload.SK)
+	hasGlobalPrefixFilter := len(parseConsumeCallbackUserPrefixFilter(usernamePrefixFilter)) > 0
+	hasRuleFilter := hasEnabledConsumeCallbackRoutingRules(routingRules)
+	globalMatched := shouldDispatchConsumeCallbackForUsernameOrUserID(username, payload.UserID, usernamePrefixFilter)
+	ruleMatched := hasMatchedConsumeCallbackRoutingRule(username, tokenPrefixCandidates, routingRules)
+	if (hasGlobalPrefixFilter || hasRuleFilter) && !globalMatched && !ruleMatched {
+		return
+	}
+	resolved := resolveConsumeCallbackRouting(username, tokenPrefixCandidates, callbackURL, secret)
+	if resolved.callbackURL == "" {
 		return
 	}
 
@@ -218,18 +349,21 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 
 	timestamp := strconv.FormatInt(payload.Timestamp, 10)
 	signature := ""
-	if secret != "" {
-		signature = signOperatorCallback(secret, timestamp, payloadBytes)
+	if resolved.secret != "" {
+		signature = signOperatorCallback(resolved.secret, timestamp, payloadBytes)
 	}
+	requestID := strings.TrimSpace(payload.RequestID)
 
 	headers := map[string]string{
 		"X-New-Api-Timestamp": timestamp,
+	}
+	if requestID != "" {
+		headers[common.TraceIdKey] = requestID
 	}
 	if signature != "" {
 		headers["X-New-Api-Signature"] = signature
 	}
 
-	requestID := strings.TrimSpace(payload.RequestID)
 	idempotencyKey := ""
 	if requestID != "" {
 		idempotencyKey = fmt.Sprintf("consume:%s:%s", payload.EventPhase, requestID)
@@ -245,7 +379,7 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 		Username:       payload.Username,
 		TokenName:      payload.TokenName,
 		TokenSK:        payload.SK,
-		CallbackURL:    callbackURL,
+		CallbackURL:    resolved.callbackURL,
 		HTTPMethod:     "POST",
 		Headers:        headers,
 		ContentType:    "application/json",
@@ -254,6 +388,120 @@ func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	}); err != nil {
 		common.SysError(fmt.Sprintf("enqueue consume callback failed for user %d: %s", payload.UserID, err.Error()))
 	}
+}
+
+func matchConsumeCallbackRoutingRule(rule operation_setting.ConsumeCallbackRoutingRule, username string, tokenPrefixCandidates []string) bool {
+	switch operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) {
+	case operation_setting.RoutingMatchByTokenPrefix:
+		for _, candidate := range tokenPrefixCandidates {
+			if matchConsumeCallbackUsernamePrefixes(candidate, []string{rule.PrefixPattern}) {
+				return true
+			}
+		}
+		return false
+	default:
+		return matchConsumeCallbackUsernamePrefixes(username, []string{rule.PrefixPattern})
+	}
+}
+
+func selectConsumeCallbackRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.ConsumeCallbackRoutingRule) (operation_setting.ConsumeCallbackRoutingRule, bool) {
+	sortedRules := append([]operation_setting.ConsumeCallbackRoutingRule(nil), rules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+
+	// Conflict policy: token-prefix rules always have higher precedence than username rules.
+	for _, matchBy := range []string{
+		operation_setting.RoutingMatchByTokenPrefix,
+		operation_setting.RoutingMatchByUsername,
+	} {
+		for _, rule := range sortedRules {
+			if !rule.Enabled {
+				continue
+			}
+			if operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) != matchBy {
+				continue
+			}
+			if !matchConsumeCallbackRoutingRule(rule, username, tokenPrefixCandidates) {
+				continue
+			}
+			return rule, true
+		}
+	}
+	return operation_setting.ConsumeCallbackRoutingRule{}, false
+}
+
+func hasEnabledConsumeCallbackRoutingRules(rules []operation_setting.ConsumeCallbackRoutingRule) bool {
+	for _, rule := range rules {
+		if rule.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMatchedConsumeCallbackRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.ConsumeCallbackRoutingRule) bool {
+	_, matched := selectConsumeCallbackRoutingRule(username, tokenPrefixCandidates, rules)
+	return matched
+}
+
+func resolveConsumeCallbackRouting(username string, tokenPrefixCandidates []string, globalURL, globalSecret string) resolvedConsumeCallbackConfig {
+	resolved := resolvedConsumeCallbackConfig{
+		callbackURL: strings.TrimSpace(globalURL),
+		secret:      strings.TrimSpace(globalSecret),
+	}
+
+	cfg := operation_setting.GetPaymentSetting()
+	if cfg == nil || len(cfg.ConsumeCallbackRoutingRules) == 0 {
+		return resolved
+	}
+	rule, matched := selectConsumeCallbackRoutingRule(username, tokenPrefixCandidates, cfg.ConsumeCallbackRoutingRules)
+	if !matched {
+		return resolved
+	}
+	if v := strings.TrimSpace(rule.CallbackURL); v != "" {
+		resolved.callbackURL = v
+	}
+	if v := strings.TrimSpace(rule.Secret); v != "" {
+		resolved.secret = v
+	}
+	return resolved
+}
+
+func shouldDispatchConsumeCallbackForUsernameOrUserID(username string, userID int, rawPrefixFilter string) bool {
+	if strings.TrimSpace(username) != "" {
+		return shouldDispatchConsumeCallbackForUsername(username, rawPrefixFilter)
+	}
+	return shouldDispatchConsumeCallbackForUserID(userID, rawPrefixFilter)
+}
+
+func normalizeConsumeCallbackTokenPrefixCandidates(rawSK string) []string {
+	normalized := strings.TrimSpace(rawSK)
+	base := strings.TrimPrefix(strings.TrimPrefix(normalized, "sk-"), "customer-sk-")
+	candidates := make([]string, 0, 2)
+	seen := make(map[string]struct{}, 2)
+	for _, candidate := range []string{normalized, strings.TrimSpace(base)} {
+		if candidate == "" {
+			continue
+		}
+		if _, exists := seen[candidate]; exists {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		candidates = append(candidates, candidate)
+	}
+	return candidates
+}
+
+func buildEffectiveConsumeCallbackPrefixFilter(globalFilter string, rules []operation_setting.ConsumeCallbackRoutingRule) string {
+	prefixes := model.ParseDailyUserUsagePrefixes(globalFilter)
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		prefixes = append(prefixes, model.ParseDailyUserUsagePrefixes(rule.PrefixPattern)...)
+	}
+	return strings.Join(prefixes, ",")
 }
 
 func getConsumeCallbackOptions() (bool, string, string, string) {
@@ -302,6 +550,9 @@ func parseConsumeCallbackUserPrefixFilter(rawPrefixFilter string) []string {
 	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
 		prefix := strings.TrimSpace(part)
+		// Keep first-layer prefix semantics consistent with routing rules:
+		// "ima_*" should match usernames starting with "ima_".
+		prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
 		if prefix == "" {
 			continue
 		}
@@ -324,7 +575,11 @@ func matchConsumeCallbackUsernamePrefixes(username string, prefixes []string) bo
 	}
 	// Case-sensitive by design: prefix and username must match exactly by case.
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(normalizedUsername, prefix) {
+		normalizedPrefix := strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+		if normalizedPrefix == "" {
+			continue
+		}
+		if strings.HasPrefix(normalizedUsername, normalizedPrefix) {
 			return true
 		}
 	}

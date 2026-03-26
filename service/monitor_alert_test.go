@@ -1,11 +1,13 @@
 package service
 
 import (
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,11 +38,35 @@ func TestFormatMonitorAlertMarkdown(t *testing.T) {
 		"status_code": 401,
 		"error":       "invalid token",
 		"model_name":  "gpt-4.1-mini",
+		"site_domain": "zcheap.ai",
 	})
 	require.Contains(t, output, "API call error")
 	require.Contains(t, output, "Request ID: req-123")
+	require.Contains(t, output, "site domain: zcheap.ai")
 	require.Contains(t, output, "status code: 401")
 	require.Contains(t, output, "model name: gpt-4.1-mini")
+}
+
+func TestExtractMonitorAlertDomain(t *testing.T) {
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai:443"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("https://zcheap.ai/console"))
+	require.Equal(t, "zcheap.ai", extractMonitorAlertDomain("zcheap.ai, proxy.local"))
+}
+
+func TestBuildMonitorAlertTitleWithDomain(t *testing.T) {
+	require.Equal(t,
+		"API request rejected-zcheap.ai",
+		buildMonitorAlertTitleWithDomain("API request rejected", map[string]interface{}{"site_domain": "zcheap.ai"}),
+	)
+	require.Equal(t,
+		"API request rejected-zcheap.ai",
+		buildMonitorAlertTitleWithDomain("API request rejected-zcheap.ai", map[string]interface{}{"site_domain": "zcheap.ai"}),
+	)
+	require.Equal(t,
+		"API request rejected",
+		buildMonitorAlertTitleWithDomain("API request rejected", map[string]interface{}{}),
+	)
 }
 
 func TestSanitizeMonitorAlertDataMaskDisabledRestoresTokenSK(t *testing.T) {
@@ -65,4 +91,30 @@ func TestSanitizeMonitorAlertDataMaskEnabledMasksSensitiveFields(t *testing.T) {
 	require.Equal(t, "sk-Bmr1***2Zsn", output["token_sk"])
 	require.NotContains(t, output["error"], "open.feishu.cn")
 	require.NotContains(t, output["callback_url"], "open.feishu.cn")
+}
+
+func TestMonitorAlertTokenSKNoPrefixKeptAsIs(t *testing.T) {
+	cfg := monitorAlertConfig{MaskSensitive: false}
+	output := sanitizeMonitorAlertData(cfg, map[string]interface{}{
+		"token_sk": "ima_61f24b472a5640a8b5860944b6178abf",
+	})
+	require.Equal(t, "ima_61f24b472a5640a8b5860944b6178abf", output["token_sk"])
+}
+
+func TestMonitorAlertTokenSKFromContextPrefersPresentedAuthorization(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	ctx.Request = req
+	ctx.Set("token_key", "CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	require.Equal(t, "sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C", monitorAlertTokenSKFromContext(ctx))
+}
+
+func TestMonitorAlertTokenSKFromContextFallbackTokenKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	ctx.Set("token_key", "CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C")
+	require.Equal(t, "sk-CETvoIBTaNWHvn2hqL9AFbMJgjyGxGuWNEOBooQLCm2LFA6C", monitorAlertTokenSKFromContext(ctx))
 }

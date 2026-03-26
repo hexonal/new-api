@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -85,7 +84,7 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 	if event.HTTPMethod != http.MethodGet {
 		t.Fatalf("unexpected method: %s", event.HTTPMethod)
 	}
-	if event.TokenSKSnapshot != "sk-abc123" {
+	if event.TokenSKSnapshot != "abc123" {
 		t.Fatalf("unexpected token sk snapshot: %s", event.TokenSKSnapshot)
 	}
 	if event.RequestID != "req-user-points-1" {
@@ -94,19 +93,14 @@ func TestBuildUserPointsFailureCallbackEvent(t *testing.T) {
 	if !strings.Contains(event.CallbackURL, "/api/v1/user_points") {
 		t.Fatalf("unexpected callback url: %s", event.CallbackURL)
 	}
-	if !strings.Contains(event.Body, "dial tcp timeout") {
-		t.Fatalf("event body should contain error detail, got: %s", event.Body)
+	if strings.TrimSpace(event.Body) != "{}" {
+		t.Fatalf("event body should represent outbound GET body, got: %s", event.Body)
 	}
-
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
-		t.Fatalf("unexpected payload json error: %v", err)
+	if !strings.Contains(event.LastError, "user_points_guard_failed_open") {
+		t.Fatalf("last error should contain fail-open reason, got: %s", event.LastError)
 	}
-	if payload["reason"] != "user_points_guard_failed_open" {
-		t.Fatalf("unexpected reason: %v", payload["reason"])
-	}
-	if payload["fail_open"] != true {
-		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	if !strings.Contains(event.LastError, "dial tcp timeout") {
+		t.Fatalf("last error should contain guard error detail, got: %s", event.LastError)
 	}
 }
 
@@ -129,15 +123,40 @@ func TestBuildUserPointsFailureCallbackEventFailCloseReason(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(event.Body), &payload); err != nil {
-		t.Fatalf("unexpected payload json error: %v", err)
+	if strings.TrimSpace(event.Body) != "{}" {
+		t.Fatalf("event body should represent outbound GET body, got: %s", event.Body)
 	}
-	if payload["reason"] != "user_points_guard_failed_close" {
-		t.Fatalf("unexpected reason: %v", payload["reason"])
+	if !strings.Contains(event.LastError, "user_points_guard_failed_close") {
+		t.Fatalf("last error should contain fail-close reason, got: %s", event.LastError)
 	}
-	if payload["fail_open"] != false {
-		t.Fatalf("unexpected fail_open value: %v", payload["fail_open"])
+	if !strings.Contains(event.LastError, "request timeout") {
+		t.Fatalf("last error should contain guard error detail, got: %s", event.LastError)
+	}
+}
+
+func TestBuildUserPointsFailureCallbackEventNoPrefixToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	c.Set(common.RequestIdKey, "req-user-points-noprefix")
+
+	event, err := buildUserPointsFailureCallbackEvent(
+		c,
+		"https://example.com/api/v1/user_points?sk={sk}",
+		"data.can_pre_deduct",
+		"ima_abc123",
+		errors.New("request timeout"),
+		false,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if event.TokenSKSnapshot != "ima_abc123" {
+		t.Fatalf("unexpected token sk snapshot: %s", event.TokenSKSnapshot)
+	}
+	if !strings.Contains(event.CallbackURL, "sk=ima_abc123") {
+		t.Fatalf("unexpected callback url: %s", event.CallbackURL)
 	}
 }
 
@@ -181,6 +200,75 @@ func TestBuildUserPointsRequestURL(t *testing.T) {
 	}
 }
 
+func TestResolveUserPointsExternalSK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("default uses request actual key", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("customer authorization keeps request key as-is", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer customer-sk-abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "abc123"}, "abc123")
+		if got != "customer-sk-abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("no-prefix token like ima_abc123 returned as-is", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer ima_abc123")
+		got := resolveUserPointsExternalSK(c, &model.Token{Key: "ima_abc123"}, "ima_abc123")
+		if got != "ima_abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+
+	t.Run("nil context returns base key from token", func(t *testing.T) {
+		got := resolveUserPointsExternalSK(nil, &model.Token{Key: "sk-abc123"}, "sk-abc123")
+		if got != "abc123" {
+			t.Fatalf("unexpected external sk: %s", got)
+		}
+	})
+}
+
+func TestExtractPresentedTokenFromRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("authorization bearer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		c.Request.Header.Set("Authorization", "Bearer sk-abc123")
+		if got := extractPresentedTokenFromRequest(c); got != "sk-abc123" {
+			t.Fatalf("unexpected presented token: %s", got)
+		}
+	})
+
+	t.Run("fallback mj-api-secret", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/mj/submit/imagine", nil)
+		c.Request.Header.Set("Authorization", "midjourney-proxy")
+		c.Request.Header.Set("mj-api-secret", "Bearer sk-mj-abc123")
+		if got := extractPresentedTokenFromRequest(c); got != "sk-mj-abc123" {
+			t.Fatalf("unexpected presented token from mj-api-secret: %s", got)
+		}
+	})
+}
+
 func TestNormalizeUserPointsJSONPath(t *testing.T) {
 	cases := []struct {
 		name string
@@ -212,12 +300,38 @@ func TestFetchUserPointsCanPreDeductSupportsDollarJSONPath(t *testing.T) {
 		server.URL+"?sk={sk}",
 		"abc123",
 		"$.data.can_pre_deduct",
+		"",
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if canPreDeduct {
 		t.Fatalf("expected false, got true")
+	}
+}
+
+func TestFetchUserPointsCanPreDeductPassesTraceIDHeader(t *testing.T) {
+	const traceID = "trace-user-points-001"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get(common.TraceIdKey); got != traceID {
+			t.Fatalf("unexpected trace header: %q", got)
+		}
+		_, _ = w.Write([]byte(`{"code":200,"data":{"can_pre_deduct":true}}`))
+	}))
+	defer server.Close()
+
+	canPreDeduct, err := fetchUserPointsCanPreDeduct(
+		context.Background(),
+		server.URL+"?sk={sk}",
+		"abc123",
+		"$.data.can_pre_deduct",
+		traceID,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !canPreDeduct {
+		t.Fatalf("expected true, got false")
 	}
 }
 
@@ -320,5 +434,225 @@ func TestBuildUserPointsQuotaRejectMessage(t *testing.T) {
 	})
 	if !strings.Contains(msgWithoutPlaceholder, "https://example.com/topup") {
 		t.Fatalf("url should be appended when placeholder absent, got: %s", msgWithoutPlaceholder)
+	}
+}
+
+func TestResolveUserPointsRouting(t *testing.T) {
+	defaultQueryURL := "https://default.example.com/query?sk={sk}"
+	defaultRechargeURL := "https://default.example.com/recharge"
+	defaultInsufficientMessage := "Insufficient quota. Recharge at {recharge_url}"
+
+	t.Run("no rules -> defaults", func(t *testing.T) {
+		resolved := resolveUserPointsRouting(
+			"ima_user",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			nil,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("expected defaults, got %+v", resolved)
+		}
+	})
+
+	t.Run("rule match -> overrides", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             true,
+				PrefixPattern:       "ima_",
+				QueryURL:            "https://r1.example.com/query",
+				RechargeURL:         "https://r1.example.com/recharge",
+				InsufficientMessage: "r1 insufficient {recharge_url}",
+				Priority:            10,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://r1.example.com/query" ||
+			resolved.rechargeURL != "https://r1.example.com/recharge" ||
+			resolved.insufficientMessage != "r1 insufficient {recharge_url}" {
+			t.Fatalf("unexpected resolved config: %+v", resolved)
+		}
+	})
+
+	t.Run("disabled rule skipped", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             false,
+				PrefixPattern:       "ima_",
+				QueryURL:            "https://disabled.example.com/query",
+				RechargeURL:         "https://disabled.example.com/recharge",
+				InsufficientMessage: "disabled message",
+				Priority:            100,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("disabled rule should be skipped, got %+v", resolved)
+		}
+	})
+
+	t.Run("no match -> defaults", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:             true,
+				PrefixPattern:       "vip_",
+				QueryURL:            "https://vip.example.com/query",
+				RechargeURL:         "https://vip.example.com/recharge",
+				InsufficientMessage: "vip message",
+				Priority:            1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != defaultQueryURL || resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("unmatched rules should fallback to defaults, got %+v", resolved)
+		}
+	})
+
+	t.Run("partial override (URL only)", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://partial.example.com/query",
+				Priority:      1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://partial.example.com/query" {
+			t.Fatalf("query url should be overridden, got %+v", resolved)
+		}
+		if resolved.rechargeURL != defaultRechargeURL || resolved.insufficientMessage != defaultInsufficientMessage {
+			t.Fatalf("partial override should keep defaults for missing fields, got %+v", resolved)
+		}
+	})
+
+	t.Run("priority ordering", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://low.example.com/query",
+				Priority:      1,
+			},
+			{
+				Enabled:       true,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://high.example.com/query",
+				Priority:      9,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			nil,
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://high.example.com/query" {
+			t.Fatalf("higher priority rule should win, got %+v", resolved)
+		}
+	})
+
+	t.Run("token prefix match -> overrides", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://token.example.com/query",
+				Priority:      10,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"other_user",
+			[]string{"sk-ima_abc", "ima_abc"},
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://token.example.com/query" {
+			t.Fatalf("token prefix rule should match, got %+v", resolved)
+		}
+	})
+
+	t.Run("conflict token-prefix over username", func(t *testing.T) {
+		rules := []operation_setting.UserPointsRoutingRule{
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByUsername,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://username.example.com/query",
+				Priority:      999,
+			},
+			{
+				Enabled:       true,
+				MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+				PrefixPattern: "ima_",
+				QueryURL:      "https://token.example.com/query",
+				Priority:      1,
+			},
+		}
+		resolved := resolveUserPointsRouting(
+			"ima_123",
+			[]string{"ima_abc"},
+			defaultQueryURL,
+			defaultRechargeURL,
+			defaultInsufficientMessage,
+			rules,
+		)
+		if resolved.queryURL != "https://token.example.com/query" {
+			t.Fatalf("token-prefix rule should win on conflict, got %+v", resolved)
+		}
+	})
+}
+
+func TestShouldRunUserPointsGuard_MatchByTokenPrefix(t *testing.T) {
+	rules := []operation_setting.UserPointsRoutingRule{
+		{
+			Enabled:       true,
+			MatchBy:       operation_setting.RoutingMatchByTokenPrefix,
+			PrefixPattern: "ima_",
+		},
+	}
+	got := shouldRunUserPointsGuard(
+		"token-abc",
+		"other_user",
+		[]string{"sk-ima_abc", "ima_abc"},
+		"vip_",
+		rules,
+	)
+	if !got {
+		t.Fatalf("expected token-prefix routing rule to trigger guard")
 	}
 }

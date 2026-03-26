@@ -848,6 +848,11 @@ func (channel *Channel) ValidateSettings() error {
 		if err != nil {
 			return err
 		}
+		if channelParams.ImageURLAutoBase64 &&
+			channelParams.ImageURLSupported != nil &&
+			*channelParams.ImageURLSupported {
+			return fmt.Errorf("invalid channel settings: image_url_auto_base64 and image_url_supported cannot both be enabled")
+		}
 	}
 	return nil
 }

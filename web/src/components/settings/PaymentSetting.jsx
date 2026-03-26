@@ -131,6 +131,13 @@ const PaymentSetting = () => {
             newInputs['ImaProMinBalanceUsdThreshold'] =
               item.value !== '' ? parseFloat(item.value) : 10;
             break;
+          case 'payment_setting.user_points_routing_rules':
+            try {
+              newInputs['UserPointsRoutingRules'] = JSON.parse(item.value);
+            } catch {
+              newInputs['UserPointsRoutingRules'] = [];
+            }
+            break;
           case 'Price':
           case 'MinTopUp':
           case 'StripeUnitPrice':

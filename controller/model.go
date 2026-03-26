@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_capability"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -40,51 +41,57 @@ func init() {
 		modelNames := adaptor.GetModelList()
 		for _, modelName := range modelNames {
 			openAIModels = append(openAIModels, dto.OpenAIModels{
-				Id:      modelName,
-				Object:  "model",
-				Created: 1626777600,
-				OwnedBy: channelName,
+				Id:        modelName,
+				Object:    "model",
+				Created:   1626777600,
+				OwnedBy:   channelName,
+				Reasoning: isModelReasoningEnabled(modelName),
 			})
 		}
 	}
 	for _, modelName := range ai360.ModelList {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: ai360.ChannelName,
+			Id:        modelName,
+			Object:    "model",
+			Created:   1626777600,
+			OwnedBy:   ai360.ChannelName,
+			Reasoning: isModelReasoningEnabled(modelName),
 		})
 	}
 	for _, modelName := range moonshot.ModelList {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: moonshot.ChannelName,
+			Id:        modelName,
+			Object:    "model",
+			Created:   1626777600,
+			OwnedBy:   moonshot.ChannelName,
+			Reasoning: isModelReasoningEnabled(modelName),
 		})
 	}
 	for _, modelName := range lingyiwanwu.ModelList {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: lingyiwanwu.ChannelName,
+			Id:        modelName,
+			Object:    "model",
+			Created:   1626777600,
+			OwnedBy:   lingyiwanwu.ChannelName,
+			Reasoning: isModelReasoningEnabled(modelName),
 		})
 	}
 	for _, modelName := range minimax.ModelList {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: minimax.ChannelName,
+			Id:        modelName,
+			Object:    "model",
+			Created:   1626777600,
+			OwnedBy:   minimax.ChannelName,
+			Reasoning: isModelReasoningEnabled(modelName),
 		})
 	}
 	for modelName, _ := range constant.MidjourneyModel2Action {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: "midjourney",
+			Id:        modelName,
+			Object:    "model",
+			Created:   1626777600,
+			OwnedBy:   "midjourney",
+			Reasoning: isModelReasoningEnabled(modelName),
 		})
 	}
 	openAIModelsMap = make(map[string]dto.OpenAIModels)
@@ -141,6 +148,7 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
 				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
+				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
@@ -149,6 +157,7 @@ func ListModels(c *gin.Context, modelType int) {
 					Created:                1626777600,
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
+					Reasoning:              isModelReasoningEnabled(allowModel),
 				})
 			}
 		}
@@ -189,6 +198,7 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
 				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
@@ -197,6 +207,7 @@ func ListModels(c *gin.Context, modelType int) {
 					Created:                1626777600,
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+					Reasoning:              isModelReasoningEnabled(modelName),
 				})
 			}
 		}
@@ -238,6 +249,11 @@ func ListModels(c *gin.Context, modelType int) {
 			"object":  "list",
 		})
 	}
+}
+
+func isModelReasoningEnabled(modelName string) bool {
+	v, ok := model_capability.GetModelReasoning(modelName)
+	return ok && v
 }
 
 func ChannelListModels(c *gin.Context) {

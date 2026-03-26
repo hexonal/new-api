@@ -326,7 +326,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return a.ConvertImageRequest(c, info, imgReq)
 	}
 	if a.RequestMode == RequestModeClaude {
-		claudeReq, err := claude.RequestOpenAI2ClaudeMessage(c, *request)
+		claudeReq, err := claude.RequestOpenAI2ClaudeMessageWithChannelSetting(c, *request, info.ChannelSetting)
 		if err != nil {
 			return nil, err
 		}

@@ -113,11 +113,11 @@
 git clone https://github.com/QuantumNous/new-api.git
 cd new-api
 
-# Edit docker-compose.yml configuration
-nano docker-compose.yml
+# Edit docker-compose-local.yml (keep docker-compose.yml untouched for production)
+nano docker-compose-local.yml
 
-# Start the service
-docker-compose up -d
+# Start the service using the local override
+docker-compose -f docker-compose-local.yml up -d
 ```
 
 <details>

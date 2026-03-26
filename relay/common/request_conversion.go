@@ -32,9 +32,6 @@ func AppendRequestConversionFromRequest(info *RelayInfo, req any) {
 	if info == nil {
 		return
 	}
-	if convertedRequest, ok := req.(dto.Request); ok {
-		info.Request = convertedRequest
-	}
 	format, ok := GuessRelayFormatFromRequest(req)
 	if !ok {
 		return

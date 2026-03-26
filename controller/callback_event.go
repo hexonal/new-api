@@ -251,23 +251,35 @@ func batchLoadCallbackEventIdentityMaps(events []*model.CallbackEvent) (map[int]
 	return userMap, tokenMap
 }
 
+func splitSKPrefixAndKey(raw string) (string, string) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", ""
+	}
+	if strings.HasPrefix(value, "sk-") {
+		return "sk-", strings.TrimSpace(strings.TrimPrefix(value, "sk-"))
+	}
+	// No-prefix custom tokens (e.g. ima_abc123)
+	return "", value
+}
+
 func normalizeSK(rawKey string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
 	}
-	return "sk-" + key
+	return prefix + key
 }
 
 func buildMaskedSK(rawKey string) string {
-	key := strings.TrimSpace(strings.TrimPrefix(rawKey, "sk-"))
+	prefix, key := splitSKPrefixAndKey(rawKey)
 	if key == "" {
 		return ""
 	}
 	if len(key) <= 8 {
-		return "sk-" + key
+		return prefix + key
 	}
-	return fmt.Sprintf("sk-%s***%s", key[:4], key[len(key)-4:])
+	return fmt.Sprintf("%s%s***%s", prefix, key[:4], key[len(key)-4:])
 }
 
 func getCallbackTokenInfoCached(tokenID int) (callbackEventTokenInfo, error) {

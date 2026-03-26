@@ -1,6 +1,46 @@
 package operation_setting
 
-import "github.com/QuantumNous/new-api/setting/config"
+import (
+	"strings"
+
+	"github.com/QuantumNous/new-api/setting/config"
+)
+
+const (
+	RoutingMatchByUsername    = "username"
+	RoutingMatchByTokenPrefix = "token_prefix"
+)
+
+func NormalizeRoutingMatchBy(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case RoutingMatchByTokenPrefix:
+		return RoutingMatchByTokenPrefix
+	default:
+		return RoutingMatchByUsername
+	}
+}
+
+// UserPointsRoutingRule defines a routing rule for user_points queries.
+type UserPointsRoutingRule struct {
+	Name                string `json:"name"`
+	Enabled             bool   `json:"enabled"`
+	MatchBy             string `json:"match_by,omitempty"` // username | token_prefix
+	PrefixPattern       string `json:"prefix_pattern"`
+	QueryURL            string `json:"query_url"`
+	RechargeURL         string `json:"recharge_url"`
+	InsufficientMessage string `json:"insufficient_message"`
+	Priority            int    `json:"priority"`
+}
+
+type ConsumeCallbackRoutingRule struct {
+	Name          string `json:"name"`
+	Enabled       bool   `json:"enabled"`
+	MatchBy       string `json:"match_by,omitempty"` // username | token_prefix
+	PrefixPattern string `json:"prefix_pattern"`
+	CallbackURL   string `json:"callback_url"`
+	Secret        string `json:"secret"`
+	Priority      int    `json:"priority"`
+}
 
 type PaymentSetting struct {
 	AmountOptions                  []int           `json:"amount_options"`
@@ -14,6 +54,8 @@ type PaymentSetting struct {
 	UserPointsInsufficientMessage  string          `json:"user_points_insufficient_message"`  // 额度不足提示文案；支持 {recharge_url} 占位符
 	ImaProMinBalanceGateEnabled    bool            `json:"ima_pro_min_balance_gate_enabled"`  // 是否启用 ima-pro 最低余额门槛
 	ImaProMinBalanceUSDThreshold   float64         `json:"ima_pro_min_balance_usd_threshold"` // ima-pro 最低可用余额门槛（美元）
+	UserPointsRoutingRules         []UserPointsRoutingRule      `json:"user_points_routing_rules"`
+	ConsumeCallbackRoutingRules    []ConsumeCallbackRoutingRule `json:"consume_callback_routing_rules"`
 }
 
 // 默认配置
@@ -27,6 +69,8 @@ var paymentSetting = PaymentSetting{
 	UserPointsOnErrorDecision:      "allow",
 	UserPointsRechargeURL:          "",
 	UserPointsInsufficientMessage:  "",
+	UserPointsRoutingRules:         nil,
+	ConsumeCallbackRoutingRules:    nil,
 	ImaProMinBalanceGateEnabled:    false,
 	ImaProMinBalanceUSDThreshold:   10,
 }

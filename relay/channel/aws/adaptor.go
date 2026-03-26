@@ -42,6 +42,19 @@ func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dt
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
 	maybeInjectAwsClaudeCacheControl(request)
+	autoConvertImageURL := info != nil && info.ChannelSetting.ImageURLAutoBase64
+	imageURLSupported := true
+	if info != nil && info.ChannelSetting.ImageURLSupported != nil {
+		imageURLSupported = *info.ChannelSetting.ImageURLSupported
+	}
+	if info != nil && autoConvertImageURL && info.ChannelSetting.ImageURLSupported != nil && *info.ChannelSetting.ImageURLSupported {
+		return nil, types.NewErrorWithStatusCode(
+			errors.New("invalid channel image url policy: image_url_auto_base64 and image_url_supported cannot both be enabled"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
 
 	for i, message := range request.Messages {
 		updated := false
@@ -53,6 +66,16 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 			for i2, mediaMessage := range content {
 				if mediaMessage.Source != nil {
 					if mediaMessage.Source.Type == "url" {
+						if !autoConvertImageURL {
+							if !imageURLSupported {
+								return nil, types.NewErrorWithStatusCode(
+									errors.New("image url is not supported by current channel and auto base64 conversion is disabled"),
+									types.ErrorCodeImageURLNotSupported,
+									http.StatusUnprocessableEntity,
+								)
+							}
+							continue
+						}
 						// 使用统一的文件服务获取图片数据
 						source := types.NewURLFileSource(mediaMessage.Source.Url)
 						base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
@@ -139,7 +162,13 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	}
 
 	// 原有的Claude模型处理逻辑
-	claudeReq, err := claude.RequestOpenAI2ClaudeMessage(c, *request)
+	var claudeReq *dto.ClaudeRequest
+	var err error
+	if info != nil {
+		claudeReq, err = claude.RequestOpenAI2ClaudeMessageWithChannelSetting(c, *request, info.ChannelSetting)
+	} else {
+		claudeReq, err = claude.RequestOpenAI2ClaudeMessage(c, *request)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert openai request to claude request")
 	}

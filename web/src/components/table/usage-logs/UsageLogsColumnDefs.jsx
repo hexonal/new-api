@@ -378,6 +378,10 @@ export const getLogsColumns = ({
       title: t('渠道'),
       dataIndex: 'channel',
       render: (text, record, index) => {
+        const fullChannelName = (record.channel_name || String(text || '')).trim();
+        const shortChannelName = fullChannelName
+          ? fullChannelName.slice(0, 2)
+          : String(text || '-');
         let isMultiKey = false;
         let multiKeyIndex = -1;
         let content = t('渠道') + `：${record.channel}`;
@@ -406,13 +410,13 @@ export const getLogsColumns = ({
           (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
           <Space>
             <span style={{ position: 'relative', display: 'inline-block' }}>
-              <Tooltip content={record.channel_name || t('未知渠道')}>
+              <Tooltip content={fullChannelName || t('未知渠道')}>
                 <span>
                   <Tag
-                    color={colors[parseInt(text) % colors.length]}
+                    color={colors[(parseInt(text, 10) || 0) % colors.length]}
                     shape='circle'
                   >
-                    {text}
+                    {shortChannelName}
                   </Tag>
                 </span>
               </Tooltip>
@@ -461,6 +465,25 @@ export const getLogsColumns = ({
               </Tag>
             )}
           </Space>
+        ) : null;
+      },
+    },
+    {
+      key: COLUMN_KEYS.CHANNEL_ID,
+      title: '渠道ID',
+      dataIndex: 'channel',
+      render: (text, record, index) => {
+        return isAdminUser &&
+          (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
+          <Tag
+            color={colors[(parseInt(text, 10) || 0) % colors.length]}
+            shape='circle'
+            onClick={(event) => {
+              copyText(event, text);
+            }}
+          >
+            {text}
+          </Tag>
         ) : null;
       },
     },

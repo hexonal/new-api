@@ -192,9 +192,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	token, err = GetTokenByKey(key, false)
 	if err == nil {
 		if token.Status == common.TokenStatusExhausted {
-			keyPrefix := key[:3]
-			keySuffix := key[len(key)-3:]
-			return token, errors.New("token quota exhausted TokenStatusExhausted[sk-" + keyPrefix + "***" + keySuffix + "]")
+			return token, errors.New("token quota exhausted TokenStatusExhausted[" + formatTokenKeyForError(key) + "]")
 		} else if token.Status == common.TokenStatusExpired {
 			return token, errors.New("token has expired")
 		}
@@ -220,9 +218,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 					common.SysLog("failed to update token status" + err.Error())
 				}
 			}
-			keyPrefix := key[:3]
-			keySuffix := key[len(key)-3:]
-			return token, errors.New(fmt.Sprintf("[sk-%s***%s] token quota exhausted !token.UnlimitedQuota && token.RemainQuota = %d", keyPrefix, keySuffix, token.RemainQuota))
+			return token, errors.New(fmt.Sprintf("[%s] token quota exhausted !token.UnlimitedQuota && token.RemainQuota = %d", formatTokenKeyForError(key), token.RemainQuota))
 		}
 		return token, nil
 	}
@@ -232,6 +228,25 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	} else {
 		return nil, errors.New("invalid token: database query failed, please contact the administrator")
 	}
+}
+
+func formatTokenKeyForError(raw string) string {
+	key := strings.TrimSpace(raw)
+	if key == "" {
+		return "***"
+	}
+	prefix := ""
+	if strings.HasPrefix(key, "customer-sk-") {
+		prefix = "customer-sk-"
+		key = strings.TrimPrefix(key, "customer-sk-")
+	} else if strings.HasPrefix(key, "sk-") {
+		prefix = "sk-"
+		key = strings.TrimPrefix(key, "sk-")
+	}
+	if len(key) <= 6 {
+		return prefix + key
+	}
+	return fmt.Sprintf("%s%s***%s", prefix, key[:3], key[len(key)-3:])
 }
 
 func GetTokenByIds(id int, userId int) (*Token, error) {

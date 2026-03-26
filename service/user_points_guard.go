@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,8 @@ const (
 	userPointsOnErrorDeny                 = "deny"
 	userPointsRechargeURLPlaceholder      = "{recharge_url}"
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
+	skPrefixStandard                      = "sk-"
+	skPrefixCustomer                      = "customer-sk-"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -41,6 +44,176 @@ type userPointsPrefixCacheEntry struct {
 // Cache key: "<token_key>|<raw_prefix_filter>".
 // Value keeps last username and match result to avoid repeated prefix parsing/matching.
 var userPointsPrefixCache sync.Map
+
+type resolvedUserPointsConfig struct {
+	queryURL            string
+	rechargeURL         string
+	insufficientMessage string
+}
+
+func sortUserPointsRoutingRules(rules []operation_setting.UserPointsRoutingRule) []operation_setting.UserPointsRoutingRule {
+	sortedRules := append([]operation_setting.UserPointsRoutingRule(nil), rules...)
+	sort.SliceStable(sortedRules, func(i, j int) bool {
+		return sortedRules[i].Priority > sortedRules[j].Priority
+	})
+	return sortedRules
+}
+
+func normalizeUserPointsTokenPrefixCandidates(raw ...string) []string {
+	candidates := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for _, item := range raw {
+		value := strings.TrimSpace(item)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		candidates = append(candidates, value)
+	}
+	return candidates
+}
+
+func buildUserPointsTokenPrefixCandidates(c *gin.Context, token *model.Token, tokenKey string) []string {
+	baseKey := baseTokenKey(tokenKey, token)
+	presentedKey := extractPresentedTokenFromRequest(c)
+	return normalizeUserPointsTokenPrefixCandidates(
+		presentedKey,
+		baseTokenKey(presentedKey, nil),
+		baseKey,
+	)
+}
+
+func matchPrefixPattern(value string, rawPattern string) bool {
+	normalizedValue := strings.TrimSpace(value)
+	if normalizedValue == "" {
+		return false
+	}
+	prefixes := model.ParseDailyUserUsagePrefixes(rawPattern)
+	for _, prefix := range prefixes {
+		prefix = strings.TrimSpace(strings.TrimSuffix(prefix, "*"))
+		if prefix == "" {
+			continue
+		}
+		if strings.HasPrefix(normalizedValue, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchPrefixPatternCandidates(candidates []string, rawPattern string) bool {
+	for _, candidate := range candidates {
+		if matchPrefixPattern(candidate, rawPattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchUserPointsRoutingRule(rule operation_setting.UserPointsRoutingRule, username string, tokenPrefixCandidates []string) bool {
+	switch operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) {
+	case operation_setting.RoutingMatchByTokenPrefix:
+		return matchPrefixPatternCandidates(tokenPrefixCandidates, rule.PrefixPattern)
+	default:
+		return matchPrefixPattern(username, rule.PrefixPattern)
+	}
+}
+
+func selectUserPointsRoutingRule(username string, tokenPrefixCandidates []string, rules []operation_setting.UserPointsRoutingRule) (operation_setting.UserPointsRoutingRule, bool) {
+	sortedRules := sortUserPointsRoutingRules(rules)
+	// Conflict policy: token-prefix rules always have higher precedence than username rules.
+	for _, matchBy := range []string{
+		operation_setting.RoutingMatchByTokenPrefix,
+		operation_setting.RoutingMatchByUsername,
+	} {
+		for _, rule := range sortedRules {
+			if !rule.Enabled {
+				continue
+			}
+			if operation_setting.NormalizeRoutingMatchBy(rule.MatchBy) != matchBy {
+				continue
+			}
+			if !matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
+				continue
+			}
+			return rule, true
+		}
+	}
+	return operation_setting.UserPointsRoutingRule{}, false
+}
+
+func hasEnabledUserPointsRoutingRules(rules []operation_setting.UserPointsRoutingRule) bool {
+	for _, rule := range rules {
+		if rule.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldRunUserPointsGuard(tokenKey string, username string, tokenPrefixCandidates []string, globalPrefixFilter string, rules []operation_setting.UserPointsRoutingRule) bool {
+	hasGlobalPrefixFilter := len(model.ParseDailyUserUsagePrefixes(globalPrefixFilter)) > 0
+	hasRuleFilter := hasEnabledUserPointsRoutingRules(rules)
+	if !hasGlobalPrefixFilter && !hasRuleFilter {
+		return false
+	}
+
+	globalMatched := false
+	if hasGlobalPrefixFilter && strings.TrimSpace(username) != "" {
+		globalMatched = shouldCheckUserPoints(tokenKey, username, globalPrefixFilter)
+	}
+
+	ruleMatched := false
+	if hasRuleFilter {
+		for _, rule := range rules {
+			if !rule.Enabled {
+				continue
+			}
+			if matchUserPointsRoutingRule(rule, username, tokenPrefixCandidates) {
+				ruleMatched = true
+				break
+			}
+		}
+	}
+
+	return globalMatched || ruleMatched
+}
+
+func resolveUserPointsRouting(
+	username string,
+	tokenPrefixCandidates []string,
+	defaultQueryURL string,
+	defaultRechargeURL string,
+	defaultInsufficientMessage string,
+	rules []operation_setting.UserPointsRoutingRule,
+) resolvedUserPointsConfig {
+	resolved := resolvedUserPointsConfig{
+		queryURL:            strings.TrimSpace(defaultQueryURL),
+		rechargeURL:         strings.TrimSpace(defaultRechargeURL),
+		insufficientMessage: strings.TrimSpace(defaultInsufficientMessage),
+	}
+	if len(rules) == 0 {
+		return resolved
+	}
+
+	rule, matched := selectUserPointsRoutingRule(username, tokenPrefixCandidates, rules)
+	if !matched {
+		return resolved
+	}
+	if value := strings.TrimSpace(rule.QueryURL); value != "" {
+		resolved.queryURL = value
+	}
+	if value := strings.TrimSpace(rule.RechargeURL); value != "" {
+		resolved.rechargeURL = value
+	}
+	if value := strings.TrimSpace(rule.InsufficientMessage); value != "" {
+		resolved.insufficientMessage = value
+	}
+	return resolved
+}
 
 // RunUserPointsPreDeductGuard checks external user points API after token auth.
 // On external errors, behavior follows configured policy:
@@ -58,11 +231,6 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 		return nil
 	}
 
-	rawPrefixFilter := strings.TrimSpace(cfg.UserPointsUsernamePrefixFilter)
-	if rawPrefixFilter == "" {
-		return nil
-	}
-
 	tokenKey := strings.TrimSpace(c.GetString("token_key"))
 	if tokenKey == "" && token != nil {
 		tokenKey = strings.TrimSpace(token.Key)
@@ -72,45 +240,78 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	}
 
 	username := strings.TrimSpace(c.GetString("username"))
-	if username == "" {
+	tokenPrefixCandidates := buildUserPointsTokenPrefixCandidates(c, token, tokenKey)
+	if !shouldRunUserPointsGuard(
+		tokenKey,
+		username,
+		tokenPrefixCandidates,
+		cfg.UserPointsUsernamePrefixFilter,
+		cfg.UserPointsRoutingRules,
+	) {
 		return nil
 	}
 
-	if !shouldCheckUserPoints(tokenKey, username, rawPrefixFilter) {
-		return nil
-	}
+	resolved := resolveUserPointsRouting(
+		username,
+		tokenPrefixCandidates,
+		cfg.UserPointsQueryURL,
+		cfg.UserPointsRechargeURL,
+		cfg.UserPointsInsufficientMessage,
+		cfg.UserPointsRoutingRules,
+	)
 
 	jsonPath := normalizeUserPointsJSONPath(cfg.UserPointsCanPreDeductJSONPath)
 	onErrorDecision := normalizeUserPointsOnErrorDecision(cfg.UserPointsOnErrorDecision)
 	// Gate rule: request is allowed only when resolved can_pre_deduct value is true.
 	// If resolved value is false, request is always blocked.
 	// on_error_decision only controls request/parse error behavior.
+	externalSK := resolveUserPointsExternalSK(c, token, tokenKey)
+
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
 		c.Request.Context(),
-		strings.TrimSpace(cfg.UserPointsQueryURL),
-		tokenKey,
+		resolved.queryURL,
+		externalSK,
 		jsonPath,
+		strings.TrimSpace(c.GetString(common.RequestIdKey)),
 	)
 	if err != nil {
 		failOpen := onErrorDecision == userPointsOnErrorAllow
 		// Persist diagnostics to callback logs for observability/troubleshooting.
-		reportUserPointsGuardFailureCallbackLog(c, strings.TrimSpace(cfg.UserPointsQueryURL), jsonPath, tokenKey, err, failOpen)
+		reportUserPointsGuardFailureCallbackLog(c, resolved.queryURL, jsonPath, externalSK, err, failOpen)
 		if failOpen {
 			logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed open, request continues: %s", err.Error()))
 			return nil
 		}
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("user_points guard failed close, request blocked: %s", err.Error()))
-		return buildUserPointsQuotaRejectError()
+		return buildUserPointsQuotaRejectErrorWithOverride(resolved.rechargeURL, resolved.insufficientMessage)
 	}
 	if canPreDeduct {
 		return nil
 	}
 
-	return buildUserPointsQuotaRejectError()
+	return buildUserPointsQuotaRejectErrorWithOverride(resolved.rechargeURL, resolved.insufficientMessage)
 }
 
 func buildUserPointsQuotaRejectError() *types.NewAPIError {
 	message := buildUserPointsQuotaRejectMessage(operation_setting.GetPaymentSetting())
+	return types.NewErrorWithStatusCode(
+		errors.New(message),
+		types.ErrorCodeInsufficientUserQuota,
+		http.StatusForbidden,
+		types.ErrOptionWithSkipRetry(),
+		types.ErrOptionWithNoRecordErrorLog(),
+	)
+}
+
+func buildUserPointsQuotaRejectErrorWithOverride(rechargeURL, insufficientMessage string) *types.NewAPIError {
+	cfg := operation_setting.GetPaymentSetting()
+	override := operation_setting.PaymentSetting{}
+	if cfg != nil {
+		override = *cfg
+	}
+	override.UserPointsRechargeURL = strings.TrimSpace(rechargeURL)
+	override.UserPointsInsufficientMessage = strings.TrimSpace(insufficientMessage)
+	message := buildUserPointsQuotaRejectMessage(&override)
 	return types.NewErrorWithStatusCode(
 		errors.New(message),
 		types.ErrorCodeInsufficientUserQuota,
@@ -224,8 +425,8 @@ func shouldCheckUserPoints(tokenKey string, username string, rawPrefixFilter str
 
 // fetchUserPointsCanPreDeduct requests external points service and extracts
 // can_pre_deduct value using JSONPath-like path (resolved to gjson path) from response JSON.
-func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenKey string, jsonPath string) (bool, error) {
-	requestURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey))
+func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, externalSK string, jsonPath string, traceID string) (bool, error) {
+	requestURL, err := buildUserPointsRequestURL(rawQueryURL, normalizeExternalSK(externalSK))
 	if err != nil {
 		return false, err
 	}
@@ -238,6 +439,9 @@ func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, tokenK
 	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return false, err
+	}
+	if strings.TrimSpace(traceID) != "" {
+		req.Header.Set(common.TraceIdKey, strings.TrimSpace(traceID))
 	}
 
 	client := GetHttpClient()
@@ -291,16 +495,56 @@ func buildUserPointsRequestURL(rawQueryURL string, tokenKey string) (string, err
 	return parsedURL.String(), nil
 }
 
-// formatSKWithPrefix guarantees sk value uses "sk-" prefix in outbound request.
-func formatSKWithPrefix(tokenKey string) string {
+func normalizeExternalSK(raw string) string {
+	key := strings.TrimSpace(raw)
+	return key
+}
+
+func stripBearerTokenValue(raw string) string {
+	text := strings.TrimSpace(raw)
+	if strings.HasPrefix(text, "Bearer ") || strings.HasPrefix(text, "bearer ") {
+		text = strings.TrimSpace(text[7:])
+	}
+	return strings.TrimSpace(text)
+}
+
+func extractPresentedTokenFromRequest(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+
+	key := stripBearerTokenValue(c.GetHeader("Authorization"))
+	if key == "" || key == "midjourney-proxy" {
+		key = stripBearerTokenValue(c.GetHeader("mj-api-secret"))
+	}
+	return strings.TrimSpace(key)
+}
+
+func baseTokenKey(tokenKey string, token *model.Token) string {
 	key := strings.TrimSpace(tokenKey)
-	if key == "" {
-		return key
+	if key == "" && token != nil {
+		key = strings.TrimSpace(token.Key)
 	}
-	if strings.HasPrefix(key, "sk-") {
-		return key
+	key = strings.TrimPrefix(key, skPrefixStandard)
+	key = strings.TrimPrefix(key, skPrefixCustomer)
+	return strings.TrimSpace(key)
+}
+
+func resolveUserPointsExternalSK(c *gin.Context, token *model.Token, tokenKey string) string {
+	baseKey := baseTokenKey(tokenKey, token)
+	// Prefer presented token form when it matches the same base key.
+	// This keeps caller's real token shape (e.g. sk-xxx / customer-sk-xxx / ima_xxx).
+	if c != nil && c.Request != nil {
+		presentedKey := extractPresentedTokenFromRequest(c)
+		if presentedKey != "" {
+			if baseKey == "" || baseTokenKey(presentedKey, nil) == baseKey {
+				return presentedKey
+			}
+		}
 	}
-	return "sk-" + key
+
+	// Fallback behavior: use normalized base key.
+	return baseKey
 }
 
 // gjsonResultToBool accepts typical boolean-like values from external API:
@@ -330,12 +574,12 @@ func gjsonResultToBool(result gjson.Result) (bool, bool) {
 
 // reportUserPointsGuardFailureCallbackLog writes a terminal callback-event row for
 // user_points guard failures. It never affects request flow.
-func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) {
+func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string, jsonPath string, externalSK string, guardErr error, failOpen bool) {
 	if c == nil || guardErr == nil || model.DB == nil {
 		return
 	}
 
-	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, tokenKey, guardErr, failOpen)
+	event, err := buildUserPointsFailureCallbackEvent(c, rawQueryURL, jsonPath, externalSK, guardErr, failOpen)
 	if err != nil {
 		logger.LogWarn(context.Background(), fmt.Sprintf("build user_points failure callback log failed: %s", err.Error()))
 		return
@@ -351,7 +595,7 @@ func reportUserPointsGuardFailureCallbackLog(c *gin.Context, rawQueryURL string,
 
 // buildUserPointsFailureCallbackEvent builds a non-dispatching callback-event record.
 // Status is set to terminal(dead), so dispatcher won't claim it.
-func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, tokenKey string, guardErr error, failOpen bool) (*model.CallbackEvent, error) {
+func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jsonPath string, externalSK string, guardErr error, failOpen bool) (*model.CallbackEvent, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil context")
 	}
@@ -365,7 +609,8 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		requestPath = c.Request.URL.Path
 	}
 	resolvedQueryURL := strings.TrimSpace(rawQueryURL)
-	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, formatSKWithPrefix(tokenKey)); err == nil {
+	externalSK = normalizeExternalSK(externalSK)
+	if builtURL, err := buildUserPointsRequestURL(rawQueryURL, externalSK); err == nil {
 		resolvedQueryURL = builtURL
 	}
 	jsonPath = normalizeUserPointsJSONPath(jsonPath)
@@ -375,15 +620,7 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		reason = "user_points_guard_failed_open"
 	}
 
-	payload, err := common.Marshal(map[string]interface{}{
-		"reason":                         reason,
-		"error":                          strings.TrimSpace(guardErr.Error()),
-		"request_path":                   requestPath,
-		"user_points_query_url":          strings.TrimSpace(rawQueryURL),
-		"resolved_user_points_query_url": resolvedQueryURL,
-		"can_pre_deduct_jsonpath":        jsonPath,
-		"fail_open":                      failOpen,
-	})
+	payload, err := common.Marshal(map[string]interface{}{})
 	if err != nil {
 		return nil, fmt.Errorf("marshal user_points guard failure payload: %w", err)
 	}
@@ -405,7 +642,7 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		TokenID:           c.GetInt("token_id"),
 		UsernameSnapshot:  trimSnapshotField(strings.TrimSpace(c.GetString("username")), 64),
 		TokenNameSnapshot: trimSnapshotField(strings.TrimSpace(c.GetString("token_name")), 100),
-		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(formatSKWithPrefix(tokenKey)), 128),
+		TokenSKSnapshot:   trimSnapshotField(normalizeSnapshotSK(externalSK), 128),
 		CallbackURL:       resolvedQueryURL,
 		HTTPMethod:        http.MethodGet,
 		Headers:           "{}",
@@ -415,9 +652,18 @@ func buildUserPointsFailureCallbackEvent(c *gin.Context, rawQueryURL string, jso
 		Status:            model.CallbackEventStatusDead,
 		MaxRetries:        0,
 		NextRetryAt:       0,
-		LastError:         strings.TrimSpace(guardErr.Error()),
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		LastError: strings.TrimSpace(fmt.Sprintf(
+			"%s: %s | request_path=%s | user_points_query_url=%s | resolved_user_points_query_url=%s | can_pre_deduct_jsonpath=%s | fail_open=%t",
+			reason,
+			guardErr.Error(),
+			requestPath,
+			strings.TrimSpace(rawQueryURL),
+			resolvedQueryURL,
+			jsonPath,
+			failOpen,
+		)),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil
 }
 

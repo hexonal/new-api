@@ -1,8 +1,10 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/stretchr/testify/require"
 )
@@ -54,4 +56,33 @@ func TestResetStatusCode(t *testing.T) {
 			require.Equal(t, tc.expectedCode, newAPIError.StatusCode)
 		})
 	}
+}
+
+func TestIsExpectedFallbackError(t *testing.T) {
+	t.Parallel()
+
+	err := types.NewErrorWithStatusCode(
+		errors.New("image url is not supported by current channel and auto base64 conversion is disabled"),
+		types.ErrorCodeImageURLNotSupported,
+		422,
+	)
+	require.True(t, IsExpectedFallbackError(err))
+	require.True(t, IsExpectedFallbackErrorCode("image_url_not_supported"))
+	require.False(t, IsExpectedFallbackErrorCode("bad_response_status_code"))
+}
+
+func TestShouldDisableChannelSkipsExpectedFallbackError(t *testing.T) {
+	originDisableRanges := operation_setting.AutomaticDisableStatusCodeRanges
+	operation_setting.AutomaticDisableStatusCodeRanges = []operation_setting.StatusCodeRange{{Start: 422, End: 422}}
+	defer func() {
+		operation_setting.AutomaticDisableStatusCodeRanges = originDisableRanges
+	}()
+
+	err := types.NewErrorWithStatusCode(
+		errors.New("image url is not supported by current channel and auto base64 conversion is disabled"),
+		types.ErrorCodeImageURLNotSupported,
+		422,
+	)
+
+	require.False(t, ShouldDisableChannel(0, err))
 }

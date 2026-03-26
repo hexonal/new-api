@@ -203,6 +203,38 @@ func WssAuth(c *gin.Context) {
 
 }
 
+func detectTokenAuthPrefix(key string) string {
+	key = strings.TrimSpace(key)
+	if strings.HasPrefix(key, "customer-sk-") {
+		return "customer-sk-"
+	}
+	if strings.HasPrefix(key, "sk-") {
+		return "sk-"
+	}
+	return ""
+}
+
+func extractTokenKeyAndParts(key string) (string, []string) {
+	if strings.HasPrefix(key, "customer-sk-") {
+		key = strings.TrimPrefix(key, "customer-sk-")
+	}
+	if strings.HasPrefix(key, "sk-") {
+		key = strings.TrimPrefix(key, "sk-")
+	}
+	// No-prefix tokens (e.g. ima_abc123) are kept as-is
+	return key, []string{key}
+}
+
+func splitTokenKeyAndSuffix(key string) (string, []string, bool) {
+	idx := strings.LastIndex(key, "-")
+	if idx <= 0 || idx >= len(key)-1 {
+		return "", nil, false
+	}
+	baseKey := key[:idx]
+	suffix := key[idx+1:]
+	return baseKey, []string{baseKey, suffix}, true
+}
+
 // TokenOrUserAuth allows either session-based user auth or API token auth.
 // Used for endpoints that need to be accessible from both the dashboard and API clients.
 func TokenOrUserAuth() func(c *gin.Context) {
@@ -245,11 +277,14 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
-		key = strings.TrimPrefix(key, "sk-")
-		parts := strings.Split(key, "-")
-		key = parts[0]
+		key, _ = extractTokenKeyAndParts(key)
 
 		token, err := model.GetTokenByKey(key, false)
+		if err != nil {
+			if keyWithSuffix, _, ok := splitTokenKeyAndSuffix(key); ok {
+				token, err = model.GetTokenByKey(keyWithSuffix, false)
+			}
+		}
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -324,23 +359,33 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		key := c.Request.Header.Get("Authorization")
 		parts := make([]string, 0)
+		tokenAuthPrefix := ""
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
+		tokenAuthPrefix = detectTokenAuthPrefix(key)
 		if key == "" || key == "midjourney-proxy" {
 			key = c.Request.Header.Get("mj-api-secret")
 			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 				key = strings.TrimSpace(key[7:])
 			}
-			key = strings.TrimPrefix(key, "sk-")
-			parts = strings.Split(key, "-")
-			key = parts[0]
+			tokenAuthPrefix = detectTokenAuthPrefix(key)
+			key, parts = extractTokenKeyAndParts(key)
 		} else {
-			key = strings.TrimPrefix(key, "sk-")
-			parts = strings.Split(key, "-")
-			key = parts[0]
+			key, parts = extractTokenKeyAndParts(key)
 		}
 		token, err := model.ValidateUserToken(key)
+		if err != nil {
+			if keyWithSuffix, keyPartsWithSuffix, ok := splitTokenKeyAndSuffix(key); ok {
+				legacyToken, legacyErr := model.ValidateUserToken(keyWithSuffix)
+				if legacyErr == nil {
+					token = legacyToken
+					err = nil
+					key = keyWithSuffix
+					parts = keyPartsWithSuffix
+				}
+			}
+		}
 		if token != nil {
 			id := c.GetInt("id")
 			if id == 0 {
@@ -348,6 +393,7 @@ func TokenAuth() func(c *gin.Context) {
 			}
 			c.Set("token_id", token.Id)
 			c.Set("token_key", token.Key)
+			common.SetContextKey(c, constant.ContextKeyTokenAuthPrefix, tokenAuthPrefix)
 			c.Set("token_name", token.Name)
 		}
 		if err != nil {

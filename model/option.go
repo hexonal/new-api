@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/model_capability"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -200,6 +201,7 @@ func InitOptionMap() {
 	common.OptionMap["MonitorAlertDiskThresholdPercent"] = "90"
 	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
+	common.OptionMap["ModelReasoningMap"] = "{}"
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -471,6 +473,8 @@ func updateOptionMap(key string, value string) (err error) {
 		}
 	}
 	switch key {
+	case "ModelReasoningMap":
+		err = model_capability.UpdateModelReasoningByJSONString(value)
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
 	case "SMTPServer":

@@ -27,7 +27,10 @@ import {
   verifyJSON,
 } from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
-import { CHANNEL_OPTIONS, MODEL_FETCHABLE_CHANNEL_TYPES } from '../../../../constants';
+import {
+  CHANNEL_OPTIONS,
+  MODEL_FETCHABLE_CHANNEL_TYPES,
+} from '../../../../constants';
 import {
   SideSheet,
   Space,
@@ -94,6 +97,30 @@ const STATUS_CODE_MAPPING_EXAMPLE = {
   400: '500',
 };
 
+const BREAKER_ERROR_TYPE_OPTIONS = [
+  'balance_insufficient',
+  'service_unavailable',
+  '429',
+  '5xx',
+  'timeout',
+  '524',
+].map((value) => ({
+  label: value,
+  value,
+}));
+
+const BREAKER_DEFAULTS = {
+  breaker_enabled: false,
+  breaker_threshold_count: 10,
+  breaker_window_seconds: 60,
+  breaker_cooldown_seconds: 300,
+  breaker_half_open_probe_count: 1,
+  breaker_recovery_success_count: 1,
+  breaker_error_types: BREAKER_ERROR_TYPE_OPTIONS.map((option) => option.value),
+};
+
+const BREAKER_SETTING_KEYS = Object.keys(BREAKER_DEFAULTS);
+
 const REGION_EXAMPLE = {
   default: 'global',
   'gemini-1.5-pro-002': 'europe-west2',
@@ -123,6 +150,103 @@ const PARAM_OVERRIDE_OPERATIONS_TEMPLATE = {
     },
   ],
 };
+
+function safeParseJsonObject(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed;
+  } catch (error) {
+    return {};
+  }
+}
+
+function normalizeBreakerErrorTypes(value) {
+  const allowedValues = new Set(
+    BREAKER_ERROR_TYPE_OPTIONS.map((option) => option.value),
+  );
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || '').trim())
+          .filter((item) => item && allowedValues.has(item)),
+      ),
+    );
+  }
+  if (typeof value === 'string') {
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item && allowedValues.has(item)),
+      ),
+    );
+  }
+  return [];
+}
+
+function buildBreakerSettingsFromRaw(rawSettings = {}) {
+  const hasOwn = (key) =>
+    Object.prototype.hasOwnProperty.call(rawSettings, key);
+  const result = {
+    breaker_enabled:
+      hasOwn('breaker_enabled') && rawSettings.breaker_enabled === true,
+    breaker_threshold_count: BREAKER_DEFAULTS.breaker_threshold_count,
+    breaker_window_seconds: BREAKER_DEFAULTS.breaker_window_seconds,
+    breaker_cooldown_seconds: BREAKER_DEFAULTS.breaker_cooldown_seconds,
+    breaker_half_open_probe_count:
+      BREAKER_DEFAULTS.breaker_half_open_probe_count,
+    breaker_recovery_success_count:
+      BREAKER_DEFAULTS.breaker_recovery_success_count,
+    breaker_error_types: [...BREAKER_DEFAULTS.breaker_error_types],
+  };
+
+  if (hasOwn('breaker_threshold_count')) {
+    const count = Number(rawSettings.breaker_threshold_count);
+    if (Number.isFinite(count) && count > 0) {
+      result.breaker_threshold_count = Math.floor(count);
+    }
+  }
+  if (hasOwn('breaker_window_seconds')) {
+    const windowSeconds = Number(rawSettings.breaker_window_seconds);
+    if (Number.isFinite(windowSeconds) && windowSeconds > 0) {
+      result.breaker_window_seconds = Math.floor(windowSeconds);
+    }
+  }
+  if (hasOwn('breaker_cooldown_seconds')) {
+    const cooldownSeconds = Number(rawSettings.breaker_cooldown_seconds);
+    if (Number.isFinite(cooldownSeconds) && cooldownSeconds > 0) {
+      result.breaker_cooldown_seconds = Math.floor(cooldownSeconds);
+    }
+  }
+  if (hasOwn('breaker_half_open_probe_count')) {
+    const probeCount = Number(rawSettings.breaker_half_open_probe_count);
+    if (Number.isFinite(probeCount) && probeCount > 0) {
+      result.breaker_half_open_probe_count = Math.floor(probeCount);
+    }
+  }
+  if (hasOwn('breaker_recovery_success_count')) {
+    const successCount = Number(rawSettings.breaker_recovery_success_count);
+    if (Number.isFinite(successCount) && successCount > 0) {
+      result.breaker_recovery_success_count = Math.floor(successCount);
+    }
+  }
+  if (hasOwn('breaker_error_types')) {
+    const normalizedErrorTypes = normalizeBreakerErrorTypes(
+      rawSettings.breaker_error_types,
+    );
+    result.breaker_error_types = normalizedErrorTypes;
+  }
+
+  return result;
+}
 
 // 支持并且已适配通过接口获取模型列表的渠道类型
 const MODEL_FETCHABLE_TYPES = new Set([
@@ -186,6 +310,9 @@ const EditChannelModal = (props) => {
     // 渠道额外设置的默认值
     force_format: false,
     thinking_to_content: false,
+    image_url_auto_base64: false,
+    image_url_supported: true,
+    image_url_unsupported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -212,6 +339,19 @@ const EditChannelModal = (props) => {
     upstream_model_update_last_check_time: 0,
     upstream_model_update_last_detected_models: [],
     upstream_model_update_ignored_models: '',
+    call_error_alert_enabled: false,
+    call_error_threshold_count: 10,
+    call_error_threshold_window_minutes: 5,
+    call_error_cooldown_minutes: '',
+    breaker_enabled: false,
+    breaker_threshold_count: BREAKER_DEFAULTS.breaker_threshold_count,
+    breaker_window_seconds: BREAKER_DEFAULTS.breaker_window_seconds,
+    breaker_cooldown_seconds: BREAKER_DEFAULTS.breaker_cooldown_seconds,
+    breaker_half_open_probe_count:
+      BREAKER_DEFAULTS.breaker_half_open_probe_count,
+    breaker_recovery_success_count:
+      BREAKER_DEFAULTS.breaker_recovery_success_count,
+    breaker_error_types: [...BREAKER_DEFAULTS.breaker_error_types],
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -278,7 +418,8 @@ const EditChannelModal = (props) => {
     [inputs.upstream_model_update_last_detected_models],
   );
   const upstreamDetectedModelsPreview = useMemo(
-    () => upstreamDetectedModels.slice(0, UPSTREAM_DETECTED_MODEL_PREVIEW_LIMIT),
+    () =>
+      upstreamDetectedModels.slice(0, UPSTREAM_DETECTED_MODEL_PREVIEW_LIMIT),
     [upstreamDetectedModels],
   );
   const upstreamDetectedModelsOmittedCount =
@@ -317,9 +458,7 @@ const EditChannelModal = (props) => {
       return {
         tagLabel: t('不更改'),
         tagColor: 'grey',
-        preview: t(
-          '此项可选，用于覆盖请求参数。不支持覆盖 stream 参数',
-        ),
+        preview: t('此项可选，用于覆盖请求参数。不支持覆盖 stream 参数'),
       };
     }
     if (!verifyJSON(raw)) {
@@ -425,6 +564,7 @@ const EditChannelModal = (props) => {
   const initialModelsRef = useRef([]);
   const initialModelMappingRef = useRef('');
   const initialStatusCodeMappingRef = useRef('');
+  const breakerTouchedRef = useRef(new Set());
 
   // 2FA状态更新辅助函数
   const updateTwoFAState = (updates) => {
@@ -531,6 +671,9 @@ const EditChannelModal = (props) => {
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
     thinking_to_content: false,
+    image_url_auto_base64: false,
+    image_url_supported: true,
+    image_url_unsupported: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -544,20 +687,33 @@ const EditChannelModal = (props) => {
 
   // 处理渠道额外设置的更新
   const handleChannelSettingsChange = (key, value) => {
-    // 更新内部状态
-    setChannelSettings((prev) => ({ ...prev, [key]: value }));
+    const nextSettings = { ...channelSettings, [key]: value };
 
-    // 同步更新到表单字段
-    if (formApiRef.current) {
-      formApiRef.current.setValue(key, value);
+    if (key === 'image_url_unsupported') {
+      nextSettings.image_url_supported = !value;
+      // 开启“不支持 URL 直传”时，自动关闭 Base64 转换，保证二者互斥
+      if (value === true && nextSettings.image_url_auto_base64 === true) {
+        nextSettings.image_url_auto_base64 = false;
+      }
     }
 
-    // 同步更新inputs状态
-    setInputs((prev) => ({ ...prev, [key]: value }));
+    if (key === 'image_url_auto_base64' && value === true) {
+      // 开启自动转 Base64 时，自动开启 URL 直传并关闭“不支持 URL 直传”
+      nextSettings.image_url_unsupported = false;
+      nextSettings.image_url_supported = true;
+    }
 
-    // 生成setting JSON并更新
-    const newSettings = { ...channelSettings, [key]: value };
-    const settingsJson = JSON.stringify(newSettings);
+    setChannelSettings(nextSettings);
+
+    if (formApiRef.current) {
+      Object.entries(nextSettings).forEach(([k, v]) => {
+        formApiRef.current.setValue(k, v);
+      });
+    }
+
+    setInputs((prev) => ({ ...prev, ...nextSettings }));
+
+    const settingsJson = JSON.stringify(nextSettings);
     handleInputChange('setting', settingsJson);
   };
 
@@ -596,6 +752,9 @@ const EditChannelModal = (props) => {
       ['type', 'key', 'base_url'].includes(name)
     ) {
       return;
+    }
+    if (BREAKER_SETTING_KEYS.includes(name)) {
+      breakerTouchedRef.current.add(name);
     }
     if (formApiRef.current) {
       formApiRef.current.setValue(name, value);
@@ -850,6 +1009,17 @@ const EditChannelModal = (props) => {
           data.force_format = parsedSettings.force_format || false;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
+          data.image_url_auto_base64 =
+            parsedSettings.image_url_auto_base64 === true;
+          // 兼容旧行为：未配置时按支持 URL 直传处理
+          data.image_url_supported =
+            parsedSettings.image_url_supported !== false;
+          data.image_url_unsupported = !data.image_url_supported;
+          // 防御性归一化：两者不可同时开启；auto_base64 开启时强制视为支持 URL 直传
+          if (data.image_url_auto_base64 && data.image_url_unsupported) {
+            data.image_url_supported = true;
+            data.image_url_unsupported = false;
+          }
           data.proxy = parsedSettings.proxy || '';
           data.pass_through_body_enabled =
             parsedSettings.pass_through_body_enabled || false;
@@ -863,6 +1033,9 @@ const EditChannelModal = (props) => {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
           data.thinking_to_content = false;
+          data.image_url_auto_base64 = false;
+          data.image_url_supported = true;
+          data.image_url_unsupported = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
@@ -874,6 +1047,9 @@ const EditChannelModal = (props) => {
       } else {
         data.force_format = false;
         data.thinking_to_content = false;
+        data.image_url_auto_base64 = false;
+        data.image_url_supported = true;
+        data.image_url_unsupported = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
@@ -921,6 +1097,32 @@ const EditChannelModal = (props) => {
           )
             ? parsedSettings.upstream_model_update_ignored_models.join(',')
             : '';
+          data.call_error_alert_enabled =
+            parsedSettings.call_error_alert_enabled === true;
+          data.call_error_threshold_count =
+            Number(parsedSettings.call_error_threshold_count) > 0
+              ? Number(parsedSettings.call_error_threshold_count)
+              : 10;
+          data.call_error_threshold_window_minutes =
+            Number(parsedSettings.call_error_threshold_window_minutes) > 0
+              ? Number(parsedSettings.call_error_threshold_window_minutes)
+              : 5;
+          data.call_error_cooldown_minutes =
+            Number(parsedSettings.call_error_cooldown_minutes) > 0
+              ? Number(parsedSettings.call_error_cooldown_minutes)
+              : '';
+          const breakerSettings = buildBreakerSettingsFromRaw(parsedSettings);
+          data.breaker_enabled = breakerSettings.breaker_enabled;
+          data.breaker_threshold_count =
+            breakerSettings.breaker_threshold_count;
+          data.breaker_window_seconds = breakerSettings.breaker_window_seconds;
+          data.breaker_cooldown_seconds =
+            breakerSettings.breaker_cooldown_seconds;
+          data.breaker_half_open_probe_count =
+            breakerSettings.breaker_half_open_probe_count;
+          data.breaker_recovery_success_count =
+            breakerSettings.breaker_recovery_success_count;
+          data.breaker_error_types = breakerSettings.breaker_error_types;
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
@@ -939,6 +1141,21 @@ const EditChannelModal = (props) => {
           data.upstream_model_update_last_check_time = 0;
           data.upstream_model_update_last_detected_models = [];
           data.upstream_model_update_ignored_models = '';
+          data.call_error_alert_enabled = false;
+          data.call_error_threshold_count = 10;
+          data.call_error_threshold_window_minutes = 5;
+          data.call_error_cooldown_minutes = '';
+          data.breaker_enabled = BREAKER_DEFAULTS.breaker_enabled;
+          data.breaker_threshold_count =
+            BREAKER_DEFAULTS.breaker_threshold_count;
+          data.breaker_window_seconds = BREAKER_DEFAULTS.breaker_window_seconds;
+          data.breaker_cooldown_seconds =
+            BREAKER_DEFAULTS.breaker_cooldown_seconds;
+          data.breaker_half_open_probe_count =
+            BREAKER_DEFAULTS.breaker_half_open_probe_count;
+          data.breaker_recovery_success_count =
+            BREAKER_DEFAULTS.breaker_recovery_success_count;
+          data.breaker_error_types = [...BREAKER_DEFAULTS.breaker_error_types];
         }
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
@@ -956,6 +1173,20 @@ const EditChannelModal = (props) => {
         data.upstream_model_update_last_check_time = 0;
         data.upstream_model_update_last_detected_models = [];
         data.upstream_model_update_ignored_models = '';
+        data.call_error_alert_enabled = false;
+        data.call_error_threshold_count = 10;
+        data.call_error_threshold_window_minutes = 5;
+        data.call_error_cooldown_minutes = '';
+        data.breaker_enabled = BREAKER_DEFAULTS.breaker_enabled;
+        data.breaker_threshold_count = BREAKER_DEFAULTS.breaker_threshold_count;
+        data.breaker_window_seconds = BREAKER_DEFAULTS.breaker_window_seconds;
+        data.breaker_cooldown_seconds =
+          BREAKER_DEFAULTS.breaker_cooldown_seconds;
+        data.breaker_half_open_probe_count =
+          BREAKER_DEFAULTS.breaker_half_open_probe_count;
+        data.breaker_recovery_success_count =
+          BREAKER_DEFAULTS.breaker_recovery_success_count;
+        data.breaker_error_types = [...BREAKER_DEFAULTS.breaker_error_types];
       }
 
       if (
@@ -967,6 +1198,7 @@ const EditChannelModal = (props) => {
       }
 
       setInputs(data);
+      breakerTouchedRef.current = new Set();
       if (formApiRef.current) {
         formApiRef.current.setValues(data);
       }
@@ -982,6 +1214,9 @@ const EditChannelModal = (props) => {
       setChannelSettings({
         force_format: data.force_format,
         thinking_to_content: data.thinking_to_content,
+        image_url_auto_base64: data.image_url_auto_base64 || false,
+        image_url_supported: data.image_url_supported !== false,
+        image_url_unsupported: data.image_url_unsupported === true,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
@@ -1343,6 +1578,9 @@ const EditChannelModal = (props) => {
     setChannelSettings({
       force_format: false,
       thinking_to_content: false,
+      image_url_auto_base64: false,
+      image_url_supported: true,
+      image_url_unsupported: false,
       proxy: '',
       pass_through_body_enabled: false,
       system_prompt: '',
@@ -1365,6 +1603,7 @@ const EditChannelModal = (props) => {
     }
     // 重置本地输入，避免下次打开残留上一次的 JSON 字段值
     setInputs(getInitValues());
+    breakerTouchedRef.current = new Set();
     // 重置密钥显示状态
     resetKeyDisplayState();
   };
@@ -1708,10 +1947,22 @@ const EditChannelModal = (props) => {
       localInputs.other = 'v2.1';
     }
 
+    // 归一化图片 URL 互斥开关：auto_base64 与 unsupported 不能同时开启
+    if (
+      localInputs.image_url_auto_base64 === true &&
+      localInputs.image_url_unsupported === true
+    ) {
+      localInputs.image_url_unsupported = false;
+      localInputs.image_url_supported = true;
+    }
+
     // 生成渠道额外设置JSON
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
+      image_url_auto_base64: localInputs.image_url_auto_base64 === true,
+      image_url_supported:
+        localInputs.image_url_unsupported === true ? false : true,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
@@ -1723,14 +1974,7 @@ const EditChannelModal = (props) => {
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
     // 处理 settings 字段（包括企业账户设置和字段透传控制）
-    let settings = {};
-    if (localInputs.settings) {
-      try {
-        settings = JSON.parse(localInputs.settings);
-      } catch (error) {
-        console.error('解析settings失败:', error);
-      }
-    }
+    let settings = safeParseJsonObject(localInputs.settings);
 
     // type === 20: 设置企业账户标识，无论是true还是false都要传到后端
     if (localInputs.type === 20) {
@@ -1790,6 +2034,195 @@ const EditChannelModal = (props) => {
       settings.upstream_model_update_last_check_time = 0;
     }
 
+    const callErrorThresholdCount = Number(
+      localInputs.call_error_threshold_count,
+    );
+    const callErrorThresholdWindowMinutes = Number(
+      localInputs.call_error_threshold_window_minutes,
+    );
+    const callErrorCooldownMinutes = Number(
+      localInputs.call_error_cooldown_minutes,
+    );
+    settings.call_error_alert_enabled =
+      localInputs.call_error_alert_enabled === true;
+
+    if (settings.call_error_alert_enabled) {
+      if (
+        !Number.isFinite(callErrorThresholdCount) ||
+        callErrorThresholdCount <= 0
+      ) {
+        showError(t('调用错误次数阈值必须大于 0'));
+        return;
+      }
+      if (
+        !Number.isFinite(callErrorThresholdWindowMinutes) ||
+        callErrorThresholdWindowMinutes <= 0
+      ) {
+        showError(t('调用错误统计窗口必须大于 0 分钟'));
+        return;
+      }
+    }
+
+    settings.call_error_threshold_count =
+      Number.isFinite(callErrorThresholdCount) && callErrorThresholdCount > 0
+        ? Math.floor(callErrorThresholdCount)
+        : 10;
+    settings.call_error_threshold_window_minutes =
+      Number.isFinite(callErrorThresholdWindowMinutes) &&
+      callErrorThresholdWindowMinutes > 0
+        ? Math.floor(callErrorThresholdWindowMinutes)
+        : 5;
+    if (
+      Number.isFinite(callErrorCooldownMinutes) &&
+      callErrorCooldownMinutes > 0
+    ) {
+      settings.call_error_cooldown_minutes = Math.floor(
+        callErrorCooldownMinutes,
+      );
+    } else {
+      delete settings.call_error_cooldown_minutes;
+    }
+
+    const breakerTouchedFields = breakerTouchedRef.current;
+    const breakerEnabled = localInputs.breaker_enabled === true;
+    const resolveBreakerNumber = (key, defaultValue, allowZero = false) => {
+      if (breakerTouchedFields.has(key)) {
+        return Math.floor(Number(localInputs[key]));
+      }
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        const existingValue = Math.floor(Number(settings[key]));
+        if (
+          Number.isFinite(existingValue) &&
+          (allowZero ? existingValue >= 0 : existingValue > 0)
+        ) {
+          return existingValue;
+        }
+      }
+      if (breakerEnabled) {
+        return defaultValue;
+      }
+      return undefined;
+    };
+
+    const resolvedBreakerEnabled = breakerTouchedFields.has('breaker_enabled')
+      ? localInputs.breaker_enabled === true
+      : Object.prototype.hasOwnProperty.call(settings, 'breaker_enabled')
+        ? settings.breaker_enabled === true
+        : breakerEnabled
+          ? true
+          : undefined;
+    if (
+      typeof resolvedBreakerEnabled !== 'undefined' ||
+      breakerTouchedFields.has('breaker_enabled') ||
+      Object.prototype.hasOwnProperty.call(settings, 'breaker_enabled')
+    ) {
+      settings.breaker_enabled = resolvedBreakerEnabled === true;
+    }
+
+    const resolvedBreakerThresholdCount = resolveBreakerNumber(
+      'breaker_threshold_count',
+      BREAKER_DEFAULTS.breaker_threshold_count,
+    );
+    if (typeof resolvedBreakerThresholdCount !== 'undefined') {
+      if (
+        !Number.isFinite(resolvedBreakerThresholdCount) ||
+        resolvedBreakerThresholdCount <= 0
+      ) {
+        showError(t('Breaker 阈值次数必须大于 0'));
+        return;
+      }
+      settings.breaker_threshold_count = resolvedBreakerThresholdCount;
+    }
+
+    const resolvedBreakerWindowSeconds = resolveBreakerNumber(
+      'breaker_window_seconds',
+      BREAKER_DEFAULTS.breaker_window_seconds,
+    );
+    if (typeof resolvedBreakerWindowSeconds !== 'undefined') {
+      if (
+        !Number.isFinite(resolvedBreakerWindowSeconds) ||
+        resolvedBreakerWindowSeconds <= 0
+      ) {
+        showError(t('Breaker 窗口秒数必须大于 0'));
+        return;
+      }
+      settings.breaker_window_seconds = resolvedBreakerWindowSeconds;
+    }
+
+    const resolvedBreakerCooldownSeconds = resolveBreakerNumber(
+      'breaker_cooldown_seconds',
+      BREAKER_DEFAULTS.breaker_cooldown_seconds,
+      true,
+    );
+    if (typeof resolvedBreakerCooldownSeconds !== 'undefined') {
+      if (
+        !Number.isFinite(resolvedBreakerCooldownSeconds) ||
+        resolvedBreakerCooldownSeconds < 0
+      ) {
+        showError(t('Breaker 冷却秒数不能小于 0'));
+        return;
+      }
+      settings.breaker_cooldown_seconds = resolvedBreakerCooldownSeconds;
+    }
+
+    const resolvedBreakerHalfOpenProbeCount = resolveBreakerNumber(
+      'breaker_half_open_probe_count',
+      BREAKER_DEFAULTS.breaker_half_open_probe_count,
+    );
+    if (typeof resolvedBreakerHalfOpenProbeCount !== 'undefined') {
+      if (
+        !Number.isFinite(resolvedBreakerHalfOpenProbeCount) ||
+        resolvedBreakerHalfOpenProbeCount <= 0
+      ) {
+        showError(t('Breaker 半开探针数必须大于 0'));
+        return;
+      }
+      settings.breaker_half_open_probe_count =
+        resolvedBreakerHalfOpenProbeCount;
+    }
+
+    const resolvedBreakerRecoverySuccessCount = resolveBreakerNumber(
+      'breaker_recovery_success_count',
+      BREAKER_DEFAULTS.breaker_recovery_success_count,
+    );
+    if (typeof resolvedBreakerRecoverySuccessCount !== 'undefined') {
+      if (
+        !Number.isFinite(resolvedBreakerRecoverySuccessCount) ||
+        resolvedBreakerRecoverySuccessCount <= 0
+      ) {
+        showError(t('Breaker 恢复成功数必须大于 0'));
+        return;
+      }
+      settings.breaker_recovery_success_count =
+        resolvedBreakerRecoverySuccessCount;
+    }
+
+    const resolvedBreakerErrorTypes = (() => {
+      if (breakerTouchedFields.has('breaker_error_types')) {
+        return normalizeBreakerErrorTypes(localInputs.breaker_error_types);
+      }
+      const existingBreakerErrorTypes = normalizeBreakerErrorTypes(
+        settings.breaker_error_types,
+      );
+      if (existingBreakerErrorTypes.length > 0) {
+        return existingBreakerErrorTypes;
+      }
+      if (breakerEnabled) {
+        return [...BREAKER_DEFAULTS.breaker_error_types];
+      }
+      return undefined;
+    })();
+    if (typeof resolvedBreakerErrorTypes !== 'undefined') {
+      if (
+        !Array.isArray(resolvedBreakerErrorTypes) ||
+        resolvedBreakerErrorTypes.length === 0
+      ) {
+        showError(t('Breaker 错误类型至少选择一项'));
+        return;
+      }
+      settings.breaker_error_types = resolvedBreakerErrorTypes;
+    }
+
     localInputs.settings = JSON.stringify(settings);
 
     // 清理不需要发送到后端的字段
@@ -1802,6 +2235,7 @@ const EditChannelModal = (props) => {
     delete localInputs.ima_pro_tenant_id;
     delete localInputs.ima_pro_app_id;
     delete localInputs.ima_pro_app_kind;
+    delete localInputs.image_url_unsupported;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -1819,6 +2253,17 @@ const EditChannelModal = (props) => {
     delete localInputs.upstream_model_update_last_check_time;
     delete localInputs.upstream_model_update_last_detected_models;
     delete localInputs.upstream_model_update_ignored_models;
+    delete localInputs.call_error_alert_enabled;
+    delete localInputs.call_error_threshold_count;
+    delete localInputs.call_error_threshold_window_minutes;
+    delete localInputs.call_error_cooldown_minutes;
+    delete localInputs.breaker_enabled;
+    delete localInputs.breaker_threshold_count;
+    delete localInputs.breaker_window_seconds;
+    delete localInputs.breaker_cooldown_seconds;
+    delete localInputs.breaker_half_open_probe_count;
+    delete localInputs.breaker_recovery_success_count;
+    delete localInputs.breaker_error_types;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -3533,79 +3978,280 @@ const EditChannelModal = (props) => {
                     />
 
                     <Form.Switch
-                        field='upstream_model_update_auto_sync_enabled'
-                        label={t('是否自动同步上游模型更新')}
+                      field='call_error_alert_enabled'
+                      label={t('启用渠道级调用错误告警')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelOtherSettingsChange(
+                          'call_error_alert_enabled',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后按阈值统计调用错误并触发告警冷却机制',
+                      )}
+                    />
+
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='call_error_threshold_count'
+                          label={t('调用错误次数阈值')}
+                          placeholder={t('请输入大于 0 的次数')}
+                          min={1}
+                          disabled={!inputs.call_error_alert_enabled}
+                          onNumberChange={(value) =>
+                            handleInputChange(
+                              'call_error_threshold_count',
+                              value,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='call_error_threshold_window_minutes'
+                          label={t('统计窗口（分钟）')}
+                          placeholder={t('请输入大于 0 的分钟数')}
+                          min={1}
+                          disabled={!inputs.call_error_alert_enabled}
+                          onNumberChange={(value) =>
+                            handleInputChange(
+                              'call_error_threshold_window_minutes',
+                              value,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                    </Row>
+
+                    <Form.InputNumber
+                      field='call_error_cooldown_minutes'
+                      label={t('告警冷却（分钟，可选）')}
+                      placeholder={t('留空表示不单独设置冷却时间')}
+                      min={1}
+                      disabled={!inputs.call_error_alert_enabled}
+                      onNumberChange={(value) =>
+                        handleInputChange('call_error_cooldown_minutes', value)
+                      }
+                      style={{ width: '100%' }}
+                    />
+
+                    <div className='mt-5 pt-4 border-t border-gray-100'>
+                      <div className='mb-2'>
+                        <Text className='text-base font-medium'>
+                          {t('Breaker 设置')}
+                        </Text>
+                        <div className='text-xs text-gray-600'>
+                          {t('用于渠道级故障熔断、半开探测与自动恢复控制')}
+                        </div>
+                      </div>
+
+                      <Form.Switch
+                        field='breaker_enabled'
+                        label={t('启用 Breaker')}
                         checkedText={t('开')}
                         uncheckedText={t('关')}
-                        disabled={!inputs.upstream_model_update_check_enabled}
-                        onChange={(value) =>
-                            handleChannelOtherSettingsChange(
-                                'upstream_model_update_auto_sync_enabled',
-                                value,
-                            )
-                        }
+                        onChange={(value) => {
+                          handleInputChange('breaker_enabled', value);
+                          if (
+                            value &&
+                            (!Array.isArray(inputs.breaker_error_types) ||
+                              inputs.breaker_error_types.length === 0)
+                          ) {
+                            handleInputChange('breaker_error_types', [
+                              ...BREAKER_DEFAULTS.breaker_error_types,
+                            ]);
+                          }
+                        }}
                         extraText={t(
-                            '开启后检测到新增模型会自动加入当前渠道模型列表',
+                          '开启后可按错误类型触发熔断，并在冷却后进入半开探测',
                         )}
+                      />
+
+                      <Row gutter={12}>
+                        <Col span={12}>
+                          <Form.InputNumber
+                            field='breaker_threshold_count'
+                            label={t('阈值')}
+                            placeholder={t('请输入大于 0 的次数')}
+                            min={1}
+                            disabled={!inputs.breaker_enabled}
+                            onNumberChange={(value) =>
+                              handleInputChange(
+                                'breaker_threshold_count',
+                                value,
+                              )
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </Col>
+                        <Col span={12}>
+                          <Form.InputNumber
+                            field='breaker_window_seconds'
+                            label={t('窗口秒')}
+                            placeholder={t('请输入大于 0 的秒数')}
+                            min={1}
+                            disabled={!inputs.breaker_enabled}
+                            onNumberChange={(value) =>
+                              handleInputChange('breaker_window_seconds', value)
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </Col>
+                      </Row>
+
+                      <Row gutter={12} className='mt-3'>
+                        <Col span={12}>
+                          <Form.InputNumber
+                            field='breaker_cooldown_seconds'
+                            label={t('冷却秒')}
+                            placeholder={t('请输入不小于 0 的秒数')}
+                            min={0}
+                            disabled={!inputs.breaker_enabled}
+                            onNumberChange={(value) =>
+                              handleInputChange(
+                                'breaker_cooldown_seconds',
+                                value,
+                              )
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </Col>
+                        <Col span={12}>
+                          <Form.InputNumber
+                            field='breaker_half_open_probe_count'
+                            label={t('半开探针数')}
+                            placeholder={t('请输入大于 0 的次数')}
+                            min={1}
+                            disabled={!inputs.breaker_enabled}
+                            onNumberChange={(value) =>
+                              handleInputChange(
+                                'breaker_half_open_probe_count',
+                                value,
+                              )
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </Col>
+                      </Row>
+
+                      <Row gutter={12} className='mt-3'>
+                        <Col span={12}>
+                          <Form.InputNumber
+                            field='breaker_recovery_success_count'
+                            label={t('恢复成功数')}
+                            placeholder={t('请输入大于 0 的次数')}
+                            min={1}
+                            disabled={!inputs.breaker_enabled}
+                            onNumberChange={(value) =>
+                              handleInputChange(
+                                'breaker_recovery_success_count',
+                                value,
+                              )
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </Col>
+                        <Col span={12}>
+                          <Form.Select
+                            field='breaker_error_types'
+                            label={t('错误类型')}
+                            placeholder={t('请选择错误类型')}
+                            multiple
+                            disabled={!inputs.breaker_enabled}
+                            optionList={BREAKER_ERROR_TYPE_OPTIONS}
+                            onChange={(value) =>
+                              handleInputChange('breaker_error_types', value)
+                            }
+                            style={{ width: '100%' }}
+                            extraText={t(
+                              '固定枚举：balance_insufficient, service_unavailable, 429, 5xx, timeout, 524',
+                            )}
+                          />
+                        </Col>
+                      </Row>
+                    </div>
+
+                    <Form.Switch
+                      field='upstream_model_update_auto_sync_enabled'
+                      label={t('是否自动同步上游模型更新')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      disabled={!inputs.upstream_model_update_check_enabled}
+                      onChange={(value) =>
+                        handleChannelOtherSettingsChange(
+                          'upstream_model_update_auto_sync_enabled',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后检测到新增模型会自动加入当前渠道模型列表',
+                      )}
                     />
 
                     <div className='text-xs text-gray-500 mb-3'>
                       {t('上次检测到可加入模型')}:&nbsp;
                       {upstreamDetectedModels.length === 0 ? (
-                          t('暂无')
+                        t('暂无')
                       ) : (
-                          <>
-                            <Tooltip
-                                position='topLeft'
-                                content={
-                                  <div className='max-w-[640px] break-all text-xs leading-5'>
-                                    {upstreamDetectedModels.join(', ')}
-                                  </div>
-                                }
-                            >
+                        <>
+                          <Tooltip
+                            position='topLeft'
+                            content={
+                              <div className='max-w-[640px] break-all text-xs leading-5'>
+                                {upstreamDetectedModels.join(', ')}
+                              </div>
+                            }
+                          >
                             <span className='cursor-help break-all'>
                               {upstreamDetectedModelsPreview.join(', ')}
                             </span>
-                            </Tooltip>
-                            <span className='ml-1 text-gray-400'>
+                          </Tooltip>
+                          <span className='ml-1 text-gray-400'>
                             {upstreamDetectedModelsOmittedCount > 0
-                                ? t('（共 {{total}} 个，省略 {{omit}} 个）', {
+                              ? t('（共 {{total}} 个，省略 {{omit}} 个）', {
                                   total: upstreamDetectedModels.length,
                                   omit: upstreamDetectedModelsOmittedCount,
                                 })
-                                : t('（共 {{total}} 个）', {
+                              : t('（共 {{total}} 个）', {
                                   total: upstreamDetectedModels.length,
                                 })}
                           </span>
-                          </>
+                        </>
                       )}
                     </div>
 
                     <div className='mb-4'>
                       <div className='flex items-center justify-between gap-2 mb-1'>
-                        <Text className='text-sm font-medium'>{t('参数覆盖')}</Text>
+                        <Text className='text-sm font-medium'>
+                          {t('参数覆盖')}
+                        </Text>
                         <Space wrap>
                           <Button
-                              size='small'
-                              type='primary'
-                              icon={<IconCode size={14} />}
-                              onClick={() => setParamOverrideEditorVisible(true)}
+                            size='small'
+                            type='primary'
+                            icon={<IconCode size={14} />}
+                            onClick={() => setParamOverrideEditorVisible(true)}
                           >
                             {t('可视化编辑')}
                           </Button>
                           <Button
-                              size='small'
-                              onClick={() =>
-                                  applyParamOverrideTemplate('operations', 'fill')
-                              }
+                            size='small'
+                            onClick={() =>
+                              applyParamOverrideTemplate('operations', 'fill')
+                            }
                           >
                             {t('填充新模板')}
                           </Button>
                           <Button
-                              size='small'
-                              onClick={() =>
-                                  applyParamOverrideTemplate('legacy', 'fill')
-                              }
+                            size='small'
+                            onClick={() =>
+                              applyParamOverrideTemplate('legacy', 'fill')
+                            }
                           >
                             {t('填充旧模板')}
                           </Button>
@@ -3619,14 +4265,16 @@ const EditChannelModal = (props) => {
                         </Space>
                       </div>
                       <Text type='tertiary' size='small'>
-                        {t('此项可选，用于覆盖请求参数。不支持覆盖 stream 参数')}
+                        {t(
+                          '此项可选，用于覆盖请求参数。不支持覆盖 stream 参数',
+                        )}
                       </Text>
                       <div
-                          className='mt-2 rounded-xl p-3'
-                          style={{
-                            backgroundColor: 'var(--semi-color-fill-0)',
-                            border: '1px solid var(--semi-color-fill-2)',
-                          }}
+                        className='mt-2 rounded-xl p-3'
+                        style={{
+                          backgroundColor: 'var(--semi-color-fill-0)',
+                          border: '1px solid var(--semi-color-fill-2)',
+                        }}
                       >
                         <div className='flex items-center justify-between mb-2'>
                           <Tag color={paramOverrideMeta.tagColor}>
@@ -3634,17 +4282,19 @@ const EditChannelModal = (props) => {
                           </Tag>
                           <Space spacing={8}>
                             <Button
-                                size='small'
-                                icon={<IconCopy />}
-                                type='tertiary'
-                                onClick={copyParamOverrideJson}
+                              size='small'
+                              icon={<IconCopy />}
+                              type='tertiary'
+                              onClick={copyParamOverrideJson}
                             >
                               {t('复制')}
                             </Button>
                             <Button
-                                size='small'
-                                type='tertiary'
-                                onClick={() => setParamOverrideEditorVisible(true)}
+                              size='small'
+                              type='tertiary'
+                              onClick={() =>
+                                setParamOverrideEditorVisible(true)
+                              }
                             >
                               {t('编辑')}
                             </Button>
@@ -3657,80 +4307,80 @@ const EditChannelModal = (props) => {
                     </div>
 
                     <Form.TextArea
-                        field='header_override'
-                        label={t('请求头覆盖')}
-                        placeholder={
-                            t('此项可选，用于覆盖请求头参数') +
-                            '\n' +
-                            t('格式示例：') +
-                            '\n{\n  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0",\n  "Authorization": "Bearer {api_key}"\n}'
-                        }
-                        autosize
-                        onChange={(value) =>
-                            handleInputChange('header_override', value)
-                        }
-                        extraText={
-                          <div className='flex flex-col gap-1'>
-                            <div className='flex gap-2 flex-wrap items-center'>
-                              <Text
-                                  className='!text-semi-color-primary cursor-pointer'
-                                  onClick={() =>
-                                      handleInputChange(
-                                          'header_override',
-                                          JSON.stringify(
-                                              {
-                                                '*': true,
-                                                're:^X-Trace-.*$': true,
-                                                'X-Foo': '{client_header:X-Foo}',
-                                                Authorization: 'Bearer {api_key}',
-                                                'User-Agent':
-                                                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
-                                              },
-                                              null,
-                                              2,
-                                          ),
-                                      )
-                                  }
-                              >
-                                {t('填入模板')}
-                              </Text>
-                              <Text
-                                  className='!text-semi-color-primary cursor-pointer'
-                                  onClick={() =>
-                                      handleInputChange(
-                                          'header_override',
-                                          JSON.stringify(
-                                              {
-                                                '*': true,
-                                              },
-                                              null,
-                                              2,
-                                          ),
-                                      )
-                                  }
-                              >
-                                {t('填入透传模版')}
-                              </Text>
-                              <Text
-                                  className='!text-semi-color-primary cursor-pointer'
-                                  onClick={() => formatJsonField('header_override')}
-                              >
-                                {t('格式化')}
-                              </Text>
-                            </div>
-                            <div>
-                              <Text type='tertiary' size='small'>
-                                {t('支持变量：')}
-                              </Text>
-                              <div className='text-xs text-tertiary ml-2'>
-                                <div>
-                                  {t('渠道密钥')}: {'{api_key}'}
-                                </div>
+                      field='header_override'
+                      label={t('请求头覆盖')}
+                      placeholder={
+                        t('此项可选，用于覆盖请求头参数') +
+                        '\n' +
+                        t('格式示例：') +
+                        '\n{\n  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0",\n  "Authorization": "Bearer {api_key}"\n}'
+                      }
+                      autosize
+                      onChange={(value) =>
+                        handleInputChange('header_override', value)
+                      }
+                      extraText={
+                        <div className='flex flex-col gap-1'>
+                          <div className='flex gap-2 flex-wrap items-center'>
+                            <Text
+                              className='!text-semi-color-primary cursor-pointer'
+                              onClick={() =>
+                                handleInputChange(
+                                  'header_override',
+                                  JSON.stringify(
+                                    {
+                                      '*': true,
+                                      're:^X-Trace-.*$': true,
+                                      'X-Foo': '{client_header:X-Foo}',
+                                      Authorization: 'Bearer {api_key}',
+                                      'User-Agent':
+                                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
+                                    },
+                                    null,
+                                    2,
+                                  ),
+                                )
+                              }
+                            >
+                              {t('填入模板')}
+                            </Text>
+                            <Text
+                              className='!text-semi-color-primary cursor-pointer'
+                              onClick={() =>
+                                handleInputChange(
+                                  'header_override',
+                                  JSON.stringify(
+                                    {
+                                      '*': true,
+                                    },
+                                    null,
+                                    2,
+                                  ),
+                                )
+                              }
+                            >
+                              {t('填入透传模版')}
+                            </Text>
+                            <Text
+                              className='!text-semi-color-primary cursor-pointer'
+                              onClick={() => formatJsonField('header_override')}
+                            >
+                              {t('格式化')}
+                            </Text>
+                          </div>
+                          <div>
+                            <Text type='tertiary' size='small'>
+                              {t('支持变量：')}
+                            </Text>
+                            <div className='text-xs text-tertiary ml-2'>
+                              <div>
+                                {t('渠道密钥')}: {'{api_key}'}
                               </div>
                             </div>
                           </div>
-                        }
-                        showClear
+                        </div>
+                      }
+                      showClear
                     />
                     <JSONEditor
                       key={`status_code_mapping-${isEdit ? channelId : 'new'}`}
@@ -3943,6 +4593,36 @@ const EditChannelModal = (props) => {
                       }
                       extraText={t(
                         '将 reasoning_content 转换为 <think> 标签拼接到内容中',
+                      )}
+                    />
+
+                    <Form.Switch
+                      field='image_url_auto_base64'
+                      label={t('图片 URL 自动转 Base64')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'image_url_auto_base64',
+                          value,
+                        )
+                      }
+                      extraText={t('开启后会在该渠道将图片 URL 入参自动转换为 Base64')}
+                    />
+
+                    <Form.Switch
+                      field='image_url_unsupported'
+                      label={t('不支持图片 URL 直传')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'image_url_unsupported',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后该渠道不接受图片 URL 入参（将尝试走下游回退）',
                       )}
                     />
 

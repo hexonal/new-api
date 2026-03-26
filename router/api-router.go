@@ -388,6 +388,7 @@ func SetApiRouter(router *gin.Engine) {
 			operatorRoute.PUT("/group", controller.OperatorGroup)
 			operatorRoute.PUT("/models", controller.OperatorModels)
 			operatorRoute.POST("/disable", controller.OperatorDisable)
+			operatorRoute.POST("/enable", controller.OperatorEnable)
 			operatorRoute.POST("/disable-user", controller.OperatorDisableUser)
 		}
 	}

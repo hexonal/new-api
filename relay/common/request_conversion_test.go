@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAppendRequestConversionFromRequest_UpdatesRelayRequest(t *testing.T) {
+func TestAppendRequestConversionFromRequest_KeepsOriginalRelayRequest(t *testing.T) {
 	originalRequest := &dto.GeneralOpenAIRequest{
 		Model: "claude-sonnet-4-6",
 	}
@@ -23,7 +23,7 @@ func TestAppendRequestConversionFromRequest_UpdatesRelayRequest(t *testing.T) {
 
 	AppendRequestConversionFromRequest(info, convertedRequest)
 
-	require.Same(t, convertedRequest, info.Request)
+	require.Same(t, originalRequest, info.Request)
 	require.Equal(t, []types.RelayFormat{
 		types.RelayFormatOpenAI,
 		types.RelayFormatClaude,
@@ -47,4 +47,3 @@ func TestAppendRequestConversionFromRequest_IgnoreUnknownType(t *testing.T) {
 		types.RelayFormatOpenAI,
 	}, info.RequestConversionChain)
 }
-
