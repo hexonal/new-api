@@ -2,7 +2,13 @@ import React from 'react';
 import { Card, Tabs, TabPane, Empty } from '@douyinfe/semi-ui';
 import { VChart } from '@visactor/react-vchart';
 import { TrendingUp } from 'lucide-react';
-import { CHART_CONFIG, CARD_PROPS } from '../../constants/key-cost.constants';
+import {
+  CHART_CONFIG,
+  CARD_PROPS,
+  METRIC_COST,
+  METRIC_REQUESTS,
+  METRIC_TOKENS,
+} from '../../constants/key-cost.constants';
 import {
   IllustrationNoContent,
   IllustrationNoContentDark,
@@ -17,9 +23,9 @@ const KeyCostTrendPanel = ({
   t,
 }) => {
   const specMap = {
-    cost: specCostLine,
-    requests: specRequestLine,
-    tokens: specTokenLine,
+    [METRIC_COST]: specCostLine,
+    [METRIC_REQUESTS]: specRequestLine,
+    [METRIC_TOKENS]: specTokenLine,
   };
 
   const activeSpec = specMap[activeChartTab];
@@ -46,9 +52,9 @@ const KeyCostTrendPanel = ({
             activeKey={activeChartTab}
             onChange={onChartTabChange}
           >
-            <TabPane tab={<span>{t('成本趋势')}</span>} itemKey='cost' />
-            <TabPane tab={<span>{t('请求趋势')}</span>} itemKey='requests' />
-            <TabPane tab={<span>{t('Token 趋势')}</span>} itemKey='tokens' />
+            <TabPane tab={<span>{t('成本趋势')}</span>} itemKey={METRIC_COST} />
+            <TabPane tab={<span>{t('请求趋势')}</span>} itemKey={METRIC_REQUESTS} />
+            <TabPane tab={<span>{t('Token 趋势')}</span>} itemKey={METRIC_TOKENS} />
           </Tabs>
         </div>
       }

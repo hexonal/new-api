@@ -3,8 +3,8 @@ import { renderQuota, renderNumber, modelColorMap } from '../../helpers';
 import {
   aggregateByModel,
   aggregateByTimeBucket,
-  formatQuotaToUSD,
-  formatUSDDisplay,
+  quotaToNumeric,
+  formatQuotaDisplay,
 } from '../../helpers/key-cost';
 import { TOP_N_MODELS } from '../../constants/key-cost.constants';
 
@@ -39,7 +39,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
         values.push({
           Time: b.time_bucket,
           Model: model,
-          Cost: formatQuotaToUSD(b.quota),
+          Cost: quotaToNumeric(b.quota),
         });
       }
     }
@@ -63,7 +63,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
           content: [
             {
               key: (datum) => datum['Model'],
-              value: (datum) => formatUSDDisplay(datum['Cost']),
+              value: (datum) => formatQuotaDisplay(datum['Cost']),
             },
           ],
         },
@@ -146,7 +146,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   const specPie = useMemo(() => {
     const values = modelAgg.map((m) => ({
       type: m.model,
-      value: formatQuotaToUSD(m.quota),
+      value: quotaToNumeric(m.quota),
     }));
 
     const totalCost = modelAgg.reduce((s, m) => s + m.quota, 0);
@@ -178,7 +178,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
           content: [
             {
               key: (datum) => datum['type'],
-              value: (datum) => formatUSDDisplay(datum['value']),
+              value: (datum) => formatQuotaDisplay(datum['value']),
             },
           ],
         },
@@ -191,7 +191,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   const specRankBar = useMemo(() => {
     const values = modelAgg.map((m) => ({
       Model: m.model,
-      Cost: formatQuotaToUSD(m.quota),
+      Cost: quotaToNumeric(m.quota),
     }));
 
     return {
@@ -216,7 +216,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
           content: [
             {
               key: (datum) => datum['Model'],
-              value: (datum) => formatUSDDisplay(datum['Cost']),
+              value: (datum) => formatQuotaDisplay(datum['Cost']),
             },
           ],
         },
@@ -224,7 +224,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
       label: {
         visible: true,
         position: 'outside',
-        formatter: (datum) => formatUSDDisplay(datum['Cost']),
+        formatter: (datum) => formatQuotaDisplay(datum['Cost']),
       },
       color: { specified: modelColorMap },
     };

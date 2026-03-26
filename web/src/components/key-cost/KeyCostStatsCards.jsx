@@ -2,6 +2,12 @@ import React from 'react';
 import { Card, Avatar, Skeleton } from '@douyinfe/semi-ui';
 import { CARD_PROPS } from '../../constants/key-cost.constants';
 
+function getChangeColor(changeType) {
+  if (changeType === 'up') return 'text-red-500';
+  if (changeType === 'down') return 'text-green-500';
+  return 'text-gray-400';
+}
+
 const KeyCostStatsCards = ({ statsData, loading }) => {
   return (
     <div className='mb-4'>
@@ -46,13 +52,7 @@ const KeyCostStatsCards = ({ statsData, loading }) => {
               </div>
               {item.change !== null && (
                 <div
-                  className={`text-sm font-medium ${
-                    item.changeType === 'up'
-                      ? 'text-red-500'
-                      : item.changeType === 'down'
-                        ? 'text-green-500'
-                        : 'text-gray-400'
-                  }`}
+                  className={`text-sm font-medium ${getChangeColor(item.changeType)}`}
                 >
                   {item.changeType === 'up' && '+'}
                   {item.change}%

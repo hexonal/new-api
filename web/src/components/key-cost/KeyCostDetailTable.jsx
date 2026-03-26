@@ -8,8 +8,8 @@ import {
 } from '../../constants/key-cost.constants';
 import {
   aggregateByModel,
-  formatQuotaToUSD,
-  formatUSDDisplay,
+  quotaToNumeric,
+  formatQuotaDisplay,
 } from '../../helpers/key-cost';
 
 const KeyCostDetailTable = ({ summaryData, loading, t }) => {
@@ -24,7 +24,7 @@ const KeyCostDetailTable = ({ summaryData, loading, t }) => {
       model: m.model,
       requests: m.count,
       tokens: m.tokens,
-      costUSD: formatQuotaToUSD(m.quota),
+      costUSD: quotaToNumeric(m.quota),
       share:
         totalQuota > 0
           ? ((m.quota / totalQuota) * 100).toFixed(1) + '%'
@@ -60,7 +60,7 @@ const KeyCostDetailTable = ({ summaryData, loading, t }) => {
       title: t('成本') + ' (USD)',
       dataIndex: 'costUSD',
       sorter: (a, b) => a.costUSD - b.costUSD,
-      render: (val) => formatUSDDisplay(val),
+      render: (val) => formatQuotaDisplay(val),
       defaultSortOrder: 'descend',
     },
     {

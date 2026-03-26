@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useKeyCompareData } from '../../../hooks/key-cost/useKeyCompareData';
 import { useKeyCompareCharts } from '../../../hooks/key-cost/useKeyCompareCharts';
-import { useKeyCostData } from '../../../hooks/key-cost/useKeyCostData';
+import { METRIC_COST } from '../../../constants/key-cost.constants';
 
 import KeyCompareSelector from './KeyCompareSelector';
 import KeyCompareTrendPanel from './KeyCompareTrendPanel';
@@ -10,10 +10,7 @@ import KeyCompareDetailTable from './KeyCompareDetailTable';
 import TimeRangeBar from '../shared/TimeRangeBar';
 
 const KeyComparePanel = () => {
-  const [activeMetric, setActiveMetric] = useState('cost');
-
-  // Re-use the cost data hook to get shared token list and granularity options
-  const costData = useKeyCostData();
+  const [activeMetric, setActiveMetric] = useState(METRIC_COST);
 
   const compare = useKeyCompareData();
 
@@ -22,7 +19,7 @@ const KeyComparePanel = () => {
     activeMetric,
     compare.granularity,
     compare.t,
-    costData.tokens,
+    compare.tokens,
   );
 
   return (
@@ -31,15 +28,14 @@ const KeyComparePanel = () => {
         <TimeRangeBar
           granularity={compare.granularity}
           onGranularityChange={compare.setGranularity}
-          granularityOptions={costData.granularityOptions}
+          granularityOptions={compare.granularityOptions}
           dateRange={compare.dateRange}
           onDateRangeChange={compare.setDateRange}
-          t={compare.t}
         />
       </div>
 
       <KeyCompareSelector
-        tokens={costData.tokens}
+        tokens={compare.tokens}
         selectedTokenIds={compare.selectedTokenIds}
         onSelectedChange={compare.setSelectedTokenIds}
         t={compare.t}

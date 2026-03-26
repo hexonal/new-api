@@ -154,6 +154,11 @@ func getTokenSummaryHandler(c *gin.Context, userId int) {
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	tokenId, _ := strconv.Atoi(c.Query("token_id"))
 	granularity := c.DefaultQuery("granularity", "day")
+	// Limit query range: max 90 days to prevent unbounded result sets
+	const maxRangeSeconds int64 = 90 * 24 * 3600
+	if startTimestamp != 0 && endTimestamp != 0 && (endTimestamp-startTimestamp) > maxRangeSeconds {
+		startTimestamp = endTimestamp - maxRangeSeconds
+	}
 	// Whitelist granularity to prevent injection
 	switch granularity {
 	case "day", "week", "month":

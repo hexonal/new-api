@@ -2,7 +2,13 @@ import React from 'react';
 import { Card, Tabs, TabPane, Empty } from '@douyinfe/semi-ui';
 import { VChart } from '@visactor/react-vchart';
 import { TrendingUp } from 'lucide-react';
-import { CHART_CONFIG, CARD_PROPS } from '../../../constants/key-cost.constants';
+import {
+  CHART_CONFIG,
+  CARD_PROPS,
+  METRIC_COST,
+  METRIC_REQUESTS,
+  METRIC_TOKENS,
+} from '../../../constants/key-cost.constants';
 import {
   IllustrationNoContent,
   IllustrationNoContentDark,
@@ -36,9 +42,9 @@ const KeyCompareTrendPanel = ({
             activeKey={activeMetric}
             onChange={onMetricChange}
           >
-            <TabPane tab={<span>{t('成本')}</span>} itemKey='cost' />
-            <TabPane tab={<span>{t('请求次数')}</span>} itemKey='requests' />
-            <TabPane tab={<span>{t('Token 消耗')}</span>} itemKey='tokens' />
+            <TabPane tab={<span>{t('成本')}</span>} itemKey={METRIC_COST} />
+            <TabPane tab={<span>{t('请求次数')}</span>} itemKey={METRIC_REQUESTS} />
+            <TabPane tab={<span>{t('Token 消耗')}</span>} itemKey={METRIC_TOKENS} />
           </Tabs>
         </div>
       }

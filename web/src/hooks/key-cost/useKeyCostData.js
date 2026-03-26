@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, isAdmin, showError } from '../../helpers';
-import { GRANULARITY_OPTIONS } from '../../constants/key-cost.constants';
+import { GRANULARITY_OPTIONS, METRIC_COST } from '../../constants/key-cost.constants';
+import { getDefaultDateRange } from '../../helpers/key-cost';
 
 /**
  * Primary data-fetching hook for the Key Cost Analysis dashboard.
@@ -30,13 +31,6 @@ export const useKeyCostData = () => {
   );
 
   // ========== Date range ==========
-  const getDefaultDateRange = () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    return [start, end];
-  };
-
   const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
   // ========== Data ==========
@@ -44,7 +38,7 @@ export const useKeyCostData = () => {
   const [loading, setLoading] = useState(false);
 
   // ========== Chart tab ==========
-  const [activeChartTab, setActiveChartTab] = useState('cost');
+  const [activeChartTab, setActiveChartTab] = useState(METRIC_COST);
 
   // ========== Fetch tokens ==========
   const fetchTokens = useCallback(async () => {
@@ -99,11 +93,6 @@ export const useKeyCostData = () => {
     }
   }, [dateRange, granularity, selectedTokenId, isAdminUser]);
 
-  // ========== Refresh ==========
-  const refresh = useCallback(async () => {
-    await fetchSummary();
-  }, [fetchSummary]);
-
   // ========== Initial load ==========
   useEffect(() => {
     if (!initialized.current) {
@@ -141,7 +130,7 @@ export const useKeyCostData = () => {
     // Data
     summaryData,
     loading,
-    refresh,
+    refresh: fetchSummary,
 
     // Chart tab
     activeChartTab,

@@ -1,31 +1,39 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, isAdmin, showError } from '../../helpers';
-import { MAX_COMPARE_KEYS } from '../../constants/key-cost.constants';
+import {
+  MAX_COMPARE_KEYS,
+  GRANULARITY_OPTIONS,
+} from '../../constants/key-cost.constants';
+import { getDefaultDateRange } from '../../helpers/key-cost';
 
 /**
  * Data-fetching hook for the multi-Key comparison view.
  *
- * Fetches all token summaries (no token_id filter) then groups them
- * client-side by token_id for comparison charts.
+ * Fetches its own token list and all token summaries (no token_id filter)
+ * then groups them client-side by token_id for comparison charts.
  */
 export const useKeyCompareData = () => {
   const { t } = useTranslation();
   const isAdminUser = isAdmin();
   const initialized = useRef(false);
 
+  // ========== Token list ==========
+  const [tokens, setTokens] = useState([]);
+
   // ========== Selected keys for comparison ==========
   const [selectedTokenIds, setSelectedTokenIds] = useState([]);
 
   // ========== Granularity & date range ==========
   const [granularity, setGranularity] = useState('day');
-
-  const getDefaultDateRange = () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    return [start, end];
-  };
+  const granularityOptions = useMemo(
+    () =>
+      GRANULARITY_OPTIONS.map((opt) => ({
+        ...opt,
+        label: t(opt.label),
+      })),
+    [t],
+  );
 
   const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
@@ -33,11 +41,41 @@ export const useKeyCompareData = () => {
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  /**
-   * compareData: Map<token_id, Array<TokenSummary>>
-   * Built from rawData filtered to selectedTokenIds.
-   */
-  const [compareData, setCompareData] = useState(new Map());
+  // compareData is derived from rawData + selectedTokenIds — no need for separate state
+  const compareData = useMemo(() => {
+    if (selectedTokenIds.length === 0) return new Map();
+
+    const idSet = new Set(selectedTokenIds);
+    const grouped = new Map();
+
+    for (const item of rawData) {
+      const id = item.token_id;
+      if (!idSet.has(id)) continue;
+      if (!grouped.has(id)) {
+        grouped.set(id, []);
+      }
+      grouped.get(id).push(item);
+    }
+
+    return grouped;
+  }, [rawData, selectedTokenIds]);
+
+  // ========== Fetch tokens ==========
+  const fetchTokens = useCallback(async () => {
+    try {
+      const res = await API.get('/api/token/', {
+        params: { p: 1, size: 100 },
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        setTokens(data || []);
+      } else {
+        showError(message);
+      }
+    } catch (err) {
+      console.error('Failed to fetch tokens', err);
+    }
+  }, []);
 
   // ========== Fetch all token summaries ==========
   const fetchAllSummaries = useCallback(async () => {
@@ -71,28 +109,6 @@ export const useKeyCompareData = () => {
     }
   }, [dateRange, granularity, isAdminUser]);
 
-  // ========== Group raw data by selected token ids ==========
-  useEffect(() => {
-    if (selectedTokenIds.length === 0) {
-      setCompareData(new Map());
-      return;
-    }
-
-    const idSet = new Set(selectedTokenIds);
-    const grouped = new Map();
-
-    for (const item of rawData) {
-      const id = item.token_id;
-      if (!idSet.has(id)) continue;
-      if (!grouped.has(id)) {
-        grouped.set(id, []);
-      }
-      grouped.get(id).push(item);
-    }
-
-    setCompareData(grouped);
-  }, [rawData, selectedTokenIds]);
-
   // ========== Guard: max compare keys ==========
   const handleSetSelectedTokenIds = useCallback((ids) => {
     if (Array.isArray(ids) && ids.length > MAX_COMPARE_KEYS) {
@@ -105,9 +121,10 @@ export const useKeyCompareData = () => {
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
+      fetchTokens();
       fetchAllSummaries();
     }
-  }, [fetchAllSummaries]);
+  }, [fetchTokens, fetchAllSummaries]);
 
   // Re-fetch on filter changes
   const filtersChanged = useRef(false);
@@ -120,6 +137,9 @@ export const useKeyCompareData = () => {
   }, [granularity, dateRange]);
 
   return {
+    // Token list
+    tokens,
+
     // Selection
     selectedTokenIds,
     setSelectedTokenIds: handleSetSelectedTokenIds,
@@ -127,6 +147,7 @@ export const useKeyCompareData = () => {
     // Filters
     granularity,
     setGranularity,
+    granularityOptions,
     dateRange,
     setDateRange,
 

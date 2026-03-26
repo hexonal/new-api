@@ -24,7 +24,7 @@ const KeyCompareSelector = ({
   };
 
   const tagList = selectedTokenIds.map((tokenId, idx) => {
-    const tok = tokens.find((t) => t.id === tokenId);
+    const tok = tokens.find((token) => token.id === tokenId);
     const name = tok ? tok.name : `Key #${tokenId}`;
     const color = COMPARE_COLORS[idx % COMPARE_COLORS.length];
 

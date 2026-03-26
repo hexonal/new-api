@@ -19,3 +19,11 @@ export const COMPARE_COLORS = [
 export const MAX_COMPARE_KEYS = 5;
 export const TOP_N_MODELS = 10;
 export const DEFAULT_PAGE_SIZE = 20;
+
+// Tab keys — avoid stringly-typed tab identifiers scattered across components
+export const TAB_ANALYSIS = 'analysis';
+export const TAB_COMPARE = 'compare';
+
+export const METRIC_COST = 'cost';
+export const METRIC_REQUESTS = 'requests';
+export const METRIC_TOKENS = 'tokens';

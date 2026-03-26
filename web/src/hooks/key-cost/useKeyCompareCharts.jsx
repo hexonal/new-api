@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 import { renderNumber } from '../../helpers';
 import {
-  formatQuotaToUSD,
-  formatUSDDisplay,
+  quotaToNumeric,
+  formatQuotaDisplay,
   aggregateByTimeBucket,
 } from '../../helpers/key-cost';
-import { COMPARE_COLORS } from '../../constants/key-cost.constants';
+import {
+  COMPARE_COLORS,
+  METRIC_COST,
+  METRIC_REQUESTS,
+  METRIC_TOKENS,
+} from '../../constants/key-cost.constants';
 
 /**
  * Build VChart specs for the multi-Key comparison view.
@@ -36,19 +41,19 @@ export const useKeyCompareCharts = (
   // ========== Metric config ==========
   const metricConfig = useMemo(
     () => ({
-      cost: {
+      [METRIC_COST]: {
         label: t('成本'),
         yField: 'Value',
-        formatter: (v) => formatUSDDisplay(v),
-        extractor: (bucket) => formatQuotaToUSD(bucket.quota),
+        formatter: (v) => formatQuotaDisplay(v),
+        extractor: (bucket) => quotaToNumeric(bucket.quota),
       },
-      requests: {
+      [METRIC_REQUESTS]: {
         label: t('请求次数'),
         yField: 'Value',
         formatter: (v) => renderNumber(v),
         extractor: (bucket) => bucket.count,
       },
-      tokens: {
+      [METRIC_TOKENS]: {
         label: t('Token 消耗'),
         yField: 'Value',
         formatter: (v) => renderNumber(v),
@@ -58,7 +63,7 @@ export const useKeyCompareCharts = (
     [t],
   );
 
-  const metric = metricConfig[activeMetric] || metricConfig.cost;
+  const metric = metricConfig[activeMetric] || metricConfig[METRIC_COST];
 
   // ========== Per-key aggregation ==========
   const perKeyAgg = useMemo(() => {
@@ -139,12 +144,12 @@ export const useKeyCompareCharts = (
         tokenId,
         name,
         color,
-        cost: formatUSDDisplay(formatQuotaToUSD(totalQuota)),
+        cost: formatQuotaDisplay(quotaToNumeric(totalQuota)),
         requests: totalRequests,
         tokens: totalTokens,
-        avgCost: formatUSDDisplay(
+        avgCost: formatQuotaDisplay(
           totalRequests > 0
-            ? formatQuotaToUSD(totalQuota / totalRequests)
+            ? quotaToNumeric(totalQuota / totalRequests)
             : 0,
           4,
         ),

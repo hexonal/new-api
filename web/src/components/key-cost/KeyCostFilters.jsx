@@ -33,7 +33,6 @@ const KeyCostFilters = ({
           granularityOptions={granularityOptions}
           dateRange={dateRange}
           onDateRangeChange={onDateRangeChange}
-          t={t}
         />
       </div>
       <Button

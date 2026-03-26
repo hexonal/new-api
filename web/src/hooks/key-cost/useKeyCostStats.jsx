@@ -5,7 +5,7 @@ import {
   IconTextStroked,
   IconHistogram,
 } from '@douyinfe/semi-icons';
-import { formatQuotaToUSD, formatUSDDisplay } from '../../helpers/key-cost';
+import { quotaToNumeric, formatQuotaDisplay } from '../../helpers/key-cost';
 
 /**
  * Compute the four stat-card values for the Key Cost Analysis dashboard.
@@ -29,14 +29,14 @@ export const useKeyCostStats = (summaryData, t) => {
     }
 
     const totalTokens = totalPromptTokens + totalCompletionTokens;
-    const totalCostUSD = formatQuotaToUSD(totalQuota);
+    const totalCostUSD = quotaToNumeric(totalQuota);
     const avgCostUSD =
-      totalRequests > 0 ? formatQuotaToUSD(totalQuota / totalRequests) : 0;
+      totalRequests > 0 ? quotaToNumeric(totalQuota / totalRequests) : 0;
 
     return [
       {
         title: t('总成本'),
-        value: formatUSDDisplay(totalCostUSD),
+        value: formatQuotaDisplay(totalCostUSD),
         icon: <IconCoinMoneyStroked />,
         avatarColor: 'blue',
         change: null,
@@ -60,7 +60,7 @@ export const useKeyCostStats = (summaryData, t) => {
       },
       {
         title: t('平均单次成本'),
-        value: formatUSDDisplay(avgCostUSD, 4),
+        value: formatQuotaDisplay(avgCostUSD, 4),
         icon: <IconHistogram />,
         avatarColor: 'orange',
         change: null,
