@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -39,11 +40,71 @@ type operatorProvisionRequest struct {
 	DisplayName        string   `json:"display_name"`
 	Password           string   `json:"password"`
 	Group              string   `json:"group"`
+	TokenGroup         string   `json:"token_group"`
 	AmountUSD          float64  `json:"amount_usd"` // 充值金额（美元），1.0 = $1 = 500000 quota
+	Token              string   `json:"token"`
 	TokenName          string   `json:"token_name"`
 	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
 	ModelLimits        []string `json:"model_limits"`
 	Remark             string   `json:"remark"`
+}
+
+var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
+var operatorProvisionIMASuffixPattern = regexp.MustCompile(`^(ima_[0-9]+)_[0-9A-Za-z]+$`)
+
+func validateOperatorProvisionToken(token string) bool {
+	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
+}
+
+func getOperatorProvisionUsernameCandidates(username string) []string {
+	normalized := strings.TrimSpace(username)
+	if normalized == "" {
+		return nil
+	}
+	candidates := []string{normalized}
+	match := operatorProvisionIMASuffixPattern.FindStringSubmatch(normalized)
+	if len(match) != 2 {
+		return candidates
+	}
+	baseUsername := strings.TrimSpace(match[1])
+	if baseUsername != "" && baseUsername != normalized {
+		candidates = append(candidates, baseUsername)
+	}
+	return candidates
+}
+
+func normalizeOperatorProvisionCreateUsername(username string) string {
+	normalized := strings.TrimSpace(username)
+	if normalized == "" {
+		return ""
+	}
+	match := operatorProvisionIMASuffixPattern.FindStringSubmatch(normalized)
+	if len(match) != 2 {
+		return normalized
+	}
+	baseUsername := strings.TrimSpace(match[1])
+	if baseUsername == "" {
+		return normalized
+	}
+	return baseUsername
+}
+
+func findOperatorProvisionUserByCandidates(tx *gorm.DB, candidates []string) (model.User, bool, error) {
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		var existing model.User
+		err := tx.Where("username = ?", candidate).First(&existing).Error
+		if err == nil {
+			return existing, true, nil
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			continue
+		}
+		return model.User{}, false, err
+	}
+	return model.User{}, false, nil
 }
 
 func isDuplicateError(err error) bool {
@@ -56,6 +117,7 @@ func buildProvisionToken(userId int, tokenKey string, req operatorProvisionReque
 		UserId:             userId,
 		Name:               req.TokenName,
 		Key:                tokenKey,
+		Group:              req.TokenGroup,
 		Status:             common.TokenStatusEnabled,
 		CreatedTime:        common.GetTimestamp(),
 		AccessedTime:       common.GetTimestamp(),
@@ -85,46 +147,105 @@ func OperatorProvision(c *gin.Context) {
 	if req.Group == "" {
 		req.Group = "default"
 	}
+	req.TokenGroup = strings.TrimSpace(req.TokenGroup)
+	if req.TokenGroup == "" {
+		// Backward compatible behavior: when tokenGroup is omitted,
+		// reuse group as token-level routing group.
+		req.TokenGroup = req.Group
+	}
 	if req.TokenName == "" {
 		req.TokenName = "default"
 	}
+	createUsername := normalizeOperatorProvisionCreateUsername(req.Username)
 	if req.DisplayName == "" {
-		req.DisplayName = req.Username
+		req.DisplayName = createUsername
 	}
 	if len(req.DisplayName) > model.UserNameMaxLength {
 		req.DisplayName = req.DisplayName[:model.UserNameMaxLength]
 	}
 
-	tokenKey, err := common.GenerateKey()
-	if err != nil {
-		common.ApiError(c, err)
-		return
+	tokenKey := ""
+	responseSK := ""
+	if strings.TrimSpace(req.Token) != "" {
+		req.Token = strings.TrimSpace(req.Token)
+		if !validateOperatorProvisionToken(req.Token) {
+			common.ApiErrorMsg(c, "token must contain only letters, numbers, or underscore, and be 1-48 characters")
+			return
+		}
+		tokenKey = req.Token
+		if req.TokenName == "default" {
+			req.TokenName = req.Token
+		}
+		responseSK = req.Token
+	} else {
+		var err error
+		tokenKey, err = common.GenerateKey()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		responseSK = "sk-" + tokenKey
 	}
 
-	// Check user existence first to decide whether to create the user or reuse it.
-	var existingUser model.User
-	userExists := model.DB.Where("username = ?", req.Username).First(&existingUser).Error == nil
-
 	var userId int
+	usernameCandidates := getOperatorProvisionUsernameCandidates(req.Username)
 
-	if !userExists {
-		// Normal path: new user — create user + token in one transaction.
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			cleanUser := model.User{
-				Username:    req.Username,
-				DisplayName: req.DisplayName,
-				Password:    req.Password,
-				Group:       req.Group,
-				Status:      common.UserStatusEnabled,
-				Role:        common.RoleCommonUser,
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		if existingUser, found, findErr := findOperatorProvisionUserByCandidates(tx, usernameCandidates); findErr != nil {
+			return findErr
+		} else if found {
+			userId = existingUser.Id
+		}
+
+		if userId > 0 {
+			if req.AmountUSD > 0 {
+				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
+				if err := tx.Model(&model.User{}).Where("id = ?", userId).
+					Update("quota", gorm.Expr("quota + ?", quota)).Error; err != nil {
+					return err
+				}
 			}
-			if err := cleanUser.InsertWithTx(tx, 0); err != nil {
+			t := buildProvisionToken(userId, tokenKey, req)
+			if err := t.InsertWithTx(tx); err != nil {
+				// username exists and token already exists => treat as success, quota add already applied.
+				if req.Token != "" && isDuplicateError(err) {
+					var existingToken model.Token
+					if tokenErr := tx.Where("key = ?", tokenKey).First(&existingToken).Error; tokenErr == nil && existingToken.UserId == userId {
+						return nil
+					}
+				}
 				return err
 			}
-			userId = cleanUser.Id
+			return nil
+		}
 
-			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
-			// explicitly set the requested quota if provided (converted from USD).
+		// Try to create user inside the transaction to avoid race conditions.
+		cleanUser := model.User{
+			Username:    createUsername,
+			DisplayName: req.DisplayName,
+			Password:    req.Password,
+			Group:       req.Group,
+			Status:      common.UserStatusEnabled,
+			Role:        common.RoleCommonUser,
+		}
+		if insertErr := cleanUser.InsertWithTx(tx, 0); insertErr != nil {
+			if isDuplicateError(insertErr) {
+				// User already exists — look up within the same transaction.
+				existingUser, found, findErr := findOperatorProvisionUserByCandidates(tx, usernameCandidates)
+				if findErr != nil {
+					return findErr
+				}
+				if !found {
+					return insertErr
+				}
+				userId = existingUser.Id
+			} else {
+				return insertErr
+			}
+		} else {
+			userId = cleanUser.Id
+			// InsertWithTx initializes quota with QuotaForNewUser;
+			// amount_usd here represents total target quota for new users.
 			if req.AmountUSD > 0 {
 				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
 				if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
@@ -132,22 +253,18 @@ func OperatorProvision(c *gin.Context) {
 					return err
 				}
 			}
+		}
 
-			t := buildProvisionToken(cleanUser.Id, tokenKey, req)
-			return t.InsertWithTx(tx)
-		})
-		if err != nil {
-			common.ApiError(c, err)
+		t := buildProvisionToken(userId, tokenKey, req)
+		return t.InsertWithTx(tx)
+	})
+	if err != nil {
+		if req.Token != "" && isDuplicateError(err) {
+			common.ApiErrorMsg(c, "token already exists")
 			return
 		}
-	} else {
-		// User already exists — add a new token to the existing user.
-		userId = existingUser.Id
-		t := buildProvisionToken(existingUser.Id, tokenKey, req)
-		if err := t.Insert(); err != nil {
-			common.ApiError(c, err)
-			return
-		}
+		common.ApiError(c, err)
+		return
 	}
 
 	if req.Remark != "" {
@@ -159,7 +276,7 @@ func OperatorProvision(c *gin.Context) {
 		"message": "",
 		"data": gin.H{
 			"user_id": userId,
-			"sk":      "sk-" + tokenKey,
+			"sk":      responseSK,
 		},
 	})
 }
