@@ -149,6 +149,38 @@ func GetLogsSelfStat(c *gin.Context) {
 	return
 }
 
+func getTokenSummaryHandler(c *gin.Context, userId int) {
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	tokenId, _ := strconv.Atoi(c.Query("token_id"))
+	granularity := c.DefaultQuery("granularity", "day")
+	// Whitelist granularity to prevent injection
+	switch granularity {
+	case "day", "week", "month":
+	default:
+		granularity = "day"
+	}
+	results, err := model.SumQuotaGroupByToken(userId, tokenId, startTimestamp, endTimestamp, granularity)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    results,
+	})
+}
+
+func GetTokenSummary(c *gin.Context) {
+	getTokenSummaryHandler(c, 0)
+}
+
+func GetSelfTokenSummary(c *gin.Context) {
+	userId := c.GetInt("id")
+	getTokenSummaryHandler(c, userId)
+}
+
 func DeleteHistoryLogs(c *gin.Context) {
 	targetTimestamp, _ := strconv.ParseInt(c.Query("target_timestamp"), 10, 64)
 	if targetTimestamp == 0 {

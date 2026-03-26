@@ -443,6 +443,79 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return stat, nil
 }
 
+type TokenSummary struct {
+	TokenId          int    `json:"token_id"`
+	TokenName        string `json:"token_name"`
+	ModelName        string `json:"model_name"`
+	TimeBucket       string `json:"time_bucket"`
+	TotalQuota       int64  `json:"total_quota"`
+	RequestCount     int64  `json:"request_count"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+}
+
+func SumQuotaGroupByToken(userId int, tokenId int, startTimestamp int64, endTimestamp int64, granularity string) ([]TokenSummary, error) {
+	// Cross-DB time truncation expression
+	var timeBucketExpr string
+	switch granularity {
+	case "week":
+		if common.UsingPostgreSQL {
+			timeBucketExpr = "TO_CHAR(DATE_TRUNC('week', TO_TIMESTAMP(created_at)), 'YYYY-MM-DD')"
+		} else if common.UsingMySQL {
+			timeBucketExpr = "DATE_FORMAT(DATE_SUB(FROM_UNIXTIME(created_at), INTERVAL WEEKDAY(FROM_UNIXTIME(created_at)) DAY), '%Y-%m-%d')"
+		} else {
+			timeBucketExpr = "DATE(created_at - ((CAST(strftime('%w', created_at, 'unixepoch') AS INTEGER) + 6) % 7) * 86400, 'unixepoch')"
+		}
+	case "month":
+		if common.UsingPostgreSQL {
+			timeBucketExpr = "TO_CHAR(TO_TIMESTAMP(created_at), 'YYYY-MM')"
+		} else if common.UsingMySQL {
+			timeBucketExpr = "DATE_FORMAT(FROM_UNIXTIME(created_at), '%Y-%m')"
+		} else {
+			timeBucketExpr = "strftime('%Y-%m', created_at, 'unixepoch')"
+		}
+	default: // "day"
+		if common.UsingPostgreSQL {
+			timeBucketExpr = "TO_CHAR(TO_TIMESTAMP(created_at), 'YYYY-MM-DD')"
+		} else if common.UsingMySQL {
+			timeBucketExpr = "DATE_FORMAT(FROM_UNIXTIME(created_at), '%Y-%m-%d')"
+		} else {
+			timeBucketExpr = "DATE(created_at, 'unixepoch')"
+		}
+	}
+
+	selectExpr := fmt.Sprintf(
+		"token_id, token_name, model_name, %s AS time_bucket, SUM(quota) AS total_quota, COUNT(*) AS request_count, SUM(prompt_tokens) AS prompt_tokens, SUM(completion_tokens) AS completion_tokens",
+		timeBucketExpr,
+	)
+
+	tx := LOG_DB.Table("logs").Select(selectExpr)
+	tx = tx.Where("type = ?", LogTypeConsume)
+
+	if userId != 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	if tokenId != 0 {
+		tx = tx.Where("token_id = ?", tokenId)
+	}
+	if startTimestamp != 0 {
+		tx = tx.Where("created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where("created_at <= ?", endTimestamp)
+	}
+
+	tx = tx.Group("token_id, token_name, model_name, time_bucket")
+	tx = tx.Order("time_bucket ASC, total_quota DESC")
+
+	var results []TokenSummary
+	if err := tx.Find(&results).Error; err != nil {
+		common.SysError("failed to query token summary: " + err.Error())
+		return nil, errors.New("查询Token统计数据失败")
+	}
+	return results, nil
+}
+
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {
 	tx := LOG_DB.Table("logs").Select("ifnull(sum(prompt_tokens),0) + ifnull(sum(completion_tokens),0)")
 	if username != "" {

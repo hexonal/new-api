@@ -40,6 +40,7 @@ const routerMap = {
   user: '/console/user',
   subscription: '/console/subscription',
   log: '/console/log',
+  'key-cost': '/console/key-cost',
   callback: '/console/callback',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
@@ -90,6 +91,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('使用日志'),
         itemKey: 'log',
         to: '/log',
+      },
+      {
+        text: t('Key 成本分析'),
+        itemKey: 'key-cost',
+        to: '/key-cost',
       },
       {
         text: t('素材管理'),

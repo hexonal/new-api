@@ -76,6 +76,7 @@ import {
   Server,
   CalendarClock,
   Image,
+  TrendingUp,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -129,6 +130,8 @@ export function getLucideIcon(key, selected = false) {
       return <Image {...commonProps} color={iconColor} />;
     case 'log':
       return <BarChart3 {...commonProps} color={iconColor} />;
+    case 'key-cost':
+      return <TrendingUp {...commonProps} color={iconColor} />;
     case 'midjourney':
       return <ImageIcon {...commonProps} color={iconColor} />;
     case 'task':

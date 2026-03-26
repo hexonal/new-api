@@ -37,6 +37,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     token: true,
     asset: true,
     log: true,
+    'key-cost': true,
     callback: true,
     midjourney: true,
     task: true,
