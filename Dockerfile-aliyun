@@ -1,4 +1,4 @@
-FROM ima-registry-vpc.cn-beijing.cr.aliyuncs.com/liveme-base/node:22-alpine AS builder
+FROM ima-registry.cn-beijing.cr.aliyuncs.com/liveme-base/node:22-alpine AS builder
 
 WORKDIR /build
 COPY web/package.json .
@@ -7,7 +7,7 @@ COPY ./web .
 COPY ./VERSION .
 RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat VERSION) npm run build
 
-FROM ima-registry-vpc.cn-beijing.cr.aliyuncs.com/liveme-base/golang:1.25.1-alpine AS builder2
+FROM ima-registry.cn-beijing.cr.aliyuncs.com/liveme-base/golang:1.25.1-alpine AS builder2
 ENV GO111MODULE=on CGO_ENABLED=0
 
 ARG TARGETOS
