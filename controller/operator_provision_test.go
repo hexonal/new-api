@@ -181,12 +181,13 @@ func TestOperatorProvisionReusesBaseIMAUserWhenSuffixUsernameProvided(t *testing
 	}
 }
 
-func TestOperatorProvisionCreatesSuffixUsernameWhenBaseNotFound(t *testing.T) {
+func TestOperatorProvisionCreatesBaseUsernameWhenSuffixUsernameProvidedAndBaseNotFound(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
-	targetUsername := "ima_1998990577523736577_66cca569"
+	suffixUsername := "ima_1998990577523736577_66cca569"
+	baseUsername := "ima_1998990577523736577"
 
 	resp := performProvisionRequest(t, map[string]any{
-		"username": targetUsername,
+		"username": suffixUsername,
 		"token":    "ima_newtokenx1",
 	})
 	if !resp.Success {
@@ -194,11 +195,19 @@ func TestOperatorProvisionCreatesSuffixUsernameWhenBaseNotFound(t *testing.T) {
 	}
 
 	var created model.User
-	if err := db.Where("username = ?", targetUsername).First(&created).Error; err != nil {
-		t.Fatalf("expected suffix username to be created: %v", err)
+	if err := db.Where("username = ?", baseUsername).First(&created).Error; err != nil {
+		t.Fatalf("expected base username to be created: %v", err)
 	}
 	if created.Id != resp.Data.UserID {
 		t.Fatalf("response user_id=%d does not match created user id=%d", resp.Data.UserID, created.Id)
+	}
+
+	var suffixCount int64
+	if err := db.Model(&model.User{}).Where("username = ?", suffixUsername).Count(&suffixCount).Error; err != nil {
+		t.Fatalf("failed to count suffix username rows: %v", err)
+	}
+	if suffixCount != 0 {
+		t.Fatalf("expected no suffix username rows, got %d", suffixCount)
 	}
 }
 

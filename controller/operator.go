@@ -73,6 +73,22 @@ func getOperatorProvisionUsernameCandidates(username string) []string {
 	return candidates
 }
 
+func normalizeOperatorProvisionCreateUsername(username string) string {
+	normalized := strings.TrimSpace(username)
+	if normalized == "" {
+		return ""
+	}
+	match := operatorProvisionIMASuffixPattern.FindStringSubmatch(normalized)
+	if len(match) != 2 {
+		return normalized
+	}
+	baseUsername := strings.TrimSpace(match[1])
+	if baseUsername == "" {
+		return normalized
+	}
+	return baseUsername
+}
+
 func findOperatorProvisionUserByCandidates(tx *gorm.DB, candidates []string) (model.User, bool, error) {
 	for _, candidate := range candidates {
 		if strings.TrimSpace(candidate) == "" {
@@ -145,8 +161,9 @@ func OperatorProvision(c *gin.Context) {
 	if req.TokenName == "" {
 		req.TokenName = "default"
 	}
+	createUsername := normalizeOperatorProvisionCreateUsername(req.Username)
 	if req.DisplayName == "" {
-		req.DisplayName = req.Username
+		req.DisplayName = createUsername
 	}
 	if len(req.DisplayName) > model.UserNameMaxLength {
 		req.DisplayName = req.DisplayName[:model.UserNameMaxLength]
@@ -192,7 +209,7 @@ func OperatorProvision(c *gin.Context) {
 
 		// Try to create user inside the transaction to avoid race conditions.
 		cleanUser := model.User{
-			Username:    req.Username,
+			Username:    createUsername,
 			DisplayName: req.DisplayName,
 			Password:    req.Password,
 			Group:       req.Group,
