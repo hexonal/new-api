@@ -68,7 +68,7 @@ export const useKeyCompareData = () => {
       });
       const { success, message, data } = res.data;
       if (success) {
-        setTokens(data || []);
+        setTokens(Array.isArray(data) ? data : (data?.items || []));
       } else {
         showError(message);
       }

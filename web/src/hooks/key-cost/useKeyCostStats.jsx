@@ -21,7 +21,8 @@ export const useKeyCostStats = (summaryData, t) => {
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
-    for (const item of summaryData) {
+    const safeData = Array.isArray(summaryData) ? summaryData : [];
+    for (const item of safeData) {
       totalQuota += item.total_quota || 0;
       totalRequests += item.request_count || 0;
       totalPromptTokens += item.prompt_tokens || 0;
