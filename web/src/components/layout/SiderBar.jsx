@@ -52,6 +52,7 @@ const routerMap = {
   deployment: '/console/deployment',
   playground: '/console/playground',
   personal: '/console/personal',
+  'group-management': '/console/setting/group-management',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -201,6 +202,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         itemKey: 'user',
         to: '/user',
         className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('分组管理'),
+        itemKey: 'group-management',
+        to: '/setting/group-management',
+        className: isRoot() ? '' : 'tableHiddle',
       },
       {
         text: t('系统设置'),

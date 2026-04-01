@@ -27,6 +27,7 @@ import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
 import Forbidden from './pages/Forbidden';
 import Setting from './pages/Setting';
+import GroupManagement from './pages/Setting/GroupManagement';
 import { StatusContext } from './context/Status';
 
 import PasswordResetForm from './components/auth/PasswordResetForm';
@@ -267,6 +268,14 @@ function App() {
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <Setting />
               </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/setting/group-management'
+          element={
+            <AdminRoute>
+              <GroupManagement />
             </AdminRoute>
           }
         />
