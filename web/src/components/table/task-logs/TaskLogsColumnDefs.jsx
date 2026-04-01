@@ -480,11 +480,16 @@ export const getTaskLogsColumns = ({
         // 视频预览：优先使用 result_url，兼容旧数据 fail_reason 中的 URL
         const isVideoTask =
           record.action === TASK_ACTION_GENERATE ||
+          record.action === TASK_ACTION_TEXT_GENERATE ||
           record.action === TASK_ACTION_FIRST_TAIL_GENERATE ||
           record.action === TASK_ACTION_REFERENCE_GENERATE ||
           record.action === TASK_ACTION_REMIX_GENERATE;
         const modelName = String(
-          record.model || record.model_name || '',
+          record.model ||
+            record.model_name ||
+            record.properties?.origin_model_name ||
+            record.properties?.upstream_model_name ||
+            '',
         ).toLowerCase();
         const isImageModel =
           modelName.includes('image-preview') ||
@@ -500,7 +505,7 @@ export const getTaskLogsColumns = ({
               target='_blank'
               rel='noopener noreferrer'
             >
-              {t('查看图片')}
+              {t('点击预览图片')}
             </a>
           );
         }

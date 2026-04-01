@@ -12,6 +12,23 @@ import {
   METRIC_TOKENS,
 } from '../../constants/key-cost.constants';
 
+const normalizeSeriesLabel = (value, fallback) => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    const str = String(value);
+    return str && str !== '[object Object]' ? str : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 /**
  * Build VChart specs for the multi-Key comparison view.
  *
@@ -33,7 +50,10 @@ export const useKeyCompareCharts = (
   const tokenNameMap = useMemo(() => {
     const map = new Map();
     for (const tok of tokens) {
-      map.set(tok.id, tok.name || `Key #${tok.id}`);
+      map.set(
+        tok.id,
+        normalizeSeriesLabel(tok.name, `Key #${tok.id}`),
+      );
     }
     return map;
   }, [tokens]);
@@ -72,8 +92,10 @@ export const useKeyCompareCharts = (
 
     for (const [tokenId, records] of compareData) {
       const { totals } = aggregateByTimeBucket(records);
-      const name =
-        tokenNameMap.get(tokenId) || `Key #${tokenId}`;
+      const name = normalizeSeriesLabel(
+        tokenNameMap.get(tokenId),
+        `Key #${tokenId}`,
+      );
       const color = COMPARE_COLORS[colorIdx % COMPARE_COLORS.length];
       colorIdx++;
 
@@ -92,7 +114,7 @@ export const useKeyCompareCharts = (
       colorSpec[name] = color;
       for (const b of totals) {
         values.push({
-          Time: b.time_bucket,
+          Time: normalizeSeriesLabel(b.time_bucket, ''),
           Key: name,
           Value: metric.extractor(b),
         });

@@ -37,6 +37,23 @@ import {
   ILLUSTRATION_SIZE,
 } from '../constants/dashboard.constants';
 
+const normalizeChartCategory = (value, fallback = 'unknown') => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    const str = String(value);
+    return str && str !== '[object Object]' ? str : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 // ========== 时间相关工具函数 ==========
 export const getDefaultTime = () => {
   return localStorage.getItem(STORAGE_KEYS.DATA_EXPORT_DEFAULT_TIME) || 'hour';
@@ -264,7 +281,8 @@ export const processRawData = (
   const showYear = isDataCrossYear(data.map((item) => item.created_at));
 
   data.forEach((item) => {
-    result.uniqueModels.add(item.model_name);
+    const modelName = normalizeChartCategory(item.model_name, 'unknown');
+    result.uniqueModels.add(modelName);
     result.totalTokens += item.token_used;
     result.totalQuota += item.quota;
     result.totalTimes += item.count;
@@ -340,7 +358,7 @@ export const aggregateDataByTimeAndModel = (data, dataExportDefaultTime) => {
       dataExportDefaultTime,
       showYear,
     );
-    const modelKey = item.model_name;
+    const modelKey = normalizeChartCategory(item.model_name, 'unknown');
     const key = `${timeKey}-${modelKey}`;
 
     if (!aggregatedData.has(key)) {

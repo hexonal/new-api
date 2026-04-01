@@ -317,6 +317,10 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    poll_interval_seconds: 0,
+    poll_initial_delay_seconds: 0,
+    poll_timeout_hours: 0,
+    poll_qps: 0,
     ima_pro_tenant_id: '',
     ima_pro_app_id: '',
     ima_pro_app_kind: '',
@@ -678,6 +682,10 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    poll_interval_seconds: 0,
+    poll_initial_delay_seconds: 0,
+    poll_timeout_hours: 0,
+    poll_qps: 0,
     ima_pro_tenant_id: '',
     ima_pro_app_id: '',
     ima_pro_app_kind: '',
@@ -1026,6 +1034,13 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          data.poll_interval_seconds =
+            Number(parsedSettings.poll_interval_seconds) || 0;
+          data.poll_initial_delay_seconds =
+            Number(parsedSettings.poll_initial_delay_seconds) || 0;
+          data.poll_timeout_hours =
+            Number(parsedSettings.poll_timeout_hours) || 0;
+          data.poll_qps = Number(parsedSettings.poll_qps) || 0;
           data.ima_pro_tenant_id = parsedSettings.ima_pro_tenant_id || '';
           data.ima_pro_app_id = parsedSettings.ima_pro_app_id || '';
           data.ima_pro_app_kind = parsedSettings.ima_pro_app_kind || '';
@@ -1040,6 +1055,10 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.poll_interval_seconds = 0;
+          data.poll_initial_delay_seconds = 0;
+          data.poll_timeout_hours = 0;
+          data.poll_qps = 0;
           data.ima_pro_tenant_id = '';
           data.ima_pro_app_id = '';
           data.ima_pro_app_kind = '';
@@ -1054,6 +1073,10 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.poll_interval_seconds = 0;
+        data.poll_initial_delay_seconds = 0;
+        data.poll_timeout_hours = 0;
+        data.poll_qps = 0;
         data.ima_pro_tenant_id = '';
         data.ima_pro_app_id = '';
         data.ima_pro_app_kind = '';
@@ -1221,6 +1244,10 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        poll_interval_seconds: data.poll_interval_seconds || 0,
+        poll_initial_delay_seconds: data.poll_initial_delay_seconds || 0,
+        poll_timeout_hours: data.poll_timeout_hours || 0,
+        poll_qps: data.poll_qps || 0,
         ima_pro_tenant_id: data.ima_pro_tenant_id || '',
         ima_pro_app_id: data.ima_pro_app_id || '',
         ima_pro_app_kind: data.ima_pro_app_kind || '',
@@ -1585,6 +1612,10 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      poll_interval_seconds: 0,
+      poll_initial_delay_seconds: 0,
+      poll_timeout_hours: 0,
+      poll_qps: 0,
       ima_pro_tenant_id: '',
       ima_pro_app_id: '',
       ima_pro_app_kind: '',
@@ -1967,6 +1998,11 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      poll_interval_seconds: Number(localInputs.poll_interval_seconds) || 0,
+      poll_initial_delay_seconds:
+        Number(localInputs.poll_initial_delay_seconds) || 0,
+      poll_timeout_hours: Number(localInputs.poll_timeout_hours) || 0,
+      poll_qps: Number(localInputs.poll_qps) || 0,
       ima_pro_tenant_id: (localInputs.ima_pro_tenant_id || '').trim(),
       ima_pro_app_id: (localInputs.ima_pro_app_id || '').trim(),
       ima_pro_app_kind: (localInputs.ima_pro_app_kind || '').trim(),
@@ -2232,6 +2268,10 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.poll_interval_seconds;
+    delete localInputs.poll_initial_delay_seconds;
+    delete localInputs.poll_timeout_hours;
+    delete localInputs.poll_qps;
     delete localInputs.ima_pro_tenant_id;
     delete localInputs.ima_pro_app_id;
     delete localInputs.ima_pro_app_kind;
@@ -4681,6 +4721,73 @@ const EditChannelModal = (props) => {
                         '如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面',
                       )}
                     />
+
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='poll_interval_seconds'
+                          label={t('轮询间隔(秒)')}
+                          placeholder={t('默认15')}
+                          min={0}
+                          onNumberChange={(value) =>
+                            handleChannelSettingsChange(
+                              'poll_interval_seconds',
+                              value || 0,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='poll_initial_delay_seconds'
+                          label={t('首次轮询延迟(秒)')}
+                          placeholder={t('默认0')}
+                          min={0}
+                          onNumberChange={(value) =>
+                            handleChannelSettingsChange(
+                              'poll_initial_delay_seconds',
+                              value || 0,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                    </Row>
+
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='poll_timeout_hours'
+                          label={t('超时豁免(小时)')}
+                          placeholder={t('0=使用全局')}
+                          min={0}
+                          onNumberChange={(value) =>
+                            handleChannelSettingsChange(
+                              'poll_timeout_hours',
+                              value || 0,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='poll_qps'
+                          label={t('轮询QPS')}
+                          placeholder={t('0=使用全局默认')}
+                          min={0}
+                          step={0.5}
+                          onNumberChange={(value) =>
+                            handleChannelSettingsChange(
+                              'poll_qps',
+                              value || 0,
+                            )
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                    </Row>
                   </Card>
                 </div>
               </div>

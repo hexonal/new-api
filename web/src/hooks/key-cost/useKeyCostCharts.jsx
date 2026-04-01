@@ -8,6 +8,23 @@ import {
 } from '../../helpers/key-cost';
 import { TOP_N_MODELS } from '../../constants/key-cost.constants';
 
+const normalizeCategory = (value, fallback = 'unknown') => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    const str = String(value);
+    return str && str !== '[object Object]' ? str : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 /**
  * Generate VChart specs for the Key Cost Analysis dashboard.
  *
@@ -37,8 +54,8 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
     for (const [model, buckets] of byModel) {
       for (const b of buckets) {
         values.push({
-          Time: b.time_bucket,
-          Model: model,
+          Time: normalizeCategory(b.time_bucket, ''),
+          Model: normalizeCategory(model, 'unknown'),
           Cost: quotaToNumeric(b.quota),
         });
       }
@@ -77,7 +94,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   // ========== Request trend line ==========
   const specRequestLine = useMemo(() => {
     const values = totals.map((b) => ({
-      Time: b.time_bucket,
+      Time: normalizeCategory(b.time_bucket, ''),
       Count: b.count,
     }));
 
@@ -111,7 +128,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   // ========== Token trend line ==========
   const specTokenLine = useMemo(() => {
     const values = totals.map((b) => ({
-      Time: b.time_bucket,
+      Time: normalizeCategory(b.time_bucket, ''),
       Tokens: b.tokens,
     }));
 
@@ -145,7 +162,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   // ========== Pie chart (model cost share) ==========
   const specPie = useMemo(() => {
     const values = modelAgg.map((m) => ({
-      type: m.model,
+      type: normalizeCategory(m.model, 'unknown'),
       value: quotaToNumeric(m.quota),
     }));
 
@@ -190,7 +207,7 @@ export const useKeyCostCharts = (summaryData, granularity, t) => {
   // ========== Rank bar (horizontal, by model cost) ==========
   const specRankBar = useMemo(() => {
     const values = modelAgg.map((m) => ({
-      Model: m.model,
+      Model: normalizeCategory(m.model, 'unknown'),
       Cost: quotaToNumeric(m.quota),
     }));
 

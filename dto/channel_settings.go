@@ -15,6 +15,11 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// Task polling overrides (per-channel, 0 = use global default)
+	PollIntervalSeconds     int     `json:"poll_interval_seconds,omitempty"`
+	PollInitialDelaySeconds int     `json:"poll_initial_delay_seconds,omitempty"`
+	PollTimeoutHours        int     `json:"poll_timeout_hours,omitempty"`
+	PollQPS                 float64 `json:"poll_qps,omitempty"`
 	// IMA Pro submit payload overrides (channel-scoped).
 	// When configured, these values override request metadata values.
 	ImaProTenantID string `json:"ima_pro_tenant_id,omitempty"`

@@ -1,6 +1,26 @@
 import { TOP_N_MODELS } from '../constants/key-cost.constants';
 import { getQuotaWithUnit, renderQuotaNumberWithDigit } from './render';
 
+function normalizeChartCategory(value, fallback = 'unknown') {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? fallback : value.toISOString();
+  }
+  try {
+    const str = String(value);
+    return str && str !== '[object Object]' ? str : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * Return a default date range of [7 days ago, now].
  */
@@ -38,7 +58,7 @@ export function formatQuotaDisplay(num, digits = 2) {
 export function aggregateByModel(data, topN = TOP_N_MODELS) {
   const map = new Map();
   for (const item of data) {
-    const model = item.model_name || 'unknown';
+    const model = normalizeChartCategory(item.model_name, 'unknown');
     if (!map.has(model)) {
       map.set(model, { model, quota: 0, count: 0, tokens: 0 });
     }
@@ -74,8 +94,8 @@ export function aggregateByTimeBucket(data) {
   const modelMap = new Map();
 
   for (const item of data) {
-    const tb = item.time_bucket || '';
-    const model = item.model_name || 'unknown';
+    const tb = normalizeChartCategory(item.time_bucket, '');
+    const model = normalizeChartCategory(item.model_name, 'unknown');
 
     if (!totalMap.has(tb)) {
       totalMap.set(tb, { time_bucket: tb, quota: 0, count: 0, tokens: 0 });
