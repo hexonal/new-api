@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -650,7 +651,9 @@ func RelayTask(c *gin.Context) {
 		if insertErr := task.Insert(); insertErr != nil {
 			common.SysError("insert task error: " + insertErr.Error())
 		} else {
-			service.AddTaskToPollingQueue(task.TaskID)
+			if result.Platform != constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeYouchuan)) {
+				service.AddTaskToPollingQueue(task.TaskID, task.SubmitTime)
+			}
 		}
 	}
 

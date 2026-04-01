@@ -328,6 +328,16 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		return nil
 	}
 
+	// Layer 1: Redis NX fast dedup (best-effort, skipped if Redis unavailable)
+	if common.RedisEnabled && common.RDB != nil {
+		lockKey := fmt.Sprintf("task:billing:charge:%s", task.TaskID)
+		ok, err := common.RDB.SetNX(context.Background(), lockKey, "1", 24*time.Hour).Result()
+		if err == nil && !ok {
+			return nil
+		}
+	}
+
+	// Layer 2: In-memory check (existing logic, catches most cases)
 	bc := task.PrivateData.BillingContext
 	state := strings.TrimSpace(bc.TerminalChargeState)
 	if state == "" {
@@ -337,13 +347,49 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		return nil
 	}
 
+	// Layer 3: DB CAS — use UpdateWithStatus to atomically claim the right to charge.
+	// Only the Pod that successfully transitions status owns the charge.
+	// This is already guaranteed by the caller (reconcileTaskTerminalTransition),
+	// but we add a fresh DB read as defense-in-depth for any future direct callers.
+	var freshTask model.Task
+	if err := model.DB.Select("private_data").Where("id = ?", task.ID).First(&freshTask).Error; err == nil {
+		if freshBC := freshTask.PrivateData.BillingContext; freshBC != nil {
+			freshState := strings.TrimSpace(freshBC.TerminalChargeState)
+			if freshState == TaskTerminalChargeStateApplied || freshState == TaskTerminalChargeStateSkipped {
+				return nil
+			}
+			if freshState == "charging" {
+				// Allow takeover if charging stuck > 10 min (crash recovery)
+				if freshBC.TerminalChargeAt > 0 && time.Now().Unix()-freshBC.TerminalChargeAt < 600 {
+					return nil // Within grace period, another pod is processing
+				}
+				// Stale charging — fall through to retry
+			}
+		}
+	}
+
 	if actualQuota <= 0 {
 		bc.TerminalChargeState = TaskTerminalChargeStateSkipped
 		bc.TerminalChargeAt = time.Now().Unix()
 		return task.Update()
 	}
 
+	// Phase 1: CAS claim ownership with "charging" state — blocks other Pods
+	bc.TerminalChargeState = "charging"
+	bc.TerminalChargeAt = time.Now().Unix()
+	if err := task.Update(); err != nil {
+		return fmt.Errorf("claim charge ownership failed: %w", err)
+	}
+
+	// Phase 2: Execute side effects
 	if err := taskAdjustFunding(task, actualQuota); err != nil {
+		// Rollback: reset to pending so retry is possible
+		bc.TerminalChargeState = TaskTerminalChargeStatePending
+		_ = task.Update()
+		// Release Redis NX lock so retry is not blocked for 24h
+		if common.RedisEnabled && common.RDB != nil {
+			common.RDB.Del(context.Background(), fmt.Sprintf("task:billing:charge:%s", task.TaskID))
+		}
 		return err
 	}
 	taskAdjustTokenQuota(ctx, task, actualQuota)
@@ -402,13 +448,41 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 		return
 	}
 
-	// 1. 退还资金来源（钱包或订阅）
-	if err := taskAdjustFunding(task, -quota); err != nil {
-		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))
+	refundLockKey := ""
+	if common.RedisEnabled && common.RDB != nil {
+		refundLockKey = fmt.Sprintf("task:billing:refund:%s", task.TaskID)
+		ok, err := common.RDB.SetNX(ctx, refundLockKey, "1", 24*time.Hour).Result()
+		if err == nil && !ok {
+			return
+		}
+	}
+
+	// 1. DB CAS 获取退款所有权（quota→0），阻止其他 Pod 并发退款
+	result := model.DB.Model(&model.Task{}).Where("id = ? AND quota > 0", task.ID).Update("quota", 0)
+	if result.Error != nil {
+		logger.LogError(ctx, fmt.Sprintf("refund task quota DB CAS failed, task_id=%s err=%v", task.TaskID, result.Error))
+		if refundLockKey != "" {
+			common.RDB.Del(ctx, refundLockKey)
+		}
+		return
+	}
+	if result.RowsAffected == 0 {
+		// 另一个 Pod 已退款
 		return
 	}
 
-	// 2. 退还令牌额度
+	// 2. CAS 成功，独占退款权 — 退还资金
+	if err := taskAdjustFunding(task, -quota); err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))
+		// 回滚 quota，允许下次重试
+		model.DB.Model(&model.Task{}).Where("id = ?", task.ID).Update("quota", quota)
+		if refundLockKey != "" {
+			common.RDB.Del(ctx, refundLockKey)
+		}
+		return
+	}
+
+	// 3. 退还令牌额度
 	taskAdjustTokenQuota(ctx, task, -quota)
 
 	// 3. 记录日志

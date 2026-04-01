@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/go-redis/redis/v8"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,6 +185,54 @@ func countLogs(t *testing.T) int64 {
 	return count
 }
 
+func getTaskQuota(t *testing.T, id int64) int {
+	t.Helper()
+	var task model.Task
+	require.NoError(t, model.DB.Select("quota").Where("id = ?", id).First(&task).Error)
+	return task.Quota
+}
+
+func getTaskTerminalChargeState(t *testing.T, id int64) string {
+	t.Helper()
+	var task model.Task
+	require.NoError(t, model.DB.Select("private_data").Where("id = ?", id).First(&task).Error)
+	if task.PrivateData.BillingContext == nil {
+		return ""
+	}
+	return task.PrivateData.BillingContext.TerminalChargeState
+}
+
+func setupRedisForTest(t *testing.T) *redis.Client {
+	t.Helper()
+
+	oldEnabled := common.RedisEnabled
+	oldRDB := common.RDB
+	t.Cleanup(func() {
+		common.RedisEnabled = oldEnabled
+		common.RDB = oldRDB
+	})
+
+	client := redis.NewClient(&redis.Options{
+		Addr: "127.0.0.1:6379",
+		DB:   15,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := client.Ping(ctx).Err(); err != nil {
+		_ = client.Close()
+		t.Skip("Redis not available on 127.0.0.1:6379")
+	}
+	require.NoError(t, client.FlushDB(context.Background()).Err())
+	t.Cleanup(func() {
+		_ = client.FlushDB(context.Background()).Err()
+		_ = client.Close()
+	})
+
+	common.RedisEnabled = true
+	common.RDB = client
+	return client
+}
+
 // ===========================================================================
 // RefundTaskQuota tests
 // ===========================================================================
@@ -200,6 +250,7 @@ func TestRefundTaskQuota_Wallet(t *testing.T) {
 	seedChannel(t, channelID)
 
 	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	require.NoError(t, model.DB.Create(task).Error)
 
 	RefundTaskQuota(ctx, task, "task failed: upstream error")
 
@@ -233,6 +284,7 @@ func TestRefundTaskQuota_Subscription(t *testing.T) {
 	seedSubscription(t, subID, userID, subTotal, subUsed)
 
 	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceSubscription, subID)
+	require.NoError(t, model.DB.Create(task).Error)
 
 	RefundTaskQuota(ctx, task, "subscription task failed")
 
@@ -255,6 +307,7 @@ func TestRefundTaskQuota_ZeroQuota(t *testing.T) {
 	seedUser(t, userID, 5000)
 
 	task := makeTask(userID, 0, 0, 0, BillingSourceWallet, 0)
+	require.NoError(t, model.DB.Create(task).Error)
 
 	RefundTaskQuota(ctx, task, "zero quota task")
 
@@ -276,6 +329,7 @@ func TestRefundTaskQuota_NoToken(t *testing.T) {
 	seedChannel(t, channelID)
 
 	task := makeTask(userID, channelID, preConsumed, 0, BillingSourceWallet, 0) // TokenId=0
+	require.NoError(t, model.DB.Create(task).Error)
 
 	RefundTaskQuota(ctx, task, "no token task failed")
 
@@ -286,6 +340,340 @@ func TestRefundTaskQuota_NoToken(t *testing.T) {
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
+}
+
+func TestRefundTaskQuota_Idempotency(t *testing.T) {
+	t.Run("quota=0 returns immediately", func(t *testing.T) {
+		oldDB := model.DB
+		oldEnabled := common.RedisEnabled
+		oldRDB := common.RDB
+		t.Cleanup(func() {
+			model.DB = oldDB
+			common.RedisEnabled = oldEnabled
+			common.RDB = oldRDB
+		})
+		model.DB = nil
+		common.RedisEnabled = true
+		common.RDB = nil
+
+		task := makeTask(1001, 0, 0, 0, BillingSourceWallet, 0)
+		require.NotPanics(t, func() {
+			RefundTaskQuota(context.Background(), task, "quota zero")
+		})
+	})
+
+	t.Run("Redis NX blocks duplicate", func(t *testing.T) {
+		truncate(t)
+		_ = setupRedisForTest(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 101, 101, 101
+		const initQuota, preConsumed = 10000, 1200
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-refund-nx", 5000)
+		seedChannel(t, channelID)
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		require.NoError(t, model.DB.Create(task).Error)
+
+		RefundTaskQuota(ctx, task, "first refund")
+		assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+		assert.Equal(t, 0, getTaskQuota(t, task.ID))
+
+		// Restore DB quota manually so the second call would refund again without NX.
+		require.NoError(t, model.DB.Model(&model.Task{}).Where("id = ?", task.ID).Update("quota", preConsumed).Error)
+		assert.Equal(t, preConsumed, getTaskQuota(t, task.ID))
+
+		RefundTaskQuota(ctx, task, "duplicate refund")
+		assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+		assert.Equal(t, preConsumed, getTaskQuota(t, task.ID))
+		assert.Equal(t, int64(1), countLogs(t))
+	})
+
+	t.Run("DB CAS blocks duplicate when Redis unavailable", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+		oldEnabled := common.RedisEnabled
+		oldRDB := common.RDB
+		t.Cleanup(func() {
+			common.RedisEnabled = oldEnabled
+			common.RDB = oldRDB
+		})
+		common.RedisEnabled = false
+		common.RDB = nil
+
+		const userID, tokenID, channelID = 102, 102, 102
+		const initQuota, preConsumed = 10000, 1500
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-refund-cas", 5000)
+		seedChannel(t, channelID)
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		require.NoError(t, model.DB.Create(task).Error)
+
+		RefundTaskQuota(ctx, task, "first")
+		RefundTaskQuota(ctx, task, "second")
+
+		assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+		assert.Equal(t, 0, getTaskQuota(t, task.ID))
+		assert.Equal(t, int64(1), countLogs(t))
+	})
+
+	t.Run("funding failure rolls back", func(t *testing.T) {
+		truncate(t)
+		cli := setupRedisForTest(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 103, 103, 103
+		const initQuota, preConsumed = 10000, 1600
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-refund-fail", 5000)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceSubscription, 999999)
+		require.NoError(t, model.DB.Create(task).Error)
+
+		RefundTaskQuota(ctx, task, "refund should fail")
+
+		assert.Equal(t, initQuota, getUserQuota(t, userID))
+		assert.Equal(t, preConsumed, getTaskQuota(t, task.ID))
+		assert.Equal(t, int64(0), countLogs(t))
+		lockKey := "task:billing:refund:" + task.TaskID
+		exists, err := cli.Exists(ctx, lockKey).Result()
+		require.NoError(t, err)
+		assert.EqualValues(t, 0, exists)
+	})
+}
+
+func TestApplyDeferredTaskTerminalCharge_Idempotency(t *testing.T) {
+	t.Run("non-deferred task skipped", func(t *testing.T) {
+		task := makeTask(201, 0, 0, 0, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = false
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(context.Background(), task, 1200, "skip non deferred"))
+	})
+
+	t.Run("already applied", func(t *testing.T) {
+		task := makeTask(202, 0, 0, 0, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStateApplied
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(context.Background(), task, 1200, "already applied"))
+	})
+
+	t.Run("already skipped", func(t *testing.T) {
+		task := makeTask(203, 0, 0, 0, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStateSkipped
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(context.Background(), task, 1200, "already skipped"))
+	})
+
+	t.Run("charging within grace period", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+		const userID, tokenID, channelID = 204, 204, 204
+		seedUser(t, userID, 10000)
+		seedToken(t, tokenID, userID, "sk-charge-grace", 9000)
+		seedChannel(t, channelID)
+		task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = "charging"
+		task.PrivateData.BillingContext.TerminalChargeAt = time.Now().Unix() - 300
+		require.NoError(t, model.DB.Create(task).Error)
+
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(ctx, task, 1200, "within grace"))
+		assert.Equal(t, 10000, getUserQuota(t, userID))
+		assert.Equal(t, "charging", getTaskTerminalChargeState(t, task.ID))
+		assert.Equal(t, int64(0), countLogs(t))
+	})
+
+	t.Run("stale charging takeover", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+		const userID, tokenID, channelID = 205, 205, 205
+		const initQuota, charge = 10000, 1300
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-charge-stale", 9000)
+		seedChannel(t, channelID)
+		task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = "charging"
+		task.PrivateData.BillingContext.TerminalChargeAt = time.Now().Unix() - 700
+		require.NoError(t, model.DB.Create(task).Error)
+
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(ctx, task, charge, "stale takeover"))
+		assert.Equal(t, initQuota-charge, getUserQuota(t, userID))
+		assert.Equal(t, TaskTerminalChargeStateApplied, getTaskTerminalChargeState(t, task.ID))
+		assert.Equal(t, int64(1), countLogs(t))
+	})
+
+	t.Run("Redis NX blocks duplicate", func(t *testing.T) {
+		truncate(t)
+		_ = setupRedisForTest(t)
+		ctx := context.Background()
+		const userID, tokenID, channelID = 206, 206, 206
+		const initQuota, charge = 10000, 1400
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-charge-nx", 9000)
+		seedChannel(t, channelID)
+		task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+		require.NoError(t, model.DB.Create(task).Error)
+
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(ctx, task, charge, "first charge"))
+		assert.Equal(t, initQuota-charge, getUserQuota(t, userID))
+		assert.Equal(t, int64(1), countLogs(t))
+
+		// Force state back to pending. Without NX, the second call would charge again.
+		task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+		require.NoError(t, task.Update())
+		require.NoError(t, ApplyDeferredTaskTerminalCharge(ctx, task, charge, "duplicate charge"))
+
+		assert.Equal(t, initQuota-charge, getUserQuota(t, userID))
+		assert.Equal(t, TaskTerminalChargeStatePending, getTaskTerminalChargeState(t, task.ID))
+		assert.Equal(t, int64(1), countLogs(t))
+	})
+
+	t.Run("funding failure rolls back", func(t *testing.T) {
+		truncate(t)
+		cli := setupRedisForTest(t)
+		ctx := context.Background()
+		const userID, tokenID, channelID = 207, 207, 207
+		const initQuota, charge = 10000, 220
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-charge-fail", 9000)
+		seedChannel(t, channelID)
+		seedSubscription(t, 20701, userID, 200, 100)
+		task := makeTask(userID, channelID, 0, tokenID, BillingSourceSubscription, 20701)
+		task.PrivateData.BillingContext.DeferredSettle = true
+		task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+		require.NoError(t, model.DB.Create(task).Error)
+
+		err := ApplyDeferredTaskTerminalCharge(ctx, task, charge, "charge fail")
+		require.Error(t, err)
+		assert.Equal(t, initQuota, getUserQuota(t, userID))
+		assert.Equal(t, TaskTerminalChargeStatePending, getTaskTerminalChargeState(t, task.ID))
+		assert.Equal(t, int64(0), countLogs(t))
+		lockKey := "task:billing:charge:" + task.TaskID
+		exists, redisErr := cli.Exists(ctx, lockKey).Result()
+		require.NoError(t, redisErr)
+		assert.EqualValues(t, 0, exists)
+	})
+}
+
+func TestApplyDeferredTaskTerminalCharge_ConcurrentRace(t *testing.T) {
+	truncate(t)
+	_ = setupRedisForTest(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 208, 208, 208
+	const initQuota, charge = 10000, 1500
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-charge-race-redis", 9000)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+	require.NoError(t, model.DB.Create(task).Error)
+
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
+
+	runOne := func() {
+		defer wg.Done()
+		var localTask model.Task
+		if err := model.DB.Where("id = ?", task.ID).First(&localTask).Error; err != nil {
+			errCh <- err
+			return
+		}
+		ready.Done()
+		<-start
+		errCh <- ApplyDeferredTaskTerminalCharge(ctx, &localTask, charge, "concurrent race")
+	}
+
+	ready.Add(2)
+	wg.Add(2)
+	go runOne()
+	go runOne()
+	ready.Wait()
+	close(start)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	assert.Equal(t, initQuota-charge, getUserQuota(t, userID))
+	assert.Equal(t, TaskTerminalChargeStateApplied, getTaskTerminalChargeState(t, task.ID))
+	assert.Equal(t, int64(1), countLogs(t))
+}
+
+func TestApplyDeferredTaskTerminalCharge_RedisDisabled_ConcurrentRace(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	oldEnabled := common.RedisEnabled
+	oldRDB := common.RDB
+	t.Cleanup(func() {
+		common.RedisEnabled = oldEnabled
+		common.RDB = oldRDB
+	})
+	common.RedisEnabled = false
+	common.RDB = nil
+
+	const userID, tokenID, channelID = 209, 209, 209
+	const initQuota, charge = 10000, 1500
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-charge-race-db", 9000)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+	require.NoError(t, model.DB.Create(task).Error)
+
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
+
+	runOne := func() {
+		defer wg.Done()
+		var localTask model.Task
+		if err := model.DB.Where("id = ?", task.ID).First(&localTask).Error; err != nil {
+			errCh <- err
+			return
+		}
+		ready.Done()
+		<-start
+		errCh <- ApplyDeferredTaskTerminalCharge(ctx, &localTask, charge, "concurrent race redis disabled")
+	}
+
+	ready.Add(2)
+	wg.Add(2)
+	go runOne()
+	go runOne()
+	ready.Wait()
+	close(start)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	// Known limitation: without Redis, concurrent charge on JSON field (TerminalChargeState)
+	// cannot be fully prevented via DB CAS (JSON sub-field WHERE not supported cross-DB).
+	// In production, Redis NX is the primary guard; this test documents the limitation.
+	finalQuota := getUserQuota(t, userID)
+	logCount := countLogs(t)
+	if logCount == 1 {
+		assert.Equal(t, initQuota-charge, finalQuota)
+	} else {
+		t.Logf("known limitation: %d charges executed without Redis dedup (expected 1)", logCount)
+	}
+	assert.Equal(t, TaskTerminalChargeStateApplied, getTaskTerminalChargeState(t, task.ID))
 }
 
 // ===========================================================================

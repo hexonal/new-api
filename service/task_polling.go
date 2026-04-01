@@ -52,6 +52,13 @@ const (
 	imaProAutoPollWindowSeconds   = 30
 )
 
+func getTaskBackoffSeconds(task *model.Task) int64 {
+	if isImaSlowModel(task) {
+		return imaProAutoPollIntervalSeconds // 300
+	}
+	return int64(taskPollingTickSeconds) // 15
+}
+
 // sweepTimedOutTasks 在主轮询之前独立清理超时任务。
 // 每次最多处理 100 条，剩余的下个周期继续处理。
 // 使用 per-task CAS (UpdateWithStatus) 防止覆盖被正常轮询已推进的任务。
@@ -115,13 +122,41 @@ func shouldSkipTimeoutForSlowModel(task *model.Task, now int64) bool {
 	if !isImaSlowModel(task) {
 		return false
 	}
+	// After 24 hours, allow normal timeout sweep.
+	// If submit_time is 0 (missing/corrupt data), do not exempt — let timeout sweep clean it.
+	imaMaxAgeSeconds := int64(24 * 60 * 60)
+	if task.SubmitTime <= 0 {
+		return false
+	}
+	if now-task.SubmitTime > imaMaxAgeSeconds {
+		return false
+	}
 	// IMA slow models rely on callback + background polling queue.
-	// Do not auto-timeout these tasks in sweep stage.
 	return true
+}
+
+func getTaskPollingOption(key string, defaultValue string) string {
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	val, ok := common.OptionMap[key]
+	if !ok || val == "" {
+		return defaultValue
+	}
+	return val
 }
 
 // TaskPollingLoop 主轮询循环，每 15 秒检查一次未完成的任务
 func TaskPollingLoop() {
+	if getTaskPollingOption("TaskPollingRebuildOnStartup", "true") == "true" {
+		RebuildPollingQueueFromDB()
+	} else {
+		common.SysLog("TaskPollingLoop: RebuildPollingQueueFromDB skipped (disabled by config)")
+	}
+	if getTaskPollingOption("TaskBillingRepairOnStartup", "true") == "true" {
+		repairStuckBillingTasks()
+	} else {
+		common.SysLog("TaskPollingLoop: repairStuckBillingTasks skipped (disabled by config)")
+	}
 	for {
 		time.Sleep(time.Duration(taskPollingTickSeconds) * time.Second)
 		common.SysLog("任务进度轮询开始")
@@ -183,7 +218,14 @@ func DispatchPlatformUpdate(platform constant.TaskPlatform, taskChannelM map[int
 	case constant.TaskPlatformSuno:
 		_ = UpdateSunoTasks(context.Background(), taskChannelM, taskM)
 	case constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeYouchuan)):
-		// 悠船没有查询端点，使用 callback 接收结果，跳过轮询
+		// 悠船没有查询端点，使用 callback 接收结果；清理误入轮询队列的任务。
+		for _, taskIds := range taskChannelM {
+			for _, upstreamID := range taskIds {
+				if task := taskM[upstreamID]; task != nil {
+					RemoveTaskFromPollingQueue(task.TaskID)
+				}
+			}
+		}
 	default:
 		if err := UpdateVideoTasks(context.Background(), platform, taskChannelM, taskM); err != nil {
 			common.SysLog(fmt.Sprintf("UpdateVideoTasks fail: %s", err))
@@ -278,27 +320,50 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		if !taskNeedsUpdate(task, responseItem) {
 			continue
 		}
+		fromStatus := task.Status
 
 		task.Status = lo.If(model.TaskStatus(responseItem.Status) != "", model.TaskStatus(responseItem.Status)).Else(task.Status)
 		task.FailReason = lo.If(responseItem.FailReason != "", responseItem.FailReason).Else(task.FailReason)
 		task.SubmitTime = lo.If(responseItem.SubmitTime != 0, responseItem.SubmitTime).Else(task.SubmitTime)
 		task.StartTime = lo.If(responseItem.StartTime != 0, responseItem.StartTime).Else(task.StartTime)
 		task.FinishTime = lo.If(responseItem.FinishTime != 0, responseItem.FinishTime).Else(task.FinishTime)
-		if responseItem.FailReason != "" || task.Status == model.TaskStatusFailure {
+
+		isFailure := responseItem.FailReason != "" || task.Status == model.TaskStatusFailure
+		isSuccess := responseItem.Status == model.TaskStatusSuccess
+
+		if isFailure {
 			logger.LogInfo(ctx, task.TaskID+" 构建失败，"+task.FailReason)
 			task.Progress = "100%"
-			RefundTaskQuota(ctx, task, task.FailReason)
-			RemoveTaskFromPollingQueue(task.TaskID)
-		}
-		if responseItem.Status == model.TaskStatusSuccess {
+		} else if isSuccess {
 			task.Progress = "100%"
-			RemoveTaskFromPollingQueue(task.TaskID)
 		}
 		task.Data = responseItem.Data
+
+		if isFailure || isSuccess {
+			won, casErr := task.UpdateWithStatus(fromStatus)
+			if casErr != nil {
+				common.SysLog(fmt.Sprintf("UpdateSunoTask CAS error: task_id=%s from=%s err=%s", task.TaskID, fromStatus, casErr.Error()))
+				continue
+			}
+			if !won {
+				common.SysLog(fmt.Sprintf("UpdateSunoTask CAS lost: task_id=%s from=%s (another pod won)", task.TaskID, fromStatus))
+				continue
+			}
+			if isFailure {
+				RefundTaskQuota(ctx, task, task.FailReason)
+				RemoveTaskFromPollingQueue(task.TaskID)
+			} else if isSuccess {
+				RemoveTaskFromPollingQueue(task.TaskID)
+			}
+			continue
+		}
 
 		err = task.Update()
 		if err != nil {
 			common.SysLog("UpdateSunoTask task error: " + err.Error())
+		}
+		if !isTaskTerminalForPollingQueue(task) {
+			RescheduleTask(task.TaskID, time.Now().Unix()+int64(taskPollingTickSeconds))
 		}
 	}
 	return nil
@@ -423,6 +488,9 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		}
 		if err := updateVideoSingleTask(ctx, adaptor, cacheGetChannel, taskId, taskM); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("Failed to update video task %s: %s", taskId, err.Error()))
+		}
+		if task := taskM[taskId]; task != nil && !isTaskTerminalForPollingQueue(task) {
+			RescheduleTask(task.TaskID, time.Now().Unix()+getTaskBackoffSeconds(task))
 		}
 		releaseTaskPollingLease(taskId, leaseToken)
 		polledCount++

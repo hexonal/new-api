@@ -82,6 +82,8 @@ const defaultInputs = {
   AutomaticDisableStatusCodes: '401',
   AutomaticRetryStatusCodes:
     '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+  TaskPollingRebuildOnStartup: true,
+  TaskBillingRepairOnStartup: true,
   'monitor_setting.auto_test_channel_enabled': false,
   'monitor_setting.auto_test_channel_minutes': 10,
   ConsumeCallbackEnabled: false,
@@ -910,6 +912,42 @@ export default function SettingsMonitoring(props) {
               <Button size='default' onClick={onSubmit}>
                 {t('保存监控设置')}
               </Button>
+            </Row>
+          </Form.Section>
+          <Form.Section text='任务轮询设置'>
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Switch
+                  field={'TaskPollingRebuildOnStartup'}
+                  label='启动时重建轮询队列'
+                  extraText='应用启动时从数据库重建 Redis 轮询队列（推荐开启）'
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      TaskPollingRebuildOnStartup: value,
+                    })
+                  }
+                />
+              </Col>
+              <Col span={8}>
+                <Form.Switch
+                  field={'TaskBillingRepairOnStartup'}
+                  label='启动时修复计费异常'
+                  extraText='应用启动时自动修复卡在 charging 状态的任务（推荐开启）'
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      TaskBillingRepairOnStartup: value,
+                    })
+                  }
+                />
+              </Col>
             </Row>
           </Form.Section>
         </Form>

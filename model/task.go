@@ -42,14 +42,14 @@ const (
 )
 
 type Task struct {
-	ID         int64                 `json:"id" gorm:"primaryKey"`
-	CreatedAt  int64                 `json:"created_at" gorm:"index"`
-	UpdatedAt  int64                 `json:"updated_at"`
-	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
-	Platform   constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
-	UserId     int                   `json:"user_id" gorm:"index"`
-	Group      string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
-	ChannelId  int                   `json:"channel_id" gorm:"index"`
+	ID          int64                 `json:"id" gorm:"primaryKey"`
+	CreatedAt   int64                 `json:"created_at" gorm:"index"`
+	UpdatedAt   int64                 `json:"updated_at"`
+	TaskID      string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
+	Platform    constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
+	UserId      int                   `json:"user_id" gorm:"index"`
+	Group       string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
+	ChannelId   int                   `json:"channel_id" gorm:"index"`
 	ChannelName string                `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
 	Quota       int                   `json:"quota"`
 	Action      string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
@@ -321,6 +321,21 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 	var err error
 	// get all tasks progress is not 100%
 	err = DB.Where("progress != ?", "100%").Where("status != ?", TaskStatusFailure).Where("status != ?", TaskStatusSuccess).Limit(limit).Order("id").Find(&tasks).Error
+	if err != nil {
+		return nil
+	}
+	return tasks
+}
+
+func GetUnFinishSyncTasksPaginated(lastID int64, limit int) []*Task {
+	var tasks []*Task
+	err := DB.Where("id > ?", lastID).
+		Where("progress != ?", "100%").
+		Where("status != ?", TaskStatusFailure).
+		Where("status != ?", TaskStatusSuccess).
+		Order("id").
+		Limit(limit).
+		Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
