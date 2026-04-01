@@ -615,6 +615,9 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		// Submit to upstream already succeeded, so persisted state should not stay NOT_START.
+		// Keep terminal transition handled by polling/callback loop as before.
+		task.Status = model.TaskStatusSubmitted
 		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
 			task.Properties.Input = relaycommon.DescribeTaskInputType(req)
 			if !constant.IsImaProChannelType(relayInfo.ChannelType) {
