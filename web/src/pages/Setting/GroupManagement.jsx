@@ -24,10 +24,8 @@ import {
   Card,
   Tag,
   Modal,
-  Form,
   Input,
   Select,
-  Collapse,
   Row,
   Col,
   Empty,
@@ -157,12 +155,8 @@ export default function GroupManagement() {
   const [editingGroup, setEditingGroup] = useState(null);
   const [modalName, setModalName] = useState('');
   const [modalSelected, setModalSelected] = useState([]);
-  const [advancedMode, setAdvancedMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [previewGroup, setPreviewGroup] = useState('');
-
-  const [newGlobalKey, setNewGlobalKey] = useState('');
-  const [newGlobalDesc, setNewGlobalDesc] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -264,37 +258,6 @@ export default function GroupManagement() {
     setModalVisible(false);
   }
 
-  function updateGlobalDescription(groupKey, value) {
-    setGlobalUsableGroups((prev) => ({
-      ...prev,
-      [groupKey]: String(value ?? ''),
-    }));
-  }
-
-  function removeGlobalGroup(groupKey) {
-    const next = { ...globalUsableGroups };
-    delete next[groupKey];
-    setGlobalUsableGroups(next);
-  }
-
-  function addGlobalGroup() {
-    const key = String(newGlobalKey || '').trim();
-    if (!key) {
-      showError(t('请输入令牌分组名称'));
-      return;
-    }
-    if (Object.prototype.hasOwnProperty.call(globalUsableGroups, key)) {
-      showError(t('令牌分组已存在'));
-      return;
-    }
-    setGlobalUsableGroups((prev) => ({
-      ...prev,
-      [key]: String(newGlobalDesc || ''),
-    }));
-    setNewGlobalKey('');
-    setNewGlobalDesc('');
-  }
-
   async function handleSave() {
     setLoading(true);
     try {
@@ -327,8 +290,6 @@ export default function GroupManagement() {
       setLoading(false);
     }
   }
-
-  const globalRows = Object.entries(globalUsableGroups);
 
   return (
     <Spin spinning={loading}>
@@ -518,104 +479,6 @@ export default function GroupManagement() {
             />
           </div>
         </Modal>
-
-        <Card
-          style={{
-            marginTop: 24,
-            borderRadius: 12,
-            background: 'var(--semi-color-fill-0)',
-          }}
-          bodyStyle={{ padding: 0 }}
-        >
-          <Collapse
-            style={{ borderRadius: 12, overflow: 'hidden' }}
-            activeKey={advancedMode ? ['advanced'] : []}
-            onChange={(keys) => {
-              const isOpen = Array.isArray(keys)
-                ? keys.includes('advanced')
-                : keys === 'advanced';
-              setAdvancedMode(isOpen);
-            }}
-          >
-            <Collapse.Panel header={t('高级设置：全局令牌分组')} itemKey='advanced'>
-              <Typography.Text
-                type='tertiary'
-                style={{ marginBottom: 16, display: 'block' }}
-              >
-                {t('全局令牌分组是所有权限分组的基础列表，权限分组在此基础上增减')}
-              </Typography.Text>
-
-              <Space vertical spacing='tight' style={{ width: '100%' }}>
-                {globalRows.length === 0 && (
-                  <Typography.Text type='tertiary'>
-                    {t('暂无全局令牌分组')}
-                  </Typography.Text>
-                )}
-
-                {globalRows.map(([groupKey, description]) => (
-                  <Card key={groupKey} bodyStyle={{ padding: 12 }} style={{ borderRadius: 10 }}>
-                    <Row gutter={12} align='middle'>
-                      <Col span={8}>
-                        <Typography.Text
-                          style={{
-                            fontFamily:
-                              'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                          }}
-                        >
-                          {groupKey}
-                        </Typography.Text>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Input
-                          field={`desc-${groupKey}`}
-                          value={description}
-                          onChange={(value) => updateGlobalDescription(groupKey, value)}
-                          placeholder={t('分组描述')}
-                        />
-                      </Col>
-                      <Col span={4}>
-                        <Popconfirm
-                          title={t('确定删除该令牌分组吗？')}
-                          onConfirm={() => removeGlobalGroup(groupKey)}
-                        >
-                          <Button size='small' type='danger'>
-                            {t('删除')}
-                          </Button>
-                        </Popconfirm>
-                      </Col>
-                    </Row>
-                  </Card>
-                ))}
-
-                <Card bodyStyle={{ padding: 12 }} style={{ borderRadius: 10 }}>
-                  <Row gutter={12} align='middle'>
-                    <Col span={8}>
-                      <Form.Input
-                        field='newGlobalKey'
-                        value={newGlobalKey}
-                        onChange={setNewGlobalKey}
-                        placeholder={t('新令牌分组名称')}
-                      />
-                    </Col>
-                    <Col span={12}>
-                      <Form.Input
-                        field='newGlobalDesc'
-                        value={newGlobalDesc}
-                        onChange={setNewGlobalDesc}
-                        placeholder={t('新令牌分组描述（可选）')}
-                      />
-                    </Col>
-                    <Col span={4}>
-                      <Button theme='solid' onClick={addGlobalGroup}>
-                        {t('添加')}
-                      </Button>
-                    </Col>
-                  </Row>
-                </Card>
-              </Space>
-            </Collapse.Panel>
-          </Collapse>
-        </Card>
 
         <div style={{ marginTop: 24 }}>
           <Button

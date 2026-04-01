@@ -27,6 +27,7 @@ import ModelsFilters from './ModelsFilters';
 import ModelsTabs from './ModelsTabs';
 import EditModelModal from './modals/EditModelModal';
 import EditVendorModal from './modals/EditVendorModal';
+import ModelGroupsEditor from './modals/ModelGroupsEditor';
 import { useModelsData } from '../../../hooks/models/useModelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -86,6 +87,7 @@ const ModelsPage = () => {
         return true;
       }
     });
+  const [editGroupsModel, setEditGroupsModel] = useState(null);
 
   const confirmCloseMarketplaceDisplayNotice = () => {
     Modal.confirm({
@@ -127,6 +129,16 @@ const ModelsPage = () => {
         refresh={() => {
           loadVendors();
           refresh();
+        }}
+      />
+      <ModelGroupsEditor
+        visible={!!editGroupsModel}
+        model={editGroupsModel}
+        onClose={(shouldRefresh) => {
+          setEditGroupsModel(null);
+          if (shouldRefresh) {
+            refresh();
+          }
         }}
       />
 
@@ -201,7 +213,7 @@ const ModelsPage = () => {
         })}
         t={modelsData.t}
       >
-        <ModelsTable {...modelsData} />
+        <ModelsTable {...modelsData} onEditGroups={setEditGroupsModel} />
       </CardPro>
     </>
   );

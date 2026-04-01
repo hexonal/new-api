@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,8 +17,10 @@ const (
 )
 
 type BoundChannel struct {
-	Name string `json:"name"`
-	Type int    `json:"type"`
+	Id    int    `json:"id"`
+	Name  string `json:"name"`
+	Type  int    `json:"type"`
+	Group string `json:"group"`
 }
 
 type Model struct {
@@ -115,13 +118,16 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 		return result, nil
 	}
 	type row struct {
-		Model string
-		Name  string
-		Type  int
+		Model     string
+		Id        int
+		Name      string
+		Type      int
+		GroupName string `gorm:"column:group_name"`
 	}
 	var rows []row
+	groupCol := fmt.Sprintf("channels.%s", commonGroupCol)
 	err := DB.Table("channels").
-		Select("abilities.model as model, channels.name as name, channels.type as type").
+		Select(fmt.Sprintf("abilities.model as model, channels.id as id, channels.name as name, channels.type as type, %s as group_name", groupCol)).
 		Joins("JOIN abilities ON abilities.channel_id = channels.id").
 		Where("abilities.model IN ? AND abilities.enabled = ?", modelNames, true).
 		Distinct().
@@ -130,7 +136,7 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 		return nil, err
 	}
 	for _, r := range rows {
-		result[r.Model] = append(result[r.Model], BoundChannel{Name: r.Name, Type: r.Type})
+		result[r.Model] = append(result[r.Model], BoundChannel{Id: r.Id, Name: r.Name, Type: r.Type, Group: r.GroupName})
 	}
 	return result, nil
 }
