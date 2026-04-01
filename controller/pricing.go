@@ -31,10 +31,18 @@ func GetPricing(c *gin.Context) {
 	}
 
 	usableGroup = service.GetUserUsableGroups(group)
-	// check groupRatio contains usableGroup
-	for group := range ratio_setting.GetGroupRatioCopy() {
-		if _, ok := usableGroup[group]; !ok {
-			delete(groupRatio, group)
+	// Filter usableGroup: only keep groups that exist in GroupRatio (token groups).
+	// This prevents permission group names (e.g., "测试组") from appearing in the model marketplace.
+	groupRatioCopy := ratio_setting.GetGroupRatioCopy()
+	for g := range usableGroup {
+		if _, inRatio := groupRatioCopy[g]; !inRatio {
+			delete(usableGroup, g)
+		}
+	}
+	// Also filter groupRatio to only keep groups in usableGroup
+	for g := range groupRatio {
+		if _, ok := usableGroup[g]; !ok {
+			delete(groupRatio, g)
 		}
 	}
 

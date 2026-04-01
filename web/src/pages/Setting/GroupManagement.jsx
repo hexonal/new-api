@@ -136,10 +136,20 @@ function computeSpecialRules(selectedGroups, globalUsable) {
   return rules;
 }
 
+function areFlatObjectsEqual(a, b) {
+  const aEntries = Object.entries(a || {});
+  const bEntries = Object.entries(b || {});
+  if (aEntries.length !== bEntries.length) {
+    return false;
+  }
+  return aEntries.every(([key, value]) => b[key] === value);
+}
+
 export default function GroupManagement() {
   const { t } = useTranslation();
 
   const [globalUsableGroups, setGlobalUsableGroups] = useState({});
+  const [savedGlobalUsableGroups, setSavedGlobalUsableGroups] = useState({});
   const [specialRules, setSpecialRules] = useState({});
   const [allTokenGroups, setAllTokenGroups] = useState([]);
   const [permissionGroups, setPermissionGroups] = useState([]);
@@ -149,6 +159,7 @@ export default function GroupManagement() {
   const [modalSelected, setModalSelected] = useState([]);
   const [advancedMode, setAdvancedMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [previewGroup, setPreviewGroup] = useState('');
 
   const [newGlobalKey, setNewGlobalKey] = useState('');
   const [newGlobalDesc, setNewGlobalDesc] = useState('');
@@ -178,6 +189,7 @@ export default function GroupManagement() {
         const parsedSpecial = normalizeNestedObject(parseJsonObject(specialRaw));
 
         setGlobalUsableGroups(parsedGlobal);
+        setSavedGlobalUsableGroups(parsedGlobal);
         setSpecialRules(parsedSpecial);
         setPermissionGroups(derivePermissionGroups(parsedGlobal, parsedSpecial));
 
@@ -203,6 +215,16 @@ export default function GroupManagement() {
   const tokenGroupOptions = useMemo(
     () => allTokenGroups.map((group) => ({ label: group, value: group })),
     [allTokenGroups],
+  );
+  const previewResult = useMemo(() => {
+    if (!previewGroup) {
+      return [];
+    }
+    return parseSelectedGroups(previewGroup, globalUsableGroups, specialRules);
+  }, [previewGroup, globalUsableGroups, specialRules]);
+  const isGlobalModified = useMemo(
+    () => !areFlatObjectsEqual(globalUsableGroups, savedGlobalUsableGroups),
+    [globalUsableGroups, savedGlobalUsableGroups],
   );
 
   function handleCreate() {
@@ -277,7 +299,6 @@ export default function GroupManagement() {
     setLoading(true);
     try {
       const specialJson = JSON.stringify(specialRules);
-      const globalJson = JSON.stringify(globalUsableGroups);
 
       const specialRes = await API.put('/api/option/', {
         key: GROUP_SPECIAL_USABLE_GROUP_KEY,
@@ -287,12 +308,16 @@ export default function GroupManagement() {
         throw new Error(specialRes.data?.message || 'save-special-failed');
       }
 
-      const globalRes = await API.put('/api/option/', {
-        key: USER_USABLE_GROUPS_KEY,
-        value: globalJson,
-      });
-      if (!globalRes.data?.success) {
-        throw new Error(globalRes.data?.message || 'save-global-failed');
+      if (isGlobalModified) {
+        const globalJson = JSON.stringify(globalUsableGroups);
+        const globalRes = await API.put('/api/option/', {
+          key: USER_USABLE_GROUPS_KEY,
+          value: globalJson,
+        });
+        if (!globalRes.data?.success) {
+          throw new Error(globalRes.data?.message || 'save-global-failed');
+        }
+        setSavedGlobalUsableGroups(globalUsableGroups);
       }
 
       showSuccess(t('保存成功'));
@@ -318,80 +343,147 @@ export default function GroupManagement() {
           }}
         >
           <div>
-            <Typography.Title heading={3} style={{ marginBottom: 4 }}>
+            <Typography.Title
+              heading={3}
+              style={{ marginBottom: 4, fontSize: '1.5rem', fontWeight: 600 }}
+            >
               {t('权限分组管理')}
             </Typography.Title>
-            <Typography.Text type='tertiary'>
+            <Typography.Text style={{ color: '#727786' }}>
               {t('管理用户权限分组，配置每个分组可使用的令牌分组')}
             </Typography.Text>
           </div>
-          <Button
-            icon={<IconPlus />}
-            theme='solid'
-            type='primary'
-            onClick={handleCreate}
-          >
-            {t('新建权限分组')}
-          </Button>
         </div>
 
-        {permissionGroups.length === 0 ? (
-          <Card style={{ borderRadius: 12 }}>
-            <Empty description={t('暂无权限分组，点击上方按钮创建')} />
-          </Card>
-        ) : (
-          <Row gutter={[16, 16]}>
-            {permissionGroups.map((group) => (
-              <Col xs={24} sm={12} lg={8} key={group.name}>
-                <Card
-                  style={{ borderRadius: 12 }}
-                  title={
-                    <Typography.Title heading={5} style={{ margin: 0 }}>
-                      {group.name}
-                    </Typography.Title>
-                  }
-                  headerExtraContent={
-                    <Space>
-                      <Button
-                        size='small'
-                        theme='light'
-                        type='primary'
-                        onClick={() => handleEdit(group)}
-                      >
-                        {t('编辑')}
-                      </Button>
-                      <Popconfirm
-                        title={t('确定删除该权限分组？')}
-                        onConfirm={() => handleDelete(group.name)}
-                      >
-                        <Button size='small' theme='light' type='danger'>
-                          {t('删除')}
-                        </Button>
-                      </Popconfirm>
-                    </Space>
-                  }
+        <Row gutter={24}>
+          <Col span={16}>
+            <Card
+              style={{ borderRadius: 12, marginBottom: 16 }}
+              bodyStyle={{ padding: 24 }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <Typography.Title heading={5} style={{ margin: 0, fontWeight: 600 }}>
+                  {t('权限分组')}
+                </Typography.Title>
+                <Button
+                  icon={<IconPlus />}
+                  theme='solid'
+                  type='primary'
+                  onClick={handleCreate}
                 >
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {group.selectedTokenGroups.map((tokenGroup) => (
-                      <Tag
-                        size='large'
-                        color='blue'
-                        key={`${group.name}-${tokenGroup}`}
-                      >
-                        {tokenGroup}
+                  {t('新建权限分组')}
+                </Button>
+              </div>
+
+              {permissionGroups.length === 0 ? (
+                <Empty description={t('暂无权限分组，点击上方按钮创建')} />
+              ) : (
+                permissionGroups.map((group) => (
+                  <Card
+                    key={group.name}
+                    style={{ borderRadius: 12, marginBottom: 16 }}
+                    title={
+                      <Typography.Title heading={5} style={{ margin: 0, fontWeight: 600 }}>
+                        {group.name}
+                      </Typography.Title>
+                    }
+                    headerExtraContent={
+                      <Space>
+                        <Button
+                          size='small'
+                          theme='light'
+                          type='primary'
+                          onClick={() => handleEdit(group)}
+                        >
+                          {t('编辑')}
+                        </Button>
+                        <Popconfirm
+                          title={t('确定删除该权限分组？')}
+                          onConfirm={() => handleDelete(group.name)}
+                        >
+                          <Button size='small' theme='light' type='danger'>
+                            {t('删除')}
+                          </Button>
+                        </Popconfirm>
+                      </Space>
+                    }
+                    bodyStyle={{ paddingTop: 12, paddingBottom: 16 }}
+                  >
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {group.selectedTokenGroups.map((tokenGroup) => (
+                        <Tag
+                          size='large'
+                          color='blue'
+                          key={`${group.name}-${tokenGroup}`}
+                        >
+                          {tokenGroup}
+                        </Tag>
+                      ))}
+                      {group.selectedTokenGroups.length === 0 && (
+                        <Typography.Text type='tertiary'>
+                          {t('无可用令牌分组')}
+                        </Typography.Text>
+                      )}
+                    </div>
+                  </Card>
+                ))
+              )}
+            </Card>
+          </Col>
+
+          <Col span={8}>
+            <Card
+              style={{
+                borderRadius: 12,
+                borderLeft: '4px solid var(--semi-color-primary)',
+                marginBottom: 16,
+              }}
+              bodyStyle={{ padding: 20 }}
+            >
+              <Typography.Title heading={5} style={{ marginTop: 0 }}>
+                {t('预览最终分组')}
+              </Typography.Title>
+              <Select
+                placeholder={t('选择用户分组')}
+                optionList={permissionGroups.map((g) => ({ label: g.name, value: g.name }))}
+                value={previewGroup}
+                onChange={setPreviewGroup}
+                style={{ width: '100%', marginBottom: 16 }}
+              />
+              <div>
+                <Typography.Text strong>{t('最终可用分组：')}</Typography.Text>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginTop: 8,
+                    minHeight: 28,
+                  }}
+                >
+                  {previewResult.length > 0 ? (
+                    previewResult.map((g) => (
+                      <Tag color='blue' size='large' key={g}>
+                        {g}
                       </Tag>
-                    ))}
-                    {group.selectedTokenGroups.length === 0 && (
-                      <Typography.Text type='tertiary'>
-                        {t('无可用令牌分组')}
-                      </Typography.Text>
-                    )}
-                  </div>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        )}
+                    ))
+                  ) : (
+                    <Typography.Text type='tertiary'>
+                      {previewGroup ? t('无可用令牌分组') : t('请选择用户分组')}
+                    </Typography.Text>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
 
         <Modal
           title={editingGroup ? t('编辑权限分组') : t('新建权限分组')}
@@ -427,94 +519,103 @@ export default function GroupManagement() {
           </div>
         </Modal>
 
-        <Collapse
-          style={{ marginTop: 24, borderRadius: 12, overflow: 'hidden' }}
-          activeKey={advancedMode ? ['advanced'] : []}
-          onChange={(keys) => {
-            const isOpen = Array.isArray(keys)
-              ? keys.includes('advanced')
-              : keys === 'advanced';
-            setAdvancedMode(isOpen);
+        <Card
+          style={{
+            marginTop: 24,
+            borderRadius: 12,
+            background: 'var(--semi-color-fill-0)',
           }}
+          bodyStyle={{ padding: 0 }}
         >
-          <Collapse.Panel header={t('高级设置：全局令牌分组')} itemKey='advanced'>
-            <Typography.Text
-              type='tertiary'
-              style={{ marginBottom: 16, display: 'block' }}
-            >
-              {t('全局令牌分组是所有权限分组的基础列表，权限分组在此基础上增减')}
-            </Typography.Text>
+          <Collapse
+            style={{ borderRadius: 12, overflow: 'hidden' }}
+            activeKey={advancedMode ? ['advanced'] : []}
+            onChange={(keys) => {
+              const isOpen = Array.isArray(keys)
+                ? keys.includes('advanced')
+                : keys === 'advanced';
+              setAdvancedMode(isOpen);
+            }}
+          >
+            <Collapse.Panel header={t('高级设置：全局令牌分组')} itemKey='advanced'>
+              <Typography.Text
+                type='tertiary'
+                style={{ marginBottom: 16, display: 'block' }}
+              >
+                {t('全局令牌分组是所有权限分组的基础列表，权限分组在此基础上增减')}
+              </Typography.Text>
 
-            <Space vertical spacing='tight' style={{ width: '100%' }}>
-              {globalRows.length === 0 && (
-                <Typography.Text type='tertiary'>
-                  {t('暂无全局令牌分组')}
-                </Typography.Text>
-              )}
+              <Space vertical spacing='tight' style={{ width: '100%' }}>
+                {globalRows.length === 0 && (
+                  <Typography.Text type='tertiary'>
+                    {t('暂无全局令牌分组')}
+                  </Typography.Text>
+                )}
 
-              {globalRows.map(([groupKey, description]) => (
-                <Card key={groupKey} bodyStyle={{ padding: 12 }}>
+                {globalRows.map(([groupKey, description]) => (
+                  <Card key={groupKey} bodyStyle={{ padding: 12 }} style={{ borderRadius: 10 }}>
+                    <Row gutter={12} align='middle'>
+                      <Col span={8}>
+                        <Typography.Text
+                          style={{
+                            fontFamily:
+                              'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                          }}
+                        >
+                          {groupKey}
+                        </Typography.Text>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Input
+                          field={`desc-${groupKey}`}
+                          value={description}
+                          onChange={(value) => updateGlobalDescription(groupKey, value)}
+                          placeholder={t('分组描述')}
+                        />
+                      </Col>
+                      <Col span={4}>
+                        <Popconfirm
+                          title={t('确定删除该令牌分组吗？')}
+                          onConfirm={() => removeGlobalGroup(groupKey)}
+                        >
+                          <Button size='small' type='danger'>
+                            {t('删除')}
+                          </Button>
+                        </Popconfirm>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+
+                <Card bodyStyle={{ padding: 12 }} style={{ borderRadius: 10 }}>
                   <Row gutter={12} align='middle'>
                     <Col span={8}>
-                      <Typography.Text
-                        style={{
-                          fontFamily:
-                            'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        }}
-                      >
-                        {groupKey}
-                      </Typography.Text>
+                      <Form.Input
+                        field='newGlobalKey'
+                        value={newGlobalKey}
+                        onChange={setNewGlobalKey}
+                        placeholder={t('新令牌分组名称')}
+                      />
                     </Col>
                     <Col span={12}>
                       <Form.Input
-                        field={`desc-${groupKey}`}
-                        value={description}
-                        onChange={(value) => updateGlobalDescription(groupKey, value)}
-                        placeholder={t('分组描述')}
+                        field='newGlobalDesc'
+                        value={newGlobalDesc}
+                        onChange={setNewGlobalDesc}
+                        placeholder={t('新令牌分组描述（可选）')}
                       />
                     </Col>
                     <Col span={4}>
-                      <Popconfirm
-                        title={t('确定删除该令牌分组吗？')}
-                        onConfirm={() => removeGlobalGroup(groupKey)}
-                      >
-                        <Button size='small' type='danger'>
-                          {t('删除')}
-                        </Button>
-                      </Popconfirm>
+                      <Button theme='solid' onClick={addGlobalGroup}>
+                        {t('添加')}
+                      </Button>
                     </Col>
                   </Row>
                 </Card>
-              ))}
-
-              <Card bodyStyle={{ padding: 12 }}>
-                <Row gutter={12} align='middle'>
-                  <Col span={8}>
-                    <Form.Input
-                      field='newGlobalKey'
-                      value={newGlobalKey}
-                      onChange={setNewGlobalKey}
-                      placeholder={t('新令牌分组名称')}
-                    />
-                  </Col>
-                  <Col span={12}>
-                    <Form.Input
-                      field='newGlobalDesc'
-                      value={newGlobalDesc}
-                      onChange={setNewGlobalDesc}
-                      placeholder={t('新令牌分组描述（可选）')}
-                    />
-                  </Col>
-                  <Col span={4}>
-                    <Button theme='solid' onClick={addGlobalGroup}>
-                      {t('添加')}
-                    </Button>
-                  </Col>
-                </Row>
-              </Card>
-            </Space>
-          </Collapse.Panel>
-        </Collapse>
+              </Space>
+            </Collapse.Panel>
+          </Collapse>
+        </Card>
 
         <div style={{ marginTop: 24 }}>
           <Button
