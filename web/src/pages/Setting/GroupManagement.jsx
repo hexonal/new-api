@@ -25,6 +25,7 @@ import {
   Tag,
   Modal,
   Form,
+  Input,
   Select,
   Collapse,
   Row,
@@ -374,18 +375,22 @@ export default function GroupManagement() {
           onOk={handleModalSave}
           onCancel={() => setModalVisible(false)}
         >
-          <Form>
-            <Form.Input
-              field='name'
-              label={t('权限分组名称')}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 8, fontWeight: 500 }}>
+              {t('权限分组名称')}
+            </div>
+            <Input
               value={modalName}
               onChange={setModalName}
               disabled={!!editingGroup}
               placeholder={t('例如：plus-8折')}
             />
-            <Form.Select
-              field='tokenGroups'
-              label={t('可用令牌分组')}
+          </div>
+          <div>
+            <div style={{ marginBottom: 8, fontWeight: 500 }}>
+              {t('可用令牌分组')}
+            </div>
+            <Select
               multiple
               filter
               value={modalSelected}
@@ -393,8 +398,9 @@ export default function GroupManagement() {
               optionList={tokenGroupOptions}
               placeholder={t('选择该权限分组可使用的令牌分组')}
               style={{ width: '100%' }}
+              maxTagCount={10}
             />
-          </Form>
+          </div>
         </Modal>
 
         <Collapse
