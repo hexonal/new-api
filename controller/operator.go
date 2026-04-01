@@ -73,6 +73,22 @@ func getOperatorProvisionUsernameCandidates(username string) []string {
 	return candidates
 }
 
+func normalizeOperatorProvisionCreateUsername(username string) string {
+	normalized := strings.TrimSpace(username)
+	if normalized == "" {
+		return ""
+	}
+	match := operatorProvisionIMASuffixPattern.FindStringSubmatch(normalized)
+	if len(match) != 2 {
+		return normalized
+	}
+	baseUsername := strings.TrimSpace(match[1])
+	if baseUsername == "" {
+		return normalized
+	}
+	return baseUsername
+}
+
 func findOperatorProvisionUserByCandidates(tx *gorm.DB, candidates []string) (model.User, bool, error) {
 	for _, candidate := range candidates {
 		if strings.TrimSpace(candidate) == "" {
@@ -145,8 +161,9 @@ func OperatorProvision(c *gin.Context) {
 	if req.TokenName == "" {
 		req.TokenName = "default"
 	}
+	createUsername := normalizeOperatorProvisionCreateUsername(req.Username)
 	if req.DisplayName == "" {
-		req.DisplayName = req.Username
+		req.DisplayName = createUsername
 	}
 	if len(req.DisplayName) > model.UserNameMaxLength {
 		req.DisplayName = req.DisplayName[:model.UserNameMaxLength]
@@ -186,13 +203,31 @@ func OperatorProvision(c *gin.Context) {
 		}
 
 		if userId > 0 {
+			if req.AmountUSD > 0 {
+				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
+				if err := tx.Model(&model.User{}).Where("id = ?", userId).
+					Update("quota", gorm.Expr("quota + ?", quota)).Error; err != nil {
+					return err
+				}
+			}
 			t := buildProvisionToken(userId, tokenKey, req)
-			return t.InsertWithTx(tx)
+			if err := t.InsertWithTx(tx); err != nil {
+				// Existing username + duplicate token should be idempotent success,
+				// and quota top-up has already been applied above.
+				if req.Token != "" && isDuplicateError(err) {
+					var existingToken model.Token
+					if tokenErr := tx.Where("key = ?", tokenKey).First(&existingToken).Error; tokenErr == nil && existingToken.UserId == userId {
+						return nil
+					}
+				}
+				return err
+			}
+			return nil
 		}
 
 		// Try to create user inside the transaction to avoid race conditions.
 		cleanUser := model.User{
-			Username:    req.Username,
+			Username:    createUsername,
 			DisplayName: req.DisplayName,
 			Password:    req.Password,
 			Group:       req.Group,
@@ -215,8 +250,8 @@ func OperatorProvision(c *gin.Context) {
 			}
 		} else {
 			userId = cleanUser.Id
-			// InsertWithTx always overwrites Quota with common.QuotaForNewUser;
-			// explicitly set the requested quota if provided (converted from USD).
+			// InsertWithTx initializes quota with QuotaForNewUser;
+			// amount_usd here represents total target quota for new users.
 			if req.AmountUSD > 0 {
 				quota := int(math.Round(req.AmountUSD * float64(common.QuotaPerUnit)))
 				if err := tx.Model(&model.User{}).Where("id = ?", cleanUser.Id).
