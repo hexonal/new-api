@@ -12,9 +12,16 @@ import (
 )
 
 func GetGroups(c *gin.Context) {
+	groupType := c.Query("type")
 	groupNames := make([]string, 0)
-	for groupName := range ratio_setting.GetGroupRatioCopy() {
-		groupNames = append(groupNames, groupName)
+	if groupType == "permission" {
+		for groupName := range ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll() {
+			groupNames = append(groupNames, groupName)
+		}
+	} else {
+		for groupName := range ratio_setting.GetGroupRatioCopy() {
+			groupNames = append(groupNames, groupName)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

@@ -307,44 +307,64 @@ export default function GroupManagement() {
 
   return (
     <Spin spinning={loading}>
-      <div>
-        <Typography.Title heading={3}>{t('权限分组管理')}</Typography.Title>
-        <Typography.Text type='tertiary'>
-          {t('管理用户权限分组，配置每个分组可使用的令牌分组')}
-        </Typography.Text>
-
+      <div style={{ paddingBottom: 8 }}>
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginTop: 24,
-            marginBottom: 16,
+            gap: 16,
+            marginBottom: 24,
           }}
         >
-          <Typography.Title heading={5} style={{ marginBottom: 0 }}>
-            {t('权限分组')}
-          </Typography.Title>
-          <Button theme='solid' icon={<IconPlus />} onClick={handleCreate}>
+          <div>
+            <Typography.Title heading={3} style={{ marginBottom: 4 }}>
+              {t('权限分组管理')}
+            </Typography.Title>
+            <Typography.Text type='tertiary'>
+              {t('管理用户权限分组，配置每个分组可使用的令牌分组')}
+            </Typography.Text>
+          </div>
+          <Button
+            icon={<IconPlus />}
+            theme='solid'
+            type='primary'
+            onClick={handleCreate}
+          >
             {t('新建权限分组')}
           </Button>
         </div>
 
         {permissionGroups.length === 0 ? (
-          <Empty description={t('暂无权限分组，点击上方按钮创建')} />
+          <Card style={{ borderRadius: 12 }}>
+            <Empty description={t('暂无权限分组，点击上方按钮创建')} />
+          </Card>
         ) : (
           <Row gutter={[16, 16]}>
             {permissionGroups.map((group) => (
               <Col xs={24} sm={12} lg={8} key={group.name}>
                 <Card
-                  title={group.name}
+                  style={{ borderRadius: 12 }}
+                  title={
+                    <Typography.Title heading={5} style={{ margin: 0 }}>
+                      {group.name}
+                    </Typography.Title>
+                  }
                   headerExtraContent={
                     <Space>
-                      <Button size='small' onClick={() => handleEdit(group)}>
+                      <Button
+                        size='small'
+                        theme='light'
+                        type='primary'
+                        onClick={() => handleEdit(group)}
+                      >
                         {t('编辑')}
                       </Button>
-                      <Popconfirm title={t('确定删除？')} onConfirm={() => handleDelete(group.name)}>
-                        <Button size='small' type='danger'>
+                      <Popconfirm
+                        title={t('确定删除该权限分组？')}
+                        onConfirm={() => handleDelete(group.name)}
+                      >
+                        <Button size='small' theme='light' type='danger'>
                           {t('删除')}
                         </Button>
                       </Popconfirm>
@@ -353,7 +373,11 @@ export default function GroupManagement() {
                 >
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {group.selectedTokenGroups.map((tokenGroup) => (
-                      <Tag color='blue' key={`${group.name}-${tokenGroup}`}>
+                      <Tag
+                        size='large'
+                        color='blue'
+                        key={`${group.name}-${tokenGroup}`}
+                      >
                         {tokenGroup}
                       </Tag>
                     ))}
@@ -404,7 +428,7 @@ export default function GroupManagement() {
         </Modal>
 
         <Collapse
-          style={{ marginTop: 32 }}
+          style={{ marginTop: 24, borderRadius: 12, overflow: 'hidden' }}
           activeKey={advancedMode ? ['advanced'] : []}
           onChange={(keys) => {
             const isOpen = Array.isArray(keys)
@@ -493,7 +517,13 @@ export default function GroupManagement() {
         </Collapse>
 
         <div style={{ marginTop: 24 }}>
-          <Button theme='solid' size='large' loading={loading} onClick={handleSave}>
+          <Button
+            theme='solid'
+            type='primary'
+            size='large'
+            loading={loading}
+            onClick={handleSave}
+          >
             {t('保存设置')}
           </Button>
         </div>
