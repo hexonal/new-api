@@ -17,883 +17,481 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Typography,
   Button,
   Card,
-  Collapse,
-  Form,
+  Tag,
   Modal,
-  Popconfirm,
+  Form,
   Select,
+  Collapse,
+  Row,
+  Col,
+  Empty,
+  Popconfirm,
   Space,
   Spin,
-  Table,
-  Tag,
-  Typography,
 } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  API,
-  compareObjects,
-  showError,
-  showSuccess,
-  showWarning,
-  verifyJSON,
-} from '../../helpers';
+import { API, showError, showSuccess } from '../../helpers';
 
 const USER_USABLE_GROUPS_KEY = 'UserUsableGroups';
 const GROUP_SPECIAL_USABLE_GROUP_KEY =
   'group_ratio_setting.group_special_usable_group';
 
-const safeStringify = (value) => JSON.stringify(value, null, 2);
-
-const normalizeObject = (value) => {
+function normalizeObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
   }
-  const result = {};
-  Object.entries(value).forEach(([key, val]) => {
-    result[String(key)] = String(val ?? '');
-  });
-  return result;
-};
-
-const parseJsonObject = (jsonText, t, errorLabel) => {
-  if (!jsonText || jsonText.trim() === '') {
-    return {};
-  }
-  if (!verifyJSON(jsonText)) {
-    showError(t('{{label}} 不是合法的 JSON 字符串', { label: errorLabel }));
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(jsonText);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      showError(t('{{label}} 必须是 JSON 对象', { label: errorLabel }));
-      return null;
-    }
-    return parsed;
-  } catch {
-    showError(t('{{label}} 解析失败', { label: errorLabel }));
-    return null;
-  }
-};
-
-const parseSpecialGroupObject = (jsonText, t) => {
-  const parsed = parseJsonObject(jsonText, t, t('分组特殊可用分组'));
-  if (parsed === null) {
-    return null;
-  }
-
   const normalized = {};
-  Object.entries(parsed).forEach(([groupName, rules]) => {
-    normalized[String(groupName)] = normalizeObject(rules);
+  Object.entries(value).forEach(([key, val]) => {
+    normalized[String(key)] = String(val ?? '');
   });
   return normalized;
-};
+}
 
-function previewFinalGroups(
-  userGroup,
-  usableGroups,
-  specialGroups,
-  userGroupLabel,
-) {
-  const result = { ...usableGroups };
-  const rules = specialGroups[userGroup] || {};
-
-  Object.entries(rules).forEach(([key, desc]) => {
-    if (key.startsWith('-:')) {
-      delete result[key.substring(2)];
-    } else if (key.startsWith('+:')) {
-      result[key.substring(2)] = desc;
-    } else {
-      result[key] = desc;
-    }
+function normalizeNestedObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  const normalized = {};
+  Object.entries(value).forEach(([outerKey, nested]) => {
+    normalized[String(outerKey)] = normalizeObject(nested);
   });
+  return normalized;
+}
 
-  if (userGroup && !result[userGroup]) {
-    result[userGroup] = userGroupLabel;
+function parseJsonObject(value) {
+  if (!value || String(value).trim() === '') {
+    return {};
+  }
+  const parsed = JSON.parse(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('invalid-json-object');
+  }
+  return parsed;
+}
+
+function extractTokenGroups(groupData) {
+  if (Array.isArray(groupData)) {
+    const values = groupData
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        if (!item || typeof item !== 'object') {
+          return '';
+        }
+        return item.name || item.group || item.value || item.key || '';
+      })
+      .filter((item) => item !== '');
+    return Array.from(new Set(values));
   }
 
-  return result;
+  if (groupData && typeof groupData === 'object') {
+    return Object.keys(groupData);
+  }
+
+  return [];
+}
+
+function parseSelectedGroups(userGroup, globalUsable, specialRules) {
+  const result = new Set(Object.keys(globalUsable));
+  const rules = specialRules[userGroup] || {};
+  for (const [key] of Object.entries(rules)) {
+    if (key.startsWith('-:')) {
+      result.delete(key.substring(2));
+    } else if (key.startsWith('+:')) {
+      result.add(key.substring(2));
+    } else {
+      result.add(key);
+    }
+  }
+  return Array.from(result);
+}
+
+function derivePermissionGroups(globalUsable, special) {
+  return Object.keys(special).map((name) => ({
+    name,
+    selectedTokenGroups: parseSelectedGroups(name, globalUsable, special),
+  }));
+}
+
+function computeSpecialRules(selectedGroups, globalUsable) {
+  const rules = {};
+  for (const key of Object.keys(globalUsable)) {
+    if (!selectedGroups.includes(key)) {
+      rules[`-:${key}`] = globalUsable[key];
+    }
+  }
+  for (const key of selectedGroups) {
+    if (!(key in globalUsable)) {
+      rules[`+:${key}`] = key;
+    }
+  }
+  return rules;
 }
 
 export default function GroupManagement() {
   const { t } = useTranslation();
 
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [globalUsableGroups, setGlobalUsableGroups] = useState({});
+  const [specialRules, setSpecialRules] = useState({});
+  const [allTokenGroups, setAllTokenGroups] = useState([]);
+  const [permissionGroups, setPermissionGroups] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [modalName, setModalName] = useState('');
+  const [modalSelected, setModalSelected] = useState([]);
   const [advancedMode, setAdvancedMode] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [inputs, setInputs] = useState({
-    [USER_USABLE_GROUPS_KEY]: '{}',
-    [GROUP_SPECIAL_USABLE_GROUP_KEY]: '{}',
-  });
-  const [originInputs, setOriginInputs] = useState({
-    [USER_USABLE_GROUPS_KEY]: '{}',
-    [GROUP_SPECIAL_USABLE_GROUP_KEY]: '{}',
-  });
+  const [newGlobalKey, setNewGlobalKey] = useState('');
+  const [newGlobalDesc, setNewGlobalDesc] = useState('');
 
-  const [userUsableGroups, setUserUsableGroups] = useState({});
-  const [specialUsableGroups, setSpecialUsableGroups] = useState({});
-  const [groupOptions, setGroupOptions] = useState([]);
-  const [previewGroup, setPreviewGroup] = useState('');
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [optionRes, groupRes] = await Promise.all([
+          API.get('/api/option/'),
+          API.get('/api/group/'),
+        ]);
 
-  const [groupModalVisible, setGroupModalVisible] = useState(false);
-  const [editingGroupKey, setEditingGroupKey] = useState('');
-  const [groupFormValue, setGroupFormValue] = useState({
-    key: '',
-    description: '',
-  });
+        if (!optionRes.data?.success) {
+          showError(optionRes.data?.message || t('获取配置失败'));
+          return;
+        }
 
-  const [userRuleModalVisible, setUserRuleModalVisible] = useState(false);
-  const [newUserGroupName, setNewUserGroupName] = useState('');
+        const options = optionRes.data?.data || [];
+        const globalRaw =
+          options.find((item) => item.key === USER_USABLE_GROUPS_KEY)?.value || '{}';
+        const specialRaw =
+          options.find((item) => item.key === GROUP_SPECIAL_USABLE_GROUP_KEY)?.value ||
+          '{}';
 
-  const [ruleModalVisible, setRuleModalVisible] = useState(false);
-  const [ruleTargetUserGroup, setRuleTargetUserGroup] = useState('');
-  const [ruleFormValue, setRuleFormValue] = useState({
-    operation: 'add',
-    targetGroup: '',
-    description: '',
-  });
+        const parsedGlobal = normalizeObject(parseJsonObject(globalRaw));
+        const parsedSpecial = normalizeNestedObject(parseJsonObject(specialRaw));
 
-  const userUsableTableData = useMemo(
-    () =>
-      Object.entries(userUsableGroups).map(([key, description]) => ({
-        key,
-        groupKey: key,
-        description,
-      })),
-    [userUsableGroups],
+        setGlobalUsableGroups(parsedGlobal);
+        setSpecialRules(parsedSpecial);
+        setPermissionGroups(derivePermissionGroups(parsedGlobal, parsedSpecial));
+
+        if (groupRes.data?.success) {
+          setAllTokenGroups(extractTokenGroups(groupRes.data?.data || []));
+        } else {
+          setAllTokenGroups([]);
+        }
+      } catch (error) {
+        showError(t('加载失败，请检查配置格式或稍后重试'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [t]);
+
+  useEffect(() => {
+    setPermissionGroups(derivePermissionGroups(globalUsableGroups, specialRules));
+  }, [globalUsableGroups, specialRules]);
+
+  const tokenGroupOptions = useMemo(
+    () => allTokenGroups.map((group) => ({ label: group, value: group })),
+    [allTokenGroups],
   );
 
-  const previewResult = useMemo(() => {
-    if (!previewGroup) {
-      return {};
+  function handleCreate() {
+    setEditingGroup(null);
+    setModalName('');
+    setModalSelected([]);
+    setModalVisible(true);
+  }
+
+  function handleEdit(group) {
+    setEditingGroup(group.name);
+    setModalName(group.name);
+    setModalSelected(group.selectedTokenGroups);
+    setModalVisible(true);
+  }
+
+  function handleDelete(name) {
+    const newSpecial = { ...specialRules };
+    delete newSpecial[name];
+    setSpecialRules(newSpecial);
+  }
+
+  function handleModalSave() {
+    const finalName = String(modalName || '').trim();
+    if (!finalName) {
+      showError(t('请输入分组名称'));
+      return;
     }
-    return previewFinalGroups(
-      previewGroup,
-      userUsableGroups,
-      specialUsableGroups,
-      t('用户分组'),
-    );
-  }, [previewGroup, userUsableGroups, specialUsableGroups, t]);
+    if (!editingGroup && specialRules[finalName]) {
+      showError(t('分组名称已存在'));
+      return;
+    }
 
-  const updateUserUsableGroups = (nextValue) => {
-    const normalized = normalizeObject(nextValue);
-    setUserUsableGroups(normalized);
-    setInputs((prev) => ({
+    const rules = computeSpecialRules(modalSelected, globalUsableGroups);
+    const newSpecial = { ...specialRules, [finalName]: rules };
+    setSpecialRules(newSpecial);
+    setModalVisible(false);
+  }
+
+  function updateGlobalDescription(groupKey, value) {
+    setGlobalUsableGroups((prev) => ({
       ...prev,
-      [USER_USABLE_GROUPS_KEY]: safeStringify(normalized),
+      [groupKey]: String(value ?? ''),
     }));
-  };
+  }
 
-  const updateSpecialUsableGroups = (nextValue) => {
-    const normalized = {};
-    Object.entries(nextValue || {}).forEach(([groupName, rules]) => {
-      normalized[String(groupName)] = normalizeObject(rules);
-    });
+  function removeGlobalGroup(groupKey) {
+    const next = { ...globalUsableGroups };
+    delete next[groupKey];
+    setGlobalUsableGroups(next);
+  }
 
-    setSpecialUsableGroups(normalized);
-    setInputs((prev) => ({
+  function addGlobalGroup() {
+    const key = String(newGlobalKey || '').trim();
+    if (!key) {
+      showError(t('请输入令牌分组名称'));
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(globalUsableGroups, key)) {
+      showError(t('令牌分组已存在'));
+      return;
+    }
+    setGlobalUsableGroups((prev) => ({
       ...prev,
-      [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(normalized),
+      [key]: String(newGlobalDesc || ''),
     }));
-  };
+    setNewGlobalKey('');
+    setNewGlobalDesc('');
+  }
 
-  const loadData = async () => {
+  async function handleSave() {
     setLoading(true);
     try {
-      const [optionRes, groupRes] = await Promise.all([
-        API.get('/api/option/'),
-        API.get('/api/group'),
-      ]);
+      const specialJson = JSON.stringify(specialRules);
+      const globalJson = JSON.stringify(globalUsableGroups);
 
-      if (!optionRes.data?.success) {
-        showError(optionRes.data?.message || t('获取配置失败'));
-        return;
+      const specialRes = await API.put('/api/option/', {
+        key: GROUP_SPECIAL_USABLE_GROUP_KEY,
+        value: specialJson,
+      });
+      if (!specialRes.data?.success) {
+        throw new Error(specialRes.data?.message || 'save-special-failed');
       }
 
-      const loadedInputs = {
-        [USER_USABLE_GROUPS_KEY]: '{}',
-        [GROUP_SPECIAL_USABLE_GROUP_KEY]: '{}',
-      };
-
-      (optionRes.data?.data || []).forEach((item) => {
-        if (
-          item.key === USER_USABLE_GROUPS_KEY ||
-          item.key === GROUP_SPECIAL_USABLE_GROUP_KEY
-        ) {
-          loadedInputs[item.key] = item.value || '{}';
-        }
+      const globalRes = await API.put('/api/option/', {
+        key: USER_USABLE_GROUPS_KEY,
+        value: globalJson,
       });
-
-      const parsedUserGroups = parseJsonObject(
-        loadedInputs[USER_USABLE_GROUPS_KEY],
-        t,
-        t('用户可选分组'),
-      );
-      const parsedSpecialGroups = parseSpecialGroupObject(
-        loadedInputs[GROUP_SPECIAL_USABLE_GROUP_KEY],
-        t,
-      );
-
-      if (parsedUserGroups === null || parsedSpecialGroups === null) {
-        return;
+      if (!globalRes.data?.success) {
+        throw new Error(globalRes.data?.message || 'save-global-failed');
       }
 
-      const normalizedUserGroups = normalizeObject(parsedUserGroups);
-
-      setInputs({
-        [USER_USABLE_GROUPS_KEY]: safeStringify(normalizedUserGroups),
-        [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(parsedSpecialGroups),
-      });
-
-      setOriginInputs({
-        [USER_USABLE_GROUPS_KEY]: safeStringify(normalizedUserGroups),
-        [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(parsedSpecialGroups),
-      });
-
-      setUserUsableGroups(normalizedUserGroups);
-      setSpecialUsableGroups(parsedSpecialGroups);
-
-      if (groupRes.data?.success) {
-        const options = Array.isArray(groupRes.data?.data)
-          ? groupRes.data.data.map((item) => {
-              if (typeof item === 'string') {
-                return {
-                  label: item,
-                  value: item,
-                };
-              }
-              const value =
-                item?.name || item?.group || item?.value || String(item);
-              return {
-                label: value,
-                value,
-              };
-            })
-          : [];
-        setGroupOptions(options);
-      } else {
-        setGroupOptions([]);
-      }
+      showSuccess(t('保存成功'));
     } catch (error) {
-      showError(t('加载失败，请稍后重试'));
+      showError(error?.message || t('保存失败'));
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const openAddGroupModal = () => {
-    setEditingGroupKey('');
-    setGroupFormValue({ key: '', description: '' });
-    setGroupModalVisible(true);
-  };
-
-  const openEditGroupModal = (row) => {
-    setEditingGroupKey(row.groupKey);
-    setGroupFormValue({
-      key: row.groupKey,
-      description: row.description,
-    });
-    setGroupModalVisible(true);
-  };
-
-  const confirmGroupModal = () => {
-    const groupKey = String(groupFormValue.key || '').trim();
-    const description = String(groupFormValue.description || '').trim();
-
-    if (!groupKey) {
-      showWarning(t('请填写分组标识'));
-      return;
-    }
-
-    const next = { ...userUsableGroups };
-    if (
-      editingGroupKey &&
-      editingGroupKey !== groupKey &&
-      Object.prototype.hasOwnProperty.call(next, groupKey)
-    ) {
-      showWarning(t('分组标识已存在'));
-      return;
-    }
-
-    if (editingGroupKey && editingGroupKey !== groupKey) {
-      delete next[editingGroupKey];
-    }
-
-    next[groupKey] = description;
-    updateUserUsableGroups(next);
-    setGroupModalVisible(false);
-  };
-
-  const deleteGroup = (groupKey) => {
-    const next = { ...userUsableGroups };
-    delete next[groupKey];
-    updateUserUsableGroups(next);
-  };
-
-  const openAddUserRuleModal = () => {
-    setNewUserGroupName('');
-    setUserRuleModalVisible(true);
-  };
-
-  const confirmAddUserRuleModal = () => {
-    const userGroupName = String(newUserGroupName || '').trim();
-    if (!userGroupName) {
-      showWarning(t('请填写用户分组名称'));
-      return;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(specialUsableGroups, userGroupName)) {
-      showWarning(t('该用户分组规则已存在'));
-      return;
-    }
-
-    updateSpecialUsableGroups({
-      ...specialUsableGroups,
-      [userGroupName]: {},
-    });
-    setUserRuleModalVisible(false);
-  };
-
-  const openAddRuleModal = (userGroupName) => {
-    setRuleTargetUserGroup(userGroupName);
-    setRuleFormValue({
-      operation: 'add',
-      targetGroup: '',
-      description: '',
-    });
-    setRuleModalVisible(true);
-  };
-
-  const confirmAddRuleModal = () => {
-    const targetGroup = String(ruleFormValue.targetGroup || '').trim();
-    const description = String(ruleFormValue.description || '').trim();
-
-    if (!ruleTargetUserGroup) {
-      showWarning(t('用户分组不能为空'));
-      return;
-    }
-
-    if (!targetGroup) {
-      showWarning(t('请填写目标分组'));
-      return;
-    }
-
-    const operationPrefix = ruleFormValue.operation === 'remove' ? '-:' : '+:';
-    const ruleKey = `${operationPrefix}${targetGroup}`;
-
-    const nextRules = {
-      ...(specialUsableGroups[ruleTargetUserGroup] || {}),
-      [ruleKey]: description,
-    };
-
-    updateSpecialUsableGroups({
-      ...specialUsableGroups,
-      [ruleTargetUserGroup]: nextRules,
-    });
-
-    setRuleModalVisible(false);
-  };
-
-  const deleteRule = (userGroupName, ruleKey) => {
-    const nextRules = {
-      ...(specialUsableGroups[userGroupName] || {}),
-    };
-    delete nextRules[ruleKey];
-
-    updateSpecialUsableGroups({
-      ...specialUsableGroups,
-      [userGroupName]: nextRules,
-    });
-  };
-
-  const deleteUserGroupRules = (userGroupName) => {
-    const next = { ...specialUsableGroups };
-    delete next[userGroupName];
-    updateSpecialUsableGroups(next);
-  };
-
-  const handleSave = async () => {
-    let submitInputs = {
-      ...inputs,
-    };
-
-    if (!advancedMode) {
-      submitInputs = {
-        [USER_USABLE_GROUPS_KEY]: safeStringify(userUsableGroups),
-        [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(specialUsableGroups),
-      };
-    } else {
-      const parsedUserGroups = parseJsonObject(
-        inputs[USER_USABLE_GROUPS_KEY],
-        t,
-        t('用户可选分组'),
-      );
-      const parsedSpecialGroups = parseSpecialGroupObject(
-        inputs[GROUP_SPECIAL_USABLE_GROUP_KEY],
-        t,
-      );
-
-      if (parsedUserGroups === null || parsedSpecialGroups === null) {
-        return;
-      }
-
-      const normalizedUserGroups = normalizeObject(parsedUserGroups);
-
-      submitInputs = {
-        [USER_USABLE_GROUPS_KEY]: safeStringify(normalizedUserGroups),
-        [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(parsedSpecialGroups),
-      };
-
-      setUserUsableGroups(normalizedUserGroups);
-      setSpecialUsableGroups(parsedSpecialGroups);
-      setInputs(submitInputs);
-    }
-
-    const updateArray = compareObjects(submitInputs, originInputs);
-    if (!updateArray.length) {
-      showWarning(t('你似乎并没有修改什么'));
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const requestQueue = updateArray.map((item) =>
-        API.put('/api/option/', {
-          key: item.key,
-          value: submitInputs[item.key],
-        }),
-      );
-
-      const res = await Promise.all(requestQueue);
-
-      if (res.includes(undefined)) {
-        showError(
-          requestQueue.length > 1 ? t('部分保存失败，请重试') : t('保存失败'),
-        );
-        return;
-      }
-
-      for (let i = 0; i < res.length; i++) {
-        if (!res[i].data?.success) {
-          showError(res[i].data?.message || t('保存失败'));
-          return;
-        }
-      }
-
-      setOriginInputs(submitInputs);
-      showSuccess(t('保存成功'));
-    } catch (error) {
-      showError(t('保存失败，请重试'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleMode = () => {
-    if (!advancedMode) {
-      setAdvancedMode(true);
-      return;
-    }
-
-    const parsedUserGroups = parseJsonObject(
-      inputs[USER_USABLE_GROUPS_KEY],
-      t,
-      t('用户可选分组'),
-    );
-    const parsedSpecialGroups = parseSpecialGroupObject(
-      inputs[GROUP_SPECIAL_USABLE_GROUP_KEY],
-      t,
-    );
-
-    if (parsedUserGroups === null || parsedSpecialGroups === null) {
-      return;
-    }
-
-    const normalizedUserGroups = normalizeObject(parsedUserGroups);
-    setUserUsableGroups(normalizedUserGroups);
-    setSpecialUsableGroups(parsedSpecialGroups);
-    setInputs({
-      [USER_USABLE_GROUPS_KEY]: safeStringify(normalizedUserGroups),
-      [GROUP_SPECIAL_USABLE_GROUP_KEY]: safeStringify(parsedSpecialGroups),
-    });
-    setAdvancedMode(false);
-  };
-
-  const userUsableColumns = [
-    {
-      title: t('分组标识'),
-      dataIndex: 'groupKey',
-      render: (text) => (
-        <Typography.Text
-          style={{
-            fontFamily:
-              'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          }}
-        >
-          {text}
-        </Typography.Text>
-      ),
-    },
-    {
-      title: t('分组描述'),
-      dataIndex: 'description',
-      render: (text) => text || '-',
-    },
-    {
-      title: t('操作'),
-      width: 180,
-      render: (_, row) => (
-        <Space>
-          <Button size='small' onClick={() => openEditGroupModal(row)}>
-            {t('编辑')}
-          </Button>
-          <Popconfirm
-            title={t('确定删除该分组吗？')}
-            onConfirm={() => deleteGroup(row.groupKey)}
-          >
-            <Button size='small' type='danger'>
-              {t('删除')}
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+  const globalRows = Object.entries(globalUsableGroups);
 
   return (
-    <Spin spinning={loading || saving}>
-      <Space vertical align='start' style={{ width: '100%' }} spacing='loose'>
-        <Card
-          title={t('分组管理')}
-          style={{ width: '100%' }}
-          headerExtraContent={
-            <Button onClick={handleToggleMode}>
-              {advancedMode
-                ? t('返回可视化编辑')
-                : t('切换到高级模式（JSON编辑）')}
-            </Button>
-          }
+    <Spin spinning={loading}>
+      <div>
+        <Typography.Title heading={3}>{t('权限分组管理')}</Typography.Title>
+        <Typography.Text type='tertiary'>
+          {t('管理用户权限分组，配置每个分组可使用的令牌分组')}
+        </Typography.Text>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 24,
+            marginBottom: 16,
+          }}
         >
-          <Typography.Text type='secondary'>
-            {t('可视化编辑用户可选分组与分组特殊可用分组规则，保存后立即生效。')}
-          </Typography.Text>
-        </Card>
+          <Typography.Title heading={5} style={{ marginBottom: 0 }}>
+            {t('权限分组')}
+          </Typography.Title>
+          <Button theme='solid' icon={<IconPlus />} onClick={handleCreate}>
+            {t('新建权限分组')}
+          </Button>
+        </div>
 
-        <Card title={t('用户可选分组')} style={{ width: '100%' }}>
-          {advancedMode ? (
-            <Form>
-              <Form.TextArea
-                field={USER_USABLE_GROUPS_KEY}
-                label={t('用户可选分组 JSON')}
-                autosize={{ minRows: 8, maxRows: 16 }}
-                value={inputs[USER_USABLE_GROUPS_KEY]}
-                onChange={(value) =>
-                  setInputs((prev) => ({
-                    ...prev,
-                    [USER_USABLE_GROUPS_KEY]: value,
-                  }))
-                }
-              />
-            </Form>
-          ) : (
-            <>
-              <div style={{ marginBottom: 12 }}>
-                <Button icon={<IconPlus />} type='primary' onClick={openAddGroupModal}>
-                  {t('添加分组')}
-                </Button>
-              </div>
-              <Table
-                columns={userUsableColumns}
-                dataSource={userUsableTableData}
-                rowKey='key'
-                pagination={false}
-                size='small'
-                scroll={{ x: 'max-content' }}
-              />
-            </>
-          )}
-        </Card>
+        {permissionGroups.length === 0 ? (
+          <Empty description={t('暂无权限分组，点击上方按钮创建')} />
+        ) : (
+          <Row gutter={[16, 16]}>
+            {permissionGroups.map((group) => (
+              <Col xs={24} sm={12} lg={8} key={group.name}>
+                <Card
+                  title={group.name}
+                  headerExtraContent={
+                    <Space>
+                      <Button size='small' onClick={() => handleEdit(group)}>
+                        {t('编辑')}
+                      </Button>
+                      <Popconfirm title={t('确定删除？')} onConfirm={() => handleDelete(group.name)}>
+                        <Button size='small' type='danger'>
+                          {t('删除')}
+                        </Button>
+                      </Popconfirm>
+                    </Space>
+                  }
+                >
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {group.selectedTokenGroups.map((tokenGroup) => (
+                      <Tag color='blue' key={`${group.name}-${tokenGroup}`}>
+                        {tokenGroup}
+                      </Tag>
+                    ))}
+                    {group.selectedTokenGroups.length === 0 && (
+                      <Typography.Text type='tertiary'>
+                        {t('无可用令牌分组')}
+                      </Typography.Text>
+                    )}
+                  </div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
 
-        <Card title={t('分组特殊可用分组规则')} style={{ width: '100%' }}>
-          {advancedMode ? (
-            <Form>
-              <Form.TextArea
-                field={GROUP_SPECIAL_USABLE_GROUP_KEY}
-                label={t('分组特殊可用分组 JSON')}
-                autosize={{ minRows: 10, maxRows: 20 }}
-                value={inputs[GROUP_SPECIAL_USABLE_GROUP_KEY]}
-                onChange={(value) =>
-                  setInputs((prev) => ({
-                    ...prev,
-                    [GROUP_SPECIAL_USABLE_GROUP_KEY]: value,
-                  }))
-                }
-              />
-            </Form>
-          ) : (
-            <>
-              <div style={{ marginBottom: 12 }}>
-                <Button icon={<IconPlus />} type='primary' onClick={openAddUserRuleModal}>
-                  {t('添加用户分组规则')}
-                </Button>
-              </div>
-
-              <Collapse keepDOM>
-                {Object.entries(specialUsableGroups).map(([groupName, rules]) => {
-                  const tableData = Object.entries(rules || {}).map(([ruleKey, desc]) => {
-                    let operation = 'add';
-                    let targetGroup = ruleKey;
-
-                    if (ruleKey.startsWith('-:')) {
-                      operation = 'remove';
-                      targetGroup = ruleKey.substring(2);
-                    } else if (ruleKey.startsWith('+:')) {
-                      operation = 'add';
-                      targetGroup = ruleKey.substring(2);
-                    }
-
-                    return {
-                      key: `${groupName}-${ruleKey}`,
-                      ruleKey,
-                      operation,
-                      targetGroup,
-                      description: desc,
-                    };
-                  });
-
-                  return (
-                    <Collapse.Panel
-                      itemKey={groupName}
-                      key={groupName}
-                      header={
-                        <Space>
-                          <Typography.Text strong>
-                            {t('{{groupName}} 用户分组规则', { groupName })}
-                          </Typography.Text>
-                          <Tag color='blue' size='small'>
-                            {t('{{count}} 条规则', { count: tableData.length })}
-                          </Tag>
-                        </Space>
-                      }
-                      extra={
-                        <Space>
-                          <Button size='small' onClick={() => openAddRuleModal(groupName)}>
-                            {t('添加规则')}
-                          </Button>
-                          <Popconfirm
-                            title={t('确定删除整个用户分组规则吗？')}
-                            onConfirm={() => deleteUserGroupRules(groupName)}
-                          >
-                            <Button size='small' type='danger'>
-                              {t('删除分组规则')}
-                            </Button>
-                          </Popconfirm>
-                        </Space>
-                      }
-                    >
-                      <Table
-                        size='small'
-                        pagination={false}
-                        rowKey='key'
-                        dataSource={tableData}
-                        columns={[
-                          {
-                            title: t('操作类型'),
-                            dataIndex: 'operation',
-                            render: (operation) =>
-                              operation === 'remove' ? (
-                                <Tag color='red'>{t('移除')}</Tag>
-                              ) : (
-                                <Tag color='green'>{t('添加')}</Tag>
-                              ),
-                          },
-                          {
-                            title: t('目标分组'),
-                            dataIndex: 'targetGroup',
-                          },
-                          {
-                            title: t('描述'),
-                            dataIndex: 'description',
-                            render: (text) => text || '-',
-                          },
-                          {
-                            title: t('操作'),
-                            width: 100,
-                            render: (_, row) => (
-                              <Popconfirm
-                                title={t('确定删除该规则吗？')}
-                                onConfirm={() => deleteRule(groupName, row.ruleKey)}
-                              >
-                                <Button size='small' type='danger'>
-                                  {t('删除')}
-                                </Button>
-                              </Popconfirm>
-                            ),
-                          },
-                        ]}
-                        scroll={{ x: 'max-content' }}
-                      />
-                    </Collapse.Panel>
-                  );
-                })}
-              </Collapse>
-            </>
-          )}
-        </Card>
-
-        <Card title={t('预览最终分组')} style={{ width: '100%' }}>
-          <Space vertical align='start' style={{ width: '100%' }}>
-            <Select
-              style={{ width: 320, maxWidth: '100%' }}
-              value={previewGroup}
-              onChange={(value) => setPreviewGroup(value || '')}
-              placeholder={t('选择用户分组')}
-              optionList={groupOptions}
-              filter
-              clearable
+        <Modal
+          title={editingGroup ? t('编辑权限分组') : t('新建权限分组')}
+          visible={modalVisible}
+          onOk={handleModalSave}
+          onCancel={() => setModalVisible(false)}
+        >
+          <Form>
+            <Form.Input
+              field='name'
+              label={t('权限分组名称')}
+              value={modalName}
+              onChange={setModalName}
+              disabled={!!editingGroup}
+              placeholder={t('例如：plus-8折')}
             />
+            <Form.Select
+              field='tokenGroups'
+              label={t('可用令牌分组')}
+              multiple
+              filter
+              value={modalSelected}
+              onChange={setModalSelected}
+              optionList={tokenGroupOptions}
+              placeholder={t('选择该权限分组可使用的令牌分组')}
+              style={{ width: '100%' }}
+            />
+          </Form>
+        </Modal>
 
-            <div>
-              <Typography.Text strong>{t('最终可用分组')}</Typography.Text>
-              <div style={{ marginTop: 8 }}>
-                {Object.keys(previewResult).length === 0 ? (
-                  <Typography.Text type='tertiary'>
-                    {previewGroup
-                      ? t('暂无可用分组')
-                      : t('请选择一个用户分组进行预览')}
-                  </Typography.Text>
-                ) : (
-                  Object.entries(previewResult).map(([groupKey, desc]) => (
-                    <Tag key={groupKey} color='blue' style={{ marginBottom: 8 }}>
-                      {groupKey}
-                      {desc ? ` · ${desc}` : ''}
-                    </Tag>
-                  ))
-                )}
-              </div>
-            </div>
-          </Space>
-        </Card>
+        <Collapse
+          style={{ marginTop: 32 }}
+          activeKey={advancedMode ? ['advanced'] : []}
+          onChange={(keys) => {
+            const isOpen = Array.isArray(keys)
+              ? keys.includes('advanced')
+              : keys === 'advanced';
+            setAdvancedMode(isOpen);
+          }}
+        >
+          <Collapse.Panel header={t('高级设置：全局令牌分组')} itemKey='advanced'>
+            <Typography.Text
+              type='tertiary'
+              style={{ marginBottom: 16, display: 'block' }}
+            >
+              {t('全局令牌分组是所有权限分组的基础列表，权限分组在此基础上增减')}
+            </Typography.Text>
 
-        <div>
-          <Button type='primary' onClick={handleSave} loading={saving}>
+            <Space vertical spacing='tight' style={{ width: '100%' }}>
+              {globalRows.length === 0 && (
+                <Typography.Text type='tertiary'>
+                  {t('暂无全局令牌分组')}
+                </Typography.Text>
+              )}
+
+              {globalRows.map(([groupKey, description]) => (
+                <Card key={groupKey} bodyStyle={{ padding: 12 }}>
+                  <Row gutter={12} align='middle'>
+                    <Col span={8}>
+                      <Typography.Text
+                        style={{
+                          fontFamily:
+                            'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        }}
+                      >
+                        {groupKey}
+                      </Typography.Text>
+                    </Col>
+                    <Col span={12}>
+                      <Form.Input
+                        field={`desc-${groupKey}`}
+                        value={description}
+                        onChange={(value) => updateGlobalDescription(groupKey, value)}
+                        placeholder={t('分组描述')}
+                      />
+                    </Col>
+                    <Col span={4}>
+                      <Popconfirm
+                        title={t('确定删除该令牌分组吗？')}
+                        onConfirm={() => removeGlobalGroup(groupKey)}
+                      >
+                        <Button size='small' type='danger'>
+                          {t('删除')}
+                        </Button>
+                      </Popconfirm>
+                    </Col>
+                  </Row>
+                </Card>
+              ))}
+
+              <Card bodyStyle={{ padding: 12 }}>
+                <Row gutter={12} align='middle'>
+                  <Col span={8}>
+                    <Form.Input
+                      field='newGlobalKey'
+                      value={newGlobalKey}
+                      onChange={setNewGlobalKey}
+                      placeholder={t('新令牌分组名称')}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Form.Input
+                      field='newGlobalDesc'
+                      value={newGlobalDesc}
+                      onChange={setNewGlobalDesc}
+                      placeholder={t('新令牌分组描述（可选）')}
+                    />
+                  </Col>
+                  <Col span={4}>
+                    <Button theme='solid' onClick={addGlobalGroup}>
+                      {t('添加')}
+                    </Button>
+                  </Col>
+                </Row>
+              </Card>
+            </Space>
+          </Collapse.Panel>
+        </Collapse>
+
+        <div style={{ marginTop: 24 }}>
+          <Button theme='solid' size='large' loading={loading} onClick={handleSave}>
             {t('保存设置')}
           </Button>
         </div>
-      </Space>
-
-      <Modal
-        title={editingGroupKey ? t('编辑分组') : t('添加分组')}
-        visible={groupModalVisible}
-        onCancel={() => setGroupModalVisible(false)}
-        onOk={confirmGroupModal}
-      >
-        <Form>
-          <Form.Input
-            field='key'
-            label={t('分组标识')}
-            value={groupFormValue.key}
-            onChange={(value) =>
-              setGroupFormValue((prev) => ({
-                ...prev,
-                key: value,
-              }))
-            }
-          />
-          <Form.Input
-            field='description'
-            label={t('分组描述')}
-            value={groupFormValue.description}
-            onChange={(value) =>
-              setGroupFormValue((prev) => ({
-                ...prev,
-                description: value,
-              }))
-            }
-          />
-        </Form>
-      </Modal>
-
-      <Modal
-        title={t('添加用户分组规则')}
-        visible={userRuleModalVisible}
-        onCancel={() => setUserRuleModalVisible(false)}
-        onOk={confirmAddUserRuleModal}
-      >
-        <Form>
-          <Form.Input
-            field='userGroupName'
-            label={t('用户分组名称')}
-            value={newUserGroupName}
-            onChange={(value) => setNewUserGroupName(value)}
-          />
-        </Form>
-      </Modal>
-
-      <Modal
-        title={t('添加规则')}
-        visible={ruleModalVisible}
-        onCancel={() => setRuleModalVisible(false)}
-        onOk={confirmAddRuleModal}
-      >
-        <Form>
-          <Form.Select
-            field='operation'
-            label={t('操作类型')}
-            value={ruleFormValue.operation}
-            onChange={(value) =>
-              setRuleFormValue((prev) => ({
-                ...prev,
-                operation: value,
-              }))
-            }
-            optionList={[
-              {
-                label: t('添加'),
-                value: 'add',
-              },
-              {
-                label: t('移除'),
-                value: 'remove',
-              },
-            ]}
-          />
-          <Form.Input
-            field='targetGroup'
-            label={t('目标分组')}
-            value={ruleFormValue.targetGroup}
-            onChange={(value) =>
-              setRuleFormValue((prev) => ({
-                ...prev,
-                targetGroup: value,
-              }))
-            }
-          />
-          <Form.Input
-            field='description'
-            label={t('描述')}
-            value={ruleFormValue.description}
-            onChange={(value) =>
-              setRuleFormValue((prev) => ({
-                ...prev,
-                description: value,
-              }))
-            }
-          />
-        </Form>
-      </Modal>
+      </div>
     </Spin>
   );
 }
