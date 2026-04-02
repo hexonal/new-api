@@ -158,7 +158,7 @@ func UpdateGroupPricingOption(c *gin.Context) {
 		defer common.ReleaseLock(lockKey, token)
 	}
 
-	// 3. Handle delete
+	// 3. Handle delete (pricing group only — remove from GroupRatio & GroupModelRatio)
 	if req.Delete {
 		if req.Group == "default" {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "不能删除 default 分组"})
@@ -172,43 +172,16 @@ func UpdateGroupPricingOption(c *gin.Context) {
 		gmrBytes, _ := common.Marshal(groupModelRatio)
 		grStr, gmrStr := string(grBytes), string(gmrBytes)
 
-		tx := model.DB.Begin()
-		if tx.Error != nil {
-			common.ApiError(c, tx.Error)
-			return
-		}
-		// Delete abilities for this group
-		if err := tx.Where(model.CommonGroupCol()+" = ?", req.Group).Delete(&model.Ability{}).Error; err != nil {
-			tx.Rollback()
+		// Only update the two pricing-related options
+		if err := model.UpdateOption("GroupRatio", grStr); err != nil {
 			common.ApiError(c, err)
 			return
 		}
-		// Remove group from channels
-		if err := model.RemoveGroupFromChannels(tx, req.Group); err != nil {
-			tx.Rollback()
+		if err := model.UpdateOption("GroupModelRatio", gmrStr); err != nil {
 			common.ApiError(c, err)
 			return
 		}
-		// Update options
-		for key, value := range map[string]string{"GroupRatio": grStr, "GroupModelRatio": gmrStr} {
-			opt := model.Option{Key: key}
-			if err := tx.FirstOrCreate(&opt, model.Option{Key: key}).Error; err != nil {
-				tx.Rollback()
-				common.ApiError(c, err)
-				return
-			}
-			opt.Value = value
-			if err := tx.Save(&opt).Error; err != nil {
-				tx.Rollback()
-				common.ApiError(c, err)
-				return
-			}
-		}
-		if err := tx.Commit().Error; err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		model.InitChannelCache()
+
 		ratio_setting.UpdateGroupRatioByJSONString(grStr)
 		ratio_setting.UpdateGroupModelRatioByJSONString(gmrStr)
 		c.JSON(http.StatusOK, gin.H{
@@ -269,75 +242,21 @@ func UpdateGroupPricingOption(c *gin.Context) {
 	}
 	groupModelRatioStr := string(groupModelRatioBytes)
 
-	// 4. Collect model names for abilities sync
-	modelNames := make([]string, 0, len(req.ModelRatios))
-	for m := range req.ModelRatios {
-		name := strings.TrimSpace(m)
-		if name != "" {
-			modelNames = append(modelNames, name)
-		}
-	}
-
-	// 5. Execute all DB mutations in a single transaction
-	tx := model.DB.Begin()
-	if tx.Error != nil {
-		common.ApiError(c, tx.Error)
+	// 4. Save GroupRatio and GroupModelRatio to DB
+	if err := model.UpdateOption("GroupRatio", groupRatioStr); err != nil {
+		common.ApiError(c, err)
 		return
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// 5a. Upsert options within the transaction
-	optionsToUpdate := map[string]string{
-		"GroupRatio":      groupRatioStr,
-		"GroupModelRatio": groupModelRatioStr,
-	}
-	for key, value := range optionsToUpdate {
-		opt := model.Option{Key: key}
-		if err := tx.FirstOrCreate(&opt, model.Option{Key: key}).Error; err != nil {
-			tx.Rollback()
-			common.ApiError(c, err)
-			return
-		}
-		opt.Value = value
-		if err := tx.Save(&opt).Error; err != nil {
-			tx.Rollback()
-			common.ApiError(c, err)
-			return
-		}
-	}
-
-	// 5b. Sync channels.group for this pricing group
-	if err := model.SyncChannelGroupForPricing(tx, req.Group, modelNames); err != nil {
-		tx.Rollback()
+	if err := model.UpdateOption("GroupModelRatio", groupModelRatioStr); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 
-	// 5c. Rebuild abilities for this group
-	if err := model.SyncAbilitiesForGroup(req.Group, modelNames, tx); err != nil {
-		tx.Rollback()
-		common.ApiError(c, err)
-		return
-	}
-
-	// 6. Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	// 7. Refresh caches (outside transaction)
-	model.InitChannelCache()
-
-	// 8. Update in-memory ratio config
+	// 5. Refresh in-memory ratio caches
 	ratio_setting.UpdateGroupRatioByJSONString(groupRatioStr)
 	ratio_setting.UpdateGroupModelRatioByJSONString(groupModelRatioStr)
 
-	// 9. Return success
+	// 6. Return success
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
