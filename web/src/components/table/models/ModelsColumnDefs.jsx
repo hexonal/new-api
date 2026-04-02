@@ -70,7 +70,7 @@ const renderVendorTag = (vendorId, vendorMap, t) => {
 };
 
 // Render groups (enable_groups)
-const renderGroups = (groups, record, onEditGroups, t) => {
+const renderGroups = (groups) => {
   const content =
     !groups || groups.length === 0
       ? '-'
@@ -82,32 +82,7 @@ const renderGroups = (groups, record, onEditGroups, t) => {
       </Tag>
     ),
   });
-  if (!onEditGroups) {
-    return content;
-  }
-  return (
-    <Space wrap>
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          onEditGroups(record);
-        }}
-        style={{ cursor: 'pointer' }}
-      >
-        {content}
-      </div>
-      <Button
-        type='tertiary'
-        size='small'
-        onClick={(e) => {
-          e.stopPropagation();
-          onEditGroups(record);
-        }}
-      >
-        {t('编辑')}
-      </Button>
-    </Space>
-  );
+  return content;
 };
 
 // Render tags
@@ -308,7 +283,6 @@ export const getModelsColumns = ({
   setShowEdit,
   refresh,
   vendorMap,
-  onEditGroups,
 }) => {
   return [
     {
@@ -369,7 +343,7 @@ export const getModelsColumns = ({
     {
       title: t('可用分组'),
       dataIndex: 'enable_groups',
-      render: (groups, record) => renderGroups(groups, record, onEditGroups, t),
+      render: (groups) => renderGroups(groups),
     },
     {
       title: t('计费类型'),

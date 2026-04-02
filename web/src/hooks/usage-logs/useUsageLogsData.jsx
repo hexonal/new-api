@@ -40,6 +40,28 @@ import {
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 
+const toPositiveNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const isDeferredTokenRecalculateLog = (log, other) => {
+  if (!other?.deferred_settle) {
+    return false;
+  }
+  const reason = String(other?.terminal_charge_reason || '').toLowerCase();
+  const content = String(log?.content || '').toLowerCase();
+  const hasTokenUsage =
+    toPositiveNumber(other?.task_total_tokens) > 0 ||
+    toPositiveNumber(other?.task_completion_tokens) > 0 ||
+    toPositiveNumber(other?.task_prompt_tokens) > 0;
+  return (
+    reason.startsWith('token_recalculate') ||
+    content.startsWith('token_recalculate') ||
+    hasTokenUsage
+  );
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
 
@@ -459,42 +481,71 @@ export const useLogsData = () => {
         });
       }
       if (logs[i].type === 2) {
+        const deferredTokenRecalculate =
+          isDeferredTokenRecalculateLog(logs[i], other) &&
+          toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0;
+        const promptTokens = toPositiveNumber(
+          logs[i]?.prompt_tokens || other?.task_prompt_tokens,
+        );
+        const completionTokens = toPositiveNumber(
+          logs[i]?.completion_tokens || other?.task_completion_tokens,
+        );
+        const totalTokens =
+          promptTokens + completionTokens > 0
+            ? promptTokens + completionTokens
+            : toPositiveNumber(other?.task_total_tokens);
         expandDataLocal.push({
           key: t('日志详情'),
-          value: other?.claude
-            ? renderClaudeLogContent(
-                other?.model_ratio,
-                other?.completion_ratio,
-                other?.model_price,
-                other?.group_ratio,
-                other?.user_group_ratio,
-                other?.cache_ratio || 1.0,
-                other?.cache_creation_ratio || 1.0,
-                other.cache_creation_tokens_5m || 0,
-                other.cache_creation_ratio_5m ||
-                  other.cache_creation_ratio ||
+          value: deferredTokenRecalculate
+            ? [
+                totalTokens > 0
+                  ? t('Token 消耗：{{tokens}}', {
+                      tokens: renderNumber(totalTokens),
+                    })
+                  : null,
+                t('终态重算扣费：{{cost}}', {
+                  cost: renderQuota(logs[i].quota || 0, 6),
+                }),
+                t('结算原因：{{reason}}', {
+                  reason: other?.terminal_charge_reason || logs[i].content || '-',
+                }),
+              ]
+                .filter(Boolean)
+                .join(' | ')
+            : other?.claude
+              ? renderClaudeLogContent(
+                  other?.model_ratio,
+                  other?.completion_ratio,
+                  other?.model_price,
+                  other?.group_ratio,
+                  other?.user_group_ratio,
+                  other?.cache_ratio || 1.0,
+                  other?.cache_creation_ratio || 1.0,
+                  other.cache_creation_tokens_5m || 0,
+                  other.cache_creation_ratio_5m ||
+                    other.cache_creation_ratio ||
+                    1.0,
+                  other.cache_creation_tokens_1h || 0,
+                  other.cache_creation_ratio_1h ||
+                    other.cache_creation_ratio ||
+                    1.0,
+                  billingDisplayMode,
+                )
+              : renderLogContent(
+                  other?.model_ratio,
+                  other?.completion_ratio,
+                  other?.model_price,
+                  other?.group_ratio,
+                  other?.user_group_ratio,
+                  other?.cache_ratio || 1.0,
+                  false,
                   1.0,
-                other.cache_creation_tokens_1h || 0,
-                other.cache_creation_ratio_1h ||
-                  other.cache_creation_ratio ||
-                  1.0,
-                billingDisplayMode,
-              )
-            : renderLogContent(
-                other?.model_ratio,
-                other?.completion_ratio,
-                other?.model_price,
-                other?.group_ratio,
-                other?.user_group_ratio,
-                other?.cache_ratio || 1.0,
-                false,
-                1.0,
-                other?.web_search || false,
-                other?.web_search_call_count || 0,
-                other?.file_search || false,
-                other?.file_search_call_count || 0,
-                billingDisplayMode,
-              ),
+                  other?.web_search || false,
+                  other?.web_search_call_count || 0,
+                  other?.file_search || false,
+                  other?.file_search_call_count || 0,
+                  billingDisplayMode,
+                ),
         });
         if (logs[i]?.content) {
           expandDataLocal.push({
@@ -573,9 +624,8 @@ export const useLogsData = () => {
               billingDisplayMode,
             );
           } else if (
-            other?.deferred_settle &&
-            Number(other?.actual_quota || 0) > 0 &&
-            Number(other?.model_price || 0) === 0
+            isDeferredTokenRecalculateLog(logs[i], other) &&
+            toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
             const billedQuota = Number(logs[i].quota || 0);
             content = (

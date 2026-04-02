@@ -304,6 +304,23 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
+function isDeferredTokenRecalculateLog(record, other) {
+  if (!other?.deferred_settle) {
+    return false;
+  }
+  const reason = String(other?.terminal_charge_reason || '').toLowerCase();
+  const content = String(record?.content || '').toLowerCase();
+  const hasTokenUsage =
+    toTokenNumber(other?.task_total_tokens) > 0 ||
+    toTokenNumber(other?.task_completion_tokens) > 0 ||
+    toTokenNumber(other?.task_prompt_tokens) > 0;
+  return (
+    reason.startsWith('token_recalculate') ||
+    content.startsWith('token_recalculate') ||
+    hasTokenUsage
+  );
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -843,6 +860,41 @@ export const getLogsColumns = ({
             `${t('扣费')}：${renderQuota(feeQuota, 6)}`,
             `${t('分组倍率')}：${formatRatio(other?.group_ratio)}`,
             text ? `${t('详情')}：${text}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 240 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
+
+        if (
+          isDeferredTokenRecalculateLog(record, other) &&
+          Number(other?.actual_quota || record?.quota || 0) > 0
+        ) {
+          const billedQuota = Number(record?.quota || 0);
+          const tokenTotal =
+            toTokenNumber(other?.task_total_tokens) ||
+            toTokenNumber(record?.prompt_tokens) +
+              toTokenNumber(record?.completion_tokens);
+          const summary = [
+            t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
+            `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
+            tokenTotal > 0
+              ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
+              : null,
+            t('仅供参考，以实际扣费为准'),
           ]
             .filter(Boolean)
             .join('\n');
