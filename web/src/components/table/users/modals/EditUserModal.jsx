@@ -68,7 +68,6 @@ const EditUserModal = (props) => {
   const [addAmountLocal, setAddAmountLocal] = useState('');
   const isMobile = useIsMobile();
   const [groupOptions, setGroupOptions] = useState([]);
-  const [pricingGroupOptions, setPricingGroupOptions] = useState([]);
   const [bindingModalVisible, setBindingModalVisible] = useState(false);
   const formApiRef = useRef(null);
 
@@ -87,7 +86,6 @@ const EditUserModal = (props) => {
     email: '',
     quota: 0,
     group: 'default',
-    pricing_group: '',
     remark: '',
   });
 
@@ -100,14 +98,6 @@ const EditUserModal = (props) => {
     }
   };
 
-  const fetchPricingGroups = async () => {
-    try {
-      let res = await API.get(`/api/group/?type=pricing`);
-      setPricingGroupOptions(res.data.data.map((g) => ({ label: g, value: g })));
-    } catch (e) {
-      showError(e.message);
-    }
-  };
 
   const handleCancel = () => props.handleClose();
 
@@ -129,7 +119,6 @@ const EditUserModal = (props) => {
     loadUser();
     if (userId) {
       fetchGroups();
-      fetchPricingGroups();
     }
     setBindingModalVisible(false);
   }, [props.editingUser.id]);
@@ -148,6 +137,8 @@ const EditUserModal = (props) => {
     let payload = { ...values };
     if (typeof payload.quota === 'string')
       payload.quota = parseInt(payload.quota) || 0;
+    // Auto-sync pricing_group = group (one-group-per-user model)
+    payload.pricing_group = payload.group;
     if (userId) {
       payload.id = parseInt(userId);
     }
@@ -305,27 +296,15 @@ const EditUserModal = (props) => {
                     </div>
 
                     <Row gutter={12}>
-                      <Col span={12}>
+                      <Col span={24}>
                         <Form.Select
                           field='group'
-                          label={t('路由分组')}
+                          label={t('分组')}
                           placeholder={t('请选择分组')}
                           optionList={groupOptions}
                           allowAdditions
                           search
                           rules={[{ required: true, message: t('请选择分组') }]}
-                        />
-                      </Col>
-
-                      <Col span={12}>
-                        <Form.Select
-                          field='pricing_group'
-                          label={t('定价分组')}
-                          placeholder={t('留空则跟随路由分组')}
-                          optionList={pricingGroupOptions}
-                          allowAdditions
-                          search
-                          showClear
                         />
                       </Col>
 
