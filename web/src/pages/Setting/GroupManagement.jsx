@@ -114,6 +114,9 @@ export default function GroupManagement() {
     if (selectedGroup && (groupRatio[selectedGroup] !== undefined || groupModelRatio[selectedGroup] !== undefined)) {
       setEditBaseRatio(groupRatio[selectedGroup] ?? 1.0);
       setEditModelRatios({ ...(groupModelRatio[selectedGroup] || {}) });
+      // Reset "add model ratio" draft when switching groups to avoid stale display.
+      setAddModelName('');
+      setAddModelRatio(1);
       setDirty(false);
     }
   }, [selectedGroup, groupRatio, groupModelRatio]);
@@ -461,6 +464,15 @@ export default function GroupManagement() {
                         size='small'
                         style={{ marginBottom: 16 }}
                       />
+                    )}
+                    {modelRatioData.length === 0 && (
+                      <Typography.Text
+                        type='tertiary'
+                        size='small'
+                        style={{ display: 'block', marginBottom: 12 }}
+                      >
+                        {t('当前分组暂无模型倍率配置')}
+                      </Typography.Text>
                     )}
 
                     {/* Add model row */}

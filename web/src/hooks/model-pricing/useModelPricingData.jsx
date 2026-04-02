@@ -44,6 +44,17 @@ const filterUsableGroupByModelAccess = (usableGroup, models) => {
   );
 };
 
+const filterModelsByUserGroup = (models, userGroup) => {
+  if (!userGroup) {
+    return models || [];
+  }
+  return (models || []).filter((model) =>
+    Array.isArray(model?.enable_groups)
+      ? model.enable_groups.includes(userGroup)
+      : false,
+  );
+};
+
 export const useModelPricingData = () => {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
@@ -276,15 +287,16 @@ export const useModelPricingData = () => {
       auto_groups,
     } = res.data;
     if (success) {
+      const currentUserGroup = userState?.user?.group || '';
+      const visibleModels = filterModelsByUserGroup(data, currentUserGroup);
       setGroupRatio(group_ratio);
       setGroupModelRatio(group_model_ratio || {});
       const scopedUsableGroup = filterUsableGroupByModelAccess(
         usable_group,
-        data,
+        visibleModels,
       );
       setUsableGroup(scopedUsableGroup);
       const availableGroups = Object.keys(scopedUsableGroup);
-      const currentUserGroup = userState?.user?.group || '';
       const defaultGroup = availableGroups.includes(currentUserGroup)
         ? currentUserGroup
         : availableGroups[0] || '';
@@ -300,7 +312,7 @@ export const useModelPricingData = () => {
       setVendorsMap(vendorMap);
       setEndpointMap(supported_endpoint || {});
       setAutoGroups(auto_groups || []);
-      setModelsFormat(data, group_ratio, vendorMap);
+      setModelsFormat(visibleModels, group_ratio, vendorMap);
     } else {
       showError(message);
     }
