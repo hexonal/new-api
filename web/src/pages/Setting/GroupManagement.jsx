@@ -116,7 +116,7 @@ export default function GroupManagement() {
       setEditModelRatios({ ...(groupModelRatio[selectedGroup] || {}) });
       setDirty(false);
     }
-  }, [selectedGroup]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedGroup, groupRatio, groupModelRatio]);
 
   // Model options for dropdown (exclude already added models)
   const availableModelOptions = useMemo(() => {
@@ -147,12 +147,17 @@ export default function GroupManagement() {
       if (Object.keys(editModelRatios).length === 0) {
         delete newGroupModelRatio[selectedGroup];
       }
-      const grsRes = await API.put('/api/option/', {
-        key: 'GroupModelRatio',
-        value: JSON.stringify(newGroupModelRatio),
-      });
-      if (!grsRes.data?.success) {
-        throw new Error(grsRes.data?.message || t('保存模型倍率失败'));
+
+      const prevModelRatioStr = JSON.stringify(groupModelRatio || {});
+      const nextModelRatioStr = JSON.stringify(newGroupModelRatio || {});
+      if (prevModelRatioStr !== nextModelRatioStr) {
+        const grsRes = await API.put('/api/option/', {
+          key: 'GroupModelRatio',
+          value: nextModelRatioStr,
+        });
+        if (!grsRes.data?.success) {
+          throw new Error(grsRes.data?.message || t('保存模型倍率失败'));
+        }
       }
 
       // Update local state
