@@ -40,6 +40,8 @@ import {
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
+  getQuotaPerUnit,
+  getCurrencyConfig,
 } from '../../../helpers';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
@@ -319,6 +321,32 @@ function isDeferredTokenRecalculateLog(record, other) {
     content.startsWith('token_recalculate') ||
     hasTokenUsage
   );
+}
+
+function deriveEffectiveTokenPricePer1M(quota, totalTokens) {
+  const quotaValue = Number(quota);
+  const tokensValue = Number(totalTokens);
+  const quotaPerUnit = Number(getQuotaPerUnit());
+  if (
+    !Number.isFinite(quotaValue) ||
+    quotaValue <= 0 ||
+    !Number.isFinite(tokensValue) ||
+    tokensValue <= 0 ||
+    !Number.isFinite(quotaPerUnit) ||
+    quotaPerUnit <= 0
+  ) {
+    return null;
+  }
+  const totalUsd = quotaValue / quotaPerUnit;
+  return (totalUsd * 1000000) / tokensValue;
+}
+
+function formatDisplayPrice(usdAmount) {
+  if (!Number.isFinite(usdAmount)) {
+    return '-';
+  }
+  const { symbol, rate } = getCurrencyConfig();
+  return `${symbol}${(usdAmount * rate).toFixed(6)}`;
 }
 
 function getPromptCacheSummary(other) {
@@ -888,8 +916,15 @@ export const getLogsColumns = ({
             toTokenNumber(other?.task_total_tokens) ||
             toTokenNumber(record?.prompt_tokens) +
               toTokenNumber(record?.completion_tokens);
+          const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
+            other?.actual_quota || billedQuota,
+            tokenTotal,
+          );
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
+            Number.isFinite(effectiveTokenPricePer1M)
+              ? `${t('模型价格（按 token）')}：${formatDisplayPrice(effectiveTokenPricePer1M)} / 1M tokens`
+              : null,
             `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`

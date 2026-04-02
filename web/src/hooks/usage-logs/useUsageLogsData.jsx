@@ -36,6 +36,8 @@ import {
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
+  getQuotaPerUnit,
+  getCurrencyConfig,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -60,6 +62,32 @@ const isDeferredTokenRecalculateLog = (log, other) => {
     content.startsWith('token_recalculate') ||
     hasTokenUsage
   );
+};
+
+const deriveEffectiveTokenPricePer1M = (quota, totalTokens) => {
+  const quotaValue = Number(quota);
+  const tokensValue = Number(totalTokens);
+  const quotaPerUnit = Number(getQuotaPerUnit());
+  if (
+    !Number.isFinite(quotaValue) ||
+    quotaValue <= 0 ||
+    !Number.isFinite(tokensValue) ||
+    tokensValue <= 0 ||
+    !Number.isFinite(quotaPerUnit) ||
+    quotaPerUnit <= 0
+  ) {
+    return null;
+  }
+  const totalUsd = quotaValue / quotaPerUnit;
+  return (totalUsd * 1000000) / tokensValue;
+};
+
+const formatDisplayPrice = (usdAmount) => {
+  if (!Number.isFinite(usdAmount)) {
+    return '-';
+  }
+  const { symbol, rate } = getCurrencyConfig();
+  return `${symbol}${(usdAmount * rate).toFixed(6)}`;
 };
 
 export const useLogsData = () => {
@@ -494,6 +522,12 @@ export const useLogsData = () => {
           promptTokens + completionTokens > 0
             ? promptTokens + completionTokens
             : toPositiveNumber(other?.task_total_tokens);
+        const effectiveTokenPricePer1M = deferredTokenRecalculate
+          ? deriveEffectiveTokenPricePer1M(
+              other?.actual_quota || logs[i]?.quota,
+              totalTokens,
+            )
+          : null;
         expandDataLocal.push({
           key: t('日志详情'),
           value: deferredTokenRecalculate
@@ -506,6 +540,11 @@ export const useLogsData = () => {
                 t('终态重算扣费：{{cost}}', {
                   cost: renderQuota(logs[i].quota || 0, 6),
                 }),
+                Number.isFinite(effectiveTokenPricePer1M)
+                  ? t('模型价格（按 token）：{{price}} / 1M tokens', {
+                      price: formatDisplayPrice(effectiveTokenPricePer1M),
+                    })
+                  : null,
                 t('结算原因：{{reason}}', {
                   reason: other?.terminal_charge_reason || logs[i].content || '-',
                 }),
@@ -628,6 +667,17 @@ export const useLogsData = () => {
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
             const billedQuota = Number(logs[i].quota || 0);
+            const totalTokens =
+              toPositiveNumber(logs[i]?.prompt_tokens) +
+                toPositiveNumber(logs[i]?.completion_tokens) >
+              0
+                ? toPositiveNumber(logs[i]?.prompt_tokens) +
+                  toPositiveNumber(logs[i]?.completion_tokens)
+                : toPositiveNumber(other?.task_total_tokens);
+            const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
+              other?.actual_quota || billedQuota,
+              totalTokens,
+            );
             content = (
               <article>
                 <p>
@@ -635,15 +685,22 @@ export const useLogsData = () => {
                     cost: renderQuota(billedQuota, 6),
                   })}
                 </p>
+                {Number.isFinite(effectiveTokenPricePer1M) && (
+                  <p>
+                    {t('模型价格（按 token）：{{price}} / 1M tokens', {
+                      price: formatDisplayPrice(effectiveTokenPricePer1M),
+                    })}
+                  </p>
+                )}
                 <p>
                   {t('结算原因：{{reason}}', {
                     reason: other?.terminal_charge_reason || logs[i].content || '-',
                   })}
                 </p>
-                {Number(other?.task_total_tokens || 0) > 0 && (
+                {totalTokens > 0 && (
                   <p>
                     {t('任务总 Tokens：{{tokens}}', {
-                      tokens: renderNumber(other.task_total_tokens),
+                      tokens: renderNumber(totalTokens),
                     })}
                   </p>
                 )}
