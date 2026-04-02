@@ -249,8 +249,15 @@ func TokenOrUserAuth() func(c *gin.Context) {
 			c.Set("id", id)
 			c.Set("username", username)
 			c.Set("role", role)
-			c.Set("group", session.Get("group"))
-			c.Set("user_group", session.Get("group"))
+			// Load full user cache so group, pricing_group and other context keys are authoritative from DB
+			if userCache, err := model.GetUserCache(id); err == nil {
+				userCache.WriteContext(c)
+				c.Set("group", userCache.Group)
+				c.Set("user_group", userCache.Group)
+			} else {
+				c.Set("group", session.Get("group"))
+				c.Set("user_group", session.Get("group"))
+			}
 			c.Next()
 			return
 		}

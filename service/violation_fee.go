@@ -157,6 +157,7 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		UseTimeSeconds: int(useTimeSeconds),
 		IsStream:       relayInfo.IsStream,
 		Group:          relayInfo.UsingGroup,
+		PricingGroup:   relayInfo.EffectivePricingGroup(),
 		Other:          other,
 	})
 

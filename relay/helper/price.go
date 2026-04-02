@@ -23,15 +23,32 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		GroupSpecialRatio: -1,
 	}
 
-	// check auto group
+	// check auto group — only affects routing (UsingGroup), not pricing
 	autoGroup, exists := ctx.Get("auto_group")
 	if exists {
 		logger.LogDebug(ctx, fmt.Sprintf("final group: %s", autoGroup))
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
+	// Determine the group used for pricing/ratio lookups.
+	// UserPricingGroup (from user.pricing_group) takes priority;
+	// falls back to UsingGroup for backward compatibility.
+	pricingGroup := relayInfo.UserPricingGroup
+	if pricingGroup == "" {
+		pricingGroup = relayInfo.UsingGroup
+	}
+
+	// Warn if pricingGroup is set but not found in any ratio config
+	if pricingGroup != "" {
+		_, inGroupRatio := ratio_setting.GetGroupRatioCopy()[pricingGroup]
+		_, inGroupModelRatio := ratio_setting.GetGroupModelRatioCopy()[pricingGroup]
+		if !inGroupRatio && !inGroupModelRatio {
+			logger.LogWarn(ctx, fmt.Sprintf("pricingGroup %q not found in GroupRatio or GroupModelRatio, will fall back to ratio 1.0", pricingGroup))
+		}
+	}
+
 	// highest priority: per-group per-model ratio
-	if modelRatio, ok := ratio_setting.GetGroupModelRatio(relayInfo.UsingGroup, relayInfo.OriginModelName); ok {
+	if modelRatio, ok := ratio_setting.GetGroupModelRatio(pricingGroup, relayInfo.OriginModelName); ok {
 		groupRatioInfo.GroupRatio = modelRatio
 		groupRatioInfo.GroupSpecialRatio = modelRatio
 		groupRatioInfo.HasSpecialRatio = true
@@ -39,7 +56,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	}
 
 	// check user group special ratio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
+	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, pricingGroup)
 	if ok {
 		// user group special ratio
 		groupRatioInfo.GroupSpecialRatio = userGroupRatio
@@ -47,7 +64,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		groupRatioInfo.HasSpecialRatio = true
 	} else {
 		// normal group ratio
-		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
+		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(pricingGroup)
 	}
 
 	return groupRatioInfo

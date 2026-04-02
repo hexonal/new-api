@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Typography,
   Button,
@@ -25,6 +25,7 @@ import {
   Tag,
   Modal,
   Input,
+  InputNumber,
   Select,
   Row,
   Col,
@@ -32,295 +33,304 @@ import {
   Popconfirm,
   Space,
   Spin,
+  Table,
 } from '@douyinfe/semi-ui';
-import { IconPlus } from '@douyinfe/semi-icons';
+import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
-
-const USER_USABLE_GROUPS_KEY = 'UserUsableGroups';
-const GROUP_SPECIAL_USABLE_GROUP_KEY =
-  'group_ratio_setting.group_special_usable_group';
-
-function normalizeObject(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-  const normalized = {};
-  Object.entries(value).forEach(([key, val]) => {
-    normalized[String(key)] = String(val ?? '');
-  });
-  return normalized;
-}
-
-function normalizeNestedObject(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-  const normalized = {};
-  Object.entries(value).forEach(([outerKey, nested]) => {
-    normalized[String(outerKey)] = normalizeObject(nested);
-  });
-  return normalized;
-}
-
-function parseJsonObject(value) {
-  if (!value || String(value).trim() === '') {
-    return {};
-  }
-  const parsed = JSON.parse(value);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('invalid-json-object');
-  }
-  return parsed;
-}
-
-function extractTokenGroups(groupData) {
-  if (Array.isArray(groupData)) {
-    const values = groupData
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item;
-        }
-        if (!item || typeof item !== 'object') {
-          return '';
-        }
-        return item.name || item.group || item.value || item.key || '';
-      })
-      .filter((item) => item !== '');
-    return Array.from(new Set(values));
-  }
-
-  if (groupData && typeof groupData === 'object') {
-    return Object.keys(groupData);
-  }
-
-  return [];
-}
-
-function parseSelectedGroups(userGroup, globalUsable, specialRules) {
-  const result = new Set(Object.keys(globalUsable));
-  const rules = specialRules[userGroup] || {};
-  for (const [key] of Object.entries(rules)) {
-    if (key.startsWith('-:')) {
-      result.delete(key.substring(2));
-    } else if (key.startsWith('+:')) {
-      result.add(key.substring(2));
-    } else {
-      result.add(key);
-    }
-  }
-  return Array.from(result);
-}
-
-function derivePermissionGroups(globalUsable, special) {
-  return Object.keys(special).map((name) => ({
-    name,
-    selectedTokenGroups: parseSelectedGroups(name, globalUsable, special),
-  }));
-}
-
-function computeSpecialRules(selectedGroups, globalUsable) {
-  const rules = {};
-  for (const key of Object.keys(globalUsable)) {
-    if (!selectedGroups.includes(key)) {
-      rules[`-:${key}`] = globalUsable[key];
-    }
-  }
-  for (const key of selectedGroups) {
-    if (!(key in globalUsable)) {
-      rules[`+:${key}`] = key;
-    }
-  }
-  return rules;
-}
-
-function areFlatObjectsEqual(a, b) {
-  const aEntries = Object.entries(a || {});
-  const bEntries = Object.entries(b || {});
-  if (aEntries.length !== bEntries.length) {
-    return false;
-  }
-  return aEntries.every(([key, value]) => b[key] === value);
-}
 
 export default function GroupManagement() {
   const { t } = useTranslation();
 
-  const [globalUsableGroups, setGlobalUsableGroups] = useState({});
-  const [savedGlobalUsableGroups, setSavedGlobalUsableGroups] = useState({});
-  const [specialRules, setSpecialRules] = useState({});
-  const [allTokenGroups, setAllTokenGroups] = useState([]);
-  const [permissionGroups, setPermissionGroups] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingGroup, setEditingGroup] = useState(null);
-  const [modalName, setModalName] = useState('');
-  const [modalSelected, setModalSelected] = useState([]);
+  // Data state
+  const [groupRatio, setGroupRatio] = useState({}); // {"default":1,"vip":0.8}
+  const [groupModelRatio, setGroupModelRatio] = useState({}); // {"vip":{"gpt-4":0.5}}
+  const [allModels, setAllModels] = useState([]); // model list from /api/pricing
   const [loading, setLoading] = useState(false);
-  const [previewGroup, setPreviewGroup] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [optionRes, groupRes] = await Promise.all([
-          API.get('/api/option/'),
-          API.get('/api/group/'),
-        ]);
+  // UI state
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupBaseRatio, setNewGroupBaseRatio] = useState(1);
 
-        if (!optionRes.data?.success) {
-          showError(optionRes.data?.message || t('获取配置失败'));
-          return;
-        }
+  // Editing state for right panel
+  const [editBaseRatio, setEditBaseRatio] = useState(1);
+  const [editModelRatios, setEditModelRatios] = useState({}); // {model: ratio}
+  const [addModelName, setAddModelName] = useState('');
+  const [addModelRatio, setAddModelRatio] = useState(1);
+  const [dirty, setDirty] = useState(false);
 
-        const options = optionRes.data?.data || [];
-        const globalRaw =
-          options.find((item) => item.key === USER_USABLE_GROUPS_KEY)?.value || '{}';
-        const specialRaw =
-          options.find((item) => item.key === GROUP_SPECIAL_USABLE_GROUP_KEY)?.value ||
-          '{}';
+  const groupNames = useMemo(() => {
+    const allKeys = new Set([...Object.keys(groupRatio), ...Object.keys(groupModelRatio)]);
+    return [...allKeys].sort();
+  }, [groupRatio, groupModelRatio]);
 
-        const parsedGlobal = normalizeObject(parseJsonObject(globalRaw));
-        const parsedSpecial = normalizeNestedObject(parseJsonObject(specialRaw));
-
-        setGlobalUsableGroups(parsedGlobal);
-        setSavedGlobalUsableGroups(parsedGlobal);
-        setSpecialRules(parsedSpecial);
-        setPermissionGroups(derivePermissionGroups(parsedGlobal, parsedSpecial));
-
-        if (groupRes.data?.success) {
-          setAllTokenGroups(extractTokenGroups(groupRes.data?.data || []));
-        } else {
-          setAllTokenGroups([]);
-        }
-      } catch (error) {
-        showError(t('加载失败，请检查配置格式或稍后重试'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [t]);
-
-  useEffect(() => {
-    setPermissionGroups(derivePermissionGroups(globalUsableGroups, specialRules));
-  }, [globalUsableGroups, specialRules]);
-
-  const tokenGroupOptions = useMemo(
-    () => allTokenGroups.map((group) => ({ label: group, value: group })),
-    [allTokenGroups],
-  );
-  const previewResult = useMemo(() => {
-    if (!previewGroup) {
-      return [];
-    }
-    return parseSelectedGroups(previewGroup, globalUsableGroups, specialRules);
-  }, [previewGroup, globalUsableGroups, specialRules]);
-  const isGlobalModified = useMemo(
-    () => !areFlatObjectsEqual(globalUsableGroups, savedGlobalUsableGroups),
-    [globalUsableGroups, savedGlobalUsableGroups],
-  );
-
-  function handleCreate() {
-    setEditingGroup(null);
-    setModalName('');
-    setModalSelected([]);
-    setModalVisible(true);
-  }
-
-  function handleEdit(group) {
-    setEditingGroup(group.name);
-    setModalName(group.name);
-    setModalSelected(group.selectedTokenGroups);
-    setModalVisible(true);
-  }
-
-  function handleDelete(name) {
-    const newSpecial = { ...specialRules };
-    delete newSpecial[name];
-    setSpecialRules(newSpecial);
-  }
-
-  function handleModalSave() {
-    const finalName = String(modalName || '').trim();
-    if (!finalName) {
-      showError(t('请输入分组名称'));
-      return;
-    }
-    if (!editingGroup && specialRules[finalName]) {
-      showError(t('分组名称已存在'));
-      return;
-    }
-
-    const rules = computeSpecialRules(modalSelected, globalUsableGroups);
-    const newSpecial = { ...specialRules, [finalName]: rules };
-    setSpecialRules(newSpecial);
-    setModalVisible(false);
-  }
-
-  async function handleSave() {
+  // Load data
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const specialJson = JSON.stringify(specialRules);
+      const [optionRes, pricingRes] = await Promise.all([
+        API.get('/api/option/'),
+        API.get('/api/pricing'),
+      ]);
 
-      const specialRes = await API.put('/api/option/', {
-        key: GROUP_SPECIAL_USABLE_GROUP_KEY,
-        value: specialJson,
+      // Parse options
+      if (optionRes.data?.success) {
+        const options = optionRes.data.data || [];
+
+        // GroupRatio
+        const grRaw = options.find((item) => item.key === 'GroupRatio')?.value || '{}';
+        let gr = {};
+        try { gr = JSON.parse(grRaw); } catch { gr = {}; }
+        setGroupRatio(gr);
+
+        // GroupModelRatio from group_ratio_setting
+        const gmrRaw = options.find((item) => item.key === 'GroupModelRatio')?.value || '{}';
+        let gmr = {};
+        try { gmr = JSON.parse(gmrRaw); } catch { gmr = {}; }
+        setGroupModelRatio(gmr);
+      }
+
+      // Model list from pricing
+      if (pricingRes.data?.success) {
+        const pricingData = pricingRes.data.data || [];
+        const models = pricingData.map((m) => (typeof m === 'string' ? m : m.id || m.model_name || '')).filter(Boolean);
+        setAllModels(models.sort());
+      }
+    } catch (error) {
+      showError(t('加载失败'));
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // When selected group changes, load its data into edit panel
+  useEffect(() => {
+    if (selectedGroup && (groupRatio[selectedGroup] !== undefined || groupModelRatio[selectedGroup] !== undefined)) {
+      setEditBaseRatio(groupRatio[selectedGroup] ?? 1.0);
+      setEditModelRatios({ ...(groupModelRatio[selectedGroup] || {}) });
+      setDirty(false);
+    }
+  }, [selectedGroup]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Model options for dropdown (exclude already added models)
+  const availableModelOptions = useMemo(() => {
+    const existing = new Set(Object.keys(editModelRatios));
+    return allModels
+      .filter((m) => !existing.has(m))
+      .map((m) => ({ label: m, value: m }));
+  }, [allModels, editModelRatios]);
+
+  // Save all changes
+  const handleSave = async () => {
+    if (!selectedGroup) return;
+    setSaving(true);
+    try {
+      // 1. Update GroupRatio
+      const newGroupRatio = { ...groupRatio, [selectedGroup]: editBaseRatio };
+      const grRes = await API.put('/api/option/', {
+        key: 'GroupRatio',
+        value: JSON.stringify(newGroupRatio),
       });
-      if (!specialRes.data?.success) {
-        throw new Error(specialRes.data?.message || 'save-special-failed');
+      if (!grRes.data?.success) {
+        throw new Error(grRes.data?.message || t('保存分组倍率失败'));
       }
 
-      if (isGlobalModified) {
-        const globalJson = JSON.stringify(globalUsableGroups);
-        const globalRes = await API.put('/api/option/', {
-          key: USER_USABLE_GROUPS_KEY,
-          value: globalJson,
-        });
-        if (!globalRes.data?.success) {
-          throw new Error(globalRes.data?.message || 'save-global-failed');
-        }
-        setSavedGlobalUsableGroups(globalUsableGroups);
+      // 2. Update group_model_ratio via dot-notation key
+      const newGroupModelRatio = { ...groupModelRatio, [selectedGroup]: editModelRatios };
+      // Clean up empty model ratio entries
+      if (Object.keys(editModelRatios).length === 0) {
+        delete newGroupModelRatio[selectedGroup];
+      }
+      const grsRes = await API.put('/api/option/', {
+        key: 'GroupModelRatio',
+        value: JSON.stringify(newGroupModelRatio),
+      });
+      if (!grsRes.data?.success) {
+        throw new Error(grsRes.data?.message || t('保存模型倍率失败'));
       }
 
+      // Update local state
+      setGroupRatio(newGroupRatio);
+      setGroupModelRatio(newGroupModelRatio);
+      setDirty(false);
       showSuccess(t('保存成功'));
     } catch (error) {
       showError(error?.message || t('保存失败'));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }
+  };
+
+  // Create new group
+  const handleCreateGroup = async () => {
+    const name = newGroupName.trim();
+    if (!name) {
+      showError(t('请输入分组名称'));
+      return;
+    }
+    if (groupRatio[name] !== undefined) {
+      showError(t('分组已存在'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const newGr = { ...groupRatio, [name]: newGroupBaseRatio };
+      const res = await API.put('/api/option/', {
+        key: 'GroupRatio',
+        value: JSON.stringify(newGr),
+      });
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || t('创建失败'));
+      }
+      setGroupRatio(newGr);
+      setCreateModalVisible(false);
+      setNewGroupName('');
+      setNewGroupBaseRatio(1);
+      setSelectedGroup(name);
+      showSuccess(t('创建成功'));
+    } catch (error) {
+      showError(error?.message || t('创建失败'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete group
+  const handleDeleteGroup = async (name) => {
+    setSaving(true);
+    try {
+      // Remove from GroupRatio
+      const newGr = { ...groupRatio };
+      delete newGr[name];
+      const grRes = await API.put('/api/option/', {
+        key: 'GroupRatio',
+        value: JSON.stringify(newGr),
+      });
+      if (!grRes.data?.success) {
+        throw new Error(grRes.data?.message || t('删除失败'));
+      }
+
+      // Remove from group_model_ratio
+      const newGmr = { ...groupModelRatio };
+      delete newGmr[name];
+      const gmrRes = await API.put('/api/option/', {
+        key: 'GroupModelRatio',
+        value: JSON.stringify(newGmr),
+      });
+      if (!gmrRes.data?.success) {
+        throw new Error(gmrRes.data?.message || t('删除模型倍率失败'));
+      }
+
+      setGroupRatio(newGr);
+      setGroupModelRatio(newGmr);
+      if (selectedGroup === name) {
+        setSelectedGroup(null);
+      }
+      showSuccess(t('删除成功'));
+    } catch (error) {
+      showError(error?.message || t('删除失败'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Add model ratio row
+  const handleAddModelRatio = () => {
+    if (!addModelName) {
+      showError(t('请选择模型'));
+      return;
+    }
+    setEditModelRatios((prev) => ({ ...prev, [addModelName]: addModelRatio }));
+    setAddModelName('');
+    setAddModelRatio(1);
+    setDirty(true);
+  };
+
+  // Remove model ratio row
+  const handleRemoveModelRatio = (model) => {
+    setEditModelRatios((prev) => {
+      const next = { ...prev };
+      delete next[model];
+      return next;
+    });
+    setDirty(true);
+  };
+
+  // Model ratio table columns
+  const modelRatioColumns = [
+    {
+      title: t('模型'),
+      dataIndex: 'model',
+      width: '50%',
+    },
+    {
+      title: t('倍率'),
+      dataIndex: 'ratio',
+      width: '30%',
+      render: (_, record) => (
+        <InputNumber
+          value={record.ratio}
+          min={0}
+          step={0.1}
+          style={{ width: 120 }}
+          onChange={(val) => {
+            setEditModelRatios((prev) => ({ ...prev, [record.model]: val }));
+            setDirty(true);
+          }}
+        />
+      ),
+    },
+    {
+      title: t('操作'),
+      dataIndex: 'action',
+      width: '20%',
+      render: (_, record) => (
+        <Button
+          icon={<IconDelete />}
+          type='danger'
+          theme='light'
+          size='small'
+          onClick={() => handleRemoveModelRatio(record.model)}
+        />
+      ),
+    },
+  ];
+
+  const modelRatioData = useMemo(
+    () =>
+      Object.entries(editModelRatios)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([model, ratio]) => ({ key: model, model, ratio })),
+    [editModelRatios],
+  );
 
   return (
     <Spin spinning={loading}>
       <div style={{ paddingBottom: 8 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <div>
-            <Typography.Title
-              heading={3}
-              style={{ marginBottom: 4, fontSize: '1.5rem', fontWeight: 600 }}
-            >
-              {t('权限分组管理')}
-            </Typography.Title>
-            <Typography.Text style={{ color: '#727786' }}>
-              {t('管理用户权限分组，配置每个分组可使用的令牌分组')}
-            </Typography.Text>
-          </div>
+        <div style={{ marginBottom: 24 }}>
+          <Typography.Title
+            heading={3}
+            style={{ marginBottom: 4, fontSize: '1.5rem', fontWeight: 600 }}
+          >
+            {t('定价分组管理')}
+          </Typography.Title>
+          <Typography.Text style={{ color: '#727786' }}>
+            {t('管理定价分组的通用倍率和模型级别倍率')}
+          </Typography.Text>
         </div>
 
         <Row gutter={24}>
-          <Col span={16}>
+          {/* Left panel: group list */}
+          <Col xs={24} md={8}>
             <Card
-              style={{ borderRadius: 12, marginBottom: 16 }}
-              bodyStyle={{ padding: 24 }}
+              style={{ borderRadius: 12, minHeight: 400 }}
+              bodyStyle={{ padding: 16 }}
             >
               <div
                 style={{
@@ -331,166 +341,203 @@ export default function GroupManagement() {
                 }}
               >
                 <Typography.Title heading={5} style={{ margin: 0, fontWeight: 600 }}>
-                  {t('权限分组')}
+                  {t('分组列表')}
                 </Typography.Title>
-                <Button
-                  icon={<IconPlus />}
-                  theme='solid'
-                  type='primary'
-                  onClick={handleCreate}
-                >
-                  {t('新建权限分组')}
-                </Button>
               </div>
 
-              {permissionGroups.length === 0 ? (
-                <Empty description={t('暂无权限分组，点击上方按钮创建')} />
+              {groupNames.length === 0 ? (
+                <Empty description={t('暂无分组')} />
               ) : (
-                permissionGroups.map((group) => (
-                  <Card
-                    key={group.name}
-                    style={{ borderRadius: 12, marginBottom: 16 }}
-                    title={
-                      <Typography.Title heading={5} style={{ margin: 0, fontWeight: 600 }}>
-                        {group.name}
-                      </Typography.Title>
-                    }
-                    headerExtraContent={
-                      <Space>
-                        <Button
-                          size='small'
-                          theme='light'
-                          type='primary'
-                          onClick={() => handleEdit(group)}
-                        >
-                          {t('编辑')}
-                        </Button>
-                        <Popconfirm
-                          title={t('确定删除该权限分组？')}
-                          onConfirm={() => handleDelete(group.name)}
-                        >
-                          <Button size='small' theme='light' type='danger'>
-                            {t('删除')}
-                          </Button>
-                        </Popconfirm>
-                      </Space>
-                    }
-                    bodyStyle={{ paddingTop: 12, paddingBottom: 16 }}
-                  >
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {group.selectedTokenGroups.map((tokenGroup) => (
-                        <Tag
-                          size='large'
-                          color='blue'
-                          key={`${group.name}-${tokenGroup}`}
-                        >
-                          {tokenGroup}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {groupNames.map((name) => (
+                    <Card
+                      key={name}
+                      style={{
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        border: selectedGroup === name ? '2px solid var(--semi-color-primary)' : '1px solid var(--semi-color-border)',
+                        background: selectedGroup === name ? 'var(--semi-color-primary-light-default)' : undefined,
+                      }}
+                      bodyStyle={{ padding: '12px 16px' }}
+                      onClick={() => setSelectedGroup(name)}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <Typography.Text strong>{name}</Typography.Text>
+                          <br />
+                          <Typography.Text type='tertiary' size='small'>
+                            {t('通用倍率')}: {groupRatio[name] ?? 1.0}
+                          </Typography.Text>
+                        </div>
+                        <Tag color='blue' size='small'>
+                          x{groupRatio[name] ?? 1.0}
                         </Tag>
-                      ))}
-                      {group.selectedTokenGroups.length === 0 && (
-                        <Typography.Text type='tertiary'>
-                          {t('无可用令牌分组')}
-                        </Typography.Text>
-                      )}
-                    </div>
-                  </Card>
-                ))
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               )}
+
+              <Button
+                icon={<IconPlus />}
+                theme='solid'
+                type='primary'
+                block
+                style={{ marginTop: 16 }}
+                onClick={() => setCreateModalVisible(true)}
+              >
+                {t('新建分组')}
+              </Button>
             </Card>
           </Col>
 
-          <Col span={8}>
+          {/* Right panel: group detail edit */}
+          <Col xs={24} md={16}>
             <Card
-              style={{
-                borderRadius: 12,
-                borderLeft: '4px solid var(--semi-color-primary)',
-                marginBottom: 16,
-              }}
-              bodyStyle={{ padding: 20 }}
+              style={{ borderRadius: 12, minHeight: 400 }}
+              bodyStyle={{ padding: 24 }}
             >
-              <Typography.Title heading={5} style={{ marginTop: 0 }}>
-                {t('预览最终分组')}
-              </Typography.Title>
-              <Select
-                placeholder={t('选择用户分组')}
-                optionList={permissionGroups.map((g) => ({ label: g.name, value: g.name }))}
-                value={previewGroup}
-                onChange={setPreviewGroup}
-                style={{ width: '100%', marginBottom: 16 }}
-              />
-              <div>
-                <Typography.Text strong>{t('最终可用分组：')}</Typography.Text>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    marginTop: 8,
-                    minHeight: 28,
-                  }}
-                >
-                  {previewResult.length > 0 ? (
-                    previewResult.map((g) => (
-                      <Tag color='blue' size='large' key={g}>
-                        {g}
-                      </Tag>
-                    ))
-                  ) : (
-                    <Typography.Text type='tertiary'>
-                      {previewGroup ? t('无可用令牌分组') : t('请选择用户分组')}
+              {!selectedGroup ? (
+                <Empty description={t('请从左侧选择一个分组进行编辑')} style={{ marginTop: 80 }} />
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <Typography.Title heading={4} style={{ margin: 0, fontWeight: 600 }}>
+                      {selectedGroup}
+                    </Typography.Title>
+                    <Space>
+                      {selectedGroup !== 'default' && (
+                        <Popconfirm
+                          title={t('确定删除该分组？删除后不可恢复。')}
+                          onConfirm={() => handleDeleteGroup(selectedGroup)}
+                        >
+                          <Button type='danger' theme='light'>
+                            {t('删除分组')}
+                          </Button>
+                        </Popconfirm>
+                      )}
+                    </Space>
+                  </div>
+
+                  {/* Base ratio */}
+                  <div style={{ marginBottom: 24 }}>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                      {t('通用倍率')}
                     </Typography.Text>
-                  )}
-                </div>
-              </div>
+                    <InputNumber
+                      value={editBaseRatio}
+                      min={0}
+                      step={0.1}
+                      style={{ width: 200 }}
+                      onChange={(val) => {
+                        setEditBaseRatio(val);
+                        setDirty(true);
+                      }}
+                    />
+                    <Typography.Text type='tertiary' size='small' style={{ display: 'block', marginTop: 4 }}>
+                      {t('该分组下所有模型的默认价格倍率')}
+                    </Typography.Text>
+                  </div>
+
+                  {/* Model-specific ratios */}
+                  <div style={{ marginBottom: 16 }}>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                      {t('模型倍率')}
+                    </Typography.Text>
+                    <Typography.Text type='tertiary' size='small' style={{ display: 'block', marginBottom: 12 }}>
+                      {t('为特定模型设置独立倍率，优先级高于通用倍率')}
+                    </Typography.Text>
+
+                    {modelRatioData.length > 0 && (
+                      <Table
+                        columns={modelRatioColumns}
+                        dataSource={modelRatioData}
+                        pagination={false}
+                        size='small'
+                        style={{ marginBottom: 16 }}
+                      />
+                    )}
+
+                    {/* Add model row */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <Select
+                        filter
+                        placeholder={t('选择模型')}
+                        value={addModelName}
+                        onChange={setAddModelName}
+                        optionList={availableModelOptions}
+                        style={{ width: 300 }}
+                        showClear
+                      />
+                      <InputNumber
+                        value={addModelRatio}
+                        min={0}
+                        step={0.1}
+                        style={{ width: 120 }}
+                        onChange={setAddModelRatio}
+                        placeholder={t('倍率')}
+                      />
+                      <Button
+                        icon={<IconPlus />}
+                        theme='light'
+                        type='primary'
+                        onClick={handleAddModelRatio}
+                      >
+                        {t('添加')}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Save button */}
+                  <div style={{ marginTop: 24 }}>
+                    <Button
+                      theme='solid'
+                      type='primary'
+                      size='large'
+                      loading={saving}
+                      onClick={handleSave}
+                    >
+                      {t('保存')}
+                    </Button>
+                    {dirty && (
+                      <Typography.Text type='warning' style={{ marginLeft: 12 }}>
+                        {t('有未保存的更改')}
+                      </Typography.Text>
+                    )}
+                  </div>
+                </>
+              )}
             </Card>
           </Col>
         </Row>
 
+        {/* Create group modal */}
         <Modal
-          title={editingGroup ? t('编辑权限分组') : t('新建权限分组')}
-          visible={modalVisible}
-          onOk={handleModalSave}
-          onCancel={() => setModalVisible(false)}
+          title={t('新建定价分组')}
+          visible={createModalVisible}
+          onOk={handleCreateGroup}
+          onCancel={() => setCreateModalVisible(false)}
+          confirmLoading={saving}
         >
           <div style={{ marginBottom: 16 }}>
-            <div style={{ marginBottom: 8, fontWeight: 500 }}>
-              {t('权限分组名称')}
-            </div>
+            <div style={{ marginBottom: 8, fontWeight: 500 }}>{t('分组名称')}</div>
             <Input
-              value={modalName}
-              onChange={setModalName}
-              disabled={!!editingGroup}
-              placeholder={t('例如：plus-8折')}
+              value={newGroupName}
+              onChange={setNewGroupName}
+              placeholder={t('例如：vip')}
             />
           </div>
           <div>
-            <div style={{ marginBottom: 8, fontWeight: 500 }}>
-              {t('可用令牌分组')}
-            </div>
-            <Select
-              multiple
-              filter
-              value={modalSelected}
-              onChange={setModalSelected}
-              optionList={tokenGroupOptions}
-              placeholder={t('选择该权限分组可使用的令牌分组')}
+            <div style={{ marginBottom: 8, fontWeight: 500 }}>{t('通用倍率')}</div>
+            <InputNumber
+              value={newGroupBaseRatio}
+              min={0}
+              step={0.1}
               style={{ width: '100%' }}
-              maxTagCount={10}
+              onChange={setNewGroupBaseRatio}
             />
           </div>
         </Modal>
-
-        <div style={{ marginTop: 24 }}>
-          <Button
-            theme='solid'
-            type='primary'
-            size='large'
-            loading={loading}
-            onClick={handleSave}
-          >
-            {t('保存设置')}
-          </Button>
-        </div>
       </div>
     </Spin>
   );

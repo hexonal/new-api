@@ -48,7 +48,8 @@ type Task struct {
 	TaskID      string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
 	Platform    constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
 	UserId      int                   `json:"user_id" gorm:"index"`
-	Group       string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
+	Group        string                `json:"group" gorm:"type:varchar(50)"`         // 路由分组（UsingGroup）
+	PricingGroup string                `json:"pricing_group" gorm:"type:varchar(64)"` // 定价分组（EffectivePricingGroup），结算时优先使用
 	ChannelId   int                   `json:"channel_id" gorm:"index"`
 	ChannelName string                `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
 	Quota       int                   `json:"quota"`
@@ -128,6 +129,15 @@ type TaskBillingContext struct {
 	TerminalChargeAt     int64  `json:"terminal_charge_at,omitempty"`
 }
 
+// GetPricingGroup 返回用于计费的分组。优先使用 PricingGroup（定价分组），
+// 回退到 Group（路由分组），兼容历史数据（PricingGroup 为空的旧任务）。
+func (t *Task) GetPricingGroup() string {
+	if t.PricingGroup != "" {
+		return t.PricingGroup
+	}
+	return t.Group
+}
+
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）
 // 旧数据没有 UpstreamTaskID 时，TaskID 本身就是上游 ID
 func (t *Task) GetUpstreamTaskID() string {
@@ -205,9 +215,10 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 	}
 
 	t := &Task{
-		TaskID:      taskID,
-		UserId:      relayInfo.UserId,
-		Group:       relayInfo.UsingGroup,
+		TaskID:       taskID,
+		UserId:       relayInfo.UserId,
+		Group:        relayInfo.UsingGroup,
+		PricingGroup: relayInfo.EffectivePricingGroup(),
 		SubmitTime:  time.Now().Unix(),
 		Status:      TaskStatusNotStart,
 		Progress:    "0%",

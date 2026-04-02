@@ -40,6 +40,7 @@ type User struct {
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
+	PricingGroup     string         `json:"pricing_group" gorm:"type:varchar(64)"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
@@ -54,9 +55,10 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
+		Id:           user.Id,
+		Group:        user.Group,
+		PricingGroup: user.PricingGroup,
+		Quota:        user.Quota,
 		Status:   user.Status,
 		Username: user.Username,
 		Setting:  user.Setting,
@@ -536,6 +538,21 @@ func (user *User) Edit(updatePassword bool) error {
 	}
 
 	// Update cache
+	return updateUserCache(*user)
+}
+
+// EditPricingGroup updates the pricing_group field explicitly.
+// This is separated from Edit() because pricing_group should only be updated
+// when the client explicitly provides it in the request body.
+func (user *User) EditPricingGroup(pricingGroup string) error {
+	if err := DB.Model(&User{}).Where("id = ?", user.Id).Update("pricing_group", pricingGroup).Error; err != nil {
+		return err
+	}
+	// Re-read the full user from DB to avoid caching incomplete data
+	// (the caller's user struct may lack fields like status, setting, etc.)
+	if err := DB.First(user, user.Id).Error; err != nil {
+		return err
+	}
 	return updateUserCache(*user)
 }
 

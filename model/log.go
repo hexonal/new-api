@@ -34,6 +34,7 @@ type Log struct {
 	ChannelName      string `json:"channel_name" gorm:"->"`
 	TokenId          int    `json:"token_id" gorm:"default:0;index"`
 	Group            string `json:"group" gorm:"index"`
+	PricingGroup     string `json:"pricing_group" gorm:"type:varchar(64);index"`
 	Ip               string `json:"ip" gorm:"index;default:''"`
 	RequestId        string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	Other            string `json:"other"`
@@ -145,6 +146,7 @@ type RecordConsumeLogParams struct {
 	UseTimeSeconds   int                    `json:"use_time_seconds"`
 	IsStream         bool                   `json:"is_stream"`
 	Group            string                 `json:"group"`
+	PricingGroup     string                 `json:"pricing_group"`
 	Other            map[string]interface{} `json:"other"`
 }
 
@@ -179,6 +181,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		UseTime:          params.UseTimeSeconds,
 		IsStream:         params.IsStream,
 		Group:            params.Group,
+		PricingGroup:     params.PricingGroup,
 		Ip: func() string {
 			if needRecordIp {
 				return c.ClientIP()
@@ -207,8 +210,9 @@ type RecordTaskBillingLogParams struct {
 	ModelName string
 	Quota     int
 	TokenId   int
-	Group     string
-	RequestId string
+	Group        string
+	PricingGroup string
+	RequestId    string
 	// PromptTokens/CompletionTokens are optional for async task billing logs.
 	// When provider only reports total usage, callers may map it to completion tokens.
 	PromptTokens     int
@@ -239,6 +243,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		ChannelId:        params.ChannelId,
 		TokenId:          params.TokenId,
 		Group:            params.Group,
+		PricingGroup:     params.PricingGroup,
 		RequestId:        params.RequestId,
 		PromptTokens:     params.PromptTokens,
 		CompletionTokens: params.CompletionTokens,
@@ -250,7 +255,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	}
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string) (logs []*Log, total int64, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, pricingGroup string, requestId string) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -281,6 +286,9 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	}
 	if group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", group)
+	}
+	if pricingGroup != "" {
+		tx = tx.Where("logs.pricing_group = ?", pricingGroup)
 	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
@@ -336,7 +344,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string) (logs []*Log, total int64, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, pricingGroup string, requestId string) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB.Where("logs.user_id = ?", userId)
@@ -366,6 +374,9 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", group)
 	}
+	if pricingGroup != "" {
+		tx = tx.Where("logs.pricing_group = ?", pricingGroup)
+	}
 	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
 		common.SysError("failed to count user logs: " + err.Error())
@@ -387,7 +398,7 @@ type Stat struct {
 	Tpm   int `json:"tpm"`
 }
 
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, pricingGroup string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 
 	// 为rpm和tpm创建单独的查询
@@ -422,6 +433,10 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	if group != "" {
 		tx = tx.Where(logGroupCol+" = ?", group)
 		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+	}
+	if pricingGroup != "" {
+		tx = tx.Where("pricing_group = ?", pricingGroup)
+		rpmTpmQuery = rpmTpmQuery.Where("pricing_group = ?", pricingGroup)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)

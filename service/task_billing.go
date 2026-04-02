@@ -60,14 +60,15 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-		ChannelId: info.ChannelId,
-		ModelName: info.OriginModelName,
-		TokenName: tokenName,
-		Quota:     info.PriceData.Quota,
-		Content:   logContent,
-		TokenId:   info.TokenId,
-		Group:     info.UsingGroup,
-		Other:     other,
+		ChannelId:    info.ChannelId,
+		ModelName:    info.OriginModelName,
+		TokenName:    tokenName,
+		Quota:        info.PriceData.Quota,
+		Content:      logContent,
+		TokenId:      info.TokenId,
+		Group:        info.UsingGroup,
+		PricingGroup: info.EffectivePricingGroup(),
+		Other:        other,
 	})
 	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.PriceData.Quota)
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
@@ -99,14 +100,15 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 		other["task_id"] = taskID
 	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-		ChannelId: info.ChannelId,
-		ModelName: info.OriginModelName,
-		TokenName: tokenName,
-		Quota:     0,
-		Content:   logContent,
-		TokenId:   info.TokenId,
-		Group:     info.UsingGroup,
-		Other:     other,
+		ChannelId:    info.ChannelId,
+		ModelName:    info.OriginModelName,
+		TokenName:    tokenName,
+		Quota:        0,
+		Content:      logContent,
+		TokenId:      info.TokenId,
+		Group:        info.UsingGroup,
+		PricingGroup: info.EffectivePricingGroup(),
+		Other:        other,
 	})
 	// Keep request_count consistent with non-deferred task submit path.
 	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, 0)
@@ -429,6 +431,7 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		Quota:            actualQuota,
 		TokenId:          task.PrivateData.TokenId,
 		Group:            task.Group,
+		PricingGroup:     task.GetPricingGroup(),
 		RequestId:        task.TaskID,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
@@ -490,16 +493,17 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   model.LogTypeRefund,
-		Content:   "",
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     quota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		RequestId: task.TaskID,
-		Other:     other,
+		UserId:       task.UserId,
+		LogType:      model.LogTypeRefund,
+		Content:      "",
+		ChannelId:    task.ChannelId,
+		ModelName:    taskModelName(task),
+		Quota:        quota,
+		TokenId:      task.PrivateData.TokenId,
+		Group:        task.Group,
+		PricingGroup: task.GetPricingGroup(),
+		RequestId:    task.TaskID,
+		Other:        other,
 	})
 }
 
@@ -577,6 +581,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Quota:            logQuota,
 		TokenId:          task.PrivateData.TokenId,
 		Group:            task.Group,
+		PricingGroup:     task.GetPricingGroup(),
 		RequestId:        task.TaskID,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
@@ -595,7 +600,7 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	modelName := taskModelName(task)
 	modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
-	groupRatio := ratio_setting.GetGroupRatio(task.Group)
+	groupRatio := ratio_setting.GetGroupRatio(task.GetPricingGroup())
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, groupRatio)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
 }
@@ -611,19 +616,26 @@ func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
 		return 0, false
 	}
 
-	group := task.Group
-	if group == "" {
-		user, err := model.GetUserById(task.UserId, false)
-		if err == nil {
-			group = user.Group
+	pricingGroup := task.GetPricingGroup()
+	userGroup := task.Group // fallback to routing group
+	// Always load user to get the real user.Group for GroupGroupRatio lookup
+	user, err := model.GetUserById(task.UserId, false)
+	if err == nil {
+		userGroup = user.Group
+		if pricingGroup == "" {
+			if user.PricingGroup != "" {
+				pricingGroup = user.PricingGroup
+			} else {
+				pricingGroup = user.Group
+			}
 		}
 	}
-	if group == "" {
+	if pricingGroup == "" {
 		return 0, false
 	}
 
-	groupRatio := ratio_setting.GetGroupRatio(group)
-	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
+	groupRatio := ratio_setting.GetGroupRatio(pricingGroup)
+	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(userGroup, pricingGroup)
 	finalGroupRatio := groupRatio
 	if hasUserGroupRatio {
 		finalGroupRatio = userGroupRatio

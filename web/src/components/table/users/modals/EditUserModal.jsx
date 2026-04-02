@@ -68,6 +68,7 @@ const EditUserModal = (props) => {
   const [addAmountLocal, setAddAmountLocal] = useState('');
   const isMobile = useIsMobile();
   const [groupOptions, setGroupOptions] = useState([]);
+  const [pricingGroupOptions, setPricingGroupOptions] = useState([]);
   const [bindingModalVisible, setBindingModalVisible] = useState(false);
   const formApiRef = useRef(null);
 
@@ -86,6 +87,7 @@ const EditUserModal = (props) => {
     email: '',
     quota: 0,
     group: 'default',
+    pricing_group: '',
     remark: '',
   });
 
@@ -93,6 +95,17 @@ const EditUserModal = (props) => {
     try {
       let res = await API.get(`/api/group/?type=permission`);
       setGroupOptions(res.data.data.map((g) => ({ label: g, value: g })));
+    } catch (e) {
+      showError(e.message);
+    }
+  };
+
+  const fetchPricingGroups = async () => {
+    try {
+      let res = await API.get(`/api/group/?type=pricing`);
+      setPricingGroupOptions(
+        (res.data.data || []).map((g) => ({ label: g, value: g })),
+      );
     } catch (e) {
       showError(e.message);
     }
@@ -116,7 +129,10 @@ const EditUserModal = (props) => {
 
   useEffect(() => {
     loadUser();
-    if (userId) fetchGroups();
+    if (userId) {
+      fetchGroups();
+      fetchPricingGroups();
+    }
     setBindingModalVisible(false);
   }, [props.editingUser.id]);
 
@@ -300,6 +316,17 @@ const EditUserModal = (props) => {
                           allowAdditions
                           search
                           rules={[{ required: true, message: t('请选择分组') }]}
+                        />
+                      </Col>
+
+                      <Col span={24}>
+                        <Form.Select
+                          field='pricing_group'
+                          label={t('定价分组')}
+                          placeholder={t('留空则使用路由分组的倍率')}
+                          showClear
+                          optionList={pricingGroupOptions}
+                          search
                         />
                       </Col>
 

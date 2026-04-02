@@ -568,6 +568,19 @@ export const getLogsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.PRICING_GROUP,
+      title: t('定价分组'),
+      dataIndex: 'pricing_group',
+      render: (text, record, index) => {
+        if (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) {
+          if (text) {
+            return <>{renderGroup(text)}</>;
+          }
+        }
+        return <></>;
+      },
+    },
+    {
       key: COLUMN_KEYS.TYPE,
       title: t('类型'),
       dataIndex: 'type',

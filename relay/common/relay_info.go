@@ -90,6 +90,7 @@ type RelayInfo struct {
 	UserId            int
 	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
 	UserGroup         string // 用户所在分组
+	UserPricingGroup  string // 计费专用分组，优先于 UsingGroup 查询倍率
 	TokenUnlimited    bool
 	StartTime         time.Time
 	FirstResponseTime time.Time
@@ -222,6 +223,14 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	if info.Request != nil {
 		info.Request.SetModelName(info.OriginModelName)
 	}
+}
+
+// EffectivePricingGroup returns UserPricingGroup if set, otherwise falls back to UsingGroup.
+func (info *RelayInfo) EffectivePricingGroup() string {
+	if info.UserPricingGroup != "" {
+		return info.UserPricingGroup
+	}
+	return info.UsingGroup
 }
 
 func (info *RelayInfo) ToString() string {
@@ -452,8 +461,9 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
-		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
-		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UsingGroup:       common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+		UserGroup:        common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UserPricingGroup: common.GetContextKeyString(c, constant.ContextKeyUserPricingGroup),
 		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 

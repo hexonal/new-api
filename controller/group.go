@@ -18,6 +18,17 @@ func GetGroups(c *gin.Context) {
 		for groupName := range ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll() {
 			groupNames = append(groupNames, groupName)
 		}
+	} else if groupType == "pricing" {
+		// Union of GroupRatio keys and GroupModelRatio keys
+		groupsCopy := ratio_setting.GetGroupRatioCopy()
+		for k := range ratio_setting.GetGroupModelRatioCopy() {
+			if _, ok := groupsCopy[k]; !ok {
+				groupsCopy[k] = 1.0
+			}
+		}
+		for groupName := range groupsCopy {
+			groupNames = append(groupNames, groupName)
+		}
 	} else {
 		for groupName := range ratio_setting.GetGroupRatioCopy() {
 			groupNames = append(groupNames, groupName)

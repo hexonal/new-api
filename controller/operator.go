@@ -47,6 +47,7 @@ type operatorProvisionRequest struct {
 	ModelLimitsEnabled bool     `json:"model_limits_enabled"`
 	ModelLimits        []string `json:"model_limits"`
 	Remark             string   `json:"remark"`
+	PricingGroup       string   `json:"pricing_group"`
 }
 
 var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
@@ -230,8 +231,9 @@ func OperatorProvision(c *gin.Context) {
 			Username:    createUsername,
 			DisplayName: req.DisplayName,
 			Password:    req.Password,
-			Group:       req.Group,
-			Status:      common.UserStatusEnabled,
+			Group:        req.Group,
+			PricingGroup: req.PricingGroup,
+			Status:       common.UserStatusEnabled,
 			Role:        common.RoleCommonUser,
 		}
 		if insertErr := cleanUser.InsertWithTx(tx, 0); insertErr != nil {

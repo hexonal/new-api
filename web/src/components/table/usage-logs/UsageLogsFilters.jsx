@@ -94,6 +94,15 @@ const LogsFilters = ({
           />
 
           <Form.Input
+            field='pricing_group'
+            prefix={<IconSearch />}
+            placeholder={t('定价分组')}
+            showClear
+            pure
+            size='small'
+          />
+
+          <Form.Input
             field='request_id'
             prefix={<IconSearch />}
             placeholder={t('Request ID')}
