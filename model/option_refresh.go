@@ -17,6 +17,7 @@ var pricingOptionKeys = []string{
 	"ModelPrice",
 	"GroupRatio",
 	"GroupGroupRatio",
+	"GroupModelRatio",
 	"ImageRatio",
 	"AudioRatio",
 	"AudioCompletionRatio",

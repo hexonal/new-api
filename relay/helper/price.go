@@ -30,6 +30,14 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
+	// highest priority: per-group per-model ratio
+	if modelRatio, ok := ratio_setting.GetGroupModelRatio(relayInfo.UsingGroup, relayInfo.OriginModelName); ok {
+		groupRatioInfo.GroupRatio = modelRatio
+		groupRatioInfo.GroupSpecialRatio = modelRatio
+		groupRatioInfo.HasSpecialRatio = true
+		return groupRatioInfo
+	}
+
 	// check user group special ratio
 	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
 	if ok {

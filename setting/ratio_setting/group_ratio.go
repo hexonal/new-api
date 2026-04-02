@@ -24,6 +24,7 @@ var defaultGroupGroupRatio = map[string]map[string]float64{
 }
 
 var groupGroupRatioMap = types.NewRWMap[string, map[string]float64]()
+var groupModelRatioMap = types.NewRWMap[string, map[string]float64]()
 
 var defaultGroupSpecialUsableGroup = map[string]map[string]string{
 	"vip": {
@@ -35,6 +36,7 @@ var defaultGroupSpecialUsableGroup = map[string]map[string]string{
 type GroupRatioSetting struct {
 	GroupRatio              *types.RWMap[string, float64]            `json:"group_ratio"`
 	GroupGroupRatio         *types.RWMap[string, map[string]float64] `json:"group_group_ratio"`
+	GroupModelRatio         *types.RWMap[string, map[string]float64] `json:"group_model_ratio"`
 	GroupSpecialUsableGroup *types.RWMap[string, map[string]string]  `json:"group_special_usable_group"`
 }
 
@@ -51,6 +53,7 @@ func init() {
 		GroupSpecialUsableGroup: groupSpecialUsableGroup,
 		GroupRatio:              groupRatioMap,
 		GroupGroupRatio:         groupGroupRatioMap,
+		GroupModelRatio:         groupModelRatioMap,
 	}
 
 	config.GlobalConfig.Register("group_ratio_setting", &groupRatioSetting)
@@ -102,12 +105,32 @@ func GetGroupGroupRatio(userGroup, usingGroup string) (float64, bool) {
 	return ratio, true
 }
 
+func GetGroupModelRatio(usingGroup, model string) (float64, bool) {
+	gm, ok := groupModelRatioMap.Get(usingGroup)
+	if !ok {
+		return -1, false
+	}
+	model = FormatMatchingModelName(model)
+	if ratio, ok := gm[model]; ok {
+		return ratio, true
+	}
+	return -1, false
+}
+
 func GroupGroupRatio2JSONString() string {
 	return groupGroupRatioMap.MarshalJSONString()
 }
 
 func UpdateGroupGroupRatioByJSONString(jsonStr string) error {
 	return types.LoadFromJsonString(groupGroupRatioMap, jsonStr)
+}
+
+func GroupModelRatio2JSONString() string {
+	return groupModelRatioMap.MarshalJSONString()
+}
+
+func UpdateGroupModelRatioByJSONString(jsonStr string) error {
+	return types.LoadFromJsonString(groupModelRatioMap, jsonStr)
 }
 
 func CheckGroupRatio(jsonStr string) error {
