@@ -2,7 +2,9 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 
@@ -125,9 +127,8 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 		GroupName string `gorm:"column:group_name"`
 	}
 	var rows []row
-	groupCol := fmt.Sprintf("channels.%s", commonGroupCol)
 	err := DB.Table("channels").
-		Select(fmt.Sprintf("abilities.model as model, channels.id as id, channels.name as name, channels.type as type, %s as group_name", groupCol)).
+		Select("abilities.model as model, channels.id as id, channels.name as name, channels.type as type, abilities.group as group_name").
 		Joins("JOIN abilities ON abilities.channel_id = channels.id").
 		Where("abilities.model IN ? AND abilities.enabled = ?", modelNames, true).
 		Distinct().
@@ -135,8 +136,61 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 	if err != nil {
 		return nil, err
 	}
+
+	type groupedChannel struct {
+		Id     int
+		Name   string
+		Type   int
+		Groups []string
+	}
+	modelChannelMap := make(map[string]map[int]*groupedChannel)
+
 	for _, r := range rows {
-		result[r.Model] = append(result[r.Model], BoundChannel{Id: r.Id, Name: r.Name, Type: r.Type, Group: r.GroupName})
+		modelKey := strings.TrimSpace(r.Model)
+		groupName := strings.TrimSpace(r.GroupName)
+		if modelKey == "" || groupName == "" {
+			continue
+		}
+		if _, ok := modelChannelMap[modelKey]; !ok {
+			modelChannelMap[modelKey] = make(map[int]*groupedChannel)
+		}
+		ch, ok := modelChannelMap[modelKey][r.Id]
+		if !ok {
+			ch = &groupedChannel{
+				Id:     r.Id,
+				Name:   r.Name,
+				Type:   r.Type,
+				Groups: make([]string, 0, 2),
+			}
+			modelChannelMap[modelKey][r.Id] = ch
+		}
+		seen := false
+		for _, g := range ch.Groups {
+			if g == groupName {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			ch.Groups = append(ch.Groups, groupName)
+		}
+	}
+
+	for modelKey, channelMap := range modelChannelMap {
+		channels := make([]BoundChannel, 0, len(channelMap))
+		for _, ch := range channelMap {
+			sort.Strings(ch.Groups)
+			channels = append(channels, BoundChannel{
+				Id:    ch.Id,
+				Name:  ch.Name,
+				Type:  ch.Type,
+				Group: strings.Join(ch.Groups, ","),
+			})
+		}
+		sort.Slice(channels, func(i, j int) bool {
+			return channels[i].Id < channels[j].Id
+		})
+		result[modelKey] = channels
 	}
 	return result, nil
 }
