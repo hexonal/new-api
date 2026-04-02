@@ -302,6 +302,21 @@ func UpdateGroupPricingOption(c *gin.Context) {
 	}
 	specialMap["+:"+req.Group] = req.Group
 	ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Set(req.Group, specialMap)
+	// Also update other groups to exclude this group
+	allSpecial := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
+	for otherGroup, otherRules := range allSpecial {
+		if otherGroup != req.Group {
+			if _, has := otherRules["-:"+req.Group]; !has {
+				otherRules["-:"+req.Group] = ""
+				ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Set(otherGroup, otherRules)
+			}
+		}
+	}
+	// Persist to DB
+	gsugStr := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.MarshalJSONString()
+	if err := model.UpdateOption("group_ratio_setting.group_special_usable_group", gsugStr); err != nil {
+		common.SysLog(fmt.Sprintf("failed to persist group_special_usable_group: %v", err))
+	}
 
 	// Step 4: Sync channels.group — add this group to channels that serve the models
 	modelNames := make([]string, 0)
