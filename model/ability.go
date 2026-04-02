@@ -291,7 +291,7 @@ func UpdateChannelModelGroups(channelId int, modelName string, groups []string) 
 		}
 	}()
 
-	if err := tx.Where("channel_id = ? AND model = ?", channelId, modelName).Delete(&Ability{}).Error; err != nil {
+	if err := tx.Where("channel_id = ? AND (model = ? OR TRIM(model) = ?)", channelId, modelName, modelName).Delete(&Ability{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
