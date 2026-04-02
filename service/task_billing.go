@@ -600,9 +600,41 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	modelName := taskModelName(task)
 	modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
-	groupRatio := ratio_setting.GetGroupRatio(task.GetPricingGroup())
+	groupRatio := resolveTaskFinalGroupRatio(task, modelName)
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, groupRatio)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+}
+
+func resolveTaskFinalGroupRatio(task *model.Task, modelName string) float64 {
+	if task == nil {
+		return 1
+	}
+
+	// Keep settlement consistent with submit-time pricing snapshot when available.
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.GroupRatio > 0 {
+		return bc.GroupRatio
+	}
+
+	pricingGroup := task.GetPricingGroup()
+	if pricingGroup == "" {
+		return 1
+	}
+
+	// Keep same priority as submit pricing path for compatibility.
+	if r, ok := ratio_setting.GetGroupModelRatio(pricingGroup, modelName); ok && r > 0 {
+		return r
+	}
+
+	userGroup := task.Group
+	user, err := model.GetUserById(task.UserId, false)
+	if err == nil && user.Group != "" {
+		userGroup = user.Group
+	}
+	if r, ok := ratio_setting.GetGroupGroupRatio(userGroup, pricingGroup); ok && r > 0 {
+		return r
+	}
+
+	return ratio_setting.GetGroupRatio(pricingGroup)
 }
 
 func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
@@ -634,11 +666,12 @@ func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
 		return 0, false
 	}
 
-	groupRatio := ratio_setting.GetGroupRatio(pricingGroup)
-	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(userGroup, pricingGroup)
-	finalGroupRatio := groupRatio
-	if hasUserGroupRatio {
-		finalGroupRatio = userGroupRatio
+	finalGroupRatio := resolveTaskFinalGroupRatio(task, modelName)
+	if finalGroupRatio <= 0 {
+		finalGroupRatio = ratio_setting.GetGroupRatio(pricingGroup)
+		if userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(userGroup, pricingGroup); hasUserGroupRatio && userGroupRatio > 0 {
+			finalGroupRatio = userGroupRatio
+		}
 	}
 
 	// Prefer structured usage charging when task payload carries prompt/output/thought details.

@@ -1188,6 +1188,33 @@ func withTempRatios(t *testing.T, model string, modelRatio float64, completionRa
 	require.NoError(t, ratio_setting.UpdateCompletionRatioByJSONString(string(b2)))
 }
 
+func withTempGroupSettings(
+	t *testing.T,
+	groupRatio map[string]float64,
+	groupGroupRatio map[string]map[string]float64,
+	groupModelRatio map[string]map[string]float64,
+) {
+	t.Helper()
+	backupGroup := ratio_setting.GetGroupRatioCopy()
+	backupGroupGroup := ratio_setting.GetGroupRatioSetting().GroupGroupRatio.ReadAll()
+	backupGroupModel := ratio_setting.GetGroupModelRatioCopy()
+	t.Cleanup(func() {
+		b1, _ := json.Marshal(backupGroup)
+		b2, _ := json.Marshal(backupGroupGroup)
+		b3, _ := json.Marshal(backupGroupModel)
+		_ = ratio_setting.UpdateGroupRatioByJSONString(string(b1))
+		_ = ratio_setting.UpdateGroupGroupRatioByJSONString(string(b2))
+		_ = ratio_setting.UpdateGroupModelRatioByJSONString(string(b3))
+	})
+
+	b1, _ := json.Marshal(groupRatio)
+	b2, _ := json.Marshal(groupGroupRatio)
+	b3, _ := json.Marshal(groupModelRatio)
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(string(b1)))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(string(b2)))
+	require.NoError(t, ratio_setting.UpdateGroupModelRatioByJSONString(string(b3)))
+}
+
 func TestCalculateTaskQuotaByTokens_UsesPromptAndCompletionRatios(t *testing.T) {
 	truncate(t)
 	const modelName = "gemini-3-pro-image-preview"
@@ -1237,4 +1264,112 @@ func TestCalculateTaskQuotaByTokens_GeminiThoughtsTokensAlias(t *testing.T) {
 	require.True(t, ok)
 	// prompt + imageOutput*60 + thoughts*6 = 15 + 1228*60 + 66*6 = 74091
 	assert.Equal(t, 74091, quota)
+}
+
+func TestCalculateTaskQuotaByTokens_UsesBillingContextGroupRatioSnapshot(t *testing.T) {
+	truncate(t)
+	const modelName = "test-snapshot-model"
+	withTempRatios(t, modelName, 2, 1)
+
+	task := makeTask(1, 1, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.PricingGroup = "pg_snapshot"
+	task.Group = "ug_snapshot"
+	task.PrivateData.BillingContext.GroupRatio = 0.1
+
+	quota, ok := calculateTaskQuotaByTokens(task, 1000)
+	require.True(t, ok)
+	assert.Equal(t, 200, quota)
+}
+
+func TestCalculateTaskQuotaByTokens_FallbackOrderWithoutSnapshot(t *testing.T) {
+	truncate(t)
+	const modelName = "test-fallback-model"
+	withTempRatios(t, modelName, 2, 1)
+
+	t.Run("prefer group model ratio over group-group/group", func(t *testing.T) {
+		withTempGroupSettings(
+			t,
+			map[string]float64{"default": 1, "pg_fb": 1.5},
+			map[string]map[string]float64{"ug_fb": {"pg_fb": 0.7}},
+			map[string]map[string]float64{"pg_fb": {modelName: 0.2}},
+		)
+
+		task := makeTask(101, 1, 0, 0, BillingSourceWallet, 0)
+		task.Properties.OriginModelName = modelName
+		task.PrivateData.BillingContext.OriginModelName = modelName
+		task.PricingGroup = "pg_fb"
+		task.Group = "ug_fb"
+		task.PrivateData.BillingContext.GroupRatio = 0
+
+		quota, ok := calculateTaskQuotaByTokens(task, 1000)
+		require.True(t, ok)
+		assert.Equal(t, 400, quota) // 1000 * 2 * 0.2
+	})
+
+	t.Run("fallback to group-group then group ratio", func(t *testing.T) {
+		withTempGroupSettings(
+			t,
+			map[string]float64{"default": 1, "pg_fb2": 1.5},
+			map[string]map[string]float64{"ug_fb2": {"pg_fb2": 0.7}},
+			map[string]map[string]float64{},
+		)
+
+		task := makeTask(102, 1, 0, 0, BillingSourceWallet, 0)
+		task.Properties.OriginModelName = modelName
+		task.PrivateData.BillingContext.OriginModelName = modelName
+		task.PricingGroup = "pg_fb2"
+		task.Group = "ug_fb2"
+		task.PrivateData.BillingContext.GroupRatio = 0
+
+		quota, ok := calculateTaskQuotaByTokens(task, 1000)
+		require.True(t, ok)
+		assert.Equal(t, 1400, quota) // 1000 * 2 * 0.7
+	})
+
+	t.Run("fallback to group ratio when no special ratio", func(t *testing.T) {
+		withTempGroupSettings(
+			t,
+			map[string]float64{"default": 1, "pg_fb3": 1.5},
+			map[string]map[string]float64{},
+			map[string]map[string]float64{},
+		)
+
+		task := makeTask(103, 1, 0, 0, BillingSourceWallet, 0)
+		task.Properties.OriginModelName = modelName
+		task.PrivateData.BillingContext.OriginModelName = modelName
+		task.PricingGroup = "pg_fb3"
+		task.Group = "ug_fb3"
+		task.PrivateData.BillingContext.GroupRatio = 0
+
+		quota, ok := calculateTaskQuotaByTokens(task, 1000)
+		require.True(t, ok)
+		assert.Equal(t, 3000, quota) // 1000 * 2 * 1.5
+	})
+}
+
+func TestRecalculateTaskQuotaByTokens_ReasonUsesResolvedGroupRatio(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const modelName = "test-reason-model"
+	withTempRatios(t, modelName, 2, 1)
+	seedUser(t, 201, 1000000)
+	seedChannel(t, 201)
+
+	task := makeTask(201, 201, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.PrivateData.BillingContext.GroupRatio = 0.1
+	task.PricingGroup = "pg_reason"
+	require.NoError(t, model.DB.Create(task).Error)
+
+	RecalculateTaskQuotaByTokens(ctx, task, 1000)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Contains(t, log.Content, "token重算：tokens=1000")
+	assert.Contains(t, log.Content, "groupRatio=0.10")
+	assert.Equal(t, 200, log.Quota)
 }
