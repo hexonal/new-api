@@ -156,6 +156,20 @@ export default function GroupManagement() {
       .map((m) => ({ label: m, value: m }));
   }, [allModels, editModelRatios]);
 
+  const hasUnsavedChanges = useMemo(() => {
+    if (!selectedGroup) {
+      return false;
+    }
+    const prevBaseRatio = Number(groupRatio[selectedGroup] ?? 1.0);
+    const baseChanged = prevBaseRatio !== Number(editBaseRatio);
+
+    const currentModelRatios = groupModelRatio[selectedGroup] || {};
+    const modelChanged =
+      stableJSONStringify(currentModelRatios) !== stableJSONStringify(editModelRatios || {});
+
+    return baseChanged || modelChanged;
+  }, [selectedGroup, groupRatio, groupModelRatio, editBaseRatio, editModelRatios]);
+
   // Save all changes
   const handleSave = async () => {
     if (!selectedGroup) return;
@@ -163,20 +177,7 @@ export default function GroupManagement() {
     savingGuardRef.current = true;
     setSaving(true);
     try {
-      const prevBaseRatio = Number(groupRatio[selectedGroup] ?? 1.0);
-      const baseRatioChanged = prevBaseRatio !== Number(editBaseRatio);
-
-      const nextGroupModelRatio = { ...groupModelRatio };
-      if (Object.keys(editModelRatios).length === 0) {
-        delete nextGroupModelRatio[selectedGroup];
-      } else {
-        nextGroupModelRatio[selectedGroup] = editModelRatios;
-      }
-      const modelRatioChanged =
-        stableJSONStringify(groupModelRatio || {}) !==
-        stableJSONStringify(nextGroupModelRatio || {});
-
-      if (!baseRatioChanged && !modelRatioChanged) {
+      if (!hasUnsavedChanges) {
         showSuccess(t('未检测到变更'));
         setDirty(false);
         return;
@@ -562,12 +563,12 @@ export default function GroupManagement() {
                       type='primary'
                       size='large'
                       loading={saving}
-                      disabled={!dirty || saving}
+                      disabled={!hasUnsavedChanges || saving}
                       onClick={handleSave}
                     >
                       {t('保存')}
                     </Button>
-                    {dirty && (
+                    {hasUnsavedChanges && (
                       <Typography.Text type='warning' style={{ marginLeft: 12 }}>
                         {t('有未保存的更改')}
                       </Typography.Text>

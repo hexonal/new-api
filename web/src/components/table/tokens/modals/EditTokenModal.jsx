@@ -127,14 +127,26 @@ const EditTokenModal = (props) => {
   };
 
   const loadGroups = async () => {
-    let res = await API.get(`/api/user/self/groups`);
-    const { success, message, data } = res.data;
+    const [groupRes, selfRes] = await Promise.all([
+      API.get(`/api/user/self/groups`),
+      API.get(`/api/user/self`),
+    ]);
+    const { success, message, data } = groupRes.data;
     if (success) {
+      const selfGroup = selfRes?.data?.success ? selfRes?.data?.data?.group : '';
       let localGroupOptions = Object.entries(data).map(([group, info]) => ({
         label: info.desc,
         value: group,
         ratio: info.ratio,
       }));
+
+      // Token group selector only exposes the current user's own group (and optional auto).
+      if (selfGroup) {
+        localGroupOptions = localGroupOptions.filter(
+          (item) => item.value === selfGroup || item.value === 'auto',
+        );
+      }
+
       if (statusState?.status?.default_use_auto_group) {
         if (localGroupOptions.some((group) => group.value === 'auto')) {
           localGroupOptions.sort((a, b) => (a.value === 'auto' ? -1 : 1));

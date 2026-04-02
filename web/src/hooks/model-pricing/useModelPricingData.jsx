@@ -44,17 +44,6 @@ const filterUsableGroupByModelAccess = (usableGroup, models) => {
   );
 };
 
-const filterModelsByUserGroup = (models, userGroup) => {
-  if (!userGroup) {
-    return models || [];
-  }
-  return (models || []).filter((model) =>
-    Array.isArray(model?.enable_groups)
-      ? model.enable_groups.includes(userGroup)
-      : false,
-  );
-};
-
 export const useModelPricingData = () => {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
@@ -288,7 +277,7 @@ export const useModelPricingData = () => {
     } = res.data;
     if (success) {
       const currentUserGroup = userState?.user?.group || '';
-      const visibleModels = filterModelsByUserGroup(data, currentUserGroup);
+      const visibleModels = Array.isArray(data) ? data : [];
       setGroupRatio(group_ratio);
       setGroupModelRatio(group_model_ratio || {});
       const scopedUsableGroup = filterUsableGroupByModelAccess(
