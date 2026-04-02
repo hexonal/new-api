@@ -93,7 +93,7 @@ const EditUserModal = (props) => {
 
   const fetchGroups = async () => {
     try {
-      let res = await API.get(`/api/group/?type=permission`);
+      let res = await API.get(`/api/group/`);
       setGroupOptions(res.data.data.map((g) => ({ label: g, value: g })));
     } catch (e) {
       showError(e.message);
