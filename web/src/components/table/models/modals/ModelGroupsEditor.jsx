@@ -123,12 +123,13 @@ export default function ModelGroupsEditor({ visible, onClose, model }) {
           return;
         }
 
-        const res = await API.put('/api/channel/', {
-          id: Number(channelId),
-          group: currentGroups.join(','),
+        const res = await API.put('/api/models/channel_group', {
+          channel_id: Number(channelId),
+          model: String(model?.model_name || ''),
+          groups: currentGroups,
         });
         if (!res.data?.success) {
-          throw new Error(res.data?.message || 'update-channel-group-failed');
+          throw new Error(res.data?.message || 'update-model-channel-group-failed');
         }
         updated++;
       }
@@ -180,7 +181,7 @@ export default function ModelGroupsEditor({ visible, onClose, model }) {
 
         <Banner
           type='info'
-          description={t('修改渠道的分组配置会影响该渠道下的所有模型')}
+          description={t('本操作仅会修改当前模型在对应渠道下的可用分组，不影响同渠道其他模型')}
           style={{ marginBottom: 16 }}
         />
 

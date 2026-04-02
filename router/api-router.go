@@ -352,6 +352,7 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.GET("/:id", controller.GetModelMeta)
 			modelsRoute.POST("/", controller.CreateModelMeta)
 			modelsRoute.PUT("/", controller.UpdateModelMeta)
+			modelsRoute.PUT("/channel_group", controller.UpdateModelChannelGroup)
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 

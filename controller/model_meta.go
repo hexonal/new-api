@@ -13,6 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type updateModelChannelGroupRequest struct {
+	ChannelID int      `json:"channel_id"`
+	Model     string   `json:"model"`
+	Groups    []string `json:"groups"`
+}
+
 // GetAllModelsMeta 获取模型列表（分页）
 func GetAllModelsMeta(c *gin.Context) {
 
@@ -153,6 +159,35 @@ func DeleteModelMeta(c *gin.Context) {
 		return
 	}
 	if err := model.DB.Delete(&model.Model{}, id).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RefreshPricing()
+	common.ApiSuccess(c, nil)
+}
+
+func UpdateModelChannelGroup(c *gin.Context) {
+	var req updateModelChannelGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	req.Model = strings.TrimSpace(req.Model)
+	if req.ChannelID <= 0 {
+		common.ApiErrorMsg(c, "缺少有效的 channel_id")
+		return
+	}
+	if req.Model == "" {
+		common.ApiErrorMsg(c, "缺少模型名称")
+		return
+	}
+	if len(req.Groups) == 0 {
+		common.ApiErrorMsg(c, "至少需要一个分组")
+		return
+	}
+
+	if err := model.UpdateChannelModelGroups(req.ChannelID, req.Model, req.Groups); err != nil {
 		common.ApiError(c, err)
 		return
 	}

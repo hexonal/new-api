@@ -239,6 +239,83 @@ func UpdateAbilityStatus(channelId int, status bool) error {
 	return DB.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status).Error
 }
 
+func UpdateChannelModelGroups(channelId int, modelName string, groups []string) error {
+	modelName = strings.TrimSpace(modelName)
+	if channelId <= 0 {
+		return errors.New("invalid channel id")
+	}
+	if modelName == "" {
+		return errors.New("model is required")
+	}
+
+	normalizedGroups := make([]string, 0, len(groups))
+	groupSet := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			continue
+		}
+		if _, ok := groupSet[group]; ok {
+			continue
+		}
+		groupSet[group] = struct{}{}
+		normalizedGroups = append(normalizedGroups, group)
+	}
+	if len(normalizedGroups) == 0 {
+		return errors.New("groups is required")
+	}
+
+	channel, err := GetChannelById(channelId, true)
+	if err != nil {
+		return err
+	}
+
+	modelFound := false
+	for _, m := range channel.GetModels() {
+		if strings.TrimSpace(m) == modelName {
+			modelFound = true
+			break
+		}
+	}
+	if !modelFound {
+		return fmt.Errorf("model %s is not bound to channel %d", modelName, channelId)
+	}
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Where("channel_id = ? AND model = ?", channelId, modelName).Delete(&Ability{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	abilities := make([]Ability, 0, len(normalizedGroups))
+	for _, group := range normalizedGroups {
+		abilities = append(abilities, Ability{
+			Group:     group,
+			Model:     modelName,
+			ChannelId: channelId,
+			Enabled:   channel.Status == common.ChannelStatusEnabled,
+			Priority:  channel.Priority,
+			Weight:    uint(channel.GetWeight()),
+			Tag:       channel.Tag,
+		})
+	}
+
+	if err := tx.Create(&abilities).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
+}
+
 func UpdateAbilityStatusByTag(tag string, status bool) error {
 	return DB.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status).Error
 }
