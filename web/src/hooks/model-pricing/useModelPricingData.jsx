@@ -24,6 +24,26 @@ import { Modal } from '@douyinfe/semi-ui';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 
+const filterUsableGroupByModelAccess = (usableGroup, models) => {
+  if (!usableGroup || typeof usableGroup !== 'object') {
+    return {};
+  }
+  const enabledGroups = new Set();
+  (models || []).forEach((model) => {
+    if (!Array.isArray(model?.enable_groups)) {
+      return;
+    }
+    model.enable_groups.forEach((group) => {
+      if (group) {
+        enabledGroups.add(group);
+      }
+    });
+  });
+  return Object.fromEntries(
+    Object.entries(usableGroup).filter(([group]) => enabledGroups.has(group)),
+  );
+};
+
 export const useModelPricingData = () => {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
@@ -258,7 +278,7 @@ export const useModelPricingData = () => {
     if (success) {
       setGroupRatio(group_ratio);
       setGroupModelRatio(group_model_ratio || {});
-      setUsableGroup(usable_group);
+      setUsableGroup(filterUsableGroupByModelAccess(usable_group, data));
       setSelectedGroup('all');
       // 构建供应商 Map 方便查找
       const vendorMap = {};
