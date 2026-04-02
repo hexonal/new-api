@@ -32,7 +32,7 @@ const normalizeTags = (tags = '') =>
  */
 export const usePricingFilterCounts = ({
   models = [],
-  filterGroup = 'all',
+  filterGroup = '',
   filterQuotaType = 'all',
   filterEndpointType = 'all',
   filterVendor = 'all',
@@ -50,7 +50,11 @@ export const usePricingFilterCounts = ({
    */
   const matchesFilters = (model, ignore = []) => {
     // 分组
-    if (!ignore.includes('group') && filterGroup !== 'all') {
+    if (
+      !ignore.includes('group') &&
+      filterGroup &&
+      filterGroup !== 'all'
+    ) {
       if (!model.enable_groups || !model.enable_groups.includes(filterGroup))
         return false;
     }

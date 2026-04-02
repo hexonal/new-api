@@ -51,10 +51,10 @@ export const useModelPricingData = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [isModalOpenurl, setIsModalOpenurl] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState('all');
+  const [selectedGroup, setSelectedGroup] = useState('');
   const [showModelDetail, setShowModelDetail] = useState(false);
   const [selectedModel, setSelectedModel] = useState(null);
-  const [filterGroup, setFilterGroup] = useState('all'); // 用于 Table 的可用分组筛选，"all" 表示不过滤
+  const [filterGroup, setFilterGroup] = useState(''); // 用于 Table 的可用分组筛选，默认当前用户分组
   const [filterQuotaType, setFilterQuotaType] = useState('all'); // 计费类型筛选: 'all' | 0 | 1
   const [filterEndpointType, setFilterEndpointType] = useState('all'); // 端点类型筛选: 'all' | string
   const [filterVendor, setFilterVendor] = useState('all'); // 供应商筛选: 'all' | 'unknown' | string
@@ -120,7 +120,7 @@ export const useModelPricingData = () => {
     let result = models;
 
     // 分组筛选
-    if (filterGroup !== 'all') {
+    if (filterGroup && filterGroup !== 'all') {
       result = result.filter((model) =>
         model.enable_groups.includes(filterGroup),
       );
@@ -278,8 +278,18 @@ export const useModelPricingData = () => {
     if (success) {
       setGroupRatio(group_ratio);
       setGroupModelRatio(group_model_ratio || {});
-      setUsableGroup(filterUsableGroupByModelAccess(usable_group, data));
-      setSelectedGroup('all');
+      const scopedUsableGroup = filterUsableGroupByModelAccess(
+        usable_group,
+        data,
+      );
+      setUsableGroup(scopedUsableGroup);
+      const availableGroups = Object.keys(scopedUsableGroup);
+      const currentUserGroup = userState?.user?.group || '';
+      const defaultGroup = availableGroups.includes(currentUserGroup)
+        ? currentUserGroup
+        : availableGroups[0] || '';
+      setSelectedGroup(defaultGroup);
+      setFilterGroup(defaultGroup);
       // 构建供应商 Map 方便查找
       const vendorMap = {};
       if (Array.isArray(vendors)) {
@@ -328,16 +338,12 @@ export const useModelPricingData = () => {
   const handleGroupClick = (group) => {
     setSelectedGroup(group);
     setFilterGroup(group);
-    if (group === 'all') {
-      showInfo(t('已切换至最优倍率视图，每个模型使用其最低倍率分组'));
-    } else {
-      showInfo(
-        t('当前查看的分组为：{{group}}，倍率为：{{ratio}}', {
-          group: group,
-          ratio: groupRatio[group] ?? 1,
-        }),
-      );
-    }
+    showInfo(
+      t('当前查看的分组为：{{group}}，倍率为：{{ratio}}', {
+        group: group,
+        ratio: groupRatio[group] ?? 1,
+      }),
+    );
   };
 
   const openModelDetail = (model) => {

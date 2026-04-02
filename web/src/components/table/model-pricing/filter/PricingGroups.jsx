@@ -39,31 +39,22 @@ const PricingGroups = ({
   loading = false,
   t,
 }) => {
-  const groups = [
-    'all',
-    ...Object.keys(usableGroup).filter((key) => key !== ''),
-  ];
+  const groups = Object.keys(usableGroup).filter((key) => key !== '');
 
   const items = groups.map((g) => {
-    const modelCount =
-      g === 'all'
-        ? models.length
-        : models.filter((m) => m.enable_groups && m.enable_groups.includes(g))
-            .length;
+    const modelCount = models.filter(
+      (m) => m.enable_groups && m.enable_groups.includes(g),
+    ).length;
     let ratioDisplay = '';
-    if (g === 'all') {
-      // ratioDisplay = t('全部');
+    const ratio = groupRatio[g];
+    if (ratio !== undefined && ratio !== null) {
+      ratioDisplay = `${ratio}x`;
     } else {
-      const ratio = groupRatio[g];
-      if (ratio !== undefined && ratio !== null) {
-        ratioDisplay = `${ratio}x`;
-      } else {
-        ratioDisplay = '1x';
-      }
+      ratioDisplay = '1x';
     }
     return {
       value: g,
-      label: g === 'all' ? t('全部分组') : g,
+      label: g,
       tagCount: ratioDisplay,
     };
   });

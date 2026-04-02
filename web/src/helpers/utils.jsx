@@ -1006,7 +1006,7 @@ const DEFAULT_PRICING_FILTERS = {
   showRatio: false,
   viewMode: 'card',
   tokenUnit: 'M',
-  filterGroup: 'all',
+  filterGroup: '',
   filterQuotaType: 'all',
   filterEndpointType: 'all',
   filterVendor: 'all',
