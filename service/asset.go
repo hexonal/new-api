@@ -18,6 +18,20 @@ import (
 
 const assetUploadModelName = "ima-pro-upload"
 
+func resolveAssetBillingGroups(token *model.Token, userGroup string) (string, string) {
+	group := ""
+	if token != nil {
+		group = strings.TrimSpace(token.Group)
+	}
+	if group == "" {
+		group = strings.TrimSpace(userGroup)
+	}
+	if group == "" {
+		group = "default"
+	}
+	return group, group
+}
+
 func resolveAssetUID(userID int, userName string) (string, error) {
 	uid := strings.TrimSpace(userName)
 	if uid != "" {
@@ -291,6 +305,7 @@ func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, re
 }
 
 func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID int, tokenName string, req dto.AssetCreateRequest) (*dto.DoubaoIDResult, error) {
+	_ = tokenName
 	setting := asset_setting.GetAssetSetting()
 	if !setting.Enabled {
 		return nil, errors.New("asset feature is disabled")
@@ -343,12 +358,8 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	quotaCost := 0
 	billingOk := false
 	billedTokenID := 0
-	billedTokenName := tokenName
 	if token != nil {
 		billedTokenID = token.Id
-		if strings.TrimSpace(token.Name) != "" {
-			billedTokenName = token.Name
-		}
 	}
 	if token != nil && !token.UnlimitedQuota {
 		if err = model.DecreaseTokenQuota(token.Id, token.Key, quota); err != nil {
@@ -393,6 +404,8 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 		model.UpdateUserUsedQuotaAndRequestCount(userID, quota)
 		model.UpdateChannelUsedQuota(channel.Id, quota)
 		modelPrice := float64(quota) / float64(common.QuotaPerUnit)
+		userGroup, _ := model.GetUserGroup(userID, false)
+		billingGroup, pricingGroup := resolveAssetBillingGroups(token, userGroup)
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 			UserId:    userID,
 			LogType:   model.LogTypeConsume,
@@ -401,7 +414,8 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 			ModelName: assetUploadModelName,
 			Quota:     quota,
 			TokenId:   billedTokenID,
-			Group:     billedTokenName,
+			Group:     billingGroup,
+			PricingGroup: pricingGroup,
 			Other: map[string]interface{}{
 				"model_price":   modelPrice,
 				"group_ratio":   1.0,

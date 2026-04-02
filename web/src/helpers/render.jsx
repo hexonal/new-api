@@ -1243,8 +1243,13 @@ function getQuotaDisplayType() {
   return localStorage.getItem('quota_display_type') || 'USD';
 }
 
+function hasDirectModelPrice(modelPrice = -1) {
+  const normalized = Number(modelPrice);
+  return Number.isFinite(normalized) && normalized > 0;
+}
+
 function resolveBillingDisplayMode(displayMode, modelPrice = -1) {
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     return 'price';
   }
   if (getQuotaDisplayType() === 'TOKENS') {
@@ -1258,7 +1263,7 @@ function isPriceDisplayMode(displayMode, modelPrice = -1) {
 }
 
 function shouldUseRatioBillingProcess(modelPrice = -1) {
-  return modelPrice === -1 && getQuotaDisplayType() === 'TOKENS';
+  return !hasDirectModelPrice(modelPrice) && getQuotaDisplayType() === 'TOKENS';
 }
 
 function formatCompactDisplayPrice(usdAmount, digits = 6) {
@@ -1324,7 +1329,7 @@ function renderPriceSimpleCore({
   const finalGroupRatio = effectiveGroupRatio;
 
   const { symbol, rate } = getCurrencyConfig();
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     if (isPriceDisplayMode(displayMode, modelPrice)) {
       return joinBillingSummary([
         i18next.t('模型价格：{{symbol}}{{price}} / 次', {
@@ -1357,7 +1362,7 @@ function renderPriceSimpleCore({
 
   if (isPriceDisplayMode(displayMode, modelPrice)) {
     const parts = [];
-    if (modelPrice !== -1) {
+    if (hasDirectModelPrice(modelPrice)) {
       parts.push(
         i18next.t('按次 {{price}} / 次', {
           price: formatCompactDisplayPrice(modelPrice),
@@ -1497,7 +1502,7 @@ export function renderModelPrice(
   displayMode = 'price',
 ) {
   const normalizedModelPrice = Number(modelPrice);
-  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice >= 0;
+  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice > 0;
   const normalizedModelRatio = Number(modelRatio);
   const hasModelRatio = Number.isFinite(normalizedModelRatio);
   const normalizedCompletionRatio = Number(completionRatio);
@@ -1744,7 +1749,7 @@ export function renderModelPrice(
     );
   }
 
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     const displayPrice = (modelPrice * rate).toFixed(6);
     const displayTotal = (modelPrice * groupRatio * rate).toFixed(6);
     return i18next.t(
@@ -1983,7 +1988,7 @@ export function renderLogContent(
   displayMode = 'price',
 ) {
   const normalizedModelPrice = Number(modelPrice);
-  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice >= 0;
+  const hasModelPrice = Number.isFinite(normalizedModelPrice) && normalizedModelPrice > 0;
   const normalizedModelRatio = Number(modelRatio);
   const hasModelRatio = Number.isFinite(normalizedModelRatio);
   const normalizedCompletionRatio = Number(completionRatio);
@@ -2157,7 +2162,7 @@ export function renderAudioModelPrice(
   const { symbol, rate } = getCurrencyConfig();
 
   if (!shouldUseRatioBillingProcess(modelPrice)) {
-    if (modelPrice !== -1) {
+    if (hasDirectModelPrice(modelPrice)) {
       return (
         <>
           <article>
@@ -2276,7 +2281,7 @@ export function renderAudioModelPrice(
   }
 
   // 1 ratio = $0.002 / 1K tokens
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     return i18next.t(
       '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
@@ -2481,7 +2486,7 @@ export function renderClaudeModelPrice(
   const { symbol, rate } = getCurrencyConfig();
 
   if (!shouldUseRatioBillingProcess(modelPrice)) {
-    if (modelPrice !== -1) {
+    if (hasDirectModelPrice(modelPrice)) {
       return (
         <>
           <article>
@@ -2675,7 +2680,7 @@ export function renderClaudeModelPrice(
     );
   }
 
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     return i18next.t(
       '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
@@ -2906,7 +2911,7 @@ export function renderClaudeLogContent(
   const { symbol, rate } = getCurrencyConfig();
 
   if (isPriceDisplayMode(displayMode, modelPrice)) {
-    if (modelPrice !== -1) {
+    if (hasDirectModelPrice(modelPrice)) {
       return joinBillingSummary([
         i18next.t('模型价格 {{symbol}}{{price}} / 次', {
           symbol,
@@ -2963,7 +2968,7 @@ export function renderClaudeLogContent(
     return joinBillingSummary(parts);
   }
 
-  if (modelPrice !== -1) {
+  if (hasDirectModelPrice(modelPrice)) {
     return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
       symbol: symbol,
       price: (modelPrice * rate).toFixed(6),
