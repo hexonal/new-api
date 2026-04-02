@@ -39,6 +39,32 @@ import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
 
+const stableJSONStringify = (value) => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJSONStringify(item)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return `{${keys
+      .map((key) => `${JSON.stringify(key)}:${stableJSONStringify(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const normalizeDecimalString = (value) => String(value).replace(/[，。]/g, '.').trim();
+
+const parseRatioValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const parsed = Number(normalizeDecimalString(value));
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export default function GroupManagement() {
   const { t } = useTranslation();
 
@@ -134,38 +160,41 @@ export default function GroupManagement() {
     if (!selectedGroup) return;
     setSaving(true);
     try {
-      // 1. Update GroupRatio
-      const newGroupRatio = { ...groupRatio, [selectedGroup]: editBaseRatio };
-      const grRes = await API.put('/api/option/', {
-        key: 'GroupRatio',
-        value: JSON.stringify(newGroupRatio),
-      });
-      if (!grRes.data?.success) {
-        throw new Error(grRes.data?.message || t('保存分组倍率失败'));
-      }
+      const prevBaseRatio = Number(groupRatio[selectedGroup] ?? 1.0);
+      const baseRatioChanged = prevBaseRatio !== Number(editBaseRatio);
 
-      // 2. Update group_model_ratio via dot-notation key
-      const newGroupModelRatio = { ...groupModelRatio, [selectedGroup]: editModelRatios };
-      // Clean up empty model ratio entries
+      const nextGroupModelRatio = { ...groupModelRatio };
       if (Object.keys(editModelRatios).length === 0) {
-        delete newGroupModelRatio[selectedGroup];
+        delete nextGroupModelRatio[selectedGroup];
+      } else {
+        nextGroupModelRatio[selectedGroup] = editModelRatios;
+      }
+      const modelRatioChanged =
+        stableJSONStringify(groupModelRatio || {}) !==
+        stableJSONStringify(nextGroupModelRatio || {});
+
+      if (!baseRatioChanged && !modelRatioChanged) {
+        showSuccess(t('未检测到变更'));
+        setDirty(false);
+        return;
       }
 
-      const prevModelRatioStr = JSON.stringify(groupModelRatio || {});
-      const nextModelRatioStr = JSON.stringify(newGroupModelRatio || {});
-      if (prevModelRatioStr !== nextModelRatioStr) {
-        const grsRes = await API.put('/api/option/', {
-          key: 'GroupModelRatio',
-          value: nextModelRatioStr,
-        });
-        if (!grsRes.data?.success) {
-          throw new Error(grsRes.data?.message || t('保存模型倍率失败'));
-        }
+      const saveRes = await API.put('/api/option/group_pricing', {
+        group: selectedGroup,
+        base_ratio: Number(editBaseRatio),
+        model_ratios: editModelRatios,
+      });
+      if (!saveRes.data?.success) {
+        throw new Error(saveRes.data?.message || t('保存失败'));
       }
 
-      // Update local state
-      setGroupRatio(newGroupRatio);
-      setGroupModelRatio(newGroupModelRatio);
+      const respData = saveRes.data?.data || {};
+      if (respData.group_ratio && typeof respData.group_ratio === 'object') {
+        setGroupRatio(respData.group_ratio);
+      }
+      if (respData.group_model_ratio && typeof respData.group_model_ratio === 'object') {
+        setGroupModelRatio(respData.group_model_ratio);
+      }
       setDirty(false);
       showSuccess(t('保存成功'));
     } catch (error) {
@@ -286,9 +315,14 @@ export default function GroupManagement() {
           value={record.ratio}
           min={0}
           step={0.1}
+          parser={normalizeDecimalString}
           style={{ width: 120 }}
           onChange={(val) => {
-            setEditModelRatios((prev) => ({ ...prev, [record.model]: val }));
+            const ratio = parseRatioValue(val);
+            if (ratio === undefined) {
+              return;
+            }
+            setEditModelRatios((prev) => ({ ...prev, [record.model]: ratio }));
             setDirty(true);
           }}
         />
@@ -436,9 +470,14 @@ export default function GroupManagement() {
                       value={editBaseRatio}
                       min={0}
                       step={0.1}
+                      parser={normalizeDecimalString}
                       style={{ width: 200 }}
                       onChange={(val) => {
-                        setEditBaseRatio(val);
+                        const ratio = parseRatioValue(val);
+                        if (ratio === undefined) {
+                          return;
+                        }
+                        setEditBaseRatio(ratio);
                         setDirty(true);
                       }}
                     />
@@ -490,8 +529,15 @@ export default function GroupManagement() {
                         value={addModelRatio}
                         min={0}
                         step={0.1}
+                        parser={normalizeDecimalString}
                         style={{ width: 120 }}
-                        onChange={setAddModelRatio}
+                        onChange={(val) => {
+                          const ratio = parseRatioValue(val);
+                          if (ratio === undefined) {
+                            return;
+                          }
+                          setAddModelRatio(ratio);
+                        }}
                         placeholder={t('倍率')}
                       />
                       <Button
@@ -550,8 +596,15 @@ export default function GroupManagement() {
               value={newGroupBaseRatio}
               min={0}
               step={0.1}
+              parser={normalizeDecimalString}
               style={{ width: '100%' }}
-              onChange={setNewGroupBaseRatio}
+              onChange={(val) => {
+                const ratio = parseRatioValue(val);
+                if (ratio === undefined) {
+                  return;
+                }
+                setNewGroupBaseRatio(ratio);
+              }}
             />
           </div>
         </Modal>

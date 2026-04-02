@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
+	"gorm.io/gorm"
 )
 
 const optionSyncRedisChannel = "new-api:option-sync"
@@ -307,6 +308,38 @@ func UpdateOption(key string, value string) error {
 	return nil
 }
 
+func UpdateOptionsAtomic(options map[string]string) error {
+	if len(options) == 0 {
+		return nil
+	}
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		for key, value := range options {
+			if err := upsertOptionValueTx(tx, key, value); err != nil {
+				return err
+			}
+			if aliasKey, ok := getConsumeCallbackAliasKey(key); ok {
+				if err := upsertOptionValueTx(tx, aliasKey, value); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for key, value := range options {
+		if err := updateOptionMap(key, value); err != nil {
+			return err
+		}
+		if err := publishOptionUpdate(key, value); err != nil {
+			common.SysError("publish option sync failed: " + err.Error())
+		}
+	}
+	return nil
+}
+
 func publishOptionUpdate(key string, value string) error {
 	if !common.RedisEnabled || common.RDB == nil {
 		return nil
@@ -330,16 +363,20 @@ func BroadcastRuntimeCacheRefreshSignal() error {
 }
 
 func upsertOptionValue(key string, value string) error {
+	return upsertOptionValueTx(DB, key, value)
+}
+
+func upsertOptionValueTx(db *gorm.DB, key string, value string) error {
 	option := Option{Key: key}
 	// https://gorm.io/docs/update.html#Save-All-Fields
-	if err := DB.FirstOrCreate(&option, Option{Key: key}).Error; err != nil {
+	if err := db.FirstOrCreate(&option, Option{Key: key}).Error; err != nil {
 		return err
 	}
 	option.Value = value
 	// Save is a combination function.
 	// If save value does not contain primary key, it will execute Create,
 	// otherwise it will execute Update (with all fields).
-	return DB.Save(&option).Error
+	return db.Save(&option).Error
 }
 
 func getConsumeCallbackAliasKey(key string) (string, bool) {

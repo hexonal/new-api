@@ -55,10 +55,23 @@ func GetPricing(c *gin.Context) {
 			delete(groupModelRatio, g)
 		}
 	}
+	// For logged-in users, only expose models that are available in current user group.
+	filteredPricing := pricing
+	if group != "" {
+		filteredPricing = make([]model.Pricing, 0, len(pricing))
+		for _, p := range pricing {
+			for _, g := range p.EnableGroup {
+				if g == group {
+					filteredPricing = append(filteredPricing, p)
+					break
+				}
+			}
+		}
+	}
 
 	c.JSON(200, gin.H{
 		"success":            true,
-		"data":               pricing,
+		"data":               filteredPricing,
 		"vendors":            model.GetVendors(),
 		"group_ratio":        groupRatio,
 		"group_model_ratio":  groupModelRatio,

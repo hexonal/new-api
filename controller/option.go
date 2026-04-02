@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -26,6 +27,8 @@ var completionRatioMetaOptionKeys = []string{
 	"AudioRatio",
 	"AudioCompletionRatio",
 }
+
+var groupPricingUpdateMutex sync.Mutex
 
 func collectModelNamesFromOptionValue(raw string, modelNames map[string]struct{}) {
 	if strings.TrimSpace(raw) == "" {
@@ -100,6 +103,108 @@ func GetOptions(c *gin.Context) {
 type OptionUpdateRequest struct {
 	Key   string `json:"key"`
 	Value any    `json:"value"`
+}
+
+type GroupPricingUpdateRequest struct {
+	Group       string             `json:"group"`
+	BaseRatio   float64            `json:"base_ratio"`
+	ModelRatios map[string]float64 `json:"model_ratios"`
+}
+
+func UpdateGroupPricingOption(c *gin.Context) {
+	var req GroupPricingUpdateRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+	req.Group = strings.TrimSpace(req.Group)
+	if req.Group == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "分组不能为空",
+		})
+		return
+	}
+	if req.BaseRatio < 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "分组倍率不能小于 0",
+		})
+		return
+	}
+
+	groupPricingUpdateMutex.Lock()
+	defer groupPricingUpdateMutex.Unlock()
+
+	groupRatio := ratio_setting.GetGroupRatioCopy()
+	groupRatio[req.Group] = req.BaseRatio
+
+	groupModelRatio := ratio_setting.GetGroupModelRatioCopy()
+	if len(req.ModelRatios) == 0 {
+		delete(groupModelRatio, req.Group)
+	} else {
+		sanitized := make(map[string]float64, len(req.ModelRatios))
+		for modelName, ratio := range req.ModelRatios {
+			name := strings.TrimSpace(modelName)
+			if name == "" {
+				continue
+			}
+			if ratio < 0 {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": "模型倍率不能小于 0: " + name,
+				})
+				return
+			}
+			sanitized[name] = ratio
+		}
+		if len(sanitized) == 0 {
+			delete(groupModelRatio, req.Group)
+		} else {
+			groupModelRatio[req.Group] = sanitized
+		}
+	}
+
+	groupRatioBytes, err := common.Marshal(groupRatio)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	groupRatioStr := string(groupRatioBytes)
+	if err = ratio_setting.CheckGroupRatio(groupRatioStr); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	groupModelRatioBytes, err := common.Marshal(groupModelRatio)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	groupModelRatioStr := string(groupModelRatioBytes)
+
+	if err = model.UpdateOptionsAtomic(map[string]string{
+		"GroupRatio":      groupRatioStr,
+		"GroupModelRatio": groupModelRatioStr,
+	}); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"group_ratio":       groupRatio,
+			"group_model_ratio": groupModelRatio,
+		},
+	})
 }
 
 func UpdateOption(c *gin.Context) {
