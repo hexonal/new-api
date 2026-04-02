@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   Typography,
   Button,
@@ -87,6 +87,7 @@ export default function GroupManagement() {
   const [addModelName, setAddModelName] = useState('');
   const [addModelRatio, setAddModelRatio] = useState(1);
   const [dirty, setDirty] = useState(false);
+  const savingGuardRef = useRef(false);
 
   const groupNames = useMemo(() => {
     const allKeys = new Set([...Object.keys(groupRatio), ...Object.keys(groupModelRatio)]);
@@ -158,6 +159,8 @@ export default function GroupManagement() {
   // Save all changes
   const handleSave = async () => {
     if (!selectedGroup) return;
+    if (savingGuardRef.current) return;
+    savingGuardRef.current = true;
     setSaving(true);
     try {
       const prevBaseRatio = Number(groupRatio[selectedGroup] ?? 1.0);
@@ -201,6 +204,7 @@ export default function GroupManagement() {
       showError(error?.message || t('保存失败'));
     } finally {
       setSaving(false);
+      savingGuardRef.current = false;
     }
   };
 
@@ -558,6 +562,7 @@ export default function GroupManagement() {
                       type='primary'
                       size='large'
                       loading={saving}
+                      disabled={!dirty || saving}
                       onClick={handleSave}
                     >
                       {t('保存')}

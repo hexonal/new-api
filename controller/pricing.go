@@ -55,13 +55,22 @@ func GetPricing(c *gin.Context) {
 			delete(groupModelRatio, g)
 		}
 	}
-	// For logged-in users, only expose models that are available in current user group.
+	// For logged-in users, expose models that intersect with user's usable groups.
 	filteredPricing := pricing
 	if group != "" {
+		allowedGroups := make(map[string]struct{}, len(usableGroup))
+		for g := range usableGroup {
+			allowedGroups[g] = struct{}{}
+		}
 		filteredPricing = make([]model.Pricing, 0, len(pricing))
 		for _, p := range pricing {
+			// If model has no explicit group binding, keep backward-compatible visibility.
+			if len(p.EnableGroup) == 0 {
+				filteredPricing = append(filteredPricing, p)
+				continue
+			}
 			for _, g := range p.EnableGroup {
-				if g == group {
+				if _, ok := allowedGroups[g]; ok {
 					filteredPricing = append(filteredPricing, p)
 					break
 				}
