@@ -251,6 +251,51 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	return nil
 }
 
+// SyncAbilitiesForGroup rebuilds abilities for a specific group only,
+// without affecting other groups' abilities.
+func SyncAbilitiesForGroup(group string, modelNames []string, tx *gorm.DB) error {
+	if tx == nil {
+		tx = DB
+	}
+
+	// 1. Remove abilities for models no longer in the list
+	if len(modelNames) > 0 {
+		tx.Where(commonGroupCol+" = ? AND model NOT IN ?", group, modelNames).Delete(&Ability{})
+	} else {
+		// No models — delete all abilities for this group
+		tx.Where(commonGroupCol+" = ?", group).Delete(&Ability{})
+		return nil
+	}
+
+	// 2. For each model, find serving channels and upsert abilities
+	for _, modelName := range modelNames {
+		channels, err := FindChannelsWithModel(modelName)
+		if err != nil {
+			return fmt.Errorf("find channels for model %s: %w", modelName, err)
+		}
+		abilities := make([]Ability, 0, len(channels))
+		for _, ch := range channels {
+			abilities = append(abilities, Ability{
+				Group:     group,
+				Model:     modelName,
+				ChannelId: ch.Id,
+				Enabled:   ch.Status == common.ChannelStatusEnabled,
+				Priority:  ch.Priority,
+				Weight:    uint(ch.GetWeight()),
+				Tag:       ch.Tag,
+			})
+		}
+		if len(abilities) > 0 {
+			for _, chunk := range lo.Chunk(abilities, 50) {
+				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&chunk).Error; err != nil {
+					return fmt.Errorf("create abilities for model %s: %w", modelName, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func UpdateAbilityStatus(channelId int, status bool) error {
 	return DB.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status).Error
 }

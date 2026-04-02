@@ -299,6 +299,41 @@ func RedisHIncrBy(key, field string, delta int64) error {
 	return nil
 }
 
+// AcquireLock acquires a distributed lock using Redis SETNX.
+// Returns a unique token that must be passed to ReleaseLock.
+func AcquireLock(key string, ttl time.Duration) (string, error) {
+	if !RedisEnabled || RDB == nil {
+		return "", errors.New("redis not available")
+	}
+	token := GetUUID()
+	ok, err := RDB.SetNX(context.Background(), key, token, ttl).Result()
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.New("lock already held")
+	}
+	return token, nil
+}
+
+// ReleaseLock releases a distributed lock only if the token matches (atomic via Lua script).
+func ReleaseLock(key string, token string) error {
+	if !RedisEnabled || RDB == nil {
+		return nil
+	}
+	script := `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+else
+    return 0
+end`
+	_, err := RDB.Eval(context.Background(), script, []string{key}, token).Result()
+	if err != nil && err.Error() != "redis: nil" {
+		return err
+	}
+	return nil
+}
+
 func RedisHSetField(key, field string, value interface{}) error {
 	if DebugEnabled {
 		SysLog(fmt.Sprintf("Redis HSET field: key=%s, field=%s, value=%v", key, field, value))

@@ -222,15 +222,23 @@ export default function GroupManagement() {
     }
     setSaving(true);
     try {
-      const newGr = { ...groupRatio, [name]: newGroupBaseRatio };
-      const res = await API.put('/api/option/', {
-        key: 'GroupRatio',
-        value: JSON.stringify(newGr),
+      const res = await API.put('/api/option/group_pricing', {
+        group: name,
+        base_ratio: Number(newGroupBaseRatio),
+        model_ratios: {},
       });
       if (!res.data?.success) {
         throw new Error(res.data?.message || t('创建失败'));
       }
-      setGroupRatio(newGr);
+      const respData = res.data?.data || {};
+      if (respData.group_ratio && typeof respData.group_ratio === 'object') {
+        setGroupRatio(respData.group_ratio);
+      } else {
+        setGroupRatio(prev => ({ ...prev, [name]: newGroupBaseRatio }));
+      }
+      if (respData.group_model_ratio && typeof respData.group_model_ratio === 'object') {
+        setGroupModelRatio(respData.group_model_ratio);
+      }
       setCreateModalVisible(false);
       setNewGroupName('');
       setNewGroupBaseRatio(1);
@@ -247,30 +255,32 @@ export default function GroupManagement() {
   const handleDeleteGroup = async (name) => {
     setSaving(true);
     try {
-      // Remove from GroupRatio
-      const newGr = { ...groupRatio };
-      delete newGr[name];
-      const grRes = await API.put('/api/option/', {
-        key: 'GroupRatio',
-        value: JSON.stringify(newGr),
+      const res = await API.put('/api/option/group_pricing', {
+        group: name,
+        delete: true,
       });
-      if (!grRes.data?.success) {
-        throw new Error(grRes.data?.message || t('删除失败'));
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || t('删除失败'));
       }
-
-      // Remove from group_model_ratio
-      const newGmr = { ...groupModelRatio };
-      delete newGmr[name];
-      const gmrRes = await API.put('/api/option/', {
-        key: 'GroupModelRatio',
-        value: JSON.stringify(newGmr),
-      });
-      if (!gmrRes.data?.success) {
-        throw new Error(gmrRes.data?.message || t('删除模型倍率失败'));
+      const respData = res.data?.data || {};
+      if (respData.group_ratio && typeof respData.group_ratio === 'object') {
+        setGroupRatio(respData.group_ratio);
+      } else {
+        setGroupRatio(prev => {
+          const next = { ...prev };
+          delete next[name];
+          return next;
+        });
       }
-
-      setGroupRatio(newGr);
-      setGroupModelRatio(newGmr);
+      if (respData.group_model_ratio && typeof respData.group_model_ratio === 'object') {
+        setGroupModelRatio(respData.group_model_ratio);
+      } else {
+        setGroupModelRatio(prev => {
+          const next = { ...prev };
+          delete next[name];
+          return next;
+        });
+      }
       if (selectedGroup === name) {
         setSelectedGroup(null);
       }

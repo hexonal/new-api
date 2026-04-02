@@ -923,6 +923,89 @@ func (channel *Channel) GetHeaderOverride() map[string]interface{} {
 	return headerOverride
 }
 
+// FindChannelsWithModel finds all enabled channels that serve the given model name.
+// Uses LIKE for initial DB filtering, then exact-matches against GetModels().
+func FindChannelsWithModel(modelName string) ([]*Channel, error) {
+	var channels []*Channel
+	err := DB.Where("status = ? AND models LIKE ?", common.ChannelStatusEnabled, "%"+modelName+"%").Find(&channels).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*Channel, 0)
+	for _, ch := range channels {
+		for _, m := range ch.GetModels() {
+			if strings.TrimSpace(m) == modelName {
+				result = append(result, ch)
+				break
+			}
+		}
+	}
+	return result, nil
+}
+
+// SyncChannelGroupForPricing appends the group name to every channel that serves at least one of the given models.
+func SyncChannelGroupForPricing(tx *gorm.DB, group string, modelNames []string) error {
+	if tx == nil {
+		tx = DB
+	}
+	channelSet := make(map[int]*Channel)
+	for _, modelName := range modelNames {
+		channels, err := FindChannelsWithModel(modelName)
+		if err != nil {
+			return fmt.Errorf("find channels for model %s: %w", modelName, err)
+		}
+		for _, ch := range channels {
+			channelSet[ch.Id] = ch
+		}
+	}
+	for _, ch := range channelSet {
+		groups := ch.GetGroups()
+		hasGroup := false
+		for _, g := range groups {
+			if g == group {
+				hasGroup = true
+				break
+			}
+		}
+		if !hasGroup {
+			groups = append(groups, group)
+			newGroupStr := strings.Join(groups, ",")
+			if err := tx.Model(&Channel{}).Where("id = ?", ch.Id).Update("group", newGroupStr).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// RemoveGroupFromChannels removes the specified group from all channels that contain it.
+func RemoveGroupFromChannels(tx *gorm.DB, group string) error {
+	if tx == nil {
+		tx = DB
+	}
+	var channels []*Channel
+	err := tx.Where(commonGroupCol + " LIKE ?", "%"+group+"%").Find(&channels).Error
+	if err != nil {
+		return err
+	}
+	for _, ch := range channels {
+		groups := ch.GetGroups()
+		newGroups := make([]string, 0, len(groups))
+		for _, g := range groups {
+			if g != group {
+				newGroups = append(newGroups, g)
+			}
+		}
+		if len(newGroups) != len(groups) {
+			newGroupStr := strings.Join(newGroups, ",")
+			if err := tx.Model(&Channel{}).Where("id = ?", ch.Id).Update("group", newGroupStr).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func GetChannelsByIds(ids []int) ([]*Channel, error) {
 	var channels []*Channel
 	err := DB.Where("id in (?)", ids).Find(&channels).Error

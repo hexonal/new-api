@@ -18,6 +18,9 @@ import (
 )
 
 var commonGroupCol string
+
+// CommonGroupCol returns the quoted column name for "group" (SQL reserved word).
+func CommonGroupCol() string { return commonGroupCol }
 var commonKeyCol string
 var commonTrueVal string
 var commonFalseVal string

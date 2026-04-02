@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -109,9 +110,11 @@ type GroupPricingUpdateRequest struct {
 	Group       string             `json:"group"`
 	BaseRatio   float64            `json:"base_ratio"`
 	ModelRatios map[string]float64 `json:"model_ratios"`
+	Delete      bool               `json:"delete"`
 }
 
 func UpdateGroupPricingOption(c *gin.Context) {
+	// 1. Parse request
 	var req GroupPricingUpdateRequest
 	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -136,9 +139,86 @@ func UpdateGroupPricingOption(c *gin.Context) {
 		return
 	}
 
-	groupPricingUpdateMutex.Lock()
-	defer groupPricingUpdateMutex.Unlock()
+	// 2. Acquire global distributed lock (protects GroupRatio JSON read-modify-write)
+	lockKey := "lock:group_pricing_global"
+	token, lockErr := common.AcquireLock(lockKey, 30*time.Second)
+	if lockErr != nil {
+		if common.RedisEnabled {
+			// Redis available but lock held by another request — reject
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"message": "分组配置正在被编辑，请稍后重试",
+			})
+			return
+		}
+		// Redis unavailable — use local mutex as fallback (single-node only)
+		groupPricingUpdateMutex.Lock()
+		defer groupPricingUpdateMutex.Unlock()
+	} else {
+		defer common.ReleaseLock(lockKey, token)
+	}
 
+	// 3. Handle delete
+	if req.Delete {
+		if req.Group == "default" {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "不能删除 default 分组"})
+			return
+		}
+		groupRatio := ratio_setting.GetGroupRatioCopy()
+		delete(groupRatio, req.Group)
+		groupModelRatio := ratio_setting.GetGroupModelRatioCopy()
+		delete(groupModelRatio, req.Group)
+		grBytes, _ := common.Marshal(groupRatio)
+		gmrBytes, _ := common.Marshal(groupModelRatio)
+		grStr, gmrStr := string(grBytes), string(gmrBytes)
+
+		tx := model.DB.Begin()
+		if tx.Error != nil {
+			common.ApiError(c, tx.Error)
+			return
+		}
+		// Delete abilities for this group
+		if err := tx.Where(model.CommonGroupCol()+" = ?", req.Group).Delete(&model.Ability{}).Error; err != nil {
+			tx.Rollback()
+			common.ApiError(c, err)
+			return
+		}
+		// Remove group from channels
+		if err := model.RemoveGroupFromChannels(tx, req.Group); err != nil {
+			tx.Rollback()
+			common.ApiError(c, err)
+			return
+		}
+		// Update options
+		for key, value := range map[string]string{"GroupRatio": grStr, "GroupModelRatio": gmrStr} {
+			opt := model.Option{Key: key}
+			if err := tx.FirstOrCreate(&opt, model.Option{Key: key}).Error; err != nil {
+				tx.Rollback()
+				common.ApiError(c, err)
+				return
+			}
+			opt.Value = value
+			if err := tx.Save(&opt).Error; err != nil {
+				tx.Rollback()
+				common.ApiError(c, err)
+				return
+			}
+		}
+		if err := tx.Commit().Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		model.InitChannelCache()
+		ratio_setting.UpdateGroupRatioByJSONString(grStr)
+		ratio_setting.UpdateGroupModelRatioByJSONString(gmrStr)
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data":    gin.H{"group_ratio": groupRatio, "group_model_ratio": groupModelRatio},
+		})
+		return
+	}
+
+	// 4. Build new ratio maps (save path)
 	groupRatio := ratio_setting.GetGroupRatioCopy()
 	groupRatio[req.Group] = req.BaseRatio
 
@@ -189,14 +269,75 @@ func UpdateGroupPricingOption(c *gin.Context) {
 	}
 	groupModelRatioStr := string(groupModelRatioBytes)
 
-	if err = model.UpdateOptionsAtomic(map[string]string{
+	// 4. Collect model names for abilities sync
+	modelNames := make([]string, 0, len(req.ModelRatios))
+	for m := range req.ModelRatios {
+		name := strings.TrimSpace(m)
+		if name != "" {
+			modelNames = append(modelNames, name)
+		}
+	}
+
+	// 5. Execute all DB mutations in a single transaction
+	tx := model.DB.Begin()
+	if tx.Error != nil {
+		common.ApiError(c, tx.Error)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 5a. Upsert options within the transaction
+	optionsToUpdate := map[string]string{
 		"GroupRatio":      groupRatioStr,
 		"GroupModelRatio": groupModelRatioStr,
-	}); err != nil {
+	}
+	for key, value := range optionsToUpdate {
+		opt := model.Option{Key: key}
+		if err := tx.FirstOrCreate(&opt, model.Option{Key: key}).Error; err != nil {
+			tx.Rollback()
+			common.ApiError(c, err)
+			return
+		}
+		opt.Value = value
+		if err := tx.Save(&opt).Error; err != nil {
+			tx.Rollback()
+			common.ApiError(c, err)
+			return
+		}
+	}
+
+	// 5b. Sync channels.group for this pricing group
+	if err := model.SyncChannelGroupForPricing(tx, req.Group, modelNames); err != nil {
+		tx.Rollback()
 		common.ApiError(c, err)
 		return
 	}
 
+	// 5c. Rebuild abilities for this group
+	if err := model.SyncAbilitiesForGroup(req.Group, modelNames, tx); err != nil {
+		tx.Rollback()
+		common.ApiError(c, err)
+		return
+	}
+
+	// 6. Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	// 7. Refresh caches (outside transaction)
+	model.InitChannelCache()
+
+	// 8. Update in-memory ratio config
+	ratio_setting.UpdateGroupRatioByJSONString(groupRatioStr)
+	ratio_setting.UpdateGroupModelRatioByJSONString(groupModelRatioStr)
+
+	// 9. Return success
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
