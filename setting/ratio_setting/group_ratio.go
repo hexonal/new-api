@@ -117,6 +117,10 @@ func GetGroupModelRatio(usingGroup, model string) (float64, bool) {
 	return -1, false
 }
 
+func GetGroupModelRatioCopy() map[string]map[string]float64 {
+	return groupModelRatioMap.ReadAll()
+}
+
 func GroupGroupRatio2JSONString() string {
 	return groupGroupRatioMap.MarshalJSONString()
 }

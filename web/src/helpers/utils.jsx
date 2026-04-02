@@ -612,6 +612,7 @@ export const calculateModelPrice = ({
   record,
   selectedGroup,
   groupRatio,
+  groupModelRatio,
   tokenUnit,
   displayPrice,
   currency,
@@ -637,10 +638,30 @@ export const calculateModelPrice = ({
     };
   }
   const safeGroupRatio = groupRatio && typeof groupRatio === 'object' ? groupRatio : {};
+  const safeGroupModelRatio =
+    groupModelRatio && typeof groupModelRatio === 'object'
+      ? groupModelRatio
+      : {};
+
+  const resolveRatio = (group) => {
+    if (!group) return undefined;
+    const byGroup = safeGroupModelRatio[group];
+    if (
+      byGroup &&
+      typeof byGroup === 'object' &&
+      Object.prototype.hasOwnProperty.call(byGroup, recordModelName)
+    ) {
+      const modelSpecific = Number(byGroup[recordModelName]);
+      if (Number.isFinite(modelSpecific)) {
+        return modelSpecific;
+      }
+    }
+    return safeGroupRatio[group];
+  };
 
   // 1. 选择实际使用的分组
   let usedGroup = selectedGroup;
-  let usedGroupRatio = safeGroupRatio[selectedGroup];
+  let usedGroupRatio = resolveRatio(selectedGroup);
 
   if (selectedGroup === 'all' || usedGroupRatio === undefined) {
     // 在模型可用分组中选择倍率最小的分组，若无则使用 1
@@ -650,7 +671,7 @@ export const calculateModelPrice = ({
       record.enable_groups.length > 0
     ) {
       record.enable_groups.forEach((g) => {
-        const r = safeGroupRatio[g];
+        const r = resolveRatio(g);
         if (r !== undefined && r < minRatio) {
           minRatio = r;
           usedGroup = g;

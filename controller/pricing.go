@@ -13,8 +13,12 @@ func GetPricing(c *gin.Context) {
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
+	groupModelRatio := map[string]map[string]float64{}
 	for s, f := range ratio_setting.GetGroupRatioCopy() {
 		groupRatio[s] = f
+	}
+	for group, modelRatios := range ratio_setting.GetGroupModelRatioCopy() {
+		groupModelRatio[group] = modelRatios
 	}
 	var group string
 	if exists {
@@ -45,12 +49,19 @@ func GetPricing(c *gin.Context) {
 			delete(groupRatio, g)
 		}
 	}
+	// Filter groupModelRatio to only keep groups in usableGroup
+	for g := range groupModelRatio {
+		if _, ok := usableGroup[g]; !ok {
+			delete(groupModelRatio, g)
+		}
+	}
 
 	c.JSON(200, gin.H{
 		"success":            true,
 		"data":               pricing,
 		"vendors":            model.GetVendors(),
 		"group_ratio":        groupRatio,
+		"group_model_ratio":  groupModelRatio,
 		"usable_group":       usableGroup,
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),

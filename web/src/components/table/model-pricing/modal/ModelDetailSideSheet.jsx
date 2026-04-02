@@ -34,6 +34,7 @@ const ModelDetailSideSheet = ({
   onClose,
   modelData,
   groupRatio,
+  groupModelRatio,
   currency,
   siteDisplayType,
   tokenUnit,
@@ -92,6 +93,7 @@ const ModelDetailSideSheet = ({
             <ModelPricingTable
               modelData={modelData}
               groupRatio={groupRatio}
+              groupModelRatio={groupModelRatio}
               currency={currency}
               siteDisplayType={siteDisplayType}
               tokenUnit={tokenUnit}

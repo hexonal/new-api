@@ -27,6 +27,7 @@ const { Text } = Typography;
 const ModelPricingTable = ({
   modelData,
   groupRatio,
+  groupModelRatio,
   currency,
   siteDisplayType,
   tokenUnit,
@@ -51,10 +52,11 @@ const ModelPricingTable = ({
     // 准备表格数据
     const tableData = availableGroups.map((group) => {
       const priceData = modelData
-        ? calculateModelPrice({
+          ? calculateModelPrice({
             record: modelData,
             selectedGroup: group,
             groupRatio,
+            groupModelRatio,
             tokenUnit,
             displayPrice,
             currency,
@@ -64,7 +66,11 @@ const ModelPricingTable = ({
 
       // 获取分组倍率
       const groupRatioValue =
-        groupRatio && groupRatio[group] ? groupRatio[group] : 1;
+        priceData && Number.isFinite(Number(priceData.usedGroupRatio))
+          ? Number(priceData.usedGroupRatio)
+          : groupRatio && groupRatio[group]
+            ? groupRatio[group]
+            : 1;
 
       return {
         key: group,
