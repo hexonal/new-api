@@ -1633,6 +1633,9 @@ export function renderModelPrice(
       (webSearchCallCount / 1000) * webSearchPrice * groupRatio +
       (fileSearchCallCount / 1000) * fileSearchPrice * groupRatio +
       imageGenerationCallPrice * groupRatio;
+    const rawQuota = price * getQuotaPerUnit();
+    const roundedQuota = Math.round(rawQuota);
+    const roundedAmount = roundedQuota / getQuotaPerUnit();
 
     return (
       <>
@@ -1798,6 +1801,17 @@ export function renderModelPrice(
                 },
               );
             })()}
+          </p>
+          <p>
+            {i18next.t(
+              '按配额取整：round({{rawQuota}}) = {{roundedQuota}} quota（{{symbol}}{{roundedAmount}}）',
+              {
+                rawQuota: Number(rawQuota.toFixed(6)),
+                roundedQuota,
+                symbol,
+                roundedAmount: (roundedAmount * rate).toFixed(6),
+              },
+            )}
           </p>
           <p>{i18next.t('仅供参考，以实际扣费为准')}</p>
         </article>
@@ -2600,6 +2614,9 @@ export function renderClaudeModelPrice(
     const price =
       (effectiveInputTokens / 1000000) * inputRatioPrice * groupRatio +
       (completionTokens / 1000000) * completionRatioPrice * groupRatio;
+    const rawQuota = price * getQuotaPerUnit();
+    const roundedQuota = Math.round(rawQuota);
+    const roundedAmount = roundedQuota / getQuotaPerUnit();
     const inputUnitPrice = inputRatioPrice * rate;
     const completionUnitPrice = completionRatioPrice * rate;
     const cacheUnitPrice = cacheRatioPrice * rate;
@@ -2726,13 +2743,24 @@ export function renderClaudeModelPrice(
           )}
           <p>
             {i18next.t(
-              '{{breakdown}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+              '({{breakdown}}) * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
               {
                 breakdown: breakdownText,
                 ratioType: ratioLabel,
                 ratio: groupRatio,
                 symbol,
                 total: (price * rate).toFixed(6),
+              },
+            )}
+          </p>
+          <p>
+            {i18next.t(
+              '按配额取整：round({{rawQuota}}) = {{roundedQuota}} quota（{{symbol}}{{roundedAmount}}）',
+              {
+                rawQuota: Number(rawQuota.toFixed(6)),
+                roundedQuota,
+                symbol,
+                roundedAmount: (roundedAmount * rate).toFixed(6),
               },
             )}
           </p>
