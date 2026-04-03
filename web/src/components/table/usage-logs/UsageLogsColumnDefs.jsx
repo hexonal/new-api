@@ -323,6 +323,17 @@ function isDeferredTokenRecalculateLog(record, other) {
   );
 }
 
+function isDeferredSettlePendingLog(record, other) {
+  if (!other?.deferred_settle) {
+    return false;
+  }
+  if (isDeferredTokenRecalculateLog(record, other)) {
+    return false;
+  }
+  const state = String(other?.terminal_charge_state || '').toLowerCase();
+  return state === 'pending';
+}
+
 function deriveEffectiveTokenPricePer1M(quota, totalTokens) {
   const quotaValue = Number(quota);
   const tokensValue = Number(totalTokens);
@@ -929,6 +940,33 @@ export const getLogsColumns = ({
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
               : null,
+            t('仅供参考，以实际扣费为准'),
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 240 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
+
+        if (isDeferredSettlePendingLog(record, other)) {
+          const summary = [
+            t('延迟结算（提交阶段）'),
+            toTokenNumber(other?.estimated_quota) > 0
+              ? `${t('预估扣费')}：${renderQuota(other.estimated_quota, 6)}`
+              : null,
+            `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
             t('仅供参考，以实际扣费为准'),
           ]
             .filter(Boolean)

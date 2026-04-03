@@ -1327,6 +1327,8 @@ function renderPriceSimpleCore({
     user_group_ratio,
   );
   const finalGroupRatio = effectiveGroupRatio;
+  const normalizedModelRatio = Number(modelRatio);
+  const hasModelRatio = Number.isFinite(normalizedModelRatio);
 
   const { symbol, rate } = getCurrencyConfig();
   if (hasDirectModelPrice(modelPrice)) {
@@ -1346,6 +1348,10 @@ function renderPriceSimpleCore({
       ratioType: ratioLabel,
       ratio: finalGroupRatio,
     });
+  }
+
+  if (!hasModelRatio) {
+    return i18next.t('计费参数缺失');
   }
 
   const hasSplitCacheCreation =
@@ -1374,14 +1380,14 @@ function renderPriceSimpleCore({
 
     parts.push(
       i18next.t('输入 {{price}} / 1M tokens', {
-        price: formatCompactDisplayPrice(modelRatio * 2.0),
+        price: formatCompactDisplayPrice(normalizedModelRatio * 2.0),
       }),
     );
 
     if (shouldShowCache) {
       parts.push(
         i18next.t('缓存读取 {{price}}', {
-          price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheRatio),
+          price: formatCompactDisplayPrice(normalizedModelRatio * 2.0 * cacheRatio),
         }),
       );
     }
@@ -1389,21 +1395,21 @@ function renderPriceSimpleCore({
     if (hasSplitCacheCreation && shouldShowCacheCreation5m) {
       parts.push(
         i18next.t('5m缓存创建 {{price}}', {
-          price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheCreationRatio5m),
+          price: formatCompactDisplayPrice(normalizedModelRatio * 2.0 * cacheCreationRatio5m),
         }),
       );
     }
     if (hasSplitCacheCreation && shouldShowCacheCreation1h) {
       parts.push(
         i18next.t('1h缓存创建 {{price}}', {
-          price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheCreationRatio1h),
+          price: formatCompactDisplayPrice(normalizedModelRatio * 2.0 * cacheCreationRatio1h),
         }),
       );
     }
     if (!hasSplitCacheCreation && shouldShowLegacyCacheCreation) {
       parts.push(
         i18next.t('缓存创建 {{price}}', {
-          price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheCreationRatio),
+          price: formatCompactDisplayPrice(normalizedModelRatio * 2.0 * cacheCreationRatio),
         }),
       );
     }
@@ -1411,7 +1417,7 @@ function renderPriceSimpleCore({
     if (image) {
       parts.push(
         i18next.t('图片输入 {{price}}', {
-          price: formatCompactDisplayPrice(modelRatio * 2.0 * imageRatio),
+          price: formatCompactDisplayPrice(normalizedModelRatio * 2.0 * imageRatio),
         }),
       );
     }
@@ -1458,7 +1464,7 @@ function renderPriceSimpleCore({
   parts.push(`{{ratioType}}: {{groupRatio}}`);
 
   let result = i18next.t(parts.join(' * '), {
-    ratio: modelRatio,
+    ratio: normalizedModelRatio,
     ratioType: ratioLabel,
     groupRatio: finalGroupRatio,
     cacheRatio: cacheRatio,

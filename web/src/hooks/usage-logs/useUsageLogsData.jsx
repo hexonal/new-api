@@ -64,6 +64,17 @@ const isDeferredTokenRecalculateLog = (log, other) => {
   );
 };
 
+const isDeferredSettlePendingLog = (log, other) => {
+  if (!other?.deferred_settle) {
+    return false;
+  }
+  if (isDeferredTokenRecalculateLog(log, other)) {
+    return false;
+  }
+  const state = String(other?.terminal_charge_state || '').toLowerCase();
+  return state === 'pending';
+};
+
 const deriveEffectiveTokenPricePer1M = (quota, totalTokens) => {
   const quotaValue = Number(quota);
   const tokensValue = Number(totalTokens);
@@ -512,6 +523,7 @@ export const useLogsData = () => {
         const deferredTokenRecalculate =
           isDeferredTokenRecalculateLog(logs[i], other) &&
           toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0;
+        const deferredPendingSubmit = isDeferredSettlePendingLog(logs[i], other);
         const promptTokens = toPositiveNumber(
           logs[i]?.prompt_tokens || other?.task_prompt_tokens,
         );
@@ -551,6 +563,20 @@ export const useLogsData = () => {
               ]
                 .filter(Boolean)
                 .join(' | ')
+            : deferredPendingSubmit
+              ? [
+                  t('延迟结算（提交阶段）'),
+                  toPositiveNumber(other?.estimated_quota) > 0
+                    ? t('预估扣费：{{cost}}', {
+                        cost: renderQuota(other.estimated_quota, 6),
+                      })
+                    : null,
+                  t('结算状态：{{state}}', {
+                    state: other?.terminal_charge_state || 'pending',
+                  }),
+                ]
+                  .filter(Boolean)
+                  .join(' | ')
             : other?.claude
               ? renderClaudeLogContent(
                   other?.model_ratio,
@@ -704,6 +730,25 @@ export const useLogsData = () => {
                     })}
                   </p>
                 )}
+                <p>{t('仅供参考，以实际扣费为准')}</p>
+              </article>
+            );
+          } else if (isDeferredSettlePendingLog(logs[i], other)) {
+            content = (
+              <article>
+                <p>{t('延迟结算（提交阶段）')}</p>
+                {toPositiveNumber(other?.estimated_quota) > 0 && (
+                  <p>
+                    {t('预估扣费：{{cost}}', {
+                      cost: renderQuota(other.estimated_quota, 6),
+                    })}
+                  </p>
+                )}
+                <p>
+                  {t('结算状态：{{state}}', {
+                    state: other?.terminal_charge_state || 'pending',
+                  })}
+                </p>
                 <p>{t('仅供参考，以实际扣费为准')}</p>
               </article>
             );
