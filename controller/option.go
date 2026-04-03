@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 var completionRatioMetaOptionKeys = []string{
@@ -139,6 +140,54 @@ func UpdateGroupPricingOption(c *gin.Context) {
 		return
 	}
 
+	upsertOptionInTx := func(tx *gorm.DB, key string, value string) error {
+		option := model.Option{Key: key}
+		if err := tx.FirstOrCreate(&option, model.Option{Key: key}).Error; err != nil {
+			return err
+		}
+		option.Value = value
+		return tx.Save(&option).Error
+	}
+
+	buildSpecialUsableGroupJSON := func(targetGroup string, deleting bool, groupRatio map[string]float64) (string, error) {
+		current := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
+		next := make(map[string]map[string]string, len(current))
+		for g, rules := range current {
+			copied := make(map[string]string, len(rules))
+			for k, v := range rules {
+				copied[k] = v
+			}
+			next[g] = copied
+		}
+
+		if deleting {
+			delete(next, targetGroup)
+		} else {
+			specialMap := make(map[string]string)
+			for otherGroup := range groupRatio {
+				if otherGroup != targetGroup {
+					specialMap["-:"+otherGroup] = ""
+				}
+			}
+			specialMap["+:"+targetGroup] = targetGroup
+			next[targetGroup] = specialMap
+			for otherGroup, otherRules := range next {
+				if otherGroup != targetGroup {
+					if _, has := otherRules["-:"+targetGroup]; !has {
+						otherRules["-:"+targetGroup] = ""
+					}
+					next[otherGroup] = otherRules
+				}
+			}
+		}
+
+		data, err := common.Marshal(next)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+
 	// 2. Acquire global distributed lock (protects GroupRatio JSON read-modify-write)
 	lockKey := "lock:group_pricing_global"
 	token, lockErr := common.AcquireLock(lockKey, 30*time.Second)
@@ -165,7 +214,6 @@ func UpdateGroupPricingOption(c *gin.Context) {
 			return
 		}
 
-		// 3a. Remove from GroupRatio & GroupModelRatio
 		groupRatio := ratio_setting.GetGroupRatioCopy()
 		delete(groupRatio, req.Group)
 		groupModelRatio := ratio_setting.GetGroupModelRatioCopy()
@@ -174,41 +222,48 @@ func UpdateGroupPricingOption(c *gin.Context) {
 		gmrBytes, _ := common.Marshal(groupModelRatio)
 		grStr, gmrStr := string(grBytes), string(gmrBytes)
 
-		if err := model.UpdateOption("GroupRatio", grStr); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if err := model.UpdateOption("GroupModelRatio", gmrStr); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		_ = ratio_setting.UpdateGroupRatioByJSONString(grStr)
-		_ = ratio_setting.UpdateGroupModelRatioByJSONString(gmrStr)
-
-		// 3b. Remove from UserUsableGroups
 		uug := setting.GetUserUsableGroupsCopy()
 		delete(uug, req.Group)
 		uugBytes, _ := common.Marshal(uug)
 		uugStr := string(uugBytes)
-		if err := model.UpdateOption("UserUsableGroups", uugStr); err != nil {
-			common.SysLog(fmt.Sprintf("failed to remove group %s from UserUsableGroups: %v", req.Group, err))
+		gsugStr, err := buildSpecialUsableGroupJSON(req.Group, true, groupRatio)
+		if err != nil {
+			common.ApiError(c, err)
+			return
 		}
-		_ = setting.UpdateUserUsableGroupsByJSONString(uugStr)
 
-		// 3c. Remove from GroupSpecialUsableGroup (no Delete method, rebuild without the key)
-		gsug := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
-		delete(gsug, req.Group)
-		ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Clear()
-		ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.AddAll(gsug)
-
-		// 3d. Remove group from channels.group & delete abilities
-		if err := model.RemoveGroupFromChannels(nil, req.Group); err != nil {
-			common.SysLog(fmt.Sprintf("failed to remove group %s from channels: %v", req.Group, err))
+		err = model.DB.Transaction(func(tx *gorm.DB) error {
+			if err := upsertOptionInTx(tx, "GroupRatio", grStr); err != nil {
+				return err
+			}
+			if err := upsertOptionInTx(tx, "GroupModelRatio", gmrStr); err != nil {
+				return err
+			}
+			if err := upsertOptionInTx(tx, "UserUsableGroups", uugStr); err != nil {
+				return err
+			}
+			if err := upsertOptionInTx(tx, "group_ratio_setting.group_special_usable_group", gsugStr); err != nil {
+				return err
+			}
+			if err := model.RemoveGroupFromChannels(tx, req.Group); err != nil {
+				return err
+			}
+			if err := model.SyncAbilitiesForGroup(req.Group, nil, tx); err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			common.ApiError(c, err)
+			return
 		}
-		model.SyncAbilitiesForGroup(req.Group, nil, nil) // nil modelNames deletes all abilities for this group
-
-		// 3e. Refresh channel cache
-		model.InitChannelCache()
+		if err := model.RefreshRuntimeCaches(); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if err := model.BroadcastRuntimeCacheRefreshSignal(); err != nil {
+			common.SysLog(fmt.Sprintf("broadcast runtime cache refresh failed: %v", err))
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
@@ -268,54 +323,16 @@ func UpdateGroupPricingOption(c *gin.Context) {
 	}
 	groupModelRatioStr := string(groupModelRatioBytes)
 
-	// Step 1: Save GroupRatio and GroupModelRatio to DB
-	if err := model.UpdateOption("GroupRatio", groupRatioStr); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if err := model.UpdateOption("GroupModelRatio", groupModelRatioStr); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	_ = ratio_setting.UpdateGroupRatioByJSONString(groupRatioStr)
-	_ = ratio_setting.UpdateGroupModelRatioByJSONString(groupModelRatioStr)
-
-	// Step 2: Add group to UserUsableGroups
 	uug := setting.GetUserUsableGroupsCopy()
 	if _, exists := uug[req.Group]; !exists {
 		uug[req.Group] = req.Group
 	}
 	uugBytes, _ := common.Marshal(uug)
 	uugStr := string(uugBytes)
-	if err := model.UpdateOption("UserUsableGroups", uugStr); err != nil {
-		common.SysLog(fmt.Sprintf("failed to add group %s to UserUsableGroups: %v", req.Group, err))
-	}
-	_ = setting.UpdateUserUsableGroupsByJSONString(uugStr)
-
-	// Step 3: Build GroupSpecialUsableGroup — isolate this group (remove all others, keep only self)
-	allGroups := ratio_setting.GetGroupRatioCopy()
-	specialMap := make(map[string]string)
-	for otherGroup := range allGroups {
-		if otherGroup != req.Group {
-			specialMap["-:"+otherGroup] = ""
-		}
-	}
-	specialMap["+:"+req.Group] = req.Group
-	ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Set(req.Group, specialMap)
-	// Also update other groups to exclude this group
-	allSpecial := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
-	for otherGroup, otherRules := range allSpecial {
-		if otherGroup != req.Group {
-			if _, has := otherRules["-:"+req.Group]; !has {
-				otherRules["-:"+req.Group] = ""
-				ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Set(otherGroup, otherRules)
-			}
-		}
-	}
-	// Persist to DB
-	gsugStr := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.MarshalJSONString()
-	if err := model.UpdateOption("group_ratio_setting.group_special_usable_group", gsugStr); err != nil {
-		common.SysLog(fmt.Sprintf("failed to persist group_special_usable_group: %v", err))
+	gsugStr, err := buildSpecialUsableGroupJSON(req.Group, false, groupRatio)
+	if err != nil {
+		common.ApiError(c, err)
+		return
 	}
 
 	// Step 4: Sync channels.group — add this group to channels that serve the models
@@ -325,19 +342,40 @@ func UpdateGroupPricingOption(c *gin.Context) {
 			modelNames = append(modelNames, modelName)
 		}
 	}
-	if len(modelNames) > 0 {
-		if err := model.SyncChannelGroupForPricing(nil, req.Group, modelNames); err != nil {
-			common.SysLog(fmt.Sprintf("failed to sync channel group for %s: %v", req.Group, err))
-		}
 
-		// Step 5: Rebuild abilities for this group
-		if err := model.SyncAbilitiesForGroup(req.Group, modelNames, nil); err != nil {
-			common.SysLog(fmt.Sprintf("failed to sync abilities for group %s: %v", req.Group, err))
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := upsertOptionInTx(tx, "GroupRatio", groupRatioStr); err != nil {
+			return err
 		}
+		if err := upsertOptionInTx(tx, "GroupModelRatio", groupModelRatioStr); err != nil {
+			return err
+		}
+		if err := upsertOptionInTx(tx, "UserUsableGroups", uugStr); err != nil {
+			return err
+		}
+		if err := upsertOptionInTx(tx, "group_ratio_setting.group_special_usable_group", gsugStr); err != nil {
+			return err
+		}
+		if err := model.SyncChannelGroupForPricing(tx, req.Group, modelNames); err != nil {
+			return err
+		}
+		if err := model.SyncAbilitiesForGroup(req.Group, modelNames, tx); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
 	}
 
-	// Step 6: Refresh channel cache
-	model.InitChannelCache()
+	if err := model.RefreshRuntimeCaches(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.BroadcastRuntimeCacheRefreshSignal(); err != nil {
+		common.SysLog(fmt.Sprintf("broadcast runtime cache refresh failed: %v", err))
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
