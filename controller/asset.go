@@ -13,7 +13,7 @@ func CreateAssetGroup(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleCreateAssetGroup(c.Request.Context(), c.GetInt("id"), c.GetString("username"), req)
+	data, err := service.HandleCreateAssetGroup(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -27,7 +27,7 @@ func ListAssetGroups(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleListAssetGroups(c.Request.Context(), c.GetInt("id"), c.GetString("username"), req)
+	data, err := service.HandleListAssetGroups(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -73,7 +73,7 @@ func CreateAsset(c *gin.Context) {
 	if req.BillingTokenID > 0 {
 		preferredTokenID = req.BillingTokenID
 	}
-	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), preferredTokenID, c.GetString("token_name"), req)
+	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), preferredTokenID, c.GetString("token_name"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -87,7 +87,7 @@ func ListAssets(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleListAssets(c.Request.Context(), c.GetInt("id"), c.GetString("username"), req)
+	data, err := service.HandleListAssets(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return

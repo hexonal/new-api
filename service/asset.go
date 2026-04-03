@@ -13,10 +13,9 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/asset_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"gorm.io/gorm"
 )
 
-const assetUploadModelName = "ima-pro-upload"
+const defaultAssetModel = "ima-pro-upload"
 
 func resolveAssetBillingGroups(token *model.Token, userGroup string) (string, string) {
 	group := ""
@@ -51,32 +50,99 @@ func resolveAssetUID(userID int, userName string) (string, error) {
 	return uid, nil
 }
 
-func getAssetChannel() (*model.Channel, error) {
-	channel := &model.Channel{}
-	err := model.DB.Where("type = ? AND status = ?", constant.ChannelTypeImaPro, common.ChannelStatusEnabled).
-		Order("priority desc").
-		First(channel).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no active ima-pro channel available")
-		}
-		return nil, err
+// isAssetChannelReady checks that a channel has both a non-empty base_url and a non-empty key.
+func isAssetChannelReady(ch *model.Channel) bool {
+	if ch == nil {
+		return false
 	}
-	if channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "" {
-		return nil, errors.New("ima-pro channel base_url is empty")
+	if ch.BaseURL == nil || strings.TrimSpace(*ch.BaseURL) == "" {
+		return false
 	}
-	if strings.TrimSpace(channel.Key) == "" {
-		return nil, errors.New("ima-pro channel key is empty")
-	}
-	return channel, nil
+	return strings.TrimSpace(ch.Key) != ""
 }
 
-func getAssetUploadQuota() int {
-	modelPrice, ok := ratio_setting.GetModelPrice(assetUploadModelName, false)
-	if (!ok || modelPrice <= 0) && strings.TrimSpace(assetUploadModelName) != "" {
+// channelHasModel checks whether the channel's models list contains the given model name.
+func channelHasModel(ch *model.Channel, modelName string) bool {
+	if ch == nil || modelName == "" {
+		return false
+	}
+	for _, m := range strings.Split(ch.Models, ",") {
+		if strings.TrimSpace(m) == modelName {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveAssetModel returns the effective model name: uses the provided model if non-empty, otherwise defaults.
+func resolveAssetModel(reqModel string) string {
+	if strings.TrimSpace(reqModel) != "" {
+		return strings.TrimSpace(reqModel)
+	}
+	return defaultAssetModel
+}
+
+// checkAssetModelPermission verifies that the user's group has the given model in the abilities table.
+func checkAssetModelPermission(group string, assetModel string) error {
+	var count int64
+	groupCol := model.CommonGroupCol()
+	err := model.DB.Model(&model.Ability{}).
+		Where(groupCol+" = ? AND model = ? AND enabled = ?", group, assetModel, true).
+		Limit(1).Count(&count).Error
+	if err != nil {
+		return fmt.Errorf("permission check error: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("model %s is not available for your group", assetModel)
+	}
+	return nil
+}
+
+// getAssetChannelByModel deterministically selects a type=60 (ImaPro) channel.
+//
+// Behaviour:
+//   - modelExplicit=true (caller passed model): find a type=60 channel whose models list
+//     contains assetModel, highest priority wins.
+//   - modelExplicit=false (no model passed): use the first ready type=60 channel (highest priority).
+//
+// Permission is checked separately via checkAssetModelPermission before calling this.
+func getAssetChannelByModel(assetModel string, modelExplicit bool) (*model.Channel, error) {
+	// type=60 channels are very few (typically 1-3), query is trivially cheap.
+	var candidates []*model.Channel
+	err := model.DB.Where("type = ? AND status = ?", constant.ChannelTypeImaPro, common.ChannelStatusEnabled).
+		Order("priority desc").
+		Find(&candidates).Error
+	if err != nil {
+		return nil, fmt.Errorf("asset channel query error: %w", err)
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no available channel for asset model %s", assetModel)
+	}
+
+	if modelExplicit {
+		// Pick the highest-priority channel that lists the requested model.
+		for _, ch := range candidates {
+			if channelHasModel(ch, assetModel) && isAssetChannelReady(ch) {
+				return ch, nil
+			}
+		}
+		return nil, fmt.Errorf("no channel provides asset model %s", assetModel)
+	}
+
+	// No model specified: use first ready channel.
+	for _, ch := range candidates {
+		if isAssetChannelReady(ch) {
+			return ch, nil
+		}
+	}
+	return nil, fmt.Errorf("no usable asset channel (all channels misconfigured)")
+}
+
+func getAssetUploadQuota(assetModel string) int {
+	modelPrice, ok := ratio_setting.GetModelPrice(assetModel, false)
+	if (!ok || modelPrice <= 0) && strings.TrimSpace(assetModel) != "" {
 		// Fallback to ModelRatio configuration for this special per-call model.
-		// For ima-pro-upload we interpret configured ratio value as per-call USD price.
-		if ratioPrice, ratioOK, _ := ratio_setting.GetModelRatio(assetUploadModelName); ratioOK && ratioPrice > 0 {
+		if ratioPrice, ratioOK, _ := ratio_setting.GetModelRatio(assetModel); ratioOK && ratioPrice > 0 {
 			modelPrice = ratioPrice
 			ok = true
 		}
@@ -156,11 +222,16 @@ func getAssetChannelByID(channelID int) (*model.Channel, error) {
 	return channel, nil
 }
 
-func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, req dto.AssetGroupCreateRequest) (*dto.DoubaoAssetGroupResult, error) {
+func HandleCreateAssetGroup(ctx context.Context, userID int, userName string, userGroup string, req dto.AssetGroupCreateRequest) (*dto.DoubaoAssetGroupResult, error) {
 	if !asset_setting.GetAssetSetting().Enabled {
 		return nil, errors.New("asset feature is disabled")
 	}
-	channel, err := getAssetChannel()
+	assetModel := resolveAssetModel(req.Model)
+	modelExplicit := strings.TrimSpace(req.Model) != ""
+	if err := checkAssetModelPermission(userGroup, assetModel); err != nil {
+		return nil, err
+	}
+	channel, err := getAssetChannelByModel(assetModel, modelExplicit)
 	if err != nil {
 		return nil, err
 	}
@@ -218,8 +289,13 @@ func fillAssetGroupDefaults(group *dto.DoubaoAssetGroupResult, req dto.AssetGrou
 	}
 }
 
-func HandleListAssetGroups(ctx context.Context, userID int, userName string, req dto.AssetGroupListRequest) (*dto.DoubaoListResult, error) {
-	channel, err := getAssetChannel()
+func HandleListAssetGroups(ctx context.Context, userID int, userName string, userGroup string, req dto.AssetGroupListRequest) (*dto.DoubaoListResult, error) {
+	assetModel := resolveAssetModel(req.Model)
+	modelExplicit := strings.TrimSpace(req.Model) != ""
+	if err := checkAssetModelPermission(userGroup, assetModel); err != nil {
+		return nil, err
+	}
+	channel, err := getAssetChannelByModel(assetModel, modelExplicit)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +380,7 @@ func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, re
 	return result, nil
 }
 
-func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID int, tokenName string, req dto.AssetCreateRequest) (*dto.DoubaoIDResult, error) {
+func HandleCreateAsset(ctx context.Context, userID int, userName string, userGroup string, tokenID int, tokenName string, req dto.AssetCreateRequest) (*dto.DoubaoIDResult, error) {
 	_ = tokenName
 	setting := asset_setting.GetAssetSetting()
 	if !setting.Enabled {
@@ -332,7 +408,15 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	}
 	client := NewAssetProxyClient(channel, uid)
 
-	quota := getAssetUploadQuota()
+	assetModel := resolveAssetModel(req.Model)
+	if err = checkAssetModelPermission(userGroup, assetModel); err != nil {
+		return nil, err
+	}
+	// Validate that the billing model belongs to this channel's model list.
+	if !channelHasModel(channel, assetModel) {
+		assetModel = defaultAssetModel
+	}
+	quota := getAssetUploadQuota(assetModel)
 	token, err := pickAssetBillingToken(userID, tokenID, quota)
 	if err != nil {
 		return nil, err
@@ -409,9 +493,9 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 			UserId:    userID,
 			LogType:   model.LogTypeConsume,
-			Content:   fmt.Sprintf("asset upload charged, model=%s", assetUploadModelName),
+			Content:   fmt.Sprintf("asset upload charged, model=%s", assetModel),
 			ChannelId: channel.Id,
-			ModelName: assetUploadModelName,
+			ModelName: assetModel,
 			Quota:     quota,
 			TokenId:   billedTokenID,
 			Group:     billingGroup,
@@ -431,8 +515,13 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, tokenID
 	return upstreamResult, nil
 }
 
-func HandleListAssets(ctx context.Context, userID int, userName string, req dto.AssetListRequest) (*dto.DoubaoListResult, error) {
-	channel, err := getAssetChannel()
+func HandleListAssets(ctx context.Context, userID int, userName string, userGroup string, req dto.AssetListRequest) (*dto.DoubaoListResult, error) {
+	assetModel := resolveAssetModel(req.Model)
+	modelExplicit := strings.TrimSpace(req.Model) != ""
+	if err := checkAssetModelPermission(userGroup, assetModel); err != nil {
+		return nil, err
+	}
+	channel, err := getAssetChannelByModel(assetModel, modelExplicit)
 	if err != nil {
 		return nil, err
 	}

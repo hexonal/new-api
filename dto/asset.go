@@ -232,6 +232,7 @@ type AssetGroupCreateRequest struct {
 	Description string `json:"description,omitempty" binding:"omitempty,max=300"`
 	GroupType   string `json:"group_type,omitempty"`
 	ProjectName string `json:"project_name,omitempty"`
+	Model       string `json:"model,omitempty"`
 }
 
 func (r *AssetGroupCreateRequest) UnmarshalJSON(data []byte) error {
@@ -242,6 +243,7 @@ func (r *AssetGroupCreateRequest) UnmarshalJSON(data []byte) error {
 		ProjectNameAlt string `json:"projectName"`
 		NameAlt        string `json:"Name"`
 		DescriptionAlt string `json:"Description"`
+		ModelAlt       string `json:"Model"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -259,6 +261,9 @@ func (r *AssetGroupCreateRequest) UnmarshalJSON(data []byte) error {
 	if r.ProjectName == "" {
 		r.ProjectName = aux.ProjectNameAlt
 	}
+	if r.Model == "" {
+		r.Model = aux.ModelAlt
+	}
 	return nil
 }
 
@@ -275,6 +280,7 @@ type AssetGroupListRequest struct {
 	SortBy      string                 `json:"sort_by,omitempty"`
 	SortOrder   string                 `json:"sort_order,omitempty"`
 	ProjectName string                 `json:"project_name,omitempty"`
+	Model       string                 `json:"model,omitempty"`
 }
 
 type AssetGroupGetRequest struct {
@@ -354,6 +360,7 @@ type AssetCreateRequest struct {
 	AssetType      string `json:"asset_type,omitempty"`
 	ProjectName    string `json:"project_name,omitempty"`
 	BillingTokenID int    `json:"billing_token_id,omitempty"`
+	Model          string `json:"model,omitempty"`
 }
 
 func (r *AssetCreateRequest) UnmarshalJSON(data []byte) error {
@@ -415,6 +422,7 @@ type AssetListRequest struct {
 	SortBy      string            `json:"sort_by,omitempty"`
 	SortOrder   string            `json:"sort_order,omitempty"`
 	ProjectName string            `json:"project_name,omitempty"`
+	Model       string            `json:"model,omitempty"`
 }
 
 type AssetGetRequest struct {
