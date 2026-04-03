@@ -258,23 +258,53 @@ func SyncAbilitiesForGroup(group string, modelNames []string, tx *gorm.DB) error
 		tx = DB
 	}
 
+	normalizedModelNames := make([]string, 0, len(modelNames))
+	modelSet := make(map[string]struct{}, len(modelNames))
+	for _, modelName := range modelNames {
+		modelName = strings.TrimSpace(modelName)
+		if modelName == "" {
+			continue
+		}
+		if _, exists := modelSet[modelName]; exists {
+			continue
+		}
+		modelSet[modelName] = struct{}{}
+		normalizedModelNames = append(normalizedModelNames, modelName)
+	}
+
 	// 1. Remove abilities for models no longer in the list
-	if len(modelNames) > 0 {
-		tx.Where(commonGroupCol+" = ? AND model NOT IN ?", group, modelNames).Delete(&Ability{})
+	if len(normalizedModelNames) > 0 {
+		tx.Where(commonGroupCol+" = ? AND model NOT IN ?", group, normalizedModelNames).Delete(&Ability{})
 	} else {
 		// No models — delete all abilities for this group
 		tx.Where(commonGroupCol+" = ?", group).Delete(&Ability{})
 		return nil
 	}
 
-	// 2. For each model, find serving channels and upsert abilities
-	for _, modelName := range modelNames {
+	// 2. For each model, find serving channels that actually include this group
+	// and replace abilities(group, model) atomically to avoid stale mappings.
+	for _, modelName := range normalizedModelNames {
 		channels, err := FindChannelsWithModel(modelName)
 		if err != nil {
 			return fmt.Errorf("find channels for model %s: %w", modelName, err)
 		}
+
+		if err := tx.Where(commonGroupCol+" = ? AND model = ?", group, modelName).Delete(&Ability{}).Error; err != nil {
+			return fmt.Errorf("delete stale abilities for group=%s model=%s: %w", group, modelName, err)
+		}
+
 		abilities := make([]Ability, 0, len(channels))
 		for _, ch := range channels {
+			hasGroup := false
+			for _, g := range ch.GetGroups() {
+				if strings.TrimSpace(g) == group {
+					hasGroup = true
+					break
+				}
+			}
+			if !hasGroup {
+				continue
+			}
 			abilities = append(abilities, Ability{
 				Group:     group,
 				Model:     modelName,
@@ -287,7 +317,7 @@ func SyncAbilitiesForGroup(group string, modelNames []string, tx *gorm.DB) error
 		}
 		if len(abilities) > 0 {
 			for _, chunk := range lo.Chunk(abilities, 50) {
-				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&chunk).Error; err != nil {
+				if err := tx.Create(&chunk).Error; err != nil {
 					return fmt.Errorf("create abilities for model %s: %w", modelName, err)
 				}
 			}
