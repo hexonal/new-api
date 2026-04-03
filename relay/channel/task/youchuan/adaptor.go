@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,30 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
 	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionTextGenerate)
+}
+
+// EstimateBilling adds speed ratio for Youchuan MJ prompts.
+// --fast  => 2.0x
+// --turbo => 2.0x
+// --draft => 0.5x
+// default => 1.0x
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	v, exists := c.Get("task_request")
+	if !exists {
+		return nil
+	}
+	req, ok := v.(relaycommon.TaskSubmitReq)
+	if !ok {
+		return nil
+	}
+
+	_, ratio := parseSpeedModeAndRatio(req.Prompt)
+	if ratio == 1 {
+		return nil
+	}
+	return map[string]float64{
+		"speed_ratio": ratio,
+	}
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -254,4 +279,27 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
 	return dr, nil
+}
+
+var (
+	turboModeRegex = regexp.MustCompile(`(?i)(^|\s)--turbo(\s|$)`)
+	fastModeRegex  = regexp.MustCompile(`(?i)(^|\s)--fast(\s|$)`)
+	draftModeRegex = regexp.MustCompile(`(?i)(^|\s)--draft(\s|$)`)
+)
+
+func parseSpeedModeAndRatio(prompt string) (string, float64) {
+	p := strings.TrimSpace(prompt)
+	if p == "" {
+		return "normal", 1
+	}
+	switch {
+	case turboModeRegex.MatchString(p):
+		return "turbo", 2
+	case fastModeRegex.MatchString(p):
+		return "fast", 2
+	case draftModeRegex.MatchString(p):
+		return "draft", 0.5
+	default:
+		return "normal", 1
+	}
 }
