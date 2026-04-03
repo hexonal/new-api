@@ -630,14 +630,15 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
-			ModelPrice:      relayInfo.PriceData.ModelPrice,
-			GroupRatio:      relayInfo.PriceData.GroupRatioInfo.GroupRatio,
-			ModelRatio:      relayInfo.PriceData.ModelRatio,
-			OtherRatios:     relayInfo.PriceData.OtherRatios,
-			OriginModelName: relayInfo.OriginModelName,
-			PerCallBilling:  result.PerCallBilling,
-			DeferredSettle:  result.DeferredSettle,
-			EstimatedQuota:  result.EstimatedQuota,
+			ModelPrice:       relayInfo.PriceData.ModelPrice,
+			GroupRatio:       relayInfo.PriceData.GroupRatioInfo.GroupRatio,
+			GroupRatioSource: string(relayInfo.PriceData.GroupRatioInfo.GroupRatioSource),
+			ModelRatio:       relayInfo.PriceData.ModelRatio,
+			OtherRatios:      relayInfo.PriceData.OtherRatios,
+			OriginModelName:  relayInfo.OriginModelName,
+			PerCallBilling:   result.PerCallBilling,
+			DeferredSettle:   result.DeferredSettle,
+			EstimatedQuota:   result.EstimatedQuota,
 		}
 		if result.DeferredSettle {
 			task.PrivateData.BillingContext.TerminalChargeState = "pending"

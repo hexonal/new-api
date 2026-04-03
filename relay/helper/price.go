@@ -21,6 +21,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	groupRatioInfo := types.GroupRatioInfo{
 		GroupRatio:        1.0, // default ratio
 		GroupSpecialRatio: -1,
+		GroupRatioSource:  types.GroupRatioSourceDefault,
 	}
 
 	// check auto group — only affects routing (UsingGroup), not pricing
@@ -50,8 +51,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	// highest priority: per-group per-model ratio
 	if modelRatio, ok := ratio_setting.GetGroupModelRatio(pricingGroup, relayInfo.OriginModelName); ok {
 		groupRatioInfo.GroupRatio = modelRatio
-		groupRatioInfo.GroupSpecialRatio = modelRatio
-		groupRatioInfo.HasSpecialRatio = true
+		groupRatioInfo.GroupRatioSource = types.GroupRatioSourceModel
 		return groupRatioInfo
 	}
 
@@ -62,9 +62,11 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		groupRatioInfo.GroupSpecialRatio = userGroupRatio
 		groupRatioInfo.GroupRatio = userGroupRatio
 		groupRatioInfo.HasSpecialRatio = true
+		groupRatioInfo.GroupRatioSource = types.GroupRatioSourceSpecial
 	} else {
 		// normal group ratio
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(pricingGroup)
+		groupRatioInfo.GroupRatioSource = types.GroupRatioSourceDefault
 	}
 
 	return groupRatioInfo

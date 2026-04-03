@@ -6,7 +6,16 @@ type GroupRatioInfo struct {
 	GroupRatio        float64
 	GroupSpecialRatio float64
 	HasSpecialRatio   bool
+	GroupRatioSource  GroupRatioSource
 }
+
+type GroupRatioSource string
+
+const (
+	GroupRatioSourceDefault GroupRatioSource = "group_default"
+	GroupRatioSourceSpecial GroupRatioSource = "group_special"
+	GroupRatioSourceModel   GroupRatioSource = "group_model"
+)
 
 type PriceData struct {
 	FreeModel            bool

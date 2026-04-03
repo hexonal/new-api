@@ -595,6 +595,7 @@ export const useLogsData = () => {
                     other.cache_creation_ratio ||
                     1.0,
                   billingDisplayMode,
+                  other?.group_ratio_source,
                 )
               : renderLogContent(
                   other?.model_ratio,
@@ -610,6 +611,7 @@ export const useLogsData = () => {
                   other?.file_search || false,
                   other?.file_search_call_count || 0,
                   billingDisplayMode,
+                  other?.group_ratio_source,
                 ),
         });
         if (logs[i]?.content) {
@@ -664,6 +666,7 @@ export const useLogsData = () => {
               other?.cache_tokens || 0,
               other?.cache_ratio || 1.0,
               billingDisplayMode,
+              other?.group_ratio_source,
             );
           } else if (other?.claude) {
             content = renderClaudeModelPrice(
@@ -687,6 +690,7 @@ export const useLogsData = () => {
                 other.cache_creation_ratio ||
                 1.0,
               billingDisplayMode,
+              other?.group_ratio_source,
             );
           } else if (
             isDeferredTokenRecalculateLog(logs[i], other) &&
@@ -778,6 +782,7 @@ export const useLogsData = () => {
               other?.image_generation_call || false,
               other?.image_generation_call_price || 0,
               billingDisplayMode,
+              other?.group_ratio_source,
             );
           }
           expandDataLocal.push({

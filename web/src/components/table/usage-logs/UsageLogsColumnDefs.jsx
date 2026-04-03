@@ -1010,6 +1010,7 @@ export const getLogsColumns = ({
               other?.is_system_prompt_overwritten,
               'claude',
               billingDisplayMode,
+              other?.group_ratio_source,
             )
           : renderModelPriceSimple(
               other.model_ratio,
@@ -1029,6 +1030,7 @@ export const getLogsColumns = ({
               other?.is_system_prompt_overwritten,
               'openai',
               billingDisplayMode,
+              other?.group_ratio_source,
             );
         let cacheSummary = '';
         const tokenSummary = buildTokenUsageSummary(record, other, t);
