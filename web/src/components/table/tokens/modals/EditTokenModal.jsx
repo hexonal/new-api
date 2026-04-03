@@ -213,12 +213,16 @@ const EditTokenModal = (props) => {
       if (isEdit) {
         loadToken();
       } else {
-        formApiRef.current?.setValues(getInitValues());
+        const defaultGroupValue = resolveDefaultGroupValue(groups);
+        formApiRef.current?.setValues({
+          ...getInitValues(),
+          group: defaultGroupValue,
+        });
       }
     } else {
       formApiRef.current?.reset();
     }
-  }, [props.visiable, props.editingToken.id]);
+  }, [props.visiable, props.editingToken.id, groups]);
 
   useEffect(() => {
     if (!props.visiable || isEdit || !formApiRef.current || groups.length === 0) {
