@@ -524,6 +524,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			Description: err.Error(),
 		}
 	}
+	priceData = applyMjSpeedRatioForImagine(midjRequest.Action, midjRequest.Prompt, priceData)
 
 	userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
 	if err != nil {
