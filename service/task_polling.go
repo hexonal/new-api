@@ -113,8 +113,13 @@ func shouldSkipTimeoutForChannel(task *model.Task, now int64) bool {
 	}
 	ch, err := model.CacheGetChannel(task.ChannelId)
 	if err != nil || ch == nil {
-		// Fail-closed: use global timeout policy when channel lookup fails
-		return false
+		// Fallback to DB query when cache misses (common in cluster cache skew windows).
+		dbCh, dbErr := model.GetChannelById(task.ChannelId, true)
+		if dbErr != nil || dbCh == nil {
+			// Keep original fail-closed timeout behavior when channel truly does not exist.
+			return false
+		}
+		ch = dbCh
 	}
 	settings := ch.GetSetting()
 	if settings.PollTimeoutHours <= 0 {
@@ -417,28 +422,21 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 	}
 	cacheGetChannel, err := model.CacheGetChannel(channelId)
 	if err != nil {
-		// Collect DB primary key IDs for bulk update (taskIds are upstream IDs, not task_id column values)
-		var failedIDs []int64
-		for _, upstreamID := range taskIds {
-			if t, ok := taskM[upstreamID]; ok {
-				failedIDs = append(failedIDs, t.ID)
-			}
-		}
-		errUpdate := model.TaskBulkUpdateByID(failedIDs, map[string]any{
-			"fail_reason": fmt.Sprintf("Failed to get channel info, channel ID: %d", channelId),
-			"status":      "FAILURE",
-			"progress":    "100%",
-		})
-		if errUpdate != nil {
-			common.SysLog(fmt.Sprintf("UpdateVideoTask error: %v", errUpdate))
+		// Fallback to DB query when cache misses (common in multi-node deployments).
+		dbChannel, dbErr := model.GetChannelById(channelId, true)
+		if dbErr == nil && dbChannel != nil {
+			cacheGetChannel = dbChannel
 		} else {
+			// Do not mark tasks as FAILURE on transient cache/channel lookup errors.
+			// Keep tasks in polling queue and reschedule for next round.
+			now := time.Now().Unix()
 			for _, upstreamID := range taskIds {
 				if task := taskM[upstreamID]; task != nil {
-					RemoveTaskFromPollingQueue(task.TaskID)
+					RescheduleTask(task.TaskID, now+taskPollingTickSeconds)
 				}
 			}
+			return fmt.Errorf("get channel #%d failed (cache=%v, db=%v)", channelId, err, dbErr)
 		}
-		return fmt.Errorf("CacheGetChannel failed: %w", err)
 	}
 	adaptor := GetTaskAdaptorFunc(platform)
 	if adaptor == nil {

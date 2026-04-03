@@ -21,6 +21,7 @@ var commonGroupCol string
 
 // CommonGroupCol returns the quoted column name for "group" (SQL reserved word).
 func CommonGroupCol() string { return commonGroupCol }
+
 var commonKeyCol string
 var commonTrueVal string
 var commonFalseVal string
@@ -257,6 +258,10 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	// Migrate channels.group from varchar to text for existing tables
+	if err := migrateChannelGroupToText(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -307,6 +312,12 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := migrateTokenModelLimitsToText(); err != nil {
+		return err
+	}
+	if err := migrateChannelGroupToText(); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -506,6 +517,59 @@ func migrateTokenModelLimitsToText() error {
 			return nil
 		}
 		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s text", tableName, columnName)
+	} else {
+		return nil
+	}
+
+	if alterSQL != "" {
+		if err := DB.Exec(alterSQL).Error; err != nil {
+			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
+		}
+		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateChannelGroupToText migrates channels.group column from varchar(64) to text.
+// This is safe to run multiple times - it checks the current column type first.
+func migrateChannelGroupToText() error {
+	// SQLite uses type affinity, so TEXT and VARCHAR are effectively the same — no migration needed
+	if common.UsingSQLite {
+		return nil
+	}
+
+	tableName := "channels"
+	columnName := "group"
+
+	if !DB.Migrator().HasTable(tableName) {
+		return nil
+	}
+
+	if !DB.Migrator().HasColumn(&Channel{}, columnName) {
+		return nil
+	}
+
+	var alterSQL string
+	if common.UsingPostgreSQL {
+		var dataType string
+		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&dataType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
+		} else if dataType == "text" {
+			return nil
+		}
+		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "%s" TYPE text`, tableName, columnName)
+	} else if common.UsingMySQL {
+		var columnType string
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&columnType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
+		} else if strings.ToLower(columnType) == "text" {
+			return nil
+		}
+		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN `%s` text", tableName, columnName)
 	} else {
 		return nil
 	}
