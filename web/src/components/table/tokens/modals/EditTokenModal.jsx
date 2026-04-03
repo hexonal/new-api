@@ -77,6 +77,20 @@ const EditTokenModal = (props) => {
     tokenCount: 1,
   });
 
+  const resolveDefaultGroupValue = (groupOptions = []) => {
+    if (!Array.isArray(groupOptions) || groupOptions.length === 0) {
+      return '';
+    }
+    const nonAutoGroups = groupOptions.filter((item) => item.value !== 'auto');
+    if (nonAutoGroups.length === 1) {
+      return nonAutoGroups[0].value;
+    }
+    if (groupOptions.length === 1) {
+      return groupOptions[0].value;
+    }
+    return '';
+  };
+
   const handleCancel = () => {
     props.handleClose();
   };
@@ -153,12 +167,9 @@ const EditTokenModal = (props) => {
         }
       }
       setGroups(localGroupOptions);
-      if (
-        !isEdit &&
-        localGroupOptions.length === 1 &&
-        formApiRef.current
-      ) {
-        formApiRef.current.setValue('group', localGroupOptions[0].value);
+      const defaultGroupValue = resolveDefaultGroupValue(localGroupOptions);
+      if (!isEdit && defaultGroupValue && formApiRef.current) {
+        formApiRef.current.setValue('group', defaultGroupValue);
       }
     } else {
       showError(t(message));
@@ -208,6 +219,20 @@ const EditTokenModal = (props) => {
       formApiRef.current?.reset();
     }
   }, [props.visiable, props.editingToken.id]);
+
+  useEffect(() => {
+    if (!props.visiable || isEdit || !formApiRef.current || groups.length === 0) {
+      return;
+    }
+    const currentGroup = formApiRef.current.getValue('group');
+    if (currentGroup) {
+      return;
+    }
+    const defaultGroupValue = resolveDefaultGroupValue(groups);
+    if (defaultGroupValue) {
+      formApiRef.current.setValue('group', defaultGroupValue);
+    }
+  }, [props.visiable, isEdit, groups]);
 
   const generateRandomSuffix = () => {
     const characters =

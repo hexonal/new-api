@@ -40,10 +40,6 @@ const PricingGroups = ({
   t,
 }) => {
   const groups = Object.keys(usableGroup).filter((key) => key !== '');
-  if (groups.length <= 1) {
-    return null;
-  }
-
   const items = groups.map((g) => {
     const modelCount = models.filter(
       (m) => m.enable_groups && m.enable_groups.includes(g),
@@ -59,13 +55,22 @@ const PricingGroups = ({
       value: g,
       label: g,
       tagCount: ratioDisplay,
+      modelCount,
     };
   });
+
+  const visibleItems = items.filter((item) => item.modelCount > 0);
+
+  // Hide the group filter when there is no meaningful choice.
+  // Keep showing while loading to preserve skeleton UX.
+  if (!loading && visibleItems.length <= 1) {
+    return null;
+  }
 
   return (
     <SelectableButtonGroup
       title={t('可用令牌分组')}
-      items={items}
+      items={visibleItems}
       activeValue={filterGroup}
       onChange={setFilterGroup}
       loading={loading}
