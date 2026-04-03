@@ -40,6 +40,9 @@ const PricingGroups = ({
   t,
 }) => {
   const groups = Object.keys(usableGroup).filter((key) => key !== '');
+  if (groups.length <= 1) {
+    return null;
+  }
 
   const items = groups.map((g) => {
     const modelCount = models.filter(

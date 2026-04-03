@@ -153,9 +153,13 @@ const EditTokenModal = (props) => {
         }
       }
       setGroups(localGroupOptions);
-      // if (statusState?.status?.default_use_auto_group && formApiRef.current) {
-      //   formApiRef.current.setValue('group', 'auto');
-      // }
+      if (
+        !isEdit &&
+        localGroupOptions.length === 1 &&
+        formApiRef.current
+      ) {
+        formApiRef.current.setValue('group', localGroupOptions[0].value);
+      }
     } else {
       showError(t(message));
     }
