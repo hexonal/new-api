@@ -123,6 +123,177 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	return selectChannelByPriorityWithBreaker(targetChannels, retry)
 }
 
+func GetNextSatisfiedChannel(group string, model string, excludedChannelIDs map[int]struct{}) (*Channel, error) {
+	channels, err := GetSatisfiedChannels(group, model)
+	if err != nil {
+		return nil, err
+	}
+	if len(channels) == 0 {
+		return nil, nil
+	}
+
+	priorityBuckets := make(map[int64][]*Channel)
+	priorities := make([]int64, 0)
+	seenPriority := make(map[int64]struct{})
+	for _, channel := range channels {
+		if channel == nil {
+			continue
+		}
+		if excludedChannelIDs != nil {
+			if _, excluded := excludedChannelIDs[channel.Id]; excluded {
+				continue
+			}
+		}
+		priority := channel.GetPriority()
+		if _, ok := seenPriority[priority]; !ok {
+			seenPriority[priority] = struct{}{}
+			priorities = append(priorities, priority)
+		}
+		priorityBuckets[priority] = append(priorityBuckets[priority], channel)
+	}
+	if len(priorities) == 0 {
+		return nil, nil
+	}
+	sort.Slice(priorities, func(i, j int) bool {
+		return priorities[i] > priorities[j]
+	})
+	targetChannels := priorityBuckets[priorities[0]]
+	if len(targetChannels) == 0 {
+		return nil, nil
+	}
+	return selectWeightedChannel(targetChannels)
+}
+
+func GetSatisfiedChannels(group string, model string) ([]*Channel, error) {
+	if !common.MemoryCacheEnabled {
+		return getSatisfiedChannelsFromDB(group, model)
+	}
+
+	channelSyncLock.RLock()
+	defer channelSyncLock.RUnlock()
+
+	channelIDs := getSatisfiedChannelIDsLocked(group, model)
+	if len(channelIDs) == 0 {
+		return nil, nil
+	}
+
+	channels := make([]*Channel, 0, len(channelIDs))
+	for _, channelID := range channelIDs {
+		channel, ok := channelsIDM[channelID]
+		if !ok {
+			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
+		}
+		channels = append(channels, channel)
+	}
+	return channels, nil
+}
+
+func getSatisfiedChannelsFromDB(group string, model string) ([]*Channel, error) {
+	abilities, err := getSatisfiedAbilitiesFromDB(group, model)
+	if err != nil {
+		return nil, err
+	}
+	if len(abilities) == 0 {
+		return nil, nil
+	}
+
+	channelIDs := make([]int, 0, len(abilities))
+	for _, ability := range abilities {
+		channelIDs = append(channelIDs, ability.ChannelId)
+	}
+
+	var channels []*Channel
+	if err := DB.Where("id IN ?", channelIDs).Find(&channels).Error; err != nil {
+		return nil, err
+	}
+	channelByID := make(map[int]*Channel, len(channels))
+	for _, channel := range channels {
+		channelByID[channel.Id] = channel
+	}
+
+	orderedChannels := make([]*Channel, 0, len(channelIDs))
+	for _, channelID := range channelIDs {
+		channel, ok := channelByID[channelID]
+		if !ok {
+			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
+		}
+		orderedChannels = append(orderedChannels, channel)
+	}
+	return orderedChannels, nil
+}
+
+func getSatisfiedAbilitiesFromDB(group string, model string) ([]Ability, error) {
+	var abilities []Ability
+	query := DB.Model(&Ability{}).
+		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Order("priority DESC, weight DESC, channel_id ASC")
+	if err := query.Find(&abilities).Error; err != nil {
+		return nil, err
+	}
+	if len(abilities) > 0 {
+		return abilities, nil
+	}
+
+	normalizedModel := ratio_setting.FormatMatchingModelName(model)
+	if normalizedModel == "" || normalizedModel == model {
+		return nil, nil
+	}
+
+	abilities = nil
+	query = DB.Model(&Ability{}).
+		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, normalizedModel, true).
+		Order("priority DESC, weight DESC, channel_id ASC")
+	if err := query.Find(&abilities).Error; err != nil {
+		return nil, err
+	}
+	return abilities, nil
+}
+
+func getSatisfiedChannelIDsLocked(group string, model string) []int {
+	channels := group2model2channels[group][model]
+	if len(channels) > 0 {
+		return channels
+	}
+
+	normalizedModel := ratio_setting.FormatMatchingModelName(model)
+	if normalizedModel == "" || normalizedModel == model {
+		return nil
+	}
+	return group2model2channels[group][normalizedModel]
+}
+
+func selectWeightedChannel(targetChannels []*Channel) (*Channel, error) {
+	if len(targetChannels) == 0 {
+		return nil, nil
+	}
+	if len(targetChannels) == 1 {
+		return targetChannels[0], nil
+	}
+
+	sumWeight := 0
+	smoothingFactor := 1
+	smoothingAdjustment := 0
+	for _, channel := range targetChannels {
+		sumWeight += channel.GetWeight()
+	}
+	if sumWeight == 0 {
+		sumWeight = len(targetChannels) * 100
+		smoothingAdjustment = 100
+	} else if sumWeight/len(targetChannels) < 10 {
+		smoothingFactor = 100
+	}
+
+	totalWeight := sumWeight * smoothingFactor
+	randomWeight := rand.Intn(totalWeight)
+	for _, channel := range targetChannels {
+		randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
+		if randomWeight < 0 {
+			return channel, nil
+		}
+	}
+	return nil, errors.New("channel not found")
+}
+
 func CacheGetChannel(id int) (*Channel, error) {
 	if !common.MemoryCacheEnabled {
 		return GetChannelById(id, true)

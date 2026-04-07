@@ -202,6 +202,7 @@ func InitOptionMap() {
 	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 	common.OptionMap["ModelReasoningMap"] = "{}"
+	common.OptionMap["LogCleanupRetentionDays"] = "0"
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()

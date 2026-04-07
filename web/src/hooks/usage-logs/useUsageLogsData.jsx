@@ -56,6 +56,8 @@ export const useLogsData = () => {
     USE_TIME: 'use_time',
     PROMPT: 'prompt',
     COMPLETION: 'completion',
+    INPUT_LOG: 'input_log',
+    OUTPUT_LOG: 'output_log',
     COST: 'cost',
     RETRY: 'retry',
     IP: 'ip',
@@ -120,6 +122,8 @@ export const useLogsData = () => {
       [COLUMN_KEYS.USE_TIME]: true,
       [COLUMN_KEYS.PROMPT]: true,
       [COLUMN_KEYS.COMPLETION]: true,
+      [COLUMN_KEYS.INPUT_LOG]: true,
+      [COLUMN_KEYS.OUTPUT_LOG]: true,
       [COLUMN_KEYS.COST]: true,
       [COLUMN_KEYS.RETRY]: isAdminUser,
       [COLUMN_KEYS.IP]: true,
@@ -176,6 +180,9 @@ export const useLogsData = () => {
   // User info modal state
   const [showUserInfo, setShowUserInfoModal] = useState(false);
   const [userInfoData, setUserInfoData] = useState(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewModalTitle, setPreviewModalTitle] = useState('');
+  const [previewModalContent, setPreviewModalContent] = useState('');
 
   // Channel affinity usage cache stats modal state (admin only)
   const [
@@ -422,6 +429,54 @@ export const useLogsData = () => {
         expandDataLocal.push({
           key: t('文字输出'),
           value: other.text_output,
+        });
+      }
+      if (other?.input_body) {
+        expandDataLocal.push({
+          key: t('输入日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.input_body}
+            </div>
+          ),
+        });
+      } else if (other?.input_preview) {
+        expandDataLocal.push({
+          key: t('输入日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.input_preview}
+            </div>
+          ),
+        });
+      }
+      if (other?.output_body) {
+        expandDataLocal.push({
+          key: t('输出日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_body}
+            </div>
+          ),
+        });
+      } else if (other?.output_preview) {
+        expandDataLocal.push({
+          key: t('输出日志'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_preview}
+            </div>
+          ),
+        });
+      }
+      if (Array.isArray(other?.output_media) && other.output_media.length > 0) {
+        expandDataLocal.push({
+          key: t('输出媒体'),
+          value: (
+            <div style={{ maxWidth: 800, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              {other.output_media.join('\n')}
+            </div>
+          ),
         });
       }
       if (other?.cache_tokens > 0) {
@@ -823,6 +878,12 @@ export const useLogsData = () => {
     }
   };
 
+  const openPreviewModal = (title, content) => {
+    setPreviewModalTitle(title);
+    setPreviewModalContent(content || '');
+    setIsPreviewModalOpen(true);
+  };
+
   // Initialize data
   useEffect(() => {
     const localPageSize =
@@ -889,6 +950,10 @@ export const useLogsData = () => {
     setShowUserInfoModal,
     userInfoData,
     showUserInfoFunc,
+    isPreviewModalOpen,
+    setIsPreviewModalOpen,
+    previewModalTitle,
+    previewModalContent,
 
     // Channel affinity usage cache stats modal
     showChannelAffinityUsageCacheModal,
@@ -902,6 +967,7 @@ export const useLogsData = () => {
     handlePageSizeChange,
     refresh,
     copyText,
+    openPreviewModal,
     handleEyeClick,
     setLogsFormat,
     hasExpandableRows,

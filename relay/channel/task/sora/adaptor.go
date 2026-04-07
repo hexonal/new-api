@@ -45,6 +45,7 @@ type responseTask struct {
 	Model              string `json:"model"`
 	Status             string `json:"status"`
 	Progress           int    `json:"progress"`
+	VideoURL           string `json:"video_url,omitempty"`
 	CreatedAt          int64  `json:"created_at"`
 	CompletedAt        int64  `json:"completed_at,omitempty"`
 	ExpiresAt          int64  `json:"expires_at,omitempty"`
@@ -304,7 +305,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Status = model.TaskStatusInProgress
 	case "completed":
 		taskResult.Status = model.TaskStatusSuccess
-		// Url intentionally left empty — the caller constructs the proxy URL using the public task ID
+		taskResult.Url = strings.TrimSpace(resTask.VideoURL)
 	case "failed", "cancelled":
 		taskResult.Status = model.TaskStatusFailure
 		if resTask.Error != nil {
@@ -326,6 +327,11 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	var err error
 	if data, err = sjson.SetBytes(data, "id", task.TaskID); err != nil {
 		return nil, errors.Wrap(err, "set id failed")
+	}
+	if url := strings.TrimSpace(task.GetResultURL()); url != "" {
+		if data, err = sjson.SetBytes(data, "video_url", url); err != nil {
+			return nil, errors.Wrap(err, "set video_url failed")
+		}
 	}
 	return data, nil
 }

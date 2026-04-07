@@ -304,6 +304,52 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
+function renderPreviewButton(value, label, onOpen) {
+  if (!value) {
+    return <></>;
+  }
+  let preview = String(value).trim();
+  try {
+    preview = JSON.stringify(JSON.parse(preview), null, 2);
+  } catch (error) {
+    preview = preview.replace(/\s+/g, ' ').trim();
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }}>
+      <Typography.Text
+        style={{
+          maxWidth: 260,
+          fontSize: 12,
+          lineHeight: 1.5,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          whiteSpace: 'pre-wrap',
+        }}
+        ellipsis={{
+          rows: 2,
+          expandable: false,
+          showTooltip: {
+            opts: {
+              content: preview,
+            },
+          },
+        }}
+      >
+        {preview}
+      </Typography.Text>
+      <Button
+        theme='light'
+        size='small'
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen?.();
+        }}
+      >
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -336,6 +382,7 @@ export const getLogsColumns = ({
   copyText,
   showUserInfoFunc,
   openChannelAffinityUsageCacheModal,
+  openPreviewModal,
   isAdminUser,
   isMobile = false,
   billingDisplayMode = 'price',
@@ -658,6 +705,37 @@ export const getLogsColumns = ({
           <>{<span> {text} </span>}</>
         ) : (
           <></>
+        );
+      },
+    },
+    {
+      key: COLUMN_KEYS.INPUT_LOG,
+      title: t('输入日志'),
+      dataIndex: 'other',
+      render: (text, record) => {
+        const other = getLogOther(record.other);
+        const inputContent = other?.input_body || other?.input_preview;
+        return renderPreviewButton(
+          inputContent,
+          t('查看输入'),
+          () => openPreviewModal?.(t('输入日志'), inputContent),
+        );
+      },
+    },
+    {
+      key: COLUMN_KEYS.OUTPUT_LOG,
+      title: t('输出日志'),
+      dataIndex: 'other',
+      render: (text, record) => {
+        const other = getLogOther(record.other);
+        const outputContent = other?.output_body ||
+          (Array.isArray(other?.output_media) && other.output_media.length > 0
+            ? other.output_media.join('\n')
+            : other?.output_preview);
+        return renderPreviewButton(
+          outputContent,
+          t('查看输出'),
+          () => openPreviewModal?.(t('输出日志'), outputContent),
         );
       },
     },

@@ -94,6 +94,50 @@ func GetLogByKey(c *gin.Context) {
 	})
 }
 
+func GetLogByKeyAndRequestID(c *gin.Context) {
+	tokenId := c.GetInt("token_id")
+	if tokenId == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的令牌",
+		})
+		return
+	}
+
+	requestId := strings.TrimSpace(c.Query("request_id"))
+	if requestId == "" {
+		requestId = strings.TrimSpace(c.GetHeader(common.TraceIdKey))
+	}
+	if requestId == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "request_id is required",
+		})
+		return
+	}
+
+	logEntry, err := model.GetBestLogByTokenIdAndRequestId(tokenId, requestId)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	if logEntry == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "未找到对应请求日志",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    logEntry,
+	})
+}
+
 func GetLogsStat(c *gin.Context) {
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)

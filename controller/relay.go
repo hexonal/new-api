@@ -194,7 +194,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+	maxAttempts := getRelayAttemptLimit()
+	for ; retryParam.GetRetry() < maxAttempts; retryParam.IncreaseRetry() {
 		relayInfo.RetryIndex = retryParam.GetRetry()
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
@@ -239,7 +240,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldRetry(c, newAPIError, getRemainingRelayAttempts(maxAttempts, retryParam.GetRetry())) {
 			break
 		}
 	}
@@ -519,7 +520,8 @@ func RelayTask(c *gin.Context) {
 		Retry:      common.GetPointer(0),
 	}
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+	maxAttempts := getRelayAttemptLimit()
+	for ; retryParam.GetRetry() < maxAttempts; retryParam.IncreaseRetry() {
 		var channel *model.Channel
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
@@ -566,7 +568,7 @@ func RelayTask(c *gin.Context) {
 				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
 		}
 
-		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldRetryTaskRelay(c, channel.Id, taskErr, getRemainingRelayAttempts(maxAttempts, retryParam.GetRetry())) {
 			break
 		}
 	}
@@ -598,6 +600,10 @@ func RelayTask(c *gin.Context) {
 			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
 		}
 		task.Quota = result.Quota
+		task.Properties.Input = service.BuildTaskLogInputBody(c, relayInfo)
+		if c.Request != nil && c.Request.URL != nil {
+			task.Properties.RequestPath = c.Request.URL.Path
+		}
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
 		if insertErr := task.Insert(); insertErr != nil {
@@ -616,6 +622,21 @@ func respondTaskError(c *gin.Context, taskErr *dto.TaskError) {
 		taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
 	}
 	c.JSON(taskErr.StatusCode, taskErr)
+}
+
+func getRelayAttemptLimit() int {
+	if common.SameModelFallbackMaxAttempts > 0 {
+		return common.SameModelFallbackMaxAttempts
+	}
+	return common.RetryTimes + 1
+}
+
+func getRemainingRelayAttempts(maxAttempts int, currentAttempt int) int {
+	remaining := maxAttempts - currentAttempt - 1
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError, retryTimes int) bool {

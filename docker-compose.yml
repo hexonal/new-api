@@ -32,6 +32,16 @@ services:
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
+#      - MEDIA_ARCHIVE_ENABLED=true
+#      - MEDIA_ARCHIVE_S3_ENDPOINT=https://oss.example.com
+#      - MEDIA_ARCHIVE_S3_REGION=us-east-1
+#      - MEDIA_ARCHIVE_S3_BUCKET=new-api
+#      - MEDIA_ARCHIVE_S3_ACCESS_KEY=replace-me
+#      - MEDIA_ARCHIVE_S3_SECRET_KEY=replace-me
+#      - MEDIA_ARCHIVE_S3_PUBLIC_BASE_URL=https://cdn.example.com/new-api
+#      - MEDIA_ARCHIVE_S3_PATH_STYLE=true
+#      - MEDIA_ARCHIVE_PATH_PREFIX=new-api
+#      - MEDIA_ARCHIVE_MAX_DOWNLOAD_BYTES=104857600
 #      - STREAMING_TIMEOUT=300  # 流模式无响应超时时间，单位秒，默认120秒，如果出现空补全可以尝试改为更大值 （Streaming timeout in seconds, default is 120s. Increase if experiencing empty completions）
 #      - SESSION_SECRET=random_string  # 多机部署时设置，必须修改这个随机字符串！！ （multi-node deployment, set this to a random string!!!!!!!）
 #      - SYNC_FREQUENCY=60  # Uncomment if regular database syncing is needed

@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 
@@ -27,17 +28,31 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
-	if !forceFormat && !thinkToContent {
+	var lastStreamResponse dto.ChatCompletionsStreamResponse
+	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
+		if !forceFormat && !thinkToContent {
+			service.AppendLogOutputChunk(c, data)
+			return helper.StringData(c, data)
+		}
+		return err
+	}
+	rewritten := service.MaybeArchiveStreamResponse(c, info, &lastStreamResponse)
+	appendStreamChunk := func(resp *dto.ChatCompletionsStreamResponse) error {
+		encoded, err := common.Marshal(resp)
+		if err != nil {
+			return err
+		}
+		service.AppendLogOutputChunk(c, string(encoded))
+		return helper.StringData(c, string(encoded))
+	}
+
+	if !forceFormat && !thinkToContent && !rewritten {
+		service.AppendLogOutputChunk(c, data)
 		return helper.StringData(c, data)
 	}
 
-	var lastStreamResponse dto.ChatCompletionsStreamResponse
-	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
-		return err
-	}
-
 	if !thinkToContent {
-		return helper.ObjectData(c, lastStreamResponse)
+		return appendStreamChunk(&lastStreamResponse)
 	}
 
 	hasThinkingContent := false
@@ -65,12 +80,12 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 			}
 			info.ThinkingContentInfo.IsFirstThinkingContent = false
 			info.ThinkingContentInfo.HasSentThinkingContent = true
-			return helper.ObjectData(c, response)
+			return appendStreamChunk(response)
 		}
 	}
 
 	if lastStreamResponse.Choices == nil || len(lastStreamResponse.Choices) == 0 {
-		return helper.ObjectData(c, lastStreamResponse)
+		return appendStreamChunk(&lastStreamResponse)
 	}
 
 	// Process each choice
@@ -85,7 +100,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 				response.Choices[j].Delta.Reasoning = nil
 			}
 			info.ThinkingContentInfo.SendLastThinkingContent = true
-			helper.ObjectData(c, response)
+			_ = appendStreamChunk(response)
 		}
 
 		// Convert reasoning content to regular content if any
@@ -100,7 +115,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		}
 	}
 
-	return helper.ObjectData(c, lastStreamResponse)
+	return appendStreamChunk(&lastStreamResponse)
 }
 
 func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -185,10 +200,12 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
 	}
+	service.SetLogOutputPreview(c, responseTextBuilder.String())
 
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
 
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
+	service.FinalizeLogOutputStreamBody(c)
 
 	return usage, nil
 }
@@ -219,11 +236,21 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			return nil, types.NewOpenAIError(fmt.Errorf("openrouter response success=false"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
 	}
-
 	err = common.Unmarshal(responseBody, &simpleResponse)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	responseBodyRewritten := service.MaybeArchiveTextResponse(c, info, &simpleResponse)
+	var outputPreview strings.Builder
+	for _, choice := range simpleResponse.Choices {
+		if content := strings.TrimSpace(choice.Message.StringContent()); content != "" {
+			if outputPreview.Len() > 0 {
+				outputPreview.WriteString("\n")
+			}
+			outputPreview.WriteString(content)
+		}
+	}
+	service.SetLogOutputPreview(c, outputPreview.String())
 
 	if oaiError := simpleResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
@@ -262,14 +289,21 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
-		if usageModified {
+		if usageModified || responseBodyRewritten {
 			var bodyMap map[string]interface{}
-			err = common.Unmarshal(responseBody, &bodyMap)
-			if err != nil {
-				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+			if usageModified && !responseBodyRewritten {
+				err = common.Unmarshal(responseBody, &bodyMap)
+				if err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
+				bodyMap["usage"] = simpleResponse.Usage
+				responseBody, _ = common.Marshal(bodyMap)
+			} else {
+				responseBody, err = common.Marshal(simpleResponse)
+				if err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
 			}
-			bodyMap["usage"] = simpleResponse.Usage
-			responseBody, _ = common.Marshal(bodyMap)
 		}
 		if forceFormat {
 			responseBody, err = common.Marshal(simpleResponse)
@@ -564,6 +598,17 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+	}
+
+	if info != nil && (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
+		var imageResp dto.ImageResponse
+		if err = common.Unmarshal(responseBody, &imageResp); err == nil && len(imageResp.Data) > 0 {
+			service.MaybeArchiveImageResponse(c.Request.Context(), info, &imageResp)
+			service.SetLogImageResponse(c, &imageResp)
+			if responseBody, err = common.Marshal(imageResp); err != nil {
+				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+			}
+		}
 	}
 
 	var usageResp dto.SimpleResponse

@@ -1,0 +1,683 @@
+package service
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"path"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/media_archive_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
+
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+)
+
+type mediaArchiveKind string
+
+const (
+	mediaArchiveKindImage mediaArchiveKind = "image"
+	mediaArchiveKindVideo mediaArchiveKind = "video"
+	mediaArchiveTimeout                    = 2 * time.Minute
+)
+
+var (
+	markdownMediaLinkPattern = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]+)\)`)
+	rawURLPattern            = regexp.MustCompile(`https?://[^\s<>"')]+`)
+)
+
+type mediaArchiveMeta struct {
+	Kind      mediaArchiveKind
+	Model     string
+	RequestID string
+	TaskID    string
+	ChannelID int
+	UserID    int
+	Index     int
+	Proxy     string
+}
+
+func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo, imageResponse *dto.ImageResponse) {
+	if imageResponse == nil || info == nil {
+		return
+	}
+	cfg := media_archive_setting.GetConfig()
+	if !cfg.IsReady() {
+		return
+	}
+
+	meta := mediaArchiveMeta{
+		Kind:      mediaArchiveKindImage,
+		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+		RequestID: strings.TrimSpace(info.RequestId),
+		ChannelID: info.ChannelId,
+		UserID:    info.UserId,
+	}
+	if info.ChannelMeta != nil {
+		meta.Proxy = strings.TrimSpace(info.ChannelSetting.Proxy)
+	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
+
+	for i := range imageResponse.Data {
+		meta.Index = i
+		if archivedURL, ok := maybeArchiveImageData(archiveCtx, imageResponse.Data[i], meta, cfg); ok {
+			imageResponse.Data[i].Url = archivedURL
+			imageResponse.Data[i].B64Json = ""
+		}
+	}
+}
+
+func MaybeArchiveTextResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.OpenAITextResponse) bool {
+	if response == nil || info == nil {
+		return false
+	}
+	changed := false
+	for i := range response.Choices {
+		content := response.Choices[i].Message.StringContent()
+		if content == "" {
+			continue
+		}
+		rewritten := rewriteTextMediaReferences(ctx, info, content)
+		if rewritten == content {
+			continue
+		}
+		response.Choices[i].Message.SetStringContent(rewritten)
+		changed = true
+	}
+	return changed
+}
+
+func MaybeArchiveStreamResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.ChatCompletionsStreamResponse) bool {
+	if response == nil || info == nil {
+		return false
+	}
+	changed := false
+	for i := range response.Choices {
+		content := response.Choices[i].Delta.GetContentString()
+		if content == "" {
+			continue
+		}
+		rewritten := rewriteTextMediaReferences(ctx, info, content)
+		if rewritten == content {
+			continue
+		}
+		response.Choices[i].Delta.SetContentString(rewritten)
+		changed = true
+	}
+	return changed
+}
+
+func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL string, responseBody []byte) (string, bool) {
+	if task == nil {
+		return "", false
+	}
+	cfg := media_archive_setting.GetConfig()
+	if !cfg.IsReady() {
+		return "", false
+	}
+
+	meta := mediaArchiveMeta{
+		Kind:      mediaArchiveKindVideo,
+		Model:     firstNonEmpty(strings.TrimSpace(task.Properties.OriginModelName), strings.TrimSpace(task.Properties.UpstreamModelName)),
+		TaskID:    strings.TrimSpace(task.TaskID),
+		ChannelID: task.ChannelId,
+		UserID:    task.UserId,
+	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
+
+	if archivedURL, ok := maybeArchiveMediaReference(archiveCtx, strings.TrimSpace(sourceURL), meta, cfg); ok {
+		return archivedURL, true
+	}
+	payloadURL := extractTaskPayloadMediaURL(responseBody)
+	if payloadURL == "" {
+		return "", false
+	}
+	return maybeArchiveMediaReference(archiveCtx, payloadURL, meta, cfg)
+}
+
+func newMediaArchiveContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		return context.WithTimeout(context.Background(), mediaArchiveTimeout)
+	}
+	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
+}
+
+func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string, bool) {
+	if task == nil || len(task.Data) == 0 {
+		return "", false
+	}
+	sourceURL := extractTaskPayloadMediaURL(task.Data)
+	if sourceURL == "" {
+		var payload map[string]any
+		if err := common.Unmarshal(task.Data, &payload); err == nil {
+			sourceURL = firstNonEmpty(
+				extractMapString(payload, "video_url"),
+				extractMapString(payload, "url"),
+				extractMapString(payload, "response", "video_url"),
+				extractMapString(payload, "response", "url"),
+			)
+		}
+	}
+	if sourceURL == "" {
+		return "", false
+	}
+	archivedURL, ok := MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
+	if ok {
+		task.Data = RewriteTaskResultData(task.Data, archivedURL)
+	}
+	return archivedURL, ok
+}
+
+func maybeArchiveImageData(ctx context.Context, imageData dto.ImageData, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
+	if ref := strings.TrimSpace(imageData.Url); ref != "" {
+		return maybeArchiveMediaReference(ctx, ref, meta, cfg)
+	}
+	if b64 := strings.TrimSpace(imageData.B64Json); b64 != "" {
+		return maybeArchiveMediaReference(ctx, b64, meta, cfg)
+	}
+	return "", false
+}
+
+func maybeArchiveMediaReference(ctx context.Context, ref string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" || isMediaArchiveURL(ref, cfg) {
+		return "", false
+	}
+
+	switch {
+	case strings.HasPrefix(ref, "data:"):
+		mimeType, payload, err := DecodeBase64FileData(ref)
+		if err != nil {
+			logMediaArchiveFailure(ctx, "decode media data url", err)
+			return "", false
+		}
+		data, err := decodeBase64Payload(payload)
+		if err != nil {
+			logMediaArchiveFailure(ctx, "decode media base64 payload", err)
+			return "", false
+		}
+		return uploadArchivedBytes(ctx, data, firstNonEmpty(strings.TrimSpace(mimeType), detectMediaMimeType(data, meta.Kind)), meta, cfg)
+	case strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://"):
+		return archiveURLToOSS(ctx, ref, meta, cfg)
+	default:
+		data, err := decodeBase64Payload(ref)
+		if err != nil {
+			logMediaArchiveFailure(ctx, "decode raw base64 media", err)
+			return "", false
+		}
+		return uploadArchivedBytes(ctx, data, detectMediaMimeType(data, meta.Kind), meta, cfg)
+	}
+}
+
+func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo, text string) string {
+	if strings.TrimSpace(text) == "" || info == nil {
+		return text
+	}
+	cfg := media_archive_setting.GetConfig()
+	if !cfg.IsReady() {
+		return text
+	}
+
+	meta := mediaArchiveMeta{
+		Kind:      mediaArchiveKindImage,
+		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+		RequestID: strings.TrimSpace(info.RequestId),
+		ChannelID: info.ChannelId,
+		UserID:    info.UserId,
+		Proxy:     strings.TrimSpace(info.ChannelSetting.Proxy),
+	}
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
+
+	seen := make(map[string]string)
+	nextIndex := 0
+	replaceURL := func(raw string) string {
+		if raw == "" || isMediaArchiveURL(raw, cfg) || !looksLikeMediaReference(raw) {
+			return raw
+		}
+		if archived, ok := seen[raw]; ok {
+			return archived
+		}
+		meta.Index = nextIndex
+		nextIndex++
+		archived, ok := maybeArchiveMediaReference(archiveCtx, raw, meta, cfg)
+		if !ok || archived == "" {
+			return raw
+		}
+		seen[raw] = archived
+		return archived
+	}
+
+	rewritten := markdownMediaLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+		parts := markdownMediaLinkPattern.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return fmt.Sprintf("![%s](%s)", parts[1], replaceURL(parts[2]))
+	})
+
+	rewritten = rawURLPattern.ReplaceAllStringFunc(rewritten, func(raw string) string {
+		return replaceURL(raw)
+	})
+
+	return rewritten
+}
+
+func archiveURLToOSS(ctx context.Context, sourceURL string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
+	fetchSetting := system_setting.GetFetchSetting()
+	if err := common.ValidateURLWithFetchSetting(sourceURL, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
+		logMediaArchiveFailure(ctx, "validate archive source url", err)
+		return "", false
+	}
+
+	client, err := GetHttpClientWithProxy(meta.Proxy)
+	if err != nil {
+		logMediaArchiveFailure(ctx, "create archive http client", err)
+		return "", false
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
+	if err != nil {
+		logMediaArchiveFailure(ctx, "create archive request", err)
+		return "", false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		logMediaArchiveFailure(ctx, "download media for archive", err)
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		logMediaArchiveFailure(ctx, "download media for archive", fmt.Errorf("status %d", resp.StatusCode))
+		return "", false
+	}
+
+	reader := io.LimitReader(resp.Body, cfg.MaxDownloadBytes+1)
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		logMediaArchiveFailure(ctx, "read media for archive", err)
+		return "", false
+	}
+	if int64(len(data)) > cfg.MaxDownloadBytes {
+		logMediaArchiveFailure(ctx, "read media for archive", fmt.Errorf("payload exceeds limit %d", cfg.MaxDownloadBytes))
+		return "", false
+	}
+
+	mimeType := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if idx := strings.Index(mimeType, ";"); idx >= 0 {
+		mimeType = strings.TrimSpace(mimeType[:idx])
+	}
+	if mimeType == "" || mimeType == "application/octet-stream" {
+		mimeType = detectMediaMimeType(data, meta.Kind)
+	}
+	return uploadArchivedBytes(ctx, data, mimeType, meta, cfg)
+}
+
+func uploadArchivedBytes(ctx context.Context, data []byte, mimeType string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
+	objectKey := buildMediaArchiveObjectKey(meta, mimeType, cfg.PathPrefix)
+	archivedURL, err := uploadArchivedBytesToOSS(ctx, data, mimeType, objectKey, cfg)
+	if err != nil {
+		logMediaArchiveFailure(ctx, "upload media to oss", err)
+		return "", false
+	}
+	return archivedURL, true
+}
+
+func uploadArchivedBytesToOSS(ctx context.Context, data []byte, mimeType string, objectKey string, cfg media_archive_setting.Config) (string, error) {
+	requestURL, err := buildMediaArchiveUploadURL(cfg, objectKey)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", mimeType)
+
+	hash := sha256.Sum256(data)
+	payloadHash := hex.EncodeToString(hash[:])
+	req.Header.Set("x-amz-content-sha256", payloadHash)
+
+	creds, err := credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "").Retrieve(ctx)
+	if err != nil {
+		return "", err
+	}
+	signer := v4.NewSigner()
+	if err = signer.SignHTTP(ctx, creds, req, payloadHash, "s3", firstNonEmpty(cfg.Region, "us-east-1"), time.Now().UTC()); err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return buildMediaArchivePublicURL(cfg, objectKey), nil
+}
+
+func RewriteTaskResultData(body []byte, archivedURL string) []byte {
+	if len(body) == 0 || strings.TrimSpace(archivedURL) == "" {
+		return body
+	}
+
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+	if !rewriteTaskPayloadMediaNode(payload, archivedURL) {
+		return body
+	}
+	encoded, err := common.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return encoded
+}
+
+func buildMediaArchiveUploadURL(cfg media_archive_setting.Config, objectKey string) (string, error) {
+	endpoint, err := url.Parse(cfg.Endpoint)
+	if err != nil {
+		return "", err
+	}
+	cleanKey := strings.TrimPrefix(objectKey, "/")
+	if cfg.UsePathStyle {
+		endpoint.Path = path.Join(endpoint.Path, cfg.Bucket, cleanKey)
+		return endpoint.String(), nil
+	}
+	endpoint.Host = cfg.Bucket + "." + endpoint.Host
+	endpoint.Path = path.Join(endpoint.Path, cleanKey)
+	return endpoint.String(), nil
+}
+
+func extractTaskPayloadMediaURL(body []byte) string {
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	return firstNonEmpty(
+		extractVideoBytesDataURL(payload, "response"),
+		extractVideoBytesDataURL(payload),
+		extractMapString(payload, "response", "video"),
+		extractMapString(payload, "video"),
+	)
+}
+
+func extractVideoBytesDataURL(payload map[string]any, pathSegments ...string) string {
+	var node any = payload
+	for _, segment := range pathSegments {
+		m, ok := node.(map[string]any)
+		if !ok {
+			return ""
+		}
+		node = m[segment]
+	}
+	root, ok := node.(map[string]any)
+	if !ok {
+		return ""
+	}
+	if b64, ok := root["bytesBase64Encoded"].(string); ok && strings.TrimSpace(b64) != "" {
+		return "data:video/mp4;base64," + strings.TrimSpace(b64)
+	}
+	if videos, ok := root["videos"].([]any); ok {
+		for _, item := range videos {
+			vm, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if b64, ok := vm["bytesBase64Encoded"].(string); ok && strings.TrimSpace(b64) != "" {
+				return "data:video/mp4;base64," + strings.TrimSpace(b64)
+			}
+		}
+	}
+	return ""
+}
+
+func extractMapString(payload map[string]any, pathSegments ...string) string {
+	var node any = payload
+	for _, segment := range pathSegments {
+		m, ok := node.(map[string]any)
+		if !ok {
+			return ""
+		}
+		node = m[segment]
+	}
+	value, _ := node.(string)
+	return strings.TrimSpace(value)
+}
+
+func decodeBase64Payload(payload string) ([]byte, error) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return nil, fmt.Errorf("empty base64 payload")
+	}
+	if data, err := base64.StdEncoding.DecodeString(payload); err == nil {
+		return data, nil
+	}
+	return base64.RawStdEncoding.DecodeString(payload)
+}
+
+func detectMediaMimeType(data []byte, kind mediaArchiveKind) string {
+	if detected := http.DetectContentType(data); detected != "" && detected != "application/octet-stream" {
+		return detected
+	}
+	if kind == mediaArchiveKindVideo {
+		return "video/mp4"
+	}
+	return "image/png"
+}
+
+func buildMediaArchiveObjectKey(meta mediaArchiveMeta, mimeType string, prefix string) string {
+	now := time.Now().UTC()
+	identity := sanitizePathSegment(firstNonEmpty(meta.TaskID, meta.RequestID, common.GetUUID()))
+	parts := []string{
+		sanitizePathSegment(firstNonEmpty(prefix, "media")),
+		now.Format("2006"),
+		now.Format("01"),
+		now.Format("02"),
+		sanitizePathSegment(string(meta.Kind)),
+		sanitizePathSegment(firstNonEmpty(meta.Model, "unknown-model")),
+	}
+	if meta.ChannelID > 0 {
+		parts = append(parts, "channel-"+strconv.Itoa(meta.ChannelID))
+	}
+	if meta.UserID > 0 {
+		parts = append(parts, "user-"+strconv.Itoa(meta.UserID))
+	}
+	filename := identity
+	if meta.Index > 0 {
+		filename += "-" + strconv.Itoa(meta.Index)
+	}
+	if ext := extensionFromMimeType(mimeType); ext != "" {
+		filename += ext
+	}
+	parts = append(parts, filename)
+	return path.Join(parts...)
+}
+
+func buildMediaArchivePublicURL(cfg media_archive_setting.Config, objectKey string) string {
+	objectKey = strings.TrimLeft(strings.TrimSpace(objectKey), "/")
+	if cfg.PublicBaseURL != "" {
+		return strings.TrimRight(cfg.PublicBaseURL, "/") + "/" + objectKey
+	}
+	base := strings.TrimRight(cfg.Endpoint, "/")
+	if cfg.UsePathStyle {
+		return base + "/" + path.Join(cfg.Bucket, objectKey)
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Host == "" {
+		return base + "/" + path.Join(cfg.Bucket, objectKey)
+	}
+	return parsed.Scheme + "://" + cfg.Bucket + "." + parsed.Host + "/" + objectKey
+}
+
+func looksLikeMediaReference(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	if strings.HasPrefix(raw, "data:image/") || strings.HasPrefix(raw, "data:video/") {
+		return true
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	ext := strings.ToLower(path.Ext(parsed.Path))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".mp4", ".mov", ".webm", ".mkv":
+		return true
+	default:
+		return false
+	}
+}
+
+func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return false
+	}
+	if cfg.PublicBaseURL != "" && strings.HasPrefix(rawURL, strings.TrimRight(cfg.PublicBaseURL, "/")+"/") {
+		return true
+	}
+	if cfg.Endpoint != "" && strings.HasPrefix(rawURL, strings.TrimRight(cfg.Endpoint, "/")+"/") {
+		return true
+	}
+	return strings.HasPrefix(rawURL, strings.TrimRight(cfg.Endpoint, "/")+"/"+strings.Trim(cfg.Bucket, "/")+"/")
+}
+
+func extensionFromMimeType(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg", "image/jpg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "video/mp4":
+		return ".mp4"
+	}
+	exts, err := mime.ExtensionsByType(mimeType)
+	if err != nil || len(exts) == 0 {
+		return ""
+	}
+	return exts[0]
+}
+
+func sanitizePathSegment(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return common.GetUUID()
+	}
+	var out strings.Builder
+	lastDash := false
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			out.WriteRune(r)
+			lastDash = false
+		case r >= '0' && r <= '9':
+			out.WriteRune(r)
+			lastDash = false
+		case r == '.' || r == '_' || r == '-':
+			out.WriteRune(r)
+			lastDash = false
+		default:
+			if !lastDash {
+				out.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+	return strings.Trim(out.String(), "-")
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func logMediaArchiveFailure(ctx context.Context, action string, err error) {
+	if err == nil {
+		return
+	}
+	if ctx == nil {
+		common.SysError(action + ": " + err.Error())
+		return
+	}
+	logger.LogWarn(ctx, action+": "+err.Error())
+}
+
+func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) bool {
+	changed := false
+	if value, ok := payload["video_url"].(string); ok && strings.TrimSpace(value) != "" {
+		payload["video_url"] = archivedURL
+		changed = true
+	}
+	if value, ok := payload["url"].(string); ok && strings.TrimSpace(value) != "" {
+		payload["url"] = archivedURL
+		changed = true
+	}
+	if response, ok := payload["response"].(map[string]any); ok {
+		if rewriteTaskPayloadMediaNode(response, archivedURL) {
+			payload["response"] = response
+			changed = true
+		}
+	}
+	if videos, ok := payload["videos"].([]any); ok {
+		for i, item := range videos {
+			videoMap, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if _, exists := videoMap["bytesBase64Encoded"]; exists {
+				delete(videoMap, "bytesBase64Encoded")
+				changed = true
+			}
+			if value, ok := videoMap["video_url"].(string); ok && strings.TrimSpace(value) != "" {
+				videoMap["video_url"] = archivedURL
+				changed = true
+			}
+			if value, ok := videoMap["url"].(string); ok && strings.TrimSpace(value) != "" {
+				videoMap["url"] = archivedURL
+				changed = true
+			}
+			videos[i] = videoMap
+		}
+		payload["videos"] = videos
+	}
+	if _, exists := payload["bytesBase64Encoded"]; exists {
+		delete(payload, "bytesBase64Encoded")
+		changed = true
+	}
+	if changed {
+		payload["archived_url"] = archivedURL
+	}
+	return changed
+}

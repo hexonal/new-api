@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -393,6 +394,19 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
+	if isOpenAIVideoAPI {
+		if resultURL := strings.TrimSpace(originTask.GetResultURL()); resultURL == "" || strings.Contains(resultURL, "/v1/videos/"+originTask.TaskID+"/content") {
+			if archivedURL, ok := service.MaybeArchiveTaskStoredResult(context.Background(), originTask); ok {
+				snap := originTask.Snapshot()
+				originTask.PrivateData.ResultURL = archivedURL
+				_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), originTask.TaskID, archivedURL)
+				if !snap.Equal(originTask.Snapshot()) {
+					_, _ = originTask.UpdateWithStatus(snap.Status)
+				}
+			}
+		}
+	}
+
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
@@ -479,10 +493,19 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	if ti.Progress != "" {
 		task.Progress = ti.Progress
 	}
-	if strings.HasPrefix(ti.Url, "data:") {
+	resultURL := strings.TrimSpace(ti.Url)
+	if resultURL == "" {
+		resultURL = strings.TrimSpace(ti.RemoteUrl)
+	}
+	if archivedURL, ok := service.MaybeArchiveTaskResult(context.Background(), task, resultURL, body); ok {
+		task.PrivateData.ResultURL = archivedURL
+		task.Data = service.RewriteTaskResultData(body, archivedURL)
+		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, archivedURL)
+	} else if strings.HasPrefix(resultURL, "data:") {
 		// data: URI — kept in Data, not ResultURL
-	} else if ti.Url != "" {
-		task.PrivateData.ResultURL = ti.Url
+	} else if resultURL != "" {
+		task.PrivateData.ResultURL = resultURL
+		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, resultURL)
 	} else if task.Status == model.TaskStatusSuccess {
 		// No URL from adaptor — construct proxy URL using public task ID
 		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)

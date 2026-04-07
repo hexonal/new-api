@@ -170,6 +170,71 @@ const renderPlatform = (platform, t) => {
   }
 };
 
+const getTaskPlatformModelName = (record) => {
+  const properties = record?.properties;
+  const candidates = [
+    properties?.origin_model_name,
+    properties?.upstream_model_name,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') {
+      return candidate.trim().toLowerCase();
+    }
+  }
+  return '';
+};
+
+const renderTaskPlatform = (record, t) => {
+  const platform = record?.platform;
+  const modelName = getTaskPlatformModelName(record);
+  if (String(platform) === '55') {
+    if (modelName.startsWith('veo')) {
+      return (
+        <Tag color='light-blue' shape='circle'>
+          Veo
+        </Tag>
+      );
+    }
+    if (modelName.startsWith('sora')) {
+      return (
+        <Tag color='green' shape='circle'>
+          Sora
+        </Tag>
+      );
+    }
+  }
+  return renderPlatform(platform, t);
+};
+
+const renderPreviewText = (value) => {
+  if (!value) {
+    return '-';
+  }
+  return (
+    <Typography.Text ellipsis={{ showTooltip: true }} style={{ maxWidth: 220 }}>
+      {String(value)}
+    </Typography.Text>
+  );
+};
+
+const getTaskRequestPath = (record) => {
+  const requestPath = record?.properties?.request_path;
+  if (typeof requestPath === 'string' && requestPath.trim() !== '') {
+    return requestPath.trim();
+  }
+  const videoActions = [
+    TASK_ACTION_GENERATE,
+    TASK_ACTION_TEXT_GENERATE,
+    TASK_ACTION_FIRST_TAIL_GENERATE,
+    TASK_ACTION_REFERENCE_GENERATE,
+    TASK_ACTION_REMIX_GENERATE,
+  ];
+  if (videoActions.includes(record?.action)) {
+    return '/v1/videos';
+  }
+  return '';
+};
+
 const renderStatus = (type, t) => {
   switch (type) {
     case 'SUCCESS':
@@ -320,7 +385,15 @@ export const getTaskLogsColumns = ({
       title: t('平台'),
       dataIndex: 'platform',
       render: (text, record, index) => {
-        return <div>{renderPlatform(text, t)}</div>;
+        return <div>{renderTaskPlatform(record, t)}</div>;
+      },
+    },
+    {
+      key: COLUMN_KEYS.REQUEST_PATH,
+      title: t('请求路径'),
+      dataIndex: 'properties',
+      render: (text, record) => {
+        return renderPreviewText(getTaskRequestPath(record));
       },
     },
     {
@@ -354,6 +427,14 @@ export const getTaskLogsColumns = ({
       dataIndex: 'status',
       render: (text, record, index) => {
         return <div>{renderStatus(text, t)}</div>;
+      },
+    },
+    {
+      key: COLUMN_KEYS.INPUT,
+      title: t('输入'),
+      dataIndex: 'properties',
+      render: (text, record) => {
+        return renderPreviewText(record?.properties?.input);
       },
     },
     {
