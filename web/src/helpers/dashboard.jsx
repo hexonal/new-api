@@ -182,7 +182,7 @@ export const getUptimeStatusColor = (status, uptimeStatusMap) =>
   uptimeStatusMap[status]?.color || '#8b9aa7';
 
 export const getUptimeStatusText = (status, uptimeStatusMap, t) =>
-  uptimeStatusMap[status]?.text || t('未知');
+  t(uptimeStatusMap[status]?.text || '未知');
 
 // ========== 监控列表渲染函数 ==========
 export const renderMonitorList = (
