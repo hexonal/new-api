@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/youchuan-pixverse-kling-o1
+      - feature/infras-hexonal-youchuan-pixverse-kling-o1
   workflow_dispatch:
 
 permissions:
