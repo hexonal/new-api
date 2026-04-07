@@ -12,7 +12,7 @@ on:
         type: string
 
 env:
-  IMAGE_NAME: ghcr.io/infras-hexonal/new-api
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   build_single_arch:

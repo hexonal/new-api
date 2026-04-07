@@ -12,7 +12,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/infras-hexonal/new-api
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
   BRANCH_TAG: feature-youchuan-pixverse-kling-o1
 
 jobs:
