@@ -502,7 +502,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		//}
 	}
 
-	if midjRequest.Action == constant.MjActionInPaint || midjRequest.Action == constant.MjActionCustomZoom {
+	if midjRequest.Action == constant.MjActionInPaint {
 		consumeQuota = false
 	}
 
