@@ -439,20 +439,10 @@ func TokenAuth() func(c *gin.Context) {
 
 		userGroup := userCache.Group
 		tokenGroup := token.Group
-		if tokenGroup != "" {
-			// check common.UserUsableGroups[userGroup]
-			if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("access to group %s is not allowed", tokenGroup))
-				return
-			}
-			// check group in common.GroupRatio
-			if !ratio_setting.ContainsGroupRatio(tokenGroup) {
-				if tokenGroup != "auto" {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("group %s has been deprecated", tokenGroup))
-					return
-				}
-			}
-			userGroup = tokenGroup
+		userGroup, err = resolveUsingGroup(userGroup, tokenGroup)
+		if err != nil {
+			abortWithOpenAiMessage(c, http.StatusForbidden, err.Error())
+			return
 		}
 		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
 
@@ -506,4 +496,25 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 		}
 	}
 	return nil
+}
+
+func resolveUsingGroup(userGroup, tokenGroup string) (string, error) {
+	usingGroup := userGroup
+	if tokenGroup == "" {
+		return usingGroup, nil
+	}
+	// Guardrail: non-default users cannot downgrade token routing to default group.
+	// This avoids accidental fallback to default model abilities.
+	if userGroup != "" && userGroup != "default" && tokenGroup == "default" {
+		return "", fmt.Errorf("access to group %s is not allowed", tokenGroup)
+	}
+	if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+		return "", fmt.Errorf("access to group %s is not allowed", tokenGroup)
+	}
+	if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+		if tokenGroup != "auto" {
+			return "", fmt.Errorf("group %s has been deprecated", tokenGroup)
+		}
+	}
+	return tokenGroup, nil
 }

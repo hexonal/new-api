@@ -173,7 +173,11 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 		group := userGroup
 		tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
-		if tokenGroup != "" {
+		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+		if usingGroup != "" {
+			group = usingGroup
+		} else if tokenGroup != "" {
+			// fallback for contexts where using-group is not set
 			group = tokenGroup
 		}
 		var models []string
