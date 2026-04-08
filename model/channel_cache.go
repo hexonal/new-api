@@ -32,6 +32,14 @@ func InitChannelCache() {
 	for _, ability := range abilities {
 		groups[ability.Group] = true
 	}
+	// Build ability lookup set: only (group, model, channel_id) entries that are enabled
+	abilitySet := make(map[string]bool)
+	for _, ability := range abilities {
+		if ability.Enabled {
+			key := fmt.Sprintf("%s|%s|%d", ability.Group, ability.Model, ability.ChannelId)
+			abilitySet[key] = true
+		}
+	}
 	newGroup2model2channels := make(map[string]map[string][]int)
 	for group := range groups {
 		newGroup2model2channels[group] = make(map[string][]int)
@@ -42,8 +50,21 @@ func InitChannelCache() {
 		}
 		groups := strings.Split(channel.Group, ",")
 		for _, group := range groups {
+			group = strings.TrimSpace(group)
+			if group == "" {
+				continue
+			}
 			models := strings.Split(channel.Models, ",")
 			for _, model := range models {
+				model = strings.TrimSpace(model)
+				if model == "" {
+					continue
+				}
+				// Only add to cache if ability exists and is enabled
+				abilityKey := fmt.Sprintf("%s|%s|%d", group, model, channel.Id)
+				if !abilitySet[abilityKey] {
+					continue
+				}
 				if _, ok := newGroup2model2channels[group][model]; !ok {
 					newGroup2model2channels[group][model] = make([]int, 0)
 				}
