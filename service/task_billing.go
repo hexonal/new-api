@@ -417,6 +417,16 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	other["estimated_quota"] = bc.EstimatedQuota
 	other["terminal_charge_state"] = bc.TerminalChargeState
 	other["terminal_charge_reason"] = reason
+	// When terminal charge is token-based recalculation, override the submit-time
+	// per-call model_price with token-based ratios so the frontend renders correctly.
+	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
+		modelName := taskModelName(task)
+		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
+		completionRatio := ratio_setting.GetCompletionRatio(modelName)
+		other["model_price"] = float64(-1) // clear per-call pricing flag
+		other["model_ratio"] = modelRatio
+		other["completion_ratio"] = completionRatio
+	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {
 		other["task_total_tokens"] = totalTokens
@@ -532,6 +542,21 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		return
 	}
 
+	// Idempotency guard: prevent duplicate settlement across pods/retries.
+	recalcLockKey := fmt.Sprintf("task:billing:recalc:%s", task.TaskID)
+	if common.RedisEnabled && common.RDB != nil {
+		ok, err := common.RDB.SetNX(ctx, recalcLockKey, "1", 24*time.Hour).Result()
+		if err != nil {
+			// Fail closed: Redis error means we cannot guarantee uniqueness, defer to next retry.
+			logger.LogError(ctx, fmt.Sprintf("任务 %s 差额结算 Redis 锁获取失败: %s, 延迟重试", task.TaskID, err.Error()))
+			return
+		}
+		if !ok {
+			logger.LogInfo(ctx, fmt.Sprintf("任务 %s 差额结算已被其他节点处理，跳过", task.TaskID))
+			return
+		}
+	}
+
 	logger.LogInfo(ctx, fmt.Sprintf("任务 %s 差额结算：delta=%s（实际：%s，预扣：%s，%s）",
 		task.TaskID,
 		logger.LogQuota(quotaDelta),
@@ -540,16 +565,33 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		reason,
 	))
 
-	// 调整资金来源
-	if err := taskAdjustFunding(task, quotaDelta); err != nil {
-		logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
+	// Phase 1: Persist task.Quota BEFORE any fund mutations to prevent
+	// duplicate settlement on retry (stale quota would produce wrong delta).
+	task.Quota = actualQuota
+	if err := task.Update(); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("差额结算持久化 task.Quota 失败 task %s: %s, 中止结算", task.TaskID, err.Error()))
+		// Release Redis lock so retry is possible.
+		if common.RedisEnabled && common.RDB != nil {
+			common.RDB.Del(ctx, recalcLockKey)
+		}
 		return
 	}
 
-	// 调整令牌额度
+	// Phase 2: Execute fund and token quota adjustments.
+	if err := taskAdjustFunding(task, quotaDelta); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s, 回滚 quota 并释放锁", task.TaskID, err.Error()))
+		// Rollback task.Quota so retry can recompute the correct delta.
+		task.Quota = preConsumedQuota
+		if rollbackErr := task.Update(); rollbackErr != nil {
+			logger.LogError(ctx, fmt.Sprintf("差额结算回滚 task.Quota 失败 task %s: %s", task.TaskID, rollbackErr.Error()))
+		}
+		// Release Redis lock so retry is possible.
+		if common.RedisEnabled && common.RDB != nil {
+			common.RDB.Del(ctx, recalcLockKey)
+		}
+		return
+	}
 	taskAdjustTokenQuota(ctx, task, quotaDelta)
-
-	task.Quota = actualQuota
 
 	var logType int
 	var logQuota int
@@ -564,9 +606,19 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	}
 	other := taskBillingOther(task)
 	other["task_id"] = task.TaskID
-	//other["reason"] = reason
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
+	// Mark as token recalculation so the frontend renders token-based billing details.
+	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
+		other["deferred_settle"] = true
+		other["terminal_charge_reason"] = reason
+		modelName := taskModelName(task)
+		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
+		completionRatio := ratio_setting.GetCompletionRatio(modelName)
+		other["model_price"] = float64(-1)
+		other["model_ratio"] = modelRatio
+		other["completion_ratio"] = completionRatio
+	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {
 		other["task_total_tokens"] = totalTokens

@@ -59,7 +59,9 @@ const isDeferredTokenRecalculateLog = (log, other) => {
     toPositiveNumber(other?.task_prompt_tokens) > 0;
   return (
     reason.startsWith('token_recalculate') ||
+    reason.startsWith('token重算') ||
     content.startsWith('token_recalculate') ||
+    content.startsWith('token重算') ||
     hasTokenUsage
   );
 };
