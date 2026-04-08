@@ -13,7 +13,6 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  BRANCH_TAG: feature-youchuan-pixverse-kling-o1
 
 jobs:
   build_single_arch:
@@ -38,7 +37,10 @@ jobs:
 
       - name: Compute image version
         run: |
+          RAW_BRANCH="${GITHUB_REF_NAME}"
+          BRANCH_TAG=$(echo "${RAW_BRANCH}" | tr '/:@' '-' | tr -cd '[:alnum:]._-')
           VERSION="${BRANCH_TAG}-$(git rev-parse --short HEAD)"
+          echo "BRANCH_TAG=$BRANCH_TAG" >> "$GITHUB_ENV"
           echo "$VERSION" > VERSION
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
@@ -87,7 +89,10 @@ jobs:
 
       - name: Compute image version
         run: |
+          RAW_BRANCH="${GITHUB_REF_NAME}"
+          BRANCH_TAG=$(echo "${RAW_BRANCH}" | tr '/:@' '-' | tr -cd '[:alnum:]._-')
           VERSION="${BRANCH_TAG}-$(git rev-parse --short HEAD)"
+          echo "BRANCH_TAG=$BRANCH_TAG" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
@@ -121,8 +126,8 @@ jobs:
       - name: Upsert rolling release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ env.BRANCH_TAG }}
-          RELEASE_TITLE: feature/youchuan-pixverse-kling-o1
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TITLE: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           NOTES=$(cat <<EOF
@@ -159,6 +164,7 @@ jobs:
           PACKAGE_NAME: ${{ github.event.repository.name }}
           CURRENT_VERSION: ${{ env.VERSION }}
           BRANCH_TAG: ${{ env.BRANCH_TAG }}
+          LEGACY_BRANCH_TAG: feature-youchuan-pixverse-kling-o1
         run: |
           set -euo pipefail
 
@@ -179,6 +185,10 @@ jobs:
             --arg current_amd64 "${CURRENT_VERSION}-amd64" \
             --arg current_arm64 "${CURRENT_VERSION}-arm64" \
             '[$latest,$latest_amd64,$latest_arm64,$branch,$branch_amd64,$branch_arm64,$current,$current_amd64,$current_arm64]')
+          PREFIXES_JSON=$(jq -n \
+            --arg current "${BRANCH_TAG}" \
+            --arg legacy "${LEGACY_BRANCH_TAG}" \
+            '[ $current, $legacy ] | map(select(length > 0))')
 
           total_deleted=0
           pass=1
@@ -196,12 +206,12 @@ jobs:
               has_data=1
 
               candidates=$(echo "${versions}" | jq -c \
-                --arg branch "${BRANCH_TAG}" \
+                --argjson prefixes "${PREFIXES_JSON}" \
                 --argjson keep "${KEEP_TAGS_JSON}" '
                 .[]
                 | {id, tags: (.metadata.container.tags // [])}
                 | select((.tags | length) > 0)
-                | select(any(.tags[]; startswith($branch)))
+                | select(any(.tags[] as $t | $prefixes[]; ($t | startswith(.))))
                 | select(all(.tags[]; ($keep | index(.) | not)))
               ')
 
