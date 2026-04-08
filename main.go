@@ -68,6 +68,13 @@ func main() {
 		// for compatibility with old versions
 		common.MemoryCacheEnabled = true
 	}
+	// Register broadcast failure hook before any cache init
+	nodeIdentity := common.GetEnvOrDefaultString("HOSTNAME", "unknown")
+	model.RegisterChannelCacheBroadcastFailureHook(func(err error) {
+		service.SendFeishuSystemAlert("cache.broadcast.failure",
+			fmt.Sprintf("节点：%s\n渠道缓存广播失败，其他节点可能存在最多 %ds 延迟。\n错误：%v", nodeIdentity, common.SyncFrequency, err))
+	})
+
 	if common.MemoryCacheEnabled {
 		common.SysLog("memory cache enabled")
 		common.SysLog(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))

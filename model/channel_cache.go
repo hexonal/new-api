@@ -217,3 +217,27 @@ func CacheUpdateChannel(channel *Channel) {
 	channelsIDM[channel.Id] = channel
 	println("after :", channelsIDM[channel.Id].ChannelInfo.MultiKeyPollingIndex)
 }
+
+// onBroadcastFailure is called when channel cache broadcast fails.
+// Set via RegisterChannelCacheBroadcastFailureHook to avoid model→service circular import.
+var onBroadcastFailure func(err error)
+
+// RegisterChannelCacheBroadcastFailureHook registers a callback invoked
+// when Redis broadcast of channel cache refresh fails.
+func RegisterChannelCacheBroadcastFailureHook(fn func(err error)) {
+	onBroadcastFailure = fn
+}
+
+// InitChannelCacheAndBroadcast refreshes the local channel cache and
+// broadcasts a refresh signal to all other nodes via Redis Pub/Sub.
+// Use this instead of bare InitChannelCache() in controller/handler code
+// to ensure multi-node consistency.
+func InitChannelCacheAndBroadcast() {
+	InitChannelCache()
+	if err := BroadcastChannelCacheRefreshSignal(); err != nil {
+		common.SysError(fmt.Sprintf("broadcast channel cache refresh failed: %v", err))
+		if onBroadcastFailure != nil {
+			onBroadcastFailure(err)
+		}
+	}
+}

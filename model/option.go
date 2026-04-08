@@ -22,6 +22,7 @@ import (
 
 const optionSyncRedisChannel = "new-api:option-sync"
 const optionSyncActionRefreshRuntime = "__refresh_runtime_cache__"
+const optionSyncActionRefreshChannelCache = "__refresh_channel_cache__"
 
 type optionSyncMessage struct {
 	Key    string `json:"key"`
@@ -273,6 +274,17 @@ func runOptionSyncSubscriber() error {
 		if payload.NodeID == optionSyncNodeID || strings.TrimSpace(payload.Key) == "" {
 			continue
 		}
+		if payload.Key == optionSyncActionRefreshChannelCache {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						common.SysError(fmt.Sprintf("InitChannelCache panic in subscriber: %v", r))
+					}
+				}()
+				InitChannelCache()
+			}()
+			continue
+		}
 		if payload.Key == optionSyncActionRefreshRuntime {
 			if err := RefreshRuntimeCaches(); err != nil {
 				common.SysError("runtime cache refresh sync apply failed: " + err.Error())
@@ -360,6 +372,12 @@ func publishOptionUpdate(key string, value string) error {
 
 func BroadcastRuntimeCacheRefreshSignal() error {
 	return publishOptionUpdate(optionSyncActionRefreshRuntime, strconv.FormatInt(time.Now().UnixNano(), 10))
+}
+
+// BroadcastChannelCacheRefreshSignal sends a lightweight signal to refresh
+// only the channel routing cache on other nodes, without reloading options or pricing.
+func BroadcastChannelCacheRefreshSignal() error {
+	return publishOptionUpdate(optionSyncActionRefreshChannelCache, strconv.FormatInt(time.Now().UnixNano(), 10))
 }
 
 func upsertOptionValue(key string, value string) error {

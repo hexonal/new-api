@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 )
@@ -141,6 +142,46 @@ func buildQuotaWarningIdempotencyKey(prefix string, userID int, requestID string
 		requestID = common.GetUUID()
 	}
 	return fmt.Sprintf("%s:quota.warning:%d:%s", prefix, userID, requestID)
+}
+
+// SendFeishuSystemAlert sends a system-level alert to the Feishu webhook.
+// Used for infrastructure issues like cache broadcast failures.
+func SendFeishuSystemAlert(eventType string, message string) {
+	common.OptionMapRWMutex.RLock()
+	enabled := common.OptionMap["FeishuNotifyEnabled"] == "true"
+	webhookURL := common.OptionMap["FeishuWebhookUrl"]
+	common.OptionMapRWMutex.RUnlock()
+
+	if !enabled || strings.TrimSpace(webhookURL) == "" {
+		return
+	}
+
+	text := fmt.Sprintf("[Zcheap AI] 系统告警\n类型：%s\n详情：%s", eventType, message)
+	body, err := common.Marshal(map[string]any{
+		"msg_type": "text",
+		"content":  map[string]string{"text": text},
+	})
+	if err != nil {
+		common.SysError(fmt.Sprintf("feishu system alert marshal failed: %s", err.Error()))
+		return
+	}
+
+	// Time-bucketed idempotency: at most one alert per event type per minute
+	minuteBucket := time.Now().UTC().Format("2006-01-02T15:04")
+	hostname := common.GetEnvOrDefaultString("HOSTNAME", "unknown")
+	idempotencyKey := fmt.Sprintf("system_alert:%s:%s:%s", eventType, hostname, minuteBucket)
+	if err := enqueuePersistentCallbackEvent(callbackEventEnqueueRequest{
+		Source:         "system",
+		EventType:      eventType,
+		SinkType:       "feishu_webhook",
+		CallbackURL:    webhookURL,
+		HTTPMethod:     "POST",
+		ContentType:    "application/json",
+		Payload:        body,
+		IdempotencyKey: idempotencyKey,
+	}); err != nil {
+		common.SysError(fmt.Sprintf("enqueue feishu system alert failed: %s", err.Error()))
+	}
 }
 
 func signOperatorCallback(secret string, timestamp string, payload []byte) string {
