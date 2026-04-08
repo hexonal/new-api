@@ -180,31 +180,51 @@ jobs:
             --arg current_arm64 "${CURRENT_VERSION}-arm64" \
             '[$latest,$latest_amd64,$latest_arm64,$branch,$branch_amd64,$branch_arm64,$current,$current_amd64,$current_arm64]')
 
-          page=1
+          total_deleted=0
+          pass=1
           while true; do
-            versions=$(gh api "${BASE}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")
-            count=$(echo "${versions}" | jq 'length')
-            if [ "${count}" -eq 0 ]; then
+            echo "cleanup pass ${pass}"
+            page=1
+            pass_deleted=0
+            has_data=0
+            while true; do
+              versions=$(gh api "${BASE}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")
+              count=$(echo "${versions}" | jq 'length')
+              if [ "${count}" -eq 0 ]; then
+                break
+              fi
+              has_data=1
+
+              candidates=$(echo "${versions}" | jq -c \
+                --arg branch "${BRANCH_TAG}" \
+                --argjson keep "${KEEP_TAGS_JSON}" '
+                .[]
+                | {id, tags: (.metadata.container.tags // [])}
+                | select((.tags | length) > 0)
+                | select(any(.tags[]; startswith($branch)))
+                | select(all(.tags[]; ($keep | index(.) | not)))
+              ')
+
+              if [ -n "${candidates}" ]; then
+                while IFS= read -r row; do
+                  [ -z "${row}" ] && continue
+                  id=$(echo "${row}" | jq -r '.id')
+                  tags=$(echo "${row}" | jq -r '.tags | join(",")')
+                  echo "deleting package version id=${id}, tags=${tags}"
+                  gh api -X DELETE "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}"
+                  pass_deleted=$((pass_deleted + 1))
+                  total_deleted=$((total_deleted + 1))
+                done <<< "${candidates}"
+              fi
+
+              page=$((page + 1))
+            done
+
+            echo "cleanup pass ${pass} deleted=${pass_deleted}"
+            if [ "${has_data}" -eq 0 ] || [ "${pass_deleted}" -eq 0 ]; then
               break
             fi
-
-            ids=$(echo "${versions}" | jq -r \
-              --arg branch "${BRANCH_TAG}" \
-              --argjson keep "${KEEP_TAGS_JSON}" '
-              .[]
-              | {id, tags: (.metadata.container.tags // [])}
-              | select((.tags | length) > 0)
-              | select(any(.tags[]; startswith($branch)))
-              | select(all(.tags[]; ($keep | index(.) | not)))
-              | .id
-            ')
-
-            if [ -n "${ids}" ]; then
-              while IFS= read -r id; do
-                [ -z "${id}" ] && continue
-                gh api -X DELETE "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}" || true
-              done <<< "${ids}"
-            fi
-
-            page=$((page + 1))
+            pass=$((pass + 1))
           done
+
+          echo "cleanup done, total deleted=${total_deleted}"
