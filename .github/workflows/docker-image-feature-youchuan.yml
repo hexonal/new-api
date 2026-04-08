@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -117,3 +117,94 @@ jobs:
             -t ${IMAGE_NAME}:${VERSION} \
             ${IMAGE_NAME}:${VERSION}-amd64 \
             ${IMAGE_NAME}:${VERSION}-arm64
+
+      - name: Upsert rolling release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ env.BRANCH_TAG }}
+          RELEASE_TITLE: feature/youchuan-pixverse-kling-o1
+        run: |
+          set -euo pipefail
+          NOTES=$(cat <<EOF
+          自动发布于: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          分支: ${GITHUB_REF_NAME}
+          提交: ${GITHUB_SHA}
+
+          镜像:
+          - ${IMAGE_NAME}:latest
+          - ${IMAGE_NAME}:${BRANCH_TAG}
+          - ${IMAGE_NAME}:${VERSION}
+          EOF
+          )
+
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${RELEASE_TITLE}" \
+              --notes "${NOTES}" \
+              --prerelease
+          else
+            gh release create "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}" \
+              --title "${RELEASE_TITLE}" \
+              --notes "${NOTES}" \
+              --prerelease
+          fi
+
+      - name: Cleanup stale branch package versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE_NAME: ${{ github.event.repository.name }}
+          CURRENT_VERSION: ${{ env.VERSION }}
+          BRANCH_TAG: ${{ env.BRANCH_TAG }}
+        run: |
+          set -euo pipefail
+
+          if gh api "/orgs/${OWNER}" >/dev/null 2>&1; then
+            BASE="/orgs/${OWNER}"
+          else
+            BASE="/users/${OWNER}"
+          fi
+
+          KEEP_TAGS_JSON=$(jq -n \
+            --arg latest "latest" \
+            --arg latest_amd64 "latest-amd64" \
+            --arg latest_arm64 "latest-arm64" \
+            --arg branch "${BRANCH_TAG}" \
+            --arg branch_amd64 "${BRANCH_TAG}-amd64" \
+            --arg branch_arm64 "${BRANCH_TAG}-arm64" \
+            --arg current "${CURRENT_VERSION}" \
+            --arg current_amd64 "${CURRENT_VERSION}-amd64" \
+            --arg current_arm64 "${CURRENT_VERSION}-arm64" \
+            '[$latest,$latest_amd64,$latest_arm64,$branch,$branch_amd64,$branch_arm64,$current,$current_amd64,$current_arm64]')
+
+          page=1
+          while true; do
+            versions=$(gh api "${BASE}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")
+            count=$(echo "${versions}" | jq 'length')
+            if [ "${count}" -eq 0 ]; then
+              break
+            fi
+
+            ids=$(echo "${versions}" | jq -r \
+              --arg branch "${BRANCH_TAG}" \
+              --argjson keep "${KEEP_TAGS_JSON}" '
+              .[]
+              | {id, tags: (.metadata.container.tags // [])}
+              | select((.tags | length) > 0)
+              | select(any(.tags[]; startswith($branch)))
+              | select(all(.tags[]; ($keep | index(.) | not)))
+              | .id
+            ')
+
+            if [ -n "${ids}" ]; then
+              while IFS= read -r id; do
+                [ -z "${id}" ] && continue
+                gh api -X DELETE "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}" || true
+              done <<< "${ids}"
+            fi
+
+            page=$((page + 1))
+          done
