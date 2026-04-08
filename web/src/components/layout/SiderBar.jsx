@@ -99,11 +99,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/key-cost',
       },
       {
-        text: t('素材管理'),
-        itemKey: 'asset',
-        to: '/asset',
-      },
-      {
         text: t('回调日志'),
         itemKey: 'callback',
         to: '/callback',
