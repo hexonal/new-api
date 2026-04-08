@@ -34,6 +34,7 @@ import {
   Space,
   Spin,
   Table,
+  Banner,
 } from '@douyinfe/semi-ui';
 import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
@@ -332,6 +333,7 @@ export default function GroupManagement() {
           step={0.1}
           parser={normalizeDecimalString}
           style={{ width: 120 }}
+          disabled={selectedGroup === 'default'}
           onChange={(val) => {
             const ratio = parseRatioValue(val);
             if (ratio === undefined) {
@@ -353,6 +355,7 @@ export default function GroupManagement() {
           type='danger'
           theme='light'
           size='small'
+          disabled={selectedGroup === 'default'}
           onClick={() => handleRemoveModelRatio(record.model)}
         />
       ),
@@ -476,6 +479,14 @@ export default function GroupManagement() {
                     </Space>
                   </div>
 
+                  {selectedGroup === 'default' && (
+                    <Banner
+                      type='info'
+                      description={t('default 为系统默认分组，不可编辑或删除')}
+                      style={{ marginBottom: 16 }}
+                    />
+                  )}
+
                   {/* Base ratio */}
                   <div style={{ marginBottom: 24 }}>
                     <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
@@ -487,6 +498,7 @@ export default function GroupManagement() {
                       step={0.1}
                       parser={normalizeDecimalString}
                       style={{ width: 200 }}
+                      disabled={selectedGroup === 'default'}
                       onChange={(val) => {
                         const ratio = parseRatioValue(val);
                         if (ratio === undefined) {
@@ -535,6 +547,7 @@ export default function GroupManagement() {
                         filter
                         placeholder={t('选择模型')}
                         value={addModelName}
+                        disabled={selectedGroup === 'default'}
                         onChange={setAddModelName}
                         optionList={availableModelOptions}
                         style={{ width: 300 }}
@@ -546,6 +559,7 @@ export default function GroupManagement() {
                         step={0.1}
                         parser={normalizeDecimalString}
                         style={{ width: 120 }}
+                        disabled={selectedGroup === 'default'}
                         onChange={(val) => {
                           const ratio = parseRatioValue(val);
                           if (ratio === undefined) {
@@ -559,6 +573,7 @@ export default function GroupManagement() {
                         icon={<IconPlus />}
                         theme='light'
                         type='primary'
+                        disabled={selectedGroup === 'default'}
                         onClick={handleAddModelRatio}
                       >
                         {t('添加')}
@@ -573,7 +588,7 @@ export default function GroupManagement() {
                       type='primary'
                       size='large'
                       loading={saving}
-                      disabled={!hasUnsavedChanges || saving}
+                      disabled={!hasUnsavedChanges || saving || selectedGroup === 'default'}
                       onClick={handleSave}
                     >
                       {t('保存')}
