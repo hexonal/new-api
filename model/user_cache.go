@@ -72,6 +72,13 @@ func updateUserCache(user User) error {
 	)
 }
 
+// UpdateUserCachePublic is the exported wrapper for updateUserCache.
+// Used by controllers that manage user updates in transactions and need
+// to refresh cache after commit.
+func UpdateUserCachePublic(user User) error {
+	return updateUserCache(user)
+}
+
 // GetUserCache gets complete user cache from hash
 func GetUserCache(userId int) (userCache *UserBase, err error) {
 	var user *User

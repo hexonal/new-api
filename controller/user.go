@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type LoginRequest struct {
@@ -576,19 +577,63 @@ func UpdateUser(c *gin.Context) {
 		updatedUser.Password = "" // rollback to what it should be
 	}
 	updatePassword := updatedUser.Password != ""
-	if err := updatedUser.Edit(updatePassword); err != nil {
-		common.ApiError(c, err)
-		return
-	}
+	groupChanged := originUser.Group != updatedUser.Group
 
-	// Only update pricing_group if it was explicitly provided in the request body
+	// Check if pricing_group was explicitly provided in the request body
+	var pricingGroupProvided bool
 	var rawFields map[string]json.RawMessage
 	if err := common.Unmarshal(bodyBytes, &rawFields); err == nil {
-		if _, exists := rawFields["pricing_group"]; exists {
-			if err := updatedUser.EditPricingGroup(updatedUser.PricingGroup); err != nil {
-				common.ApiError(c, err)
-				return
+		_, pricingGroupProvided = rawFields["pricing_group"]
+	}
+
+	var syncedTokenCount int
+	var tokenKeysToInvalidate []string
+
+	// Use transaction when group changes or pricing_group is provided to ensure atomicity
+	needsTx := groupChanged || pricingGroupProvided
+	if needsTx {
+		err := model.DB.Transaction(func(tx *gorm.DB) error {
+			if err := updatedUser.EditWithTx(tx, updatePassword); err != nil {
+				return err
 			}
+			// Sync tokens with explicit old group
+			if groupChanged && originUser.Group != "" {
+				count, keys, syncErr := model.SyncTokenGroupByUserId(tx, updatedUser.Id, originUser.Group, updatedUser.Group)
+				if syncErr != nil {
+					return fmt.Errorf("令牌分组同步失败：%w", syncErr)
+				}
+				syncedTokenCount = count
+				tokenKeysToInvalidate = keys
+			}
+			// Update pricing_group within the same transaction
+			if pricingGroupProvided {
+				if err := tx.Model(&model.User{}).Where("id = ?", updatedUser.Id).Update("pricing_group", updatedUser.PricingGroup).Error; err != nil {
+					return fmt.Errorf("定价分组更新失败：%w", err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		// Post-commit: re-read full user from DB to cache canonical data (not sparse request DTO)
+		freshUser, err := model.GetUserById(updatedUser.Id, false)
+		if err != nil {
+			common.SysError(fmt.Sprintf("user re-read failed after update for user %d: %s", updatedUser.Id, err.Error()))
+		} else {
+			if cacheErr := model.UpdateUserCachePublic(*freshUser); cacheErr != nil {
+				common.SysError(fmt.Sprintf("user cache refresh failed for user %d: %s", updatedUser.Id, cacheErr.Error()))
+			}
+		}
+		model.InvalidateTokenKeys(tokenKeysToInvalidate)
+		if syncedTokenCount > 0 {
+			common.SysLog(fmt.Sprintf("synced %d token(s) group from %s to %s for user %d", syncedTokenCount, originUser.Group, updatedUser.Group, updatedUser.Id))
+		}
+	} else {
+		if err := updatedUser.Edit(updatePassword); err != nil {
+			common.ApiError(c, err)
+			return
 		}
 	}
 

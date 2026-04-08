@@ -214,6 +214,34 @@ func UpdateGroupPricingOption(c *gin.Context) {
 			return
 		}
 
+		// Check if any users are bound to this group
+		var boundUserCount int64
+		if err := model.DB.Model(&model.User{}).Where(model.CommonGroupCol()+" = ?", req.Group).Count(&boundUserCount).Error; err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("查询分组用户失败: %v", err)})
+			return
+		}
+		if boundUserCount > 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("该分组下仍有 %d 个用户，请先将用户迁移到其他分组后再删除", boundUserCount),
+			})
+			return
+		}
+
+		// Check if any tokens are bound to this group
+		var boundTokenCount int64
+		if err := model.DB.Model(&model.Token{}).Where(model.CommonGroupCol()+" = ?", req.Group).Count(&boundTokenCount).Error; err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("查询分组令牌失败: %v", err)})
+			return
+		}
+		if boundTokenCount > 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("该分组下仍有 %d 个令牌(Token)，请先将令牌迁移到其他分组后再删除", boundTokenCount),
+			})
+			return
+		}
+
 		groupRatio := ratio_setting.GetGroupRatioCopy()
 		delete(groupRatio, req.Group)
 		groupModelRatio := ratio_setting.GetGroupModelRatioCopy()

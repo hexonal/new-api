@@ -500,3 +500,52 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 func (token *Token) InsertWithTx(tx *gorm.DB) error {
 	return tx.Create(token).Error
 }
+
+// SyncTokenGroupByUserId updates all tokens of a user whose group matches oldGroup
+// to newGroup. Tokens with empty group are skipped (they inherit user.group at runtime).
+// If tx is nil, uses the global DB handle.
+// Returns (count, affected token keys for cache invalidation, error).
+// IMPORTANT: When called inside a transaction, the caller MUST invoke
+// InvalidateTokenKeys after commit to avoid stale cache race conditions.
+func SyncTokenGroupByUserId(tx *gorm.DB, userId int, oldGroup, newGroup string) (int, []string, error) {
+	if oldGroup == "" || oldGroup == newGroup {
+		return 0, nil, nil
+	}
+	if tx == nil {
+		tx = DB
+	}
+
+	var tokens []Token
+	if err := tx.Where("user_id = ? AND "+commonGroupCol+" = ?", userId, oldGroup).Find(&tokens).Error; err != nil {
+		return 0, nil, err
+	}
+	if len(tokens) == 0 {
+		return 0, nil, nil
+	}
+
+	if err := tx.Model(&Token{}).
+		Where("user_id = ? AND "+commonGroupCol+" = ?", userId, oldGroup).
+		Update(commonGroupCol, newGroup).Error; err != nil {
+		return 0, nil, err
+	}
+
+	keys := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		keys = append(keys, t.Key)
+	}
+
+	return len(tokens), keys, nil
+}
+
+// InvalidateTokenKeys deletes token cache entries for the given keys.
+// Call this AFTER transaction commit to avoid stale cache race conditions.
+func InvalidateTokenKeys(keys []string) {
+	if !common.RedisEnabled || len(keys) == 0 {
+		return
+	}
+	for _, key := range keys {
+		if err := cacheDeleteToken(key); err != nil {
+			common.SysError(fmt.Sprintf("token cache invalidation failed for key: %s", err.Error()))
+		}
+	}
+}

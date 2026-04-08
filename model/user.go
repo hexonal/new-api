@@ -512,6 +512,12 @@ func (user *User) Update(updatePassword bool) error {
 }
 
 func (user *User) Edit(updatePassword bool) error {
+	return user.EditWithTx(DB, updatePassword)
+}
+
+// EditWithTx performs user edit using the provided DB handle (supports transactions).
+// Cache update is skipped when using a transaction — caller must update cache after commit.
+func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 	var err error
 	if updatePassword {
 		user.Password, err = common.Password2Hash(user.Password)
@@ -532,13 +538,17 @@ func (user *User) Edit(updatePassword bool) error {
 		updates["password"] = newUser.Password
 	}
 
-	DB.First(&user, user.Id)
-	if err = DB.Model(user).Updates(updates).Error; err != nil {
+	tx.First(&user, user.Id)
+	if err = tx.Model(user).Updates(updates).Error; err != nil {
 		return err
 	}
 
-	// Update cache
-	return updateUserCache(*user)
+	// Update cache only when using global DB (non-transactional).
+	// Transactional callers must call updateUserCache after commit.
+	if tx == DB {
+		return updateUserCache(*user)
+	}
+	return nil
 }
 
 // EditPricingGroup updates the pricing_group field explicitly.
