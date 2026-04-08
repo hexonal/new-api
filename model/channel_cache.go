@@ -1,7 +1,9 @@
 package model
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
