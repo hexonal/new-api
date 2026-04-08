@@ -15,11 +15,11 @@ func TestResolveAssetBillingGroups(t *testing.T) {
 		wantPricing   string
 	}{
 		{
-			name:        "prefer token group when present",
+			name:        "prefer using group when present",
 			token:       &model.Token{Group: "shizeying"},
 			userGroup:   "default",
-			wantGroup:   "shizeying",
-			wantPricing: "shizeying",
+			wantGroup:   "default",
+			wantPricing: "default",
 		},
 		{
 			name:        "fallback to user group when token group empty",
@@ -56,4 +56,3 @@ func TestResolveAssetBillingGroups(t *testing.T) {
 		})
 	}
 }
-

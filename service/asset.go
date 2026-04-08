@@ -18,12 +18,9 @@ import (
 const defaultAssetModel = "ima-pro-upload"
 
 func resolveAssetBillingGroups(token *model.Token, userGroup string) (string, string) {
-	group := ""
-	if token != nil {
+	group := strings.TrimSpace(userGroup)
+	if group == "" && token != nil {
 		group = strings.TrimSpace(token.Group)
-	}
-	if group == "" {
-		group = strings.TrimSpace(userGroup)
 	}
 	if group == "" {
 		group = "default"
@@ -488,7 +485,6 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, userGro
 		model.UpdateUserUsedQuotaAndRequestCount(userID, quota)
 		model.UpdateChannelUsedQuota(channel.Id, quota)
 		modelPrice := float64(quota) / float64(common.QuotaPerUnit)
-		userGroup, _ := model.GetUserGroup(userID, false)
 		billingGroup, pricingGroup := resolveAssetBillingGroups(token, userGroup)
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 			UserId:    userID,

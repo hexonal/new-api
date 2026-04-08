@@ -2,10 +2,18 @@ package controller
 
 import (
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
+
+func getAssetUsingGroup(c *gin.Context) string {
+	if g := common.GetContextKeyString(c, constant.ContextKeyUsingGroup); g != "" {
+		return g
+	}
+	return c.GetString("group")
+}
 
 func CreateAssetGroup(c *gin.Context) {
 	var req dto.AssetGroupCreateRequest
@@ -13,7 +21,7 @@ func CreateAssetGroup(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleCreateAssetGroup(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
+	data, err := service.HandleCreateAssetGroup(c.Request.Context(), c.GetInt("id"), c.GetString("username"), getAssetUsingGroup(c), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -27,7 +35,7 @@ func ListAssetGroups(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleListAssetGroups(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
+	data, err := service.HandleListAssetGroups(c.Request.Context(), c.GetInt("id"), c.GetString("username"), getAssetUsingGroup(c), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -73,7 +81,7 @@ func CreateAsset(c *gin.Context) {
 	if req.BillingTokenID > 0 {
 		preferredTokenID = req.BillingTokenID
 	}
-	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), preferredTokenID, c.GetString("token_name"), req)
+	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), getAssetUsingGroup(c), preferredTokenID, c.GetString("token_name"), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -87,7 +95,7 @@ func ListAssets(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	data, err := service.HandleListAssets(c.Request.Context(), c.GetInt("id"), c.GetString("username"), c.GetString("group"), req)
+	data, err := service.HandleListAssets(c.Request.Context(), c.GetInt("id"), c.GetString("username"), getAssetUsingGroup(c), req)
 	if err != nil {
 		common.ApiError(c, err)
 		return
