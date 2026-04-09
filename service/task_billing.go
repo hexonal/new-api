@@ -51,12 +51,19 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	other := make(map[string]interface{})
 	other["request_path"] = c.Request.URL.Path
 	other["model_price"] = info.PriceData.ModelPrice
+	other["model_ratio"] = info.PriceData.ModelRatio
+	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	}
+	if len(info.PriceData.OtherRatios) > 0 {
+		for key, value := range info.PriceData.OtherRatios {
+			other[key] = value
+		}
 	}
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
@@ -86,12 +93,19 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 	other := make(map[string]interface{})
 	other["request_path"] = c.Request.URL.Path
 	other["model_price"] = info.PriceData.ModelPrice
+	other["model_ratio"] = info.PriceData.ModelRatio
+	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	}
+	if len(info.PriceData.OtherRatios) > 0 {
+		for key, value := range info.PriceData.OtherRatios {
+			other[key] = value
+		}
 	}
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
@@ -179,6 +193,12 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
 		other["group_ratio"] = bc.GroupRatio
+		other["model_ratio"] = bc.ModelRatio
+		if bc.CompletionRatio > 0 {
+			other["completion_ratio"] = bc.CompletionRatio
+		} else {
+			other["completion_ratio"] = ratio_setting.GetCompletionRatio(taskModelName(task))
+		}
 		if strings.TrimSpace(bc.GroupRatioSource) != "" {
 			other["group_ratio_source"] = bc.GroupRatioSource
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
@@ -13,8 +14,10 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"github.com/go-redis/redis/v8"
+	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -231,6 +234,112 @@ func setupRedisForTest(t *testing.T) *redis.Client {
 	common.RedisEnabled = true
 	common.RDB = client
 	return client
+}
+
+func buildTaskBillingTestContext(path string) *gin.Context {
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, path, nil)
+	ctx.Set("username", "test_user")
+	ctx.Set("token_name", "test_token")
+	ctx.Set(common.RequestIdKey, "req_test_task_billing")
+	return ctx
+}
+
+func TestLogTaskConsumption_StoresTokenBillingFieldsInOther(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/video/generations")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "viduq1",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId: 1,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: false,
+		},
+		PriceData: types.PriceData{
+			ModelPrice:      0,
+			ModelRatio:      2.0,
+			CompletionRatio: 1.0,
+			OtherRatios:     map[string]float64{"seconds": 5},
+			Quota:           500,
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 1.0, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	require.Equal(t, 500, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, float64(2.0), other["model_ratio"])
+	assert.Equal(t, float64(1.0), other["completion_ratio"])
+	assert.Equal(t, float64(1.0), other["group_ratio"])
+	assert.Equal(t, "group_model", other["group_ratio_source"])
+	assert.Equal(t, float64(5), other["seconds"])
+}
+
+func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/videos")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "seedance-2.0",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId: 1,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: false,
+			DeferredSettle: true,
+		},
+		PriceData: types.PriceData{
+			ModelPrice:      0,
+			ModelRatio:      3.5,
+			CompletionRatio: 1.0,
+			OtherRatios:     map[string]float64{"seconds": 5, "size": 1},
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 0.6, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogDeferredTaskSubmission(ctx, info, 5250, "task_abc")
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	require.Equal(t, 0, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, float64(3.5), other["model_ratio"])
+	assert.Equal(t, float64(1.0), other["completion_ratio"])
+	assert.Equal(t, float64(0.6), other["group_ratio"])
+	assert.Equal(t, "group_model", other["group_ratio_source"])
+	assert.Equal(t, float64(5), other["seconds"])
+	assert.Equal(t, float64(1), other["size"])
+	assert.Equal(t, true, other["deferred_settle"])
+	assert.Equal(t, float64(5250), other["estimated_quota"])
+	assert.Equal(t, "task_abc", other["task_id"])
 }
 
 // ===========================================================================
