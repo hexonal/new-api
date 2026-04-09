@@ -28,7 +28,12 @@ import {
   Search,
 } from 'lucide-react';
 import { useModelPricingData } from '../../../hooks/model-pricing/useModelPricingData';
-import { calculateModelPrice, getLobeHubIcon, stringToColor } from '../../../helpers';
+import {
+  calculateModelPrice,
+  getLobeHubIcon,
+  getModelPriceItems,
+  stringToColor,
+} from '../../../helpers';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../../primitives/accordion';
 import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
@@ -187,20 +192,6 @@ const parseNumericPrice = (value) => {
     return 0;
   }
   return parsed;
-};
-
-const buildPriceItems = (priceData, t) => {
-  const items = [
-    { key: 'inputPrice', label: t('输入价格'), value: priceData?.inputPrice },
-    { key: 'completionPrice', label: t('补全价格'), value: priceData?.completionPrice },
-    { key: 'cachePrice', label: t('缓存读取'), value: priceData?.cachePrice },
-    { key: 'createCachePrice', label: t('缓存写入'), value: priceData?.createCachePrice },
-    { key: 'thoughtPrice', label: t('推理价格'), value: priceData?.thoughtPrice },
-    { key: 'imagePrice', label: t('图片价格'), value: priceData?.imagePrice },
-    { key: 'audioInputPrice', label: t('音频输入'), value: priceData?.audioInputPrice },
-    { key: 'audioOutputPrice', label: t('音频输出'), value: priceData?.audioOutputPrice },
-  ];
-  return items.filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
 };
 
 const getProviderName = (model) => model?.vendor_name || 'Unknown';
@@ -689,7 +680,7 @@ const ModelsExplorerPage = () => {
                   currency: 'USD',
                   quotaDisplayType: 'USD',
                 });
-                const priceItems = buildPriceItems(priceData, t);
+                const priceItems = getModelPriceItems(priceData, t, 'USD');
                 return (
                   <div
                     key={model.key || model.model_name || index}
@@ -730,7 +721,10 @@ const ModelsExplorerPage = () => {
                               className='rounded-lg border border-border bg-muted/20 px-3 py-2'
                             >
                               <p className='text-xs text-muted-foreground'>{item.label}</p>
-                              <p className='text-sm font-semibold'>{item.value} / 1M Tokens</p>
+                              <p className='text-sm font-semibold'>
+                                {item.value}
+                                {item.suffix || ''}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -781,7 +775,7 @@ const ModelsExplorerPage = () => {
                   currency: 'USD',
                   quotaDisplayType: 'USD',
                 });
-                const priceItems = buildPriceItems(priceData, t);
+                const priceItems = getModelPriceItems(priceData, t, 'USD');
                 const tags = parseTags(model.tags);
                 return (
                   <Card
@@ -816,7 +810,10 @@ const ModelsExplorerPage = () => {
                             className='rounded-md border border-border p-2'
                           >
                             <div className='text-xs text-muted-foreground'>{item.label}</div>
-                            <div className='font-semibold'>{item.value} / 1M Tokens</div>
+                            <div className='font-semibold'>
+                              {item.value}
+                              {item.suffix || ''}
+                            </div>
                           </div>
                         ))}
                       </div>
