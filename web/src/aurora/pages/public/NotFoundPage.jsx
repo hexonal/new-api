@@ -18,23 +18,23 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
-const AuroraShell = () => {
+const NotFoundPage = () => {
+  const { t } = useTranslation();
+
   return (
-    <AuroraLayout>
-      <LegacyApp isAuroraTheme />
-    </AuroraLayout>
+    <div className='aurora-notfound-page'>
+      <div className='aurora-notfound-code'>404</div>
+      <h1>{t('Page not found')}</h1>
+      <p>{t('页面不存在，可能已被移除或地址输入有误')}</p>
+      <Link to='/' className='aurora-btn aurora-btn-primary'>
+        {t('返回首页')}
+      </Link>
+    </div>
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default NotFoundPage;
+

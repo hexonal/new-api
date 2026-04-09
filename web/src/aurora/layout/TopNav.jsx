@@ -50,7 +50,7 @@ const buildDisplayName = (user) => {
   return user.email || 'User';
 };
 
-const TopNav = ({ onMobileMenu }) => {
+const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
   const { t } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
@@ -85,14 +85,16 @@ const TopNav = ({ onMobileMenu }) => {
     <header className='aurora-top-nav'>
       <div className='aurora-top-nav-inner'>
         <div className='aurora-top-nav-left'>
-          <button
-            type='button'
-            className='aurora-top-nav-menu-btn'
-            onClick={onMobileMenu}
-            aria-label='Open navigation'
-          >
-            <Menu size={20} />
-          </button>
+          {showMobileMenu ? (
+            <button
+              type='button'
+              className='aurora-top-nav-menu-btn'
+              onClick={onMobileMenu}
+              aria-label='Open navigation'
+            >
+              <Menu size={20} />
+            </button>
+          ) : null}
 
           <Link to='/' className='aurora-brand' aria-label={getSystemName() || 'Home'}>
             <LayoutDashboard size={20} />

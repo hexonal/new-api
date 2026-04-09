@@ -68,7 +68,7 @@ const buildBreadcrumb = (path) => {
   ];
 };
 
-const PageShell = ({ children }) => {
+const PageShell = ({ children, showChrome = true }) => {
   const location = useLocation();
   const breadcrumb = useMemo(
     () => buildBreadcrumb(location.pathname),
@@ -79,6 +79,10 @@ const PageShell = ({ children }) => {
     if (location.pathname.startsWith('/console/chat/')) return 'Chat';
     return titleMap[location.pathname] || 'IMA Router';
   }, [location.pathname]);
+
+  if (!showChrome) {
+    return <div className='aurora-page-shell-plain'>{children}</div>;
+  }
 
   return (
     <div className='aurora-page-shell'>

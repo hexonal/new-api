@@ -18,23 +18,27 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { createPortal } from 'react-dom';
+import TwoFAVerification from '../../../components/auth/TwoFAVerification';
+import { useTranslation } from 'react-i18next';
 
-const AuroraShell = () => {
-  return (
-    <AuroraLayout>
-      <LegacyApp isAuroraTheme />
-    </AuroraLayout>
+const TwoFactorOverlay = ({ onSuccess, onBack, open = false }) => {
+  const { t } = useTranslation();
+
+  if (!open) {
+    return null;
+  }
+
+  return createPortal(
+    <div className='aurora-2fa-overlay'>
+      <div className='aurora-2fa-overlay-card'>
+        <h3>{t('两步验证')}</h3>
+        <p>{t('请输入 6 位验证码或 8 位备用码完成登录')}</p>
+        <TwoFAVerification onSuccess={onSuccess} onBack={onBack} isModal />
+      </div>
+    </div>,
+    document.body,
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default TwoFactorOverlay;

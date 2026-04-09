@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
@@ -30,11 +31,28 @@ const getCompactMode = () => {
 };
 
 const AuroraLayout = ({ children }) => {
+  const location = useLocation();
   const isCompact = getCompactMode();
   const collapsed = useSidebarStore((state) => state.collapsed);
   const setCollapsed = useSidebarStore((state) => state.setCollapsed);
   const mobileOpen = useSidebarStore((state) => state.mobileOpen);
   const setMobileOpen = useSidebarStore((state) => state.setMobileOpen);
+  const pathname = location.pathname || '';
+
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname === '/reset' ||
+    pathname === '/user/reset' ||
+    pathname === '/pricing' ||
+    pathname === '/forbidden' ||
+    pathname === '/about' ||
+    pathname === '/privacy-policy' ||
+    pathname === '/user-agreement' ||
+    pathname.startsWith('/oauth');
+
+  const showNavigationShell = !isPublicRoute;
 
   useEffect(() => {
     const onResize = () => {
@@ -59,26 +77,37 @@ const AuroraLayout = ({ children }) => {
         onMobileMenu={() => {
           setMobileOpen(true);
         }}
+        showMobileMenu={showNavigationShell}
       />
 
       <div className='aurora-body-shell'>
-        {!isCompact && (
+        {!isCompact && showNavigationShell && (
           <aside className={`aurora-side-pane ${collapsed ? 'collapsed' : ''}`}>
             <Sidebar />
           </aside>
         )}
 
-        <main className={`aurora-content ${!isCompact ? (collapsed ? 'compact' : '') : ''}`}>
-          <PageShell>{children}</PageShell>
+        <main
+          className={[
+            'aurora-content',
+            !isCompact && showNavigationShell && collapsed ? 'compact' : '',
+            !showNavigationShell ? 'aurora-public-content' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <PageShell showChrome={showNavigationShell}>{children}</PageShell>
         </main>
       </div>
 
-      <MobileNav
-        open={mobileOpen}
-        onOpenChange={(open) => {
-          setMobileOpen(open);
-        }}
-      />
+      {showNavigationShell && (
+        <MobileNav
+          open={mobileOpen}
+          onOpenChange={(open) => {
+            setMobileOpen(open);
+          }}
+        />
+      )}
     </div>
   );
 };

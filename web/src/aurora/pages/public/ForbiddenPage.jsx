@@ -18,23 +18,23 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
-const AuroraShell = () => {
+const ForbiddenPage = () => {
+  const { t } = useTranslation();
+
   return (
-    <AuroraLayout>
-      <LegacyApp isAuroraTheme />
-    </AuroraLayout>
+    <div className='aurora-notfound-page'>
+      <div className='aurora-notfound-code'>403</div>
+      <h1>{t('Access denied')}</h1>
+      <p>{t('您无权访问该页面，请联系管理员')}</p>
+      <Link to='/' className='aurora-btn aurora-btn-primary'>
+        {t('返回首页')}
+      </Link>
+    </div>
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default ForbiddenPage;
+

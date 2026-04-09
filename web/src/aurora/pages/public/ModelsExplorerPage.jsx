@@ -18,23 +18,22 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { useTranslation } from 'react-i18next';
+import PricingPage from '../../../components/table/model-pricing/layout/PricingPage';
 
-const AuroraShell = () => {
+const ModelsExplorerPage = () => {
+  const { t } = useTranslation();
+
   return (
-    <AuroraLayout>
-      <LegacyApp isAuroraTheme />
-    </AuroraLayout>
+    <div className='aurora-pricing-page'>
+      <div className='aurora-pricing-header'>
+        <h1>{t('模型价格一览')}</h1>
+        <p>{t('按供应商、端点和计费方式筛选模型，并查看定价、上下文与能力')}</p>
+      </div>
+      <PricingPage />
+    </div>
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default ModelsExplorerPage;
+

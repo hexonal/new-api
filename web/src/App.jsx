@@ -52,6 +52,13 @@ import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
 import SetupCheck from './components/layout/SetupCheck';
+import LandingPage from './aurora/pages/public/LandingPage';
+import LoginPage from './aurora/pages/public/LoginPage';
+import RegisterPage from './aurora/pages/public/RegisterPage';
+import ResetPasswordPage from './aurora/pages/public/ResetPasswordPage';
+import ModelsExplorerPage from './aurora/pages/public/ModelsExplorerPage';
+import NotFoundPage from './aurora/pages/public/NotFoundPage';
+import ForbiddenPage from './aurora/pages/public/ForbiddenPage';
 
 const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -67,7 +74,7 @@ function DynamicOAuth2Callback() {
   return <OAuth2Callback type={provider} />;
 }
 
-export function LegacyApp() {
+export function LegacyApp({ isAuroraTheme = false }) {
   const location = useLocation();
   const [statusState] = useContext(StatusContext);
 
@@ -100,7 +107,7 @@ export function LegacyApp() {
           path='/'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <Home />
+              {isAuroraTheme ? <LandingPage /> : <Home />}
             </Suspense>
           }
         />
@@ -112,7 +119,14 @@ export function LegacyApp() {
             </Suspense>
           }
         />
-        <Route path='/forbidden' element={<Forbidden />} />
+        <Route
+          path='/forbidden'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              {isAuroraTheme ? <ForbiddenPage /> : <Forbidden />}
+            </Suspense>
+          }
+        />
         <Route
           path='/console/models'
           element={
@@ -191,7 +205,7 @@ export function LegacyApp() {
           path='/user/reset'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <PasswordResetConfirm />
+              {isAuroraTheme ? <ResetPasswordPage /> : <PasswordResetConfirm />}
             </Suspense>
           }
         />
@@ -199,9 +213,13 @@ export function LegacyApp() {
           path='/login'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <AuthRedirect>
-                <LoginForm />
-              </AuthRedirect>
+              {isAuroraTheme ? (
+                <LoginPage />
+              ) : (
+                <AuthRedirect>
+                  <LoginForm />
+                </AuthRedirect>
+              )}
             </Suspense>
           }
         />
@@ -209,9 +227,13 @@ export function LegacyApp() {
           path='/register'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <AuthRedirect>
-                <RegisterForm />
-              </AuthRedirect>
+              {isAuroraTheme ? (
+                <RegisterPage />
+              ) : (
+                <AuthRedirect>
+                  <RegisterForm />
+                </AuthRedirect>
+              )}
             </Suspense>
           }
         />
@@ -219,7 +241,7 @@ export function LegacyApp() {
           path='/reset'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <PasswordResetForm />
+              {isAuroraTheme ? <ResetPasswordPage /> : <PasswordResetForm />}
             </Suspense>
           }
         />
@@ -362,7 +384,9 @@ export function LegacyApp() {
         <Route
           path='/pricing'
           element={
-            pricingRequireAuth ? (
+            isAuroraTheme ? (
+              <ModelsExplorerPage />
+            ) : pricingRequireAuth ? (
               <PrivateRoute>
                 <Suspense
                   fallback={<Loading></Loading>}
@@ -421,7 +445,14 @@ export function LegacyApp() {
             </PrivateRoute>
           }
         />
-        <Route path='*' element={<NotFound />} />
+        <Route
+          path='*'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              {isAuroraTheme ? <NotFoundPage /> : <NotFound />}
+            </Suspense>
+          }
+        />
       </Routes>
     </SetupCheck>
   );
