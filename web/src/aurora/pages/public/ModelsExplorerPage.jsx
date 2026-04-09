@@ -189,6 +189,20 @@ const parseNumericPrice = (value) => {
   return parsed;
 };
 
+const buildPriceItems = (priceData, t) => {
+  const items = [
+    { key: 'inputPrice', label: t('输入价格'), value: priceData?.inputPrice },
+    { key: 'completionPrice', label: t('补全价格'), value: priceData?.completionPrice },
+    { key: 'cachePrice', label: t('缓存读取'), value: priceData?.cachePrice },
+    { key: 'createCachePrice', label: t('缓存写入'), value: priceData?.createCachePrice },
+    { key: 'thoughtPrice', label: t('推理价格'), value: priceData?.thoughtPrice },
+    { key: 'imagePrice', label: t('图片价格'), value: priceData?.imagePrice },
+    { key: 'audioInputPrice', label: t('音频输入'), value: priceData?.audioInputPrice },
+    { key: 'audioOutputPrice', label: t('音频输出'), value: priceData?.audioOutputPrice },
+  ];
+  return items.filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
+};
+
 const getProviderName = (model) => model?.vendor_name || 'Unknown';
 const PROVIDER_ICON_FALLBACK = {
   OpenAI: 'OpenAI',
@@ -675,6 +689,7 @@ const ModelsExplorerPage = () => {
                   currency: 'USD',
                   quotaDisplayType: 'USD',
                 });
+                const priceItems = buildPriceItems(priceData, t);
                 return (
                   <div
                     key={model.key || model.model_name || index}
@@ -708,19 +723,16 @@ const ModelsExplorerPage = () => {
                           {model.description || '-'}
                         </p>
 
-                        <div className='mt-3 grid max-w-[520px] grid-cols-1 gap-2 md:grid-cols-2'>
-                          <div className='rounded-lg border border-border bg-muted/20 px-3 py-2'>
-                            <p className='text-xs text-muted-foreground'>{t('输入价格')}</p>
-                            <p className='text-sm font-semibold'>
-                              {priceData?.inputPrice || '-'} / 1M Tokens
-                            </p>
-                          </div>
-                          <div className='rounded-lg border border-border bg-muted/20 px-3 py-2'>
-                            <p className='text-xs text-muted-foreground'>{t('补全价格')}</p>
-                            <p className='text-sm font-semibold'>
-                              {priceData?.completionPrice || '-'} / 1M Tokens
-                            </p>
-                          </div>
+                        <div className='mt-3 flex flex-wrap gap-2'>
+                          {priceItems.map((item) => (
+                            <div
+                              key={`${model.model_name}-${item.key}`}
+                              className='rounded-lg border border-border bg-muted/20 px-3 py-2'
+                            >
+                              <p className='text-xs text-muted-foreground'>{item.label}</p>
+                              <p className='text-sm font-semibold'>{item.value} / 1M Tokens</p>
+                            </div>
+                          ))}
                         </div>
 
                         <p className='mt-2 text-xs text-muted-foreground'>
@@ -769,6 +781,7 @@ const ModelsExplorerPage = () => {
                   currency: 'USD',
                   quotaDisplayType: 'USD',
                 });
+                const priceItems = buildPriceItems(priceData, t);
                 const tags = parseTags(model.tags);
                 return (
                   <Card
@@ -796,15 +809,16 @@ const ModelsExplorerPage = () => {
                         </Button>
                       </div>
 
-                      <div className='grid grid-cols-2 gap-2 text-sm'>
-                        <div className='rounded-md border border-border p-2'>
-                          <div className='text-xs text-muted-foreground'>Input</div>
-                          <div className='font-semibold'>{priceData?.inputPrice || '-'}</div>
-                        </div>
-                        <div className='rounded-md border border-border p-2'>
-                          <div className='text-xs text-muted-foreground'>Output</div>
-                          <div className='font-semibold'>{priceData?.completionPrice || '-'}</div>
-                        </div>
+                      <div className='grid grid-cols-1 gap-2 text-sm sm:grid-cols-2'>
+                        {priceItems.map((item) => (
+                          <div
+                            key={`${model.model_name}-grid-${item.key}`}
+                            className='rounded-md border border-border p-2'
+                          >
+                            <div className='text-xs text-muted-foreground'>{item.label}</div>
+                            <div className='font-semibold'>{item.value} / 1M Tokens</div>
+                          </div>
+                        ))}
                       </div>
 
                       <p className='line-clamp-2 text-xs text-muted-foreground'>
