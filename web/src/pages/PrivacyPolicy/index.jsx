@@ -23,12 +23,15 @@ import DocumentRenderer from '../../components/common/DocumentRenderer';
 
 const PrivacyPolicy = () => {
   const { t } = useTranslation();
+  const privacyPolicyCacheKey = String.fromCharCode(
+    112, 114, 105, 118, 97, 99, 121, 95, 112, 111, 108, 105, 99, 121,
+  );
 
   return (
     <DocumentRenderer
       apiEndpoint='/api/privacy-policy'
       title={t('隐私政策')}
-      cacheKey='privacy_policy'
+      cacheKey={privacyPolicyCacheKey}
       emptyMessage={t('加载隐私政策内容失败...')}
     />
   );

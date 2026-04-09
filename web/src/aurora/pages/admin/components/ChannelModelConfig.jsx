@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
@@ -27,22 +28,23 @@ export default function ChannelModelConfig({
   onChange,
   disabled = false,
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型配置</CardTitle>
-        <CardDescription>默认模型和可选模型入口</CardDescription>
+        <CardTitle className='text-base'>{t('模型配置')}</CardTitle>
+        <CardDescription>{t('默认模型和可选模型入口')}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-2 text-sm'>
         <label className='block'>
-          <div className='mb-1 text-muted-foreground'>默认模型</div>
+          <div className='mb-1 text-muted-foreground'>{t('默认模型')}</div>
           <select
             className='h-9 rounded border border-input bg-background px-3 w-full'
             value={model}
             disabled={disabled}
             onChange={(e) => onChange?.(e.target.value)}
           >
-            <option value=''>请选择</option>
+            <option value=''>{t('请选择')}</option>
             {models.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -50,7 +52,7 @@ export default function ChannelModelConfig({
             ))}
           </select>
         </label>
-        <div className='text-muted-foreground'>模型数量：{models.length}</div>
+        <div className='text-muted-foreground'>{t('模型数量：')}{models.length}</div>
       </CardContent>
     </Card>
   );

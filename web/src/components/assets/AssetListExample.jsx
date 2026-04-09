@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Table,
@@ -48,6 +49,7 @@ import { showError, showSuccess, copy } from '@/helpers';
  * 演示如何使用 API 服务层和自定义 Hook
  */
 function AssetListExample() {
+  const { t } = useTranslation();
   // 1. 使用 useAssetList Hook 处理数据加载和状态管理
   const {
     assets,
@@ -183,21 +185,21 @@ function AssetListExample() {
       ),
     },
     {
-      title: '大小',
+      title: t('大小'),
       dataIndex: 'metadata.size',
       key: 'size',
       width: '10%',
       render: (text) => (text ? `${(text / 1024 / 1024).toFixed(2)} MB` : '-'),
     },
     {
-      title: '创建时间',
+      title: t('创建时间'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: '15%',
       render: (text) => new Date(text).toLocaleDateString(),
     },
     {
-      title: '操作',
+      title: t('操作'),
       key: 'actions',
       width: '20%',
       render: (_, record) => (
@@ -208,7 +210,7 @@ function AssetListExample() {
             icon={<Edit size={14} />}
             onClick={() => handleEdit(record)}
           >
-            编辑
+            {t('编辑')}
           </Button>
           <Button
             type="tertiary"
@@ -216,7 +218,7 @@ function AssetListExample() {
             icon={<Copy size={14} />}
             onClick={() => handleShare(record)}
           >
-            分享
+            {t('分享')}
           </Button>
           <Button
             type="danger"
@@ -225,7 +227,7 @@ function AssetListExample() {
             icon={<Delete size={14} />}
             onClick={() => handleDelete(record.id)}
           >
-            删除
+            {t('删除')}
           </Button>
         </Space>
       ),
@@ -234,12 +236,12 @@ function AssetListExample() {
 
   // 10. 渲染
   return (
-    <Card title="素材管理" style={{ margin: '20px' }}>
+    <Card title={t('素材管理')} style={{ margin: '20px' }}>
       {/* 搜索栏 */}
       <Row gutter={16} style={{ marginBottom: '20px' }}>
         <Col span={12}>
           <Input.Search
-            placeholder="搜索素材名称"
+            placeholder={t('搜索素材名称')}
             value={searchText}
             onChange={(e) => handleSearch(e.target.value)}
             enterButton
@@ -254,8 +256,8 @@ function AssetListExample() {
       {/* 错误状态 */}
       {error && !loading && (
         <Empty
-          image="error"
-          title="加载失败"
+          image={t('error')}
+          title={t('加载失败')}
           description={error}
           style={{ paddingTop: '50px', paddingBottom: '50px' }}
         />
@@ -290,16 +292,16 @@ function AssetListExample() {
       {/* 空状态 */}
       {!loading && !error && assets.length === 0 && (
         <Empty
-          image="empty"
-          title="没有素材"
-          description="还没有创建任何素材"
+          image={t('empty')}
+          title={t('没有素材')}
+          description={t('还没有创建任何素材')}
           style={{ paddingTop: '50px', paddingBottom: '50px' }}
         />
       )}
 
       {/* 编辑对话框 */}
       <Modal
-        title="编辑素材"
+        title={t('编辑素材')}
         visible={editModalVisible}
         onOk={handleSaveEdit}
         onCancel={() => setEditModalVisible(false)}
@@ -308,7 +310,7 @@ function AssetListExample() {
         <Form layout="vertical">
           <Form.Input
             field="name"
-            label="素材名称"
+            label={t('素材名称')}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
           />
@@ -317,12 +319,12 @@ function AssetListExample() {
 
       {/* 分享链接对话框 */}
       <Modal
-        title="分享素材"
+        title={t('分享素材')}
         visible={shareModalVisible}
         onCancel={() => setShareModalVisible(false)}
         footer={[
           <Button key="copy" type="primary" onClick={handleCopyShare}>
-            {shareCopied ? '已复制' : '复制链接'}
+            {shareCopied ? t('已复制') : t('复制链接')}
           </Button>,
         ]}
       >

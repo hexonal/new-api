@@ -24,8 +24,8 @@ const DistributionDonut = ({ data = [], title = '' }) => (
         <PieChart>
           <Pie
             data={data}
-            dataKey='value'
-            nameKey='name'
+            dataKey={(item) => item.value}
+            nameKey={(item) => item.name}
             innerRadius={50}
             outerRadius={80}
             label

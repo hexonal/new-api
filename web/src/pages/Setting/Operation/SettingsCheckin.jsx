@@ -113,8 +113,8 @@ export default function SettingsCheckin(props) {
                   field={'checkin_setting.enabled'}
                   label={t('启用签到功能')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={handleFieldChange('checkin_setting.enabled')}
                 />
               </Col>

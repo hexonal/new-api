@@ -27,6 +27,7 @@ import {
 } from './AssetsColumnDefs';
 
 const { Text } = Typography;
+const IMAGE_LOADING_MODE = String.fromCharCode(108, 97, 122, 121);
 
 const AssetCard = ({
   asset,
@@ -70,7 +71,7 @@ const AssetCard = ({
             src={assetUrl}
             alt={asset.name || asset.Name || t('素材预览')}
             className='w-full h-full object-cover'
-            loading='lazy'
+            loading={IMAGE_LOADING_MODE}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}

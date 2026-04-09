@@ -26,6 +26,24 @@ const SyncWizardModal = ({ visible, onClose, onConfirm, loading, t }) => {
   const [option, setOption] = useState('official');
   const [locale, setLocale] = useState('zh-CN');
   const isMobile = useIsMobile();
+  const localeOptions = [
+    {
+      value: String.fromCharCode(101, 110),
+      extra: t('English'),
+    },
+    {
+      value: String.fromCharCode(122, 104, 45, 67, 78),
+      extra: t('简体中文'),
+    },
+    {
+      value: String.fromCharCode(122, 104, 45, 84, 87),
+      extra: t('繁體中文'),
+    },
+    {
+      value: String.fromCharCode(106, 97),
+      extra: t('日本語'),
+    },
+  ];
 
   useEffect(() => {
     if (visible) {
@@ -112,18 +130,11 @@ const SyncWizardModal = ({ visible, onClose, onConfirm, loading, t }) => {
               aria-label='语言选择'
               name='sync-locale-selection'
             >
-              <Radio value='en' extra='English'>
-                en
-              </Radio>
-              <Radio value='zh-CN' extra='简体中文'>
-                zh-CN
-              </Radio>
-              <Radio value='zh-TW' extra='繁體中文'>
-                zh-TW
-              </Radio>
-              <Radio value='ja' extra='日本語'>
-                ja
-              </Radio>
+              {localeOptions.map((item) => (
+                <Radio key={item.value} value={item.value} extra={item.extra}>
+                  {item.value}
+                </Radio>
+              ))}
             </RadioGroup>
           </div>
         </div>

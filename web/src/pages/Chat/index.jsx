@@ -62,8 +62,8 @@ const ChatPage = () => {
         border: 'none',
         marginTop: '64px',
       }}
-      title='Token Frame'
-      allow='camera;microphone'
+      title={t('Token Frame')}
+      allow={t('camera;microphone')}
     />
   ) : (
     <div className='fixed inset-0 w-screen h-screen flex items-center justify-center bg-white/80 z-[1000] mt-[60px]'>

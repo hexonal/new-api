@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Switch } from '../../../primitives/switch';
 
@@ -26,15 +27,18 @@ export default function ChannelStatusToggle({
   loading = false,
   disabled = false,
   onChange,
-  label = '启用状态',
-  description = '开启后该通道可被路由使用。',
+  label,
+  description,
 }) {
+  const { t } = useTranslation();
   return (
     <div className='rounded-lg border border-border bg-card/70 p-3'>
       <div className='flex items-center justify-between gap-3'>
         <div>
-          <h4 className='text-sm font-medium'>{label}</h4>
-          <p className='text-xs text-muted-foreground mt-1'>{description}</p>
+          <h4 className='text-sm font-medium'>{label || t('启用状态')}</h4>
+          <p className='text-xs text-muted-foreground mt-1'>
+            {description || t('开启后该通道可被路由使用。')}
+          </p>
         </div>
         <Switch
           checked={Boolean(checked)}
@@ -42,7 +46,7 @@ export default function ChannelStatusToggle({
           onCheckedChange={onChange}
         />
       </div>
-      {loading ? <p className='mt-2 text-xs text-muted-foreground'>更新中...</p> : null}
+      {loading ? <p className='mt-2 text-xs text-muted-foreground'>{t('更新中...')}</p> : null}
     </div>
   );
 }

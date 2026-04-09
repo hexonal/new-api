@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
@@ -36,13 +37,16 @@ export default function GroupModelAccess({
   onChange,
   disabled = false,
 }) {
+  const { t } = useTranslation();
   const normalizeSelected = new Set((selected || []).filter(Boolean));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型访问控制</CardTitle>
-        <CardDescription>为分组 {groupName} 选择可调用的模型</CardDescription>
+        <CardTitle className='text-base'>{t('模型访问控制')}</CardTitle>
+        <CardDescription>
+          {t('为分组')} {groupName} {t('选择可调用的模型')}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2'>

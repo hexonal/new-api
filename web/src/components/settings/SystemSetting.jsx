@@ -890,7 +890,7 @@ const SystemSetting = () => {
                       target='_blank'
                       rel='noreferrer'
                     >
-                      new-api-worker
+                      {t('new-api-worker')}
                     </a>{' '}
                     {t('或其兼容new-api-worker格式的其他版本')}
                   </Text>
@@ -901,14 +901,14 @@ const SystemSetting = () => {
                       <Form.Input
                         field='WorkerUrl'
                         label={t('Worker地址')}
-                        placeholder='例如：https://workername.yourdomain.workers.dev'
+                        placeholder={t('例如：https://workername.yourdomain.workers.dev')}
                       />
                     </Col>
                     <Col xs={24} sm={24} md={12} lg={12} xl={12}>
                       <Form.Input
                         field='WorkerValidKey'
                         label={t('Worker密钥')}
-                        placeholder='敏感信息不会发送到前端显示'
+                        placeholder={t('敏感信息不会发送到前端显示')}
                         type='password'
                       />
                     </Col>
@@ -940,8 +940,8 @@ const SystemSetting = () => {
                         field={'DailyUserUsageReportEnabled'}
                         label={t('启用日报推送')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         onChange={(value) =>
                           setInputs({
                             ...inputs,
@@ -1073,8 +1073,8 @@ const SystemSetting = () => {
                         field={'MonitorAlertEnabled'}
                         label={t('启用监控告警')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         onChange={(value) =>
                           setInputs({
                             ...inputs,
@@ -1135,8 +1135,8 @@ const SystemSetting = () => {
                         field={'MonitorAlertMaskSensitiveEnabled'}
                         label={t('敏感信息脱敏')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         extraText={t(
                           '开启后会对监控告警中的 token、URL 等敏感信息做脱敏；默认关闭。',
                         )}
@@ -1190,8 +1190,8 @@ const SystemSetting = () => {
                         field={'MonitorAlertCallErrorEnabled'}
                         label={t('调用错误告警')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         onChange={(value) =>
                           setInputs({
                             ...inputs,
@@ -1205,8 +1205,8 @@ const SystemSetting = () => {
                         field={'MonitorAlertCallbackErrorEnabled'}
                         label={t('回调错误告警')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         onChange={(value) =>
                           setInputs({
                             ...inputs,
@@ -1220,8 +1220,8 @@ const SystemSetting = () => {
                         field={'MonitorAlertDiskEnabled'}
                         label={t('磁盘告警')}
                         size='default'
-                        checkedText='｜'
-                        uncheckedText='〇'
+                        checkedText={t('｜')}
+                        uncheckedText={t('〇')}
                         onChange={(value) =>
                           setInputs({
                             ...inputs,
@@ -1695,7 +1695,7 @@ const SystemSetting = () => {
                           )
                         }
                       >
-                        启用邮箱域名白名单
+                        {t('启用邮箱域名白名单')}
                       </Form.Checkbox>
                     </Col>
                     <Col xs={24} sm={24} md={12} lg={12} xl={12}>
@@ -1709,7 +1709,7 @@ const SystemSetting = () => {
                           )
                         }
                       >
-                        启用邮箱别名限制
+                        {t('启用邮箱别名限制')}
                       </Form.Checkbox>
                     </Col>
                   </Row>
@@ -1777,7 +1777,7 @@ const SystemSetting = () => {
                         field='SMTPToken'
                         label={t('SMTP 访问凭证')}
                         type='password'
-                        placeholder='敏感信息不会发送到前端显示'
+                        placeholder={t('敏感信息不会发送到前端显示')}
                       />
                     </Col>
                     <Col xs={24} sm={24} md={8} lg={8} xl={8}>
@@ -1979,8 +1979,8 @@ const SystemSetting = () => {
                     <Col xs={24} sm={24} md={4} lg={4} xl={4}>
                       <Form.Input
                         field='LinuxDOMinimumTrustLevel'
-                        label='LinuxDO Minimum Trust Level'
-                        placeholder='允许注册的最低信任等级'
+                        label={t('LinuxDO Minimum Trust Level')}
+                        placeholder={t('允许注册的最低信任等级')}
                       />
                     </Col>
                   </Row>

@@ -18,17 +18,19 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 
 export default function ActiveSubscriptionTable({
   items = [],
-  title = '当前订阅',
+  title,
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
+        <CardTitle className='text-base'>{title || t('当前订阅')}</CardTitle>
       </CardHeader>
       <CardContent>
         {items.length ? (
@@ -44,7 +46,7 @@ export default function ActiveSubscriptionTable({
             ))}
           </div>
         ) : (
-          <p className='text-sm text-muted-foreground'>暂无活跃订阅</p>
+          <p className='text-sm text-muted-foreground'>{t('暂无活跃订阅')}</p>
         )}
       </CardContent>
     </Card>

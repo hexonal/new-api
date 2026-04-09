@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { IconGithubLogo } from '@douyinfe/semi-icons';
 import { Icon } from '@douyinfe/semi-ui';
@@ -34,11 +35,12 @@ const OAuthButtons = ({
   isLoading = false,
   className = '',
 }) => {
+  const { t } = useTranslation();
   if (!hasOAuthLoginOptions) {
     return null;
   }
 
-  const githubButtonText = isLoading ? '正在跳转 GitHub...' : '使用 GitHub 继续';
+  const githubButtonText = isLoading ? t('正在跳转 GitHub...') : t('使用 GitHub 继续');
 
   return (
     <div className={`aurora-oauth-buttons ${className}`}>
@@ -52,7 +54,7 @@ const OAuthButtons = ({
           className='aurora-auth-cta-btn'
         >
           <Icon style={{ color: '#07C160' }} svg={<WeChatIcon />} />
-          <span>使用 微信 继续</span>
+          <span>{t('使用 微信 继续')}</span>
         </Button>
       )}
 
@@ -80,7 +82,7 @@ const OAuthButtons = ({
           className='aurora-auth-cta-btn'
         >
           <SiDiscord style={{ color: '#5865F2' }} />
-          <span>使用 Discord 继续</span>
+          <span>{t('使用 Discord 继续')}</span>
         </Button>
       )}
 
@@ -93,7 +95,7 @@ const OAuthButtons = ({
           className='aurora-auth-cta-btn'
         >
           <OIDCIcon style={{ color: '#1877F2' }} />
-          <span>使用 OIDC 继续</span>
+          <span>{t('使用 OIDC 继续')}</span>
         </Button>
       )}
 
@@ -106,7 +108,7 @@ const OAuthButtons = ({
           className='aurora-auth-cta-btn'
         >
           <LinuxDoIcon style={{ color: '#E95420' }} />
-          <span>使用 LinuxDO 继续</span>
+          <span>{t('使用 LinuxDO 继续')}</span>
         </Button>
       )}
 
@@ -121,7 +123,7 @@ const OAuthButtons = ({
           className='aurora-auth-cta-btn'
         >
           {provider.icon ? <span>{provider.icon}</span> : null}
-          <span>使用 {provider.name} 继续</span>
+          <span>{t('使用')} {provider.name} {t('继续')}</span>
         </Button>
       ))}
     </div>

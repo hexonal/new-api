@@ -18,22 +18,24 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
 export default function GroupRatioOverrides({
   values = {},
-  title = '分组倍率覆盖',
-  description = '优先于默认倍率生效，未配置时回退系统默认。',
+  title,
+  description,
   className = '',
 }) {
+  const { t } = useTranslation();
   const entries = Object.entries(values || {});
 
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle className='text-base'>{title || t('分组倍率覆盖')}</CardTitle>
+        <CardDescription>{description || t('优先于默认倍率生效，未配置时回退系统默认。')}</CardDescription>
       </CardHeader>
       <CardContent>
         {entries.length ? (
@@ -49,7 +51,7 @@ export default function GroupRatioOverrides({
             ))}
           </div>
         ) : (
-          <p className='text-sm text-muted-foreground'>暂无覆盖配置</p>
+          <p className='text-sm text-muted-foreground'>{t('暂无覆盖配置')}</p>
         )}
       </CardContent>
     </Card>

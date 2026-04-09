@@ -7,12 +7,13 @@ const TimeRangeBar = ({
   granularityOptions,
   dateRange,
   onDateRangeChange,
+  t = (value) => value,
 }) => {
   return (
     <div className='flex items-center gap-3 flex-wrap'>
       <RadioGroup
         type='button'
-        buttonSize='small'
+        buttonSize={t('small')}
         value={granularity}
         onChange={(e) => onGranularityChange(e.target.value)}
       >
@@ -25,7 +26,7 @@ const TimeRangeBar = ({
 
       <DatePicker
         type='dateRange'
-        density='compact'
+        density={t('compact')}
         value={dateRange}
         onChange={onDateRangeChange}
         style={{ width: 260 }}

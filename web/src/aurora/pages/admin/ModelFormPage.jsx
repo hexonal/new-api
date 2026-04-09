@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Save } from 'lucide-react';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../primitives/card';
@@ -46,6 +47,7 @@ const splitList = (value) => {
 };
 
 export default function ModelFormPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams();
   const modelId = params.id;
@@ -56,7 +58,7 @@ export default function ModelFormPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [channelNames, setChannelNames] = useState([]);
 
-  const pageTitle = isEdit ? '编辑模型' : '新增模型';
+  const pageTitle = isEdit ? t('编辑模型') : t('新增模型');
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -88,7 +90,7 @@ export default function ModelFormPage() {
         const res = await API.get(`/api/models/${modelId}`);
         const { success, message, data } = res.data || {};
         if (!success) {
-          showError(message || '加载模型失败');
+          showError(message || t('加载模型失败'));
           return;
         }
 
@@ -115,7 +117,7 @@ export default function ModelFormPage() {
           },
         }));
       } catch (error) {
-        showError(error?.response?.data?.message || error?.message || '加载模型失败');
+        showError(error?.response?.data?.message || error?.message || t('加载模型失败'));
       } finally {
         setLoading(false);
       }
@@ -147,7 +149,7 @@ export default function ModelFormPage() {
 
   const submit = async () => {
     if (!form.model_name?.trim()) {
-      showError('模型名称不能为空');
+      showError(t('模型名称不能为空'));
       return;
     }
 
@@ -174,22 +176,22 @@ export default function ModelFormPage() {
           id: Number(modelId),
         });
         if (res?.data?.success) {
-          showSuccess('模型更新成功');
+          showSuccess(t('模型更新成功'));
           navigate('/console/models');
         } else {
-          showError(res?.data?.message || '模型更新失败');
+          showError(res?.data?.message || t('模型更新失败'));
         }
       } else {
         const res = await API.post('/api/models/', payload);
         if (res?.data?.success) {
-          showSuccess('模型创建成功');
+          showSuccess(t('模型创建成功'));
           navigate('/console/models');
         } else {
-          showError(res?.data?.message || '模型创建失败');
+          showError(res?.data?.message || t('模型创建失败'));
         }
       }
     } catch (error) {
-      showError(error?.response?.data?.message || error?.message || '保存失败');
+      showError(error?.response?.data?.message || error?.message || t('保存失败'));
     } finally {
       setSubmitting(false);
     }
@@ -200,7 +202,7 @@ export default function ModelFormPage() {
       return;
     }
     await API.put('/api/models/?status_only=true', { id: Number(modelId), status: 0 });
-    showSuccess('模型已禁用');
+    showSuccess(t('模型已禁用'));
     navigate('/console/models');
   };
 
@@ -209,7 +211,7 @@ export default function ModelFormPage() {
       return;
     }
     await API.delete(`/api/models/${modelId}`);
-    showSuccess('模型已删除');
+    showSuccess(t('模型已删除'));
     navigate('/console/models');
   };
 
@@ -220,16 +222,16 @@ export default function ModelFormPage() {
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <div>
               <CardTitle className='text-base'>{pageTitle}</CardTitle>
-              <CardDescription>双栏表单覆盖基础信息、定价、能力与通道绑定。</CardDescription>
+              <CardDescription>{t('双栏表单覆盖基础信息、定价、能力与通道绑定。')}</CardDescription>
             </div>
             <div className='flex items-center gap-2'>
               <Button variant='outline' onClick={() => navigate('/console/models')}>
                 <ArrowLeft className='mr-1 h-3.5 w-3.5' />
-                返回列表
+                {t('返回列表')}
               </Button>
               <Button onClick={submit} loading={submitting} disabled={loading}>
                 <Save className='mr-1 h-3.5 w-3.5' />
-                {isEdit ? '保存修改' : '创建模型'}
+                {isEdit ? t('保存修改') : t('创建模型')}
               </Button>
             </div>
           </div>

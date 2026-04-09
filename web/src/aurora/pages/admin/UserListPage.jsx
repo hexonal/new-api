@@ -100,7 +100,7 @@ export default function UserListPage() {
                     <Tr key={user.id} className={cn((isDeleted || disabled) && 'bg-muted/40')}>
                       <Td>
                         <div className='font-medium'>{user.username}</div>
-                        <div className='text-xs text-muted-foreground mt-0.5'>ID: {user.id}</div>
+                        <div className='text-xs text-muted-foreground mt-0.5'>{t('ID:')} {user.id}</div>
                       </Td>
                       <Td>
                         <Badge variant={role.variant}>{t(role.text)}</Badge>
@@ -110,7 +110,7 @@ export default function UserListPage() {
                         <QuotaProgressBar
                           used={Number(user.used_quota || 0)}
                           total={Number(user.used_quota || 0) + Number(user.quota || 0)}
-                          unit='quota'
+                          unit={t('quota')}
                           title=''
                           className='p-2'
                         />

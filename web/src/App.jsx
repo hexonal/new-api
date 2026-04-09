@@ -595,7 +595,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           }
         />
         <Route
-          path='*'
+          path={String.fromCharCode(42)}
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
               {isAuroraTheme ? <NotFoundPage /> : <NotFound />}

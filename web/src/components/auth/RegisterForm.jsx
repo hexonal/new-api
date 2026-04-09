@@ -199,13 +199,13 @@ const RegisterForm = () => {
         setUserData(data);
         updateAPI();
         navigate('/');
-        showSuccess('登录成功！');
+        showSuccess(t('登录成功！'));
         setShowWeChatLoginModal(false);
       } else {
         showError(message);
       }
     } catch (error) {
-      showError('登录失败，请重试');
+      showError(t('登录失败，请重试'));
     } finally {
       setWechatCodeSubmitLoading(false);
     }
@@ -379,7 +379,7 @@ const RegisterForm = () => {
       if (success) {
         userDispatch({ type: 'login', payload: data });
         localStorage.setItem('user', JSON.stringify(data));
-        showSuccess('登录成功！');
+        showSuccess(t('登录成功！'));
         setUserData(data);
         updateAPI();
         navigate('/');
@@ -387,7 +387,7 @@ const RegisterForm = () => {
         showError(message);
       }
     } catch (error) {
-      showError('登录失败，请重试');
+      showError(t('登录失败，请重试'));
     }
   };
 
@@ -396,7 +396,7 @@ const RegisterForm = () => {
       <div className='flex flex-col items-center'>
         <div className='w-full max-w-md'>
           <div className='flex items-center justify-center mb-6 gap-2'>
-            <img src={logo} alt='Logo' className='h-10 rounded-full' />
+            <img src={logo} alt={t('Logo')} className='h-10 rounded-full' />
             <Title heading={3} className='!text-gray-800'>
               {systemName}
             </Title>
@@ -559,7 +559,7 @@ const RegisterForm = () => {
       <div className='flex flex-col items-center'>
         <div className='w-full max-w-md'>
           <div className='flex items-center justify-center mb-6 gap-2'>
-            <img src={logo} alt='Logo' className='h-10 rounded-full' />
+            <img src={logo} alt={t('Logo')} className='h-10 rounded-full' />
             <Title heading={3} className='!text-gray-800'>
               {systemName}
             </Title>
@@ -745,7 +745,7 @@ const RegisterForm = () => {
         }}
       >
         <div className='flex flex-col items-center'>
-          <img src={status.wechat_qrcode} alt='微信二维码' className='mb-4' />
+          <img src={status.wechat_qrcode} alt={t('微信二维码')} className='mb-4' />
         </div>
 
         <div className='text-center mb-4'>

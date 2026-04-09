@@ -28,14 +28,14 @@ const buttonVariants = cva(
         icon: 'h-9 w-9',
       },
       loading: {
-        true: 'relative cursor-wait opacity-70',
-        false: '',
+        enabled: 'relative cursor-wait opacity-70',
+        disabled: '',
       },
     },
     defaultVariants: {
       variant: 'default',
       size: 'default',
-      loading: false,
+      loading: 'disabled',
     },
   },
 );
@@ -57,11 +57,18 @@ const Button = React.forwardRef(
 
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, loading, className }))}
+        className={cn(
+          buttonVariants({
+            variant,
+            size,
+            loading: loading ? 'enabled' : 'disabled',
+            className,
+          }),
+        )}
         ref={ref}
         {...props}
       >
-        {loading && <span className='button-spinner' aria-hidden='true' />}
+        {loading && <span className='button-spinner' aria-hidden={true} />}
         {children}
       </Comp>
     );
@@ -71,4 +78,3 @@ const Button = React.forwardRef(
 Button.displayName = 'Button';
 
 export { Button, buttonVariants };
-

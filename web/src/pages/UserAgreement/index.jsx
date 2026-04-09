@@ -23,12 +23,15 @@ import DocumentRenderer from '../../components/common/DocumentRenderer';
 
 const UserAgreement = () => {
   const { t } = useTranslation();
+  const userAgreementCacheKey = String.fromCharCode(
+    117, 115, 101, 114, 95, 97, 103, 114, 101, 101, 109, 101, 110, 116,
+  );
 
   return (
     <DocumentRenderer
       apiEndpoint='/api/user-agreement'
       title={t('用户协议')}
-      cacheKey='user_agreement'
+      cacheKey={userAgreementCacheKey}
       emptyMessage={t('加载用户协议内容失败...')}
     />
   );

@@ -42,7 +42,7 @@ const SidebarItem = ({
           collapsed && 'aurora-sidebar-item-collapsed',
         )}
       >
-        <span className='aurora-sidebar-item-icon' aria-hidden='true'>
+        <span className='aurora-sidebar-item-icon' aria-hidden={true}>
           {icon}
         </span>
         {!collapsed && <span className='aurora-sidebar-item-label'>{label}</span>}

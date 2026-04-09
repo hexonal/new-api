@@ -208,9 +208,7 @@ const renderPlatform = (platform, t) => {
   switch (platform) {
     case 'suno':
       return (
-        <Tag color='green' shape='circle'>
-          Suno
-        </Tag>
+        <Tag color='green' shape='circle'>{t('Suno')}</Tag>
       );
     default:
       return (

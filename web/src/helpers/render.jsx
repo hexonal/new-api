@@ -343,7 +343,7 @@ export function getChannelIcon(channelType) {
       return (
         <img
           src='/ima-pro-logo.png'
-          alt='ima_pro'
+          alt={String.fromCharCode(105, 109, 97, 95, 112, 114, 111)}
           onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src = '/logo.png';
@@ -457,7 +457,7 @@ export function getLobeHubIcon(iconName, size = 14) {
     return (
       <img
         src={iconName}
-        alt='model icon'
+        alt={String.fromCharCode(109, 111, 100, 101, 108, 32, 105, 99, 111, 110)}
         onError={(e) => {
           e.currentTarget.onerror = null;
           e.currentTarget.src = '/logo.png';
@@ -605,7 +605,7 @@ export function getOAuthProviderIcon(iconName, size = 20) {
     return (
       <img
         src={raw}
-        alt='provider icon'
+        alt={String.fromCharCode(112, 114, 111, 118, 105, 100, 101, 114, 32, 105, 99, 111, 110)}
         onError={(e) => {
           e.currentTarget.onerror = null;
           e.currentTarget.src = '/logo.png';

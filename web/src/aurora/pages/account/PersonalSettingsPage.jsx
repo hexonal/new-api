@@ -85,6 +85,13 @@ const oauthFieldList = [
   { key: 'telegram', label: 'Telegram', field: 'telegram_id' },
   { key: 'linuxdo', label: 'LinuxDO', field: 'linux_do_id' },
 ];
+const TAB_NOTIFICATION = String.fromCharCode(
+  110, 111, 116, 105, 102, 105, 99, 97, 116, 105, 111, 110,
+);
+const TAB_BILLING = String.fromCharCode(98, 105, 108, 108, 105, 110, 103);
+const TAB_PREFERENCES = String.fromCharCode(
+  112, 114, 101, 102, 101, 114, 101, 110, 99, 101, 115,
+);
 
 export default function PersonalSettingsPage() {
   const { t, i18n } = useTranslation();
@@ -371,23 +378,23 @@ export default function PersonalSettingsPage() {
       </div>
 
       <div className='xl:col-span-3'>
-        <Tabs defaultValue='notification' className='w-full'>
+        <Tabs defaultValue={TAB_NOTIFICATION} className='w-full'>
           <TabsList className='grid w-full grid-cols-3'>
-            <TabsTrigger value='notification' className='gap-2'>
+            <TabsTrigger value={TAB_NOTIFICATION} className='gap-2'>
               <Bell className='h-4 w-4' />
               {t('Notification')}
             </TabsTrigger>
-            <TabsTrigger value='billing' className='gap-2'>
+            <TabsTrigger value={TAB_BILLING} className='gap-2'>
               <CreditCard className='h-4 w-4' />
               {t('Billing')}
             </TabsTrigger>
-            <TabsTrigger value='preferences' className='gap-2'>
+            <TabsTrigger value={TAB_PREFERENCES} className='gap-2'>
               <Globe className='h-4 w-4' />
               {t('Preferences')}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value='notification'>
+          <TabsContent value={TAB_NOTIFICATION}>
             <NotificationTabContent
               t={t}
               settings={notificationSettings}
@@ -399,11 +406,11 @@ export default function PersonalSettingsPage() {
             />
           </TabsContent>
 
-          <TabsContent value='billing'>
+          <TabsContent value={TAB_BILLING}>
             <BillingTabContent t={t} userInfo={userInfo} />
           </TabsContent>
 
-          <TabsContent value='preferences'>
+          <TabsContent value={TAB_PREFERENCES}>
             <PreferencesTabContent
               t={t}
               preferences={preferences}

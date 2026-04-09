@@ -15,13 +15,13 @@ const CostTrendChart = ({ title = '', data = [], yLabel = 'cost' }) => (
     <div className='h-64'>
       <ResponsiveContainer width='100%' height='100%'>
         <AreaChart data={data} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray='3 3' />
-          <XAxis dataKey='time' tick={{ fontSize: 12 }} />
+          <CartesianGrid strokeDasharray={[3, 3].join(String.fromCharCode(32))} />
+          <XAxis dataKey={(item) => item.time} tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip formatter={(value) => [value, yLabel]} />
           <Area
             type='monotone'
-            dataKey='value'
+            dataKey={(item) => item.value}
             stroke='#14b8a6'
             fill='#14b8a6'
             fillOpacity={0.15}

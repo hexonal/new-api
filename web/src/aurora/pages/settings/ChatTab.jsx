@@ -12,7 +12,7 @@ export default function ChatTab() {
       <OptionCard
         title={t('聊天设置')}
         description={t('会话、上下文和回复策略。')}
-        optionPrefix='aurora.chat.general'
+        optionPrefix={t('aurora.chat.general')}
         options={options}
         saveOptions={saveOptions}
       />

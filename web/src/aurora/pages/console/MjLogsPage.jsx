@@ -148,7 +148,7 @@ export default function MjLogsPage() {
                     {imageUrl ? (
                       <img
                         src={imageUrl}
-                        alt='thumbnail'
+                        alt={data.t('thumbnail')}
                         className='h-12 w-12 rounded-md object-cover border border-border'
                       />
                     ) : (

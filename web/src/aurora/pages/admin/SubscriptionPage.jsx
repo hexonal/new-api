@@ -82,7 +82,7 @@ export default function SubscriptionPage() {
                           <div className='text-xs text-muted-foreground mt-0.5'>{plan.subtitle}</div>
                         ) : null}
                       </Td>
-                      <Td>{Number(plan.price_amount || 0).toFixed(2)} USD</Td>
+                      <Td>{Number(plan.price_amount || 0).toFixed(2)} {t('USD')}</Td>
                       <Td>{Number(plan.total_amount || 0).toLocaleString()}</Td>
                       <Td>{formatDuration(plan)}</Td>
                       <Td>

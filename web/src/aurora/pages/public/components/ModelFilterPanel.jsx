@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 const filterGroups = [
   {
@@ -43,9 +44,10 @@ const filterGroups = [
 ];
 
 const ModelFilterPanel = () => {
+  const { t } = useTranslation();
   return (
     <aside className='aurora-model-filter-panel'>
-      <div className='aurora-model-filter-panel-title'>Filters</div>
+      <div className='aurora-model-filter-panel-title'>{t('Filters')}</div>
       {filterGroups.map((group) => (
         <section className='aurora-model-filter-group' key={group.title}>
           <h4 className='aurora-model-filter-group-title'>{group.title}</h4>
@@ -67,4 +69,3 @@ const ModelFilterPanel = () => {
 };
 
 export default ModelFilterPanel;
-

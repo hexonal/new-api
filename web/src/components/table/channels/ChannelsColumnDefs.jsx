@@ -132,7 +132,7 @@ const renderType = (type, record = {}, t) => {
             className='cursor-pointer'
             onClick={handleNavigate}
           >
-            IO.NET
+            {t('IO.NET')}
           </Tag>
         </span>
       </Tooltip>

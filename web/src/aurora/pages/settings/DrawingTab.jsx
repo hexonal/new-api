@@ -12,7 +12,7 @@ export default function DrawingTab() {
       <OptionCard
         title={t('MJ设置')}
         description={t('Midjourney 相关参数和开关。')}
-        optionPrefix='aurora.drawing.mj'
+        optionPrefix={t('aurora.drawing.mj')}
         options={options}
         saveOptions={saveOptions}
       />

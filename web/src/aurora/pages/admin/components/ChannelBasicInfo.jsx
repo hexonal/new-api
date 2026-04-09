@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../primitives/card';
 import { Input } from '../../../primitives/input';
@@ -27,18 +28,19 @@ export default function ChannelBasicInfo({
   onChange,
   editable = true,
 }) {
+  const { t } = useTranslation();
   const fields = [
-    { key: 'name', label: '名称', placeholder: '例如：openai-main' },
-    { key: 'type', label: '类型', placeholder: '例如：OpenAI' },
-    { key: 'base_url', label: 'Base URL', placeholder: 'https://api.openai.com/v1' },
-    { key: 'api_key', label: 'API Key', placeholder: '输入密钥' },
+    { key: 'name', label: t('名称'), placeholder: t('例如：openai-main') },
+    { key: 'type', label: t('类型'), placeholder: t('例如：OpenAI') },
+    { key: 'base_url', label: t('Base URL'), placeholder: 'https://api.openai.com/v1' },
+    { key: 'api_key', label: t('API Key'), placeholder: t('输入密钥') },
   ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>通道基础信息</CardTitle>
-        <CardDescription>表单会按字段变更回调，当前先做配置入口承接。</CardDescription>
+        <CardTitle className='text-base'>{t('通道基础信息')}</CardTitle>
+        <CardDescription>{t('表单会按字段变更回调，当前先做配置入口承接。')}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
         {fields.map((item) => (

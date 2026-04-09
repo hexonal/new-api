@@ -18,25 +18,27 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 
 export default function GroupChannelsTable({ channels = [] }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>分组通道</CardTitle>
+        <CardTitle className='text-base'>{t('分组通道')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-2'>
         {channels.length ? (
           channels.map((item) => (
             <div key={item.id || item.name} className='rounded border border-border px-3 py-2 text-sm'>
               <span>{item.name || item.id}</span>
-              <span className='text-muted-foreground ml-3'>{item.type || 'N/A'}</span>
+              <span className='text-muted-foreground ml-3'>{item.type || t('N/A')}</span>
             </div>
           ))
         ) : (
-          <p className='text-sm text-muted-foreground'>未绑定通道</p>
+          <p className='text-sm text-muted-foreground'>{t('未绑定通道')}</p>
         )}
       </CardContent>
     </Card>

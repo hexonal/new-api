@@ -20,6 +20,8 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Banner } from '@douyinfe/semi-ui';
 
+const IDEA_BULB_EMOJI = String.fromCodePoint(0x1f4a1);
+
 /**
  * 数据库检查步骤组件
  * 显示当前数据库类型和相关警告信息
@@ -55,7 +57,7 @@ const DatabaseStep = ({ setupStatus, renderNavigationButtons, t }) => {
                   </p>
                 )}
                 <p className='mt-2 text-sm opacity-70'>
-                  💡 {t('提示：如需备份数据，只需复制上述目录即可')}
+                  {IDEA_BULB_EMOJI} {t('提示：如需备份数据，只需复制上述目录即可')}
                 </p>
               </div>
             ) : (

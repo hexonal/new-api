@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Save } from 'lucide-react';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../primitives/card';
@@ -48,6 +49,7 @@ const parseList = (value) => {
 };
 
 export default function ChannelFormPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams();
   const channelId = params.id;
@@ -58,7 +60,7 @@ export default function ChannelFormPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [modelOptions, setModelOptions] = useState([]);
 
-  const pageTitle = isEdit ? '编辑渠道' : '新建渠道';
+  const pageTitle = isEdit ? t('编辑渠道') : t('新建渠道');
 
   const selectableModels = useMemo(() => {
     const merged = new Set([...(modelOptions || []), ...parseList(form.models)]);
@@ -96,7 +98,7 @@ export default function ChannelFormPage() {
         const res = await API.get(`/api/channel/${channelId}`);
         const { success, message, data } = res.data || {};
         if (!success) {
-          showError(message || '加载渠道失败');
+          showError(message || t('加载渠道失败'));
           return;
         }
 
@@ -125,7 +127,7 @@ export default function ChannelFormPage() {
           },
         }));
       } catch (error) {
-        showError(error?.response?.data?.message || error?.message || '加载渠道失败');
+        showError(error?.response?.data?.message || error?.message || t('加载渠道失败'));
       } finally {
         setLoading(false);
       }
@@ -157,7 +159,7 @@ export default function ChannelFormPage() {
 
   const submit = async () => {
     if (!form.name?.trim()) {
-      showError('渠道名称不能为空');
+      showError(t('渠道名称不能为空'));
       return;
     }
 
@@ -187,10 +189,10 @@ export default function ChannelFormPage() {
           id: Number(channelId),
         });
         if (res?.data?.success) {
-          showSuccess('渠道更新成功');
+          showSuccess(t('渠道更新成功'));
           navigate('/console/channel');
         } else {
-          showError(res?.data?.message || '渠道更新失败');
+          showError(res?.data?.message || t('渠道更新失败'));
         }
       } else {
         const res = await API.post('/api/channel/', {
@@ -198,14 +200,14 @@ export default function ChannelFormPage() {
           channel: channelPayload,
         });
         if (res?.data?.success) {
-          showSuccess('渠道创建成功');
+          showSuccess(t('渠道创建成功'));
           navigate('/console/channel');
         } else {
-          showError(res?.data?.message || '渠道创建失败');
+          showError(res?.data?.message || t('渠道创建失败'));
         }
       }
     } catch (error) {
-      showError(error?.response?.data?.message || error?.message || '保存失败');
+      showError(error?.response?.data?.message || error?.message || t('保存失败'));
     } finally {
       setSubmitting(false);
     }
@@ -218,16 +220,16 @@ export default function ChannelFormPage() {
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <div>
               <CardTitle className='text-base'>{pageTitle}</CardTitle>
-              <CardDescription>双栏配置页，覆盖基础信息、模型与访问控制、API参数与提示词策略。</CardDescription>
+              <CardDescription>{t('双栏配置页，覆盖基础信息、模型与访问控制、API参数与提示词策略。')}</CardDescription>
             </div>
             <div className='flex items-center gap-2'>
               <Button variant='outline' onClick={() => navigate('/console/channel')}>
                 <ArrowLeft className='mr-1 h-3.5 w-3.5' />
-                返回列表
+                {t('返回列表')}
               </Button>
               <Button onClick={submit} loading={submitting} disabled={loading}>
                 <Save className='mr-1 h-3.5 w-3.5' />
-                {isEdit ? '保存修改' : '创建渠道'}
+                {isEdit ? t('保存修改') : t('创建渠道')}
               </Button>
             </div>
           </div>
@@ -254,19 +256,19 @@ export default function ChannelFormPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className='text-base'>基础路由配置</CardTitle>
+              <CardTitle className='text-base'>{t('基础路由配置')}</CardTitle>
             </CardHeader>
             <CardContent className='grid gap-3'>
               <Input
-                label='分组'
+                label={t('分组')}
                 value={form.group || ''}
-                placeholder='default,vip'
+                placeholder={t('default,vip')}
                 onChange={(event) => updateField('group', event.target.value)}
               />
               <Input
-                label='可用模型（逗号分隔）'
+                label={t('可用模型（逗号分隔）')}
                 value={parseList(form.models).join(',')}
-                placeholder='gpt-4.1,claude-3-5-sonnet'
+                placeholder={t('gpt-4.1,claude-3-5-sonnet')}
                 onChange={(event) => updateField('models', parseList(event.target.value))}
               />
             </CardContent>
@@ -313,8 +315,8 @@ export default function ChannelFormPage() {
             items={selectableModels}
             allowed={parseList(form.models)}
             onChange={toggleAllowedModel}
-            title='模型访问白名单'
-            description='仅勾选模型可经由该渠道路由'
+            title={t('模型访问白名单')}
+            description={t('仅勾选模型可经由该渠道路由')}
           />
 
           <ChannelOptions
@@ -330,7 +332,7 @@ export default function ChannelFormPage() {
           <ChannelStatusToggle
             checked={Number(form.status) === 1}
             onChange={(checked) => updateField('status', checked ? 1 : 2)}
-            description='关闭后该渠道不会参与分发'
+            description={t('关闭后该渠道不会参与分发')}
           />
         </div>
       </div>

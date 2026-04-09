@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
@@ -27,15 +28,16 @@ export default function ChannelPromptOverride({
   onChange,
   disabled = false,
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>提示词覆写</CardTitle>
-        <CardDescription>系统提示词与用户提示词前缀配置</CardDescription>
+        <CardTitle className='text-base'>{t('提示词覆写')}</CardTitle>
+        <CardDescription>{t('系统提示词与用户提示词前缀配置')}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
         <label className='block'>
-          <div className='mb-1 text-xs text-muted-foreground'>系统提示词</div>
+          <div className='mb-1 text-xs text-muted-foreground'>{t('系统提示词')}</div>
           <textarea
             className='w-full min-h-24 rounded border border-input bg-background px-3 py-2 text-sm'
             value={systemPrompt}
@@ -44,7 +46,7 @@ export default function ChannelPromptOverride({
           />
         </label>
         <label className='block'>
-          <div className='mb-1 text-xs text-muted-foreground'>用户提示词前缀</div>
+          <div className='mb-1 text-xs text-muted-foreground'>{t('用户提示词前缀')}</div>
           <textarea
             className='w-full min-h-20 rounded border border-input bg-background px-3 py-2 text-sm'
             value={userPrompt}

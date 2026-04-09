@@ -18,21 +18,23 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 
 export default function ChannelStatsCard({ stats = {} }) {
+  const { t } = useTranslation();
   const items = [
-    ['请求', stats.requests || 0],
-    ['成功率', `${stats.successRate || 0}%`],
-    ['耗时(ms)', stats.avgLatency || 0],
-    ['错误', stats.errors || 0],
+    [t('请求'), stats.requests || 0],
+    [t('成功率'), `${stats.successRate || 0}%`],
+    [t('耗时(ms)'), stats.avgLatency || 0],
+    [t('错误'), stats.errors || 0],
   ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>通道统计</CardTitle>
+        <CardTitle className='text-base'>{t('通道统计')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className='grid grid-cols-2 gap-2'>

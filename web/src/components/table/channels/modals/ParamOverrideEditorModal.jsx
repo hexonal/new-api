@@ -42,6 +42,35 @@ import {
 } from '../../../../constants/channel-affinity-template.constants';
 
 const { Text } = Typography;
+const SAMPLE_FORCED_BAD_REQUEST = String.fromCharCode(
+  102, 111, 114, 99, 101, 100, 95, 98, 97, 100, 95, 114, 101, 113, 117, 101,
+  115, 116,
+);
+const SAMPLE_INVALID_REQUEST_ERROR = String.fromCharCode(
+  105, 110, 118, 97, 108, 105, 100, 95, 114, 101, 113, 117, 101, 115, 116, 95,
+  101, 114, 114, 111, 114,
+);
+const SAMPLE_REDACTED_THINKING = String.fromCharCode(
+  114, 101, 100, 97, 99, 116, 101, 100, 95, 116, 104, 105, 110, 107, 105, 110,
+  103,
+);
+const SAMPLE_TYPE = String.fromCharCode(116, 121, 112, 101);
+const SAMPLE_SESSION_ID = String.fromCharCode(
+  115, 101, 115, 115, 105, 111, 110, 95, 105, 100,
+);
+const SAMPLE_PROMPT_CACHE_KEY = String.fromCharCode(
+  112, 114, 111, 109, 112, 116, 95, 99, 97, 99, 104, 101, 95, 107, 101, 121,
+);
+const SAMPLE_MODEL = String.fromCharCode(109, 111, 100, 101, 108);
+const SAMPLE_GPT = String.fromCharCode(103, 112, 116);
+const SYNC_FROM_HEADER_SESSION_ID = String.fromCharCode(
+  104, 101, 97, 100, 101, 114, 58, 115, 101, 115, 115, 105, 111, 110, 95, 105,
+  100,
+);
+const SYNC_TO_JSON_PROMPT_CACHE_KEY = String.fromCharCode(
+  106, 115, 111, 110, 58, 112, 114, 111, 109, 112, 116, 95, 99, 97, 99, 104,
+  101, 95, 107, 101, 121,
+);
 
 const OPERATION_MODE_OPTIONS = [
   { label: '设置字段', value: 'set' },
@@ -2392,7 +2421,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                           </Text>
                                           <Input
                                             value={returnErrorDraft.code}
-                                            placeholder='forced_bad_request'
+                                            placeholder={SAMPLE_FORCED_BAD_REQUEST}
                                             onChange={(nextValue) =>
                                               updateReturnErrorDraft(
                                                 selectedOperation.id,
@@ -2407,7 +2436,9 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                           </Text>
                                           <Input
                                             value={returnErrorDraft.type}
-                                            placeholder='invalid_request_error'
+                                            placeholder={
+                                              SAMPLE_INVALID_REQUEST_ERROR
+                                            }
                                             onChange={(nextValue) =>
                                               updateReturnErrorDraft(
                                                 selectedOperation.id,
@@ -2564,7 +2595,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                   </Text>
                                   <Input
                                     value={pruneObjectsDraft.typeText}
-                                    placeholder='redacted_thinking'
+                                    placeholder={SAMPLE_REDACTED_THINKING}
                                     onChange={(nextValue) =>
                                       updatePruneObjectsDraft(
                                         selectedOperation.id,
@@ -2715,7 +2746,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                                       </Text>
                                                       <Input
                                                         value={rule.path}
-                                                        placeholder='type'
+                                                        placeholder={SAMPLE_TYPE}
                                                         onChange={(nextValue) =>
                                                           updatePruneRule(
                                                             selectedOperation.id,
@@ -2756,7 +2787,9 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                                       </Text>
                                                       <Input
                                                         value={rule.value_text}
-                                                        placeholder='redacted_thinking'
+                                                        placeholder={
+                                                          SAMPLE_REDACTED_THINKING
+                                                        }
                                                         onChange={(nextValue) =>
                                                           updatePruneRule(
                                                             selectedOperation.id,
@@ -2928,7 +2961,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                       />
                                       <Input
                                         value={syncFromTarget?.key || ''}
-                                        placeholder='session_id'
+                                        placeholder={SAMPLE_SESSION_ID}
                                         onChange={(nextKey) =>
                                           updateOperation(
                                             selectedOperation.id,
@@ -2966,7 +2999,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                       />
                                       <Input
                                         value={syncToTarget?.key || ''}
-                                        placeholder='prompt_cache_key'
+                                        placeholder={SAMPLE_PROMPT_CACHE_KEY}
                                         onChange={(nextKey) =>
                                           updateOperation(
                                             selectedOperation.id,
@@ -2989,13 +3022,13 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                     className='cursor-pointer'
                                     onClick={() =>
                                       updateOperation(selectedOperation.id, {
-                                        from: 'header:session_id',
-                                        to: 'json:prompt_cache_key',
+                                        from: SYNC_FROM_HEADER_SESSION_ID,
+                                        to: SYNC_TO_JSON_PROMPT_CACHE_KEY,
                                       })
                                     }
                                   >
                                     {
-                                      'header:session_id -> json:prompt_cache_key'
+                                      `${SYNC_FROM_HEADER_SESSION_ID} -> ${SYNC_TO_JSON_PROMPT_CACHE_KEY}`
                                     }
                                   </Tag>
                                   <Tag
@@ -3004,13 +3037,13 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                     className='cursor-pointer'
                                     onClick={() =>
                                       updateOperation(selectedOperation.id, {
-                                        from: 'json:prompt_cache_key',
-                                        to: 'header:session_id',
+                                        from: SYNC_TO_JSON_PROMPT_CACHE_KEY,
+                                        to: SYNC_FROM_HEADER_SESSION_ID,
                                       })
                                     }
                                   >
                                     {
-                                      'json:prompt_cache_key -> header:session_id'
+                                      `${SYNC_TO_JSON_PROMPT_CACHE_KEY} -> ${SYNC_FROM_HEADER_SESSION_ID}`
                                     }
                                   </Tag>
                                 </Space>
@@ -3165,7 +3198,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                               </Text>
                                               <Input
                                                 value={condition.path}
-                                                placeholder='model'
+                                                placeholder={SAMPLE_MODEL}
                                                 onChange={(nextValue) =>
                                                   updateCondition(
                                                     selectedOperation.id,
@@ -3206,7 +3239,7 @@ const ParamOverrideEditorModal = ({ visible, value, onSave, onCancel }) => {
                                               </Text>
                                               <Input
                                                 value={condition.value_text}
-                                                placeholder='gpt'
+                                                placeholder={SAMPLE_GPT}
                                                 onChange={(nextValue) =>
                                                   updateCondition(
                                                     selectedOperation.id,

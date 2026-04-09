@@ -208,7 +208,7 @@ const renderModelLimits = (text, record, t) => {
           position='top'
           showArrow
         >
-          <Avatar size='extra-extra-small' alt='unknown'>
+          <Avatar size='extra-extra-small' alt={t('unknown')}>
             {t('其他')}
           </Avatar>
         </Tooltip>,
@@ -294,7 +294,7 @@ const renderQuotaUsage = (text, record, t) => {
         {t('已用额度')}: {renderQuota(used)}
       </Paragraph>
       <Paragraph copyable={{ content: renderQuota(remain) }}>
-        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}%)
+        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}{t('%)')}
       </Paragraph>
       <Paragraph copyable={{ content: renderQuota(total) }}>
         {t('总额度')}: {renderQuota(total)}

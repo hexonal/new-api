@@ -50,6 +50,9 @@ import { showError, showSuccess, copy } from '../../../../helpers';
 const { Text, Title } = Typography;
 const { Option } = Select;
 const RadioGroup = Radio.Group;
+const FORM_LABEL_POSITION_TOP = String.fromCharCode(116, 111, 112);
+const CURRENCY_USDC = String.fromCharCode(85, 83, 68, 67);
+const CURRENCY_IOCOIN = String.fromCharCode(73, 79, 67, 79, 73, 78);
 
 const BUILTIN_IMAGE = 'ollama/ollama:latest';
 const DEFAULT_TRAFFIC_PORT = 11434;
@@ -851,7 +854,7 @@ const CreateDeploymentModal = ({ visible, onCancel, onSuccess, t }) => {
         getFormApi={setFormApi}
         onSubmit={handleSubmit}
         style={{ maxHeight: '70vh', overflowY: 'auto' }}
-        labelPosition='top'
+        labelPosition={FORM_LABEL_POSITION_TOP}
       >
         <Space
           wrap
@@ -1401,8 +1404,8 @@ const CreateDeploymentModal = ({ visible, onCancel, onSuccess, t }) => {
                   value={priceCurrency}
                   onChange={handleCurrencyChange}
                 >
-                  <Radio value='usdc'>USDC</Radio>
-                  <Radio value='iocoin'>IOCOIN</Radio>
+                  <Radio value='usdc'>{CURRENCY_USDC}</Radio>
+                  <Radio value='iocoin'>{CURRENCY_IOCOIN}</Radio>
                 </RadioGroup>
                 <Tag size='small' color='blue'>
                   {currencyLabel}

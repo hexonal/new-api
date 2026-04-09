@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../primitives/card';
 import { Input } from '../../../primitives/input';
@@ -27,18 +28,19 @@ export default function ModelBasicInfo({
   onChange,
   editable = true,
 }) {
+  const { t } = useTranslation();
   const fields = [
-    { key: 'name', label: '模型名称', placeholder: '例如：gpt-4.1' },
-    { key: 'provider', label: 'Provider', placeholder: 'OpenAI / Google / Azure' },
-    { key: 'max_tokens', label: '最大 token', placeholder: '输入数字' },
-    { key: 'support', label: '支持能力', placeholder: 'chat / image / video' },
+    { key: 'name', label: t('模型名称'), placeholder: t('例如：gpt-4.1') },
+    { key: 'provider', label: t('Provider'), placeholder: t('OpenAI / Google / Azure') },
+    { key: 'max_tokens', label: t('最大 token'), placeholder: t('输入数字') },
+    { key: 'support', label: t('支持能力'), placeholder: t('chat / image / video') },
   ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型基础信息</CardTitle>
-        <CardDescription>先保留字段入口，便于后续接入提交校验逻辑。</CardDescription>
+        <CardTitle className='text-base'>{t('模型基础信息')}</CardTitle>
+        <CardDescription>{t('先保留字段入口，便于后续接入提交校验逻辑。')}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
         {fields.map((item) => (

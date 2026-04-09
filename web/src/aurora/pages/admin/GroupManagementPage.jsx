@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API, showError } from '../../../helpers';
 import { cn } from '../../lib/cn';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../primitives/card';
@@ -12,6 +13,7 @@ import {
 } from './components';
 
 export default function GroupManagementPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [groupRatio, setGroupRatio] = useState({});
   const [groupModelRatio, setGroupModelRatio] = useState({});
@@ -74,7 +76,7 @@ export default function GroupManagementPage() {
         setChannels(channelsRes.data.data?.items || []);
       }
     } catch (error) {
-      showError(error?.response?.data?.message || error?.message || '加载分组配置失败');
+      showError(error?.response?.data?.message || error?.message || t('加载分组配置失败'));
     } finally {
       setLoading(false);
     }
@@ -105,16 +107,16 @@ export default function GroupManagementPage() {
     <div className='space-y-4'>
       <Card>
         <CardHeader className='pb-4'>
-          <CardTitle className='text-base'>分组管理</CardTitle>
-          <CardDescription>Master-Detail 双面板布局：左侧分组列表，右侧分组详情与策略。</CardDescription>
+          <CardTitle className='text-base'>{t('分组管理')}</CardTitle>
+          <CardDescription>{t('Master-Detail 双面板布局：左侧分组列表，右侧分组详情与策略。')}</CardDescription>
         </CardHeader>
       </Card>
 
       <div className='grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]'>
         <Card>
           <CardHeader>
-            <CardTitle className='text-base'>分组列表</CardTitle>
-            <CardDescription>{loading ? '加载中...' : `共 ${groupNames.length} 个分组`}</CardDescription>
+            <CardTitle className='text-base'>{t('分组列表')}</CardTitle>
+            <CardDescription>{loading ? t('加载中...') : t('共 {{count}} 个分组', { count: groupNames.length })}</CardDescription>
           </CardHeader>
           <CardContent className='space-y-2'>
             {groupNames.map((groupName) => {
@@ -132,13 +134,15 @@ export default function GroupManagementPage() {
                   )}
                 >
                   <div className='font-medium'>{groupName}</div>
-                  <div className='text-xs text-muted-foreground mt-0.5'>基础倍率 {Number(groupRatio[groupName] ?? 1).toFixed(2)}</div>
+                  <div className='text-xs text-muted-foreground mt-0.5'>
+                    {t('基础倍率')} {Number(groupRatio[groupName] ?? 1).toFixed(2)}
+                  </div>
                 </button>
               );
             })}
             {groupNames.length === 0 ? (
               <div className='rounded border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground'>
-                暂无分组配置
+                {t('暂无分组配置')}
               </div>
             ) : null}
           </CardContent>
@@ -147,17 +151,17 @@ export default function GroupManagementPage() {
         <div className='space-y-4'>
           <div className='flex items-center justify-end'>
             <Button variant='outline' size='sm' onClick={loadData}>
-              刷新数据
+              {t('刷新数据')}
             </Button>
           </div>
 
           <GroupDetail
-            title='分组详情'
+            title={t('分组详情')}
             data={{
               id: selectedGroup || '-',
               name: selectedGroup || '-',
-              type: '权限分组',
-              status: currentRatio > 0 ? '启用' : '异常',
+              type: t('权限分组'),
+              status: currentRatio > 0 ? t('启用') : t('异常'),
             }}
           />
 
@@ -167,10 +171,10 @@ export default function GroupManagementPage() {
                 __base_ratio__: currentRatio,
                 ...currentModelRatio,
               }}
-              description='__base_ratio__ 为分组基础倍率，其余为模型级覆盖。'
+              description={t('__base_ratio__ 为分组基础倍率，其余为模型级覆盖。')}
             />
             <GroupModelAccess
-              groupName={selectedGroup || '未选择'}
+              groupName={selectedGroup || t('未选择')}
               options={models}
               selected={Object.keys(currentModelRatio)}
               disabled={true}

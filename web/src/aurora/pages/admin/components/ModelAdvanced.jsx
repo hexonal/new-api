@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 import { Switch } from '../../../primitives/switch';
@@ -25,23 +26,24 @@ import { Switch } from '../../../primitives/switch';
 export default function ModelAdvanced({
   settings = {},
   onChange,
-  title = '高级设置',
+  title,
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
+        <CardTitle className='text-base'>{title || t('高级设置')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-3 text-sm'>
         <label className='flex items-center justify-between'>
-          <span>流式响应</span>
+          <span>{t('流式响应')}</span>
           <Switch
             checked={Boolean(settings.streaming)}
             onCheckedChange={(value) => onChange?.('streaming', value)}
           />
         </label>
         <label className='flex items-center justify-between'>
-          <span>开启思考链</span>
+          <span>{t('开启思考链')}</span>
           <Switch
             checked={Boolean(settings.thinking)}
             onCheckedChange={(value) => onChange?.('thinking', value)}

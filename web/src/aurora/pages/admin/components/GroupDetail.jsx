@@ -18,21 +18,23 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
-export default function GroupDetail({ data = {}, title = '分组详情' }) {
+export default function GroupDetail({ data = {}, title }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
-        <CardDescription>{data.name || data.username || '未命名'}</CardDescription>
+        <CardTitle className='text-base'>{title || t('分组详情')}</CardTitle>
+        <CardDescription>{data.name || data.username || t('未命名')}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-1 text-sm'>
-        <p>ID：{data.id || '-'}</p>
-        <p>名称：{data.name || '-'}</p>
-        <p>类型：{data.type || '-'}</p>
-        <p>状态：{data.status || '-'}</p>
+        <p>{t('ID：')}{data.id || '-'}</p>
+        <p>{t('名称：')}{data.name || '-'}</p>
+        <p>{t('类型：')}{data.type || '-'}</p>
+        <p>{t('状态：')}{data.status || '-'}</p>
       </CardContent>
     </Card>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ResponsiveContainer,
   LineChart,
@@ -41,6 +42,7 @@ const SpendChart = ({
   modelColors = {},
   loading = false,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('distribution');
 
   // Aggregate data for charts
@@ -74,12 +76,10 @@ const SpendChart = ({
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
-          data={distData.length > 0 ? distData : [{ name: '无数据', value: 1 }]}
-          cx="50%"
-          cy="50%"
+          data={distData.length > 0 ? distData : [{ name: t('无数据'), value: 1 }]}
           innerRadius={60}
           outerRadius={100}
-          dataKey="value"
+          dataKey={(item) => item.value}
           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
           labelLine={{ strokeWidth: 1 }}
         >
@@ -95,11 +95,11 @@ const SpendChart = ({
   const renderTrend = () => (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={trendData} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tickFormatter={formatTime} minTickGap={30} tick={{ fontSize: 11 }} />
+        <CartesianGrid strokeDasharray={[3, 3].join(String.fromCharCode(32))} stroke="hsl(var(--border))" />
+        <XAxis dataKey={(item) => item.time} tickFormatter={formatTime} minTickGap={30} tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip labelFormatter={formatTime} formatter={(val) => renderQuota(val)} />
-        <Line type="monotone" dataKey="quota" stroke="#6366f1" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey={(item) => item.quota} stroke="#6366f1" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -108,12 +108,10 @@ const SpendChart = ({
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
-          data={reqDistData.length > 0 ? reqDistData : [{ name: '无数据', value: 1 }]}
-          cx="50%"
-          cy="50%"
+          data={reqDistData.length > 0 ? reqDistData : [{ name: t('无数据'), value: 1 }]}
           innerRadius={60}
           outerRadius={100}
-          dataKey="value"
+          dataKey={(item) => item.value}
           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
           labelLine={{ strokeWidth: 1 }}
         >
@@ -131,11 +129,11 @@ const SpendChart = ({
     return (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={sorted} layout="vertical" margin={{ left: 80, right: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <CartesianGrid strokeDasharray={[3, 3].join(String.fromCharCode(32))} stroke="hsl(var(--border))" />
           <XAxis type="number" tick={{ fontSize: 11 }} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+          <YAxis type="category" dataKey={(item) => item.name} tick={{ fontSize: 11 }} width={80} />
           <Tooltip />
-          <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
+          <Bar dataKey={(item) => item.value} fill="#6366f1" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -172,7 +170,7 @@ const SpendChart = ({
       <div className="h-[280px]">
         {loading ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-            loading...
+            {t('loading...')}
           </div>
         ) : (
           chartRenderers[activeTab]?.() || null

@@ -49,7 +49,7 @@ const PasswordStrengthBar = ({ value }) => {
         <div
           className={`aurora-strength-fill ${colorClass}`}
           style={{ width }}
-          aria-hidden='true'
+          aria-hidden={true}
         />
       </div>
       <div className='aurora-strength-label'>{labels[score - 1] || 'empty'}</div>

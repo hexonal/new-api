@@ -14,7 +14,7 @@ const ServiceHealthCard = ({
   <div className='rounded-xl border border-border bg-card p-4'>
     <h2 className='text-sm font-medium mb-3'>{t('服务健康度')}</h2>
     {loading ? (
-      <div className='text-sm text-muted-foreground'>loading...</div>
+      <div className='text-sm text-muted-foreground'>{t('loading...')}</div>
     ) : (
       <div className='space-y-3'>
         {items.map((service) => {

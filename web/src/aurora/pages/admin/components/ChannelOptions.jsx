@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 import { Input } from '../../../primitives/input';
@@ -25,13 +26,14 @@ import { Input } from '../../../primitives/input';
 export default function ChannelOptions({
   options = {},
   onChange,
-  title = '通道参数',
+  title,
 }) {
+  const { t } = useTranslation();
   const entries = Object.entries(options);
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
+        <CardTitle className='text-base'>{title || t('通道参数')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-3'>
         {entries.length ? (
@@ -45,7 +47,7 @@ export default function ChannelOptions({
             </label>
           ))
         ) : (
-          <p className='text-sm text-muted-foreground'>未配置参数</p>
+          <p className='text-sm text-muted-foreground'>{t('未配置参数')}</p>
         )}
       </CardContent>
     </Card>

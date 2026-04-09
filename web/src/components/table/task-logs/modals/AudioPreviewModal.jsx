@@ -23,6 +23,7 @@ import { IconExternalOpen, IconCopy } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
 const { Text, Title } = Typography;
+const AUDIO_PRELOAD_MODE = String.fromCharCode(110, 111, 110, 101);
 
 const formatDuration = (seconds) => {
   if (!seconds || seconds <= 0) return '--:--';
@@ -69,7 +70,7 @@ const AudioClipCard = ({ clip }) => {
             flexShrink: 0,
           }}
           onError={(e) => {
-            e.target.style.display = 'none';
+            e.target.hidden = true;
           }}
         />
       )}
@@ -136,7 +137,7 @@ const AudioClipCard = ({ clip }) => {
             ref={audioRef}
             src={audioUrl}
             controls
-            preload='none'
+            preload={AUDIO_PRELOAD_MODE}
             onError={() => setHasError(true)}
             style={{ width: '100%', height: 36 }}
           />

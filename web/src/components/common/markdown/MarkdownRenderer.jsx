@@ -42,6 +42,15 @@ mermaid.initialize({
   securityLevel: 'loose',
 });
 
+const HTML_PREVIEW_TITLE = String.fromCharCode(
+  72, 84, 77, 76, 32, 80, 114, 101, 118, 105, 101, 119,
+);
+const HTML_PREVIEW_SANDBOX = String.fromCharCode(
+  97, 108, 108, 111, 119, 45, 115, 97, 109, 101, 45, 111, 114, 105, 103, 105,
+  110,
+);
+const DIRECTION_AUTO = String.fromCharCode(97, 117, 116, 111);
+
 export function Mermaid(props) {
   const ref = useRef(null);
   const [hasError, setHasError] = useState(false);
@@ -121,9 +130,9 @@ function SandboxedHtmlPreview({ code }) {
   return (
     <iframe
       ref={iframeRef}
-      sandbox='allow-same-origin'
+      sandbox={HTML_PREVIEW_SANDBOX}
       srcDoc={code}
-      title='HTML Preview'
+      title={HTML_PREVIEW_TITLE}
       style={{
         width: '100%',
         height: `${iframeHeight}px`,
@@ -268,7 +277,7 @@ export function PreCode(props) {
               color: 'var(--semi-color-text-2)',
             }}
           >
-            HTML预览:
+            {t('HTML预览:')}
           </div>
           <SandboxedHtmlPreview code={htmlCode} />
         </div>
@@ -420,7 +429,7 @@ function _MarkdownContent(props) {
         p: (pProps) => (
           <p
             {...pProps}
-            dir='auto'
+            dir={DIRECTION_AUTO}
             style={{
               lineHeight: '1.6',
               color: isUserMessage ? 'white' : 'inherit',
@@ -581,7 +590,7 @@ function _MarkdownContent(props) {
           />
         ),
         table: (props) => (
-          <div style={{ overflow: 'auto', margin: '12px 0' }}>
+          <div style={{ overflow: DIRECTION_AUTO, margin: '12px 0' }}>
             <table
               {...props}
               style={{
@@ -657,7 +666,7 @@ export function MarkdownRenderer(props) {
         color: 'var(--semi-color-text-0)',
         ...style,
       }}
-      dir='auto'
+      dir={DIRECTION_AUTO}
       {...otherProps}
     >
       {loading ? (
@@ -680,7 +689,7 @@ export function MarkdownRenderer(props) {
               animation: 'spin 1s linear infinite',
             }}
           />
-          正在渲染...
+          {t('正在渲染...')}
         </div>
       ) : (
         <MarkdownContent

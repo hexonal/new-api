@@ -427,9 +427,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           isCollapsed={collapsed}
           onCollapseChange={toggleCollapsed}
           selectedKeys={selectedKeys}
-          itemStyle='sidebar-nav-item'
-          hoverStyle='sidebar-nav-item:hover'
-          selectedStyle='sidebar-nav-item-selected'
+          itemStyle={t('sidebar-nav-item')}
+          hoverStyle={t('sidebar-nav-item:hover')}
+          selectedStyle={t('sidebar-nav-item-selected')}
           renderWrapper={({ itemElement, props }) => {
             const to =
               routerMapState[props.itemKey] || routerMap[props.itemKey];

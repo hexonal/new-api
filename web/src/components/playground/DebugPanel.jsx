@@ -145,8 +145,8 @@ const DebugPanel = ({
                 <Eye size={16} />
                 {t('预览请求体')}
                 {customRequestMode && (
-                  <span className='px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full'>
-                    自定义
+                    <span className='px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full'>
+                    {t('自定义')}
                   </span>
                 )}
               </div>
@@ -155,8 +155,8 @@ const DebugPanel = ({
           >
             <CodeViewer
               content={debugData.previewRequest}
-              title='preview'
-              language='json'
+              title={t('preview')}
+              language={t('json')}
             />
           </TabPane>
 
@@ -171,8 +171,8 @@ const DebugPanel = ({
           >
             <CodeViewer
               content={debugData.request}
-              title='request'
-              language='json'
+              title={t('request')}
+              language={t('json')}
             />
           </TabPane>
 
@@ -182,8 +182,8 @@ const DebugPanel = ({
                 <Zap size={16} />
                 {t('响应')}
                 {debugData.sseMessages && debugData.sseMessages.length > 0 && (
-                  <span className='px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full'>
-                    SSE ({debugData.sseMessages.length})
+                    <span className='px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full'>
+                    {t('SSE (')}{debugData.sseMessages.length})
                   </span>
                 )}
               </div>
@@ -191,12 +191,12 @@ const DebugPanel = ({
             itemKey='response'
           >
             {debugData.sseMessages && debugData.sseMessages.length > 0 ? (
-              <SSEViewer sseData={debugData.sseMessages} title='response' />
+              <SSEViewer sseData={debugData.sseMessages} title={t('response')} />
             ) : (
               <CodeViewer
                 content={debugData.response}
-                title='response'
-                language='json'
+                title={t('response')}
+                language={t('json')}
               />
             )}
           </TabPane>

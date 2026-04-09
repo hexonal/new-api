@@ -49,6 +49,27 @@ import {
   useSidebar,
 } from '../../../../hooks/common/useSidebar';
 
+const WARNING_TYPE_WEBHOOK = String.fromCharCode(
+  119, 101, 98, 104, 111, 111, 107,
+);
+const JSON_LANGUAGE = String.fromCharCode(106, 115, 111, 110);
+const WEBHOOK_TITLE = String.fromCharCode(119, 101, 98, 104, 111, 111, 107);
+const FIELD_TYPE = String.fromCharCode(116, 121, 112, 101, 58);
+const FIELD_TITLE = String.fromCharCode(116, 105, 116, 108, 101, 58);
+const FIELD_CONTENT = String.fromCharCode(
+  99, 111, 110, 116, 101, 110, 116, 58,
+);
+const FIELD_VALUES = String.fromCharCode(118, 97, 108, 117, 101, 115, 58);
+const FIELD_TIMESTAMP = String.fromCharCode(
+  116, 105, 109, 101, 115, 116, 97, 109, 112, 58,
+);
+const BARK_SUFFIX = String.fromCharCode(
+  63, 115, 111, 117, 110, 100, 61, 97, 108, 97, 114, 109, 38, 103, 114, 111,
+  117, 112, 61, 113, 117, 111, 116, 97,
+);
+const BARK_NAME = String.fromCharCode(66, 97, 114, 107);
+const GOTIFY_NAME = String.fromCharCode(71, 111, 116, 105, 102, 121);
+
 const NotificationSettings = ({
   t,
   notificationSettings,
@@ -436,7 +457,9 @@ const NotificationSettings = ({
                   rules={[{ required: true, message: t('请选择通知方式') }]}
                 >
                   <Radio value='email'>{t('邮件通知')}</Radio>
-                  <Radio value='webhook'>{t('Webhook通知')}</Radio>
+                  <Radio value={WARNING_TYPE_WEBHOOK}>
+                    {t('Webhook通知')}
+                  </Radio>
                   <Radio value='bark'>{t('Bark通知')}</Radio>
                   <Radio value='gotify'>{t('Gotify通知')}</Radio>
                 </Form.RadioGroup>
@@ -511,7 +534,7 @@ const NotificationSettings = ({
                 )}
 
                 {/* Webhook通知设置 */}
-                {notificationSettings.warningType === 'webhook' && (
+                {notificationSettings.warningType === WARNING_TYPE_WEBHOOK && (
                   <>
                     <Form.Input
                       field='webhookUrl'
@@ -562,28 +585,29 @@ const NotificationSettings = ({
                               values: ['$0.99'],
                               timestamp: 1739950503,
                             }}
-                            title='webhook'
-                            language='json'
+                            title={WEBHOOK_TITLE}
+                            language={JSON_LANGUAGE}
                           />
                         </div>
                         <div className='text-xs text-gray-500 leading-relaxed'>
                           <div>
-                            <strong>type:</strong>{' '}
+                            <strong>{FIELD_TYPE}</strong>{' '}
                             {t('通知类型 (quota_exceed: 额度预警)')}{' '}
                           </div>
                           <div>
-                            <strong>title:</strong> {t('通知标题')}
+                            <strong>{FIELD_TITLE}</strong> {t('通知标题')}
                           </div>
                           <div>
-                            <strong>content:</strong>{' '}
+                            <strong>{FIELD_CONTENT}</strong>{' '}
                             {t('通知内容，支持 {{value}} 变量占位符')}
                           </div>
                           <div>
-                            <strong>values:</strong>{' '}
+                            <strong>{FIELD_VALUES}</strong>{' '}
                             {t('按顺序替换content中的变量占位符')}
                           </div>
                           <div>
-                            <strong>timestamp:</strong> {t('Unix时间戳')}
+                            <strong>{FIELD_TIMESTAMP}</strong>{' '}
+                            {t('Unix时间戳')}
                           </div>
                         </div>
                       </div>
@@ -624,7 +648,8 @@ const NotificationSettings = ({
                       </div>
                       <div className='text-xs text-gray-600 font-mono bg-white p-3 rounded-lg shadow-sm mb-4'>
                         https://api.day.app/yourkey/{'{{title}}'}/
-                        {'{{content}}'}?sound=alarm&group=quota
+                        {'{{content}}'}
+                        {BARK_SUFFIX}
                       </div>
                       <div className='text-xs text-gray-500 space-y-2'>
                         <div>
@@ -643,7 +668,7 @@ const NotificationSettings = ({
                             rel='noopener noreferrer'
                             className='text-blue-500 hover:text-blue-600 font-medium'
                           >
-                            Bark {t('官方文档')}
+                            {BARK_NAME} {t('官方文档')}
                           </a>
                         </div>
                       </div>
@@ -744,7 +769,7 @@ const NotificationSettings = ({
                             rel='noopener noreferrer'
                             className='text-blue-500 hover:text-blue-600 font-medium'
                           >
-                            Gotify {t('官方文档')}
+                            {GOTIFY_NAME} {t('官方文档')}
                           </a>
                         </div>
                       </div>

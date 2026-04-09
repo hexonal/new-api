@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '../../../primitives/button';
 
@@ -27,22 +28,23 @@ export default function GenerateCodesModal({
   onGenerate,
   onClose,
 }) {
+  const { t } = useTranslation();
   if (!visible) {
-    return <Button onClick={onGenerate}>生成兑换码</Button>;
+    return <Button onClick={onGenerate}>{t('生成兑换码')}</Button>;
   }
 
   return (
     <section className='rounded-lg border border-border bg-card/70 p-4 space-y-3'>
-      <div className='font-medium'>兑换码列表</div>
+      <div className='font-medium'>{t('兑换码列表')}</div>
       <ul className='space-y-1 text-sm'>
         {codeList.length ? (
           codeList.map((code) => <li key={code}>{code}</li>)
         ) : (
-          <li className='text-muted-foreground'>暂无</li>
+          <li className='text-muted-foreground'>{t('暂无')}</li>
         )}
       </ul>
       <div className='flex gap-2 justify-end'>
-        <Button variant='outline' onClick={onClose}>关闭</Button>
+        <Button variant='outline' onClick={onClose}>{t('关闭')}</Button>
       </div>
     </section>
   );

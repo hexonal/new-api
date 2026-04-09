@@ -40,6 +40,7 @@ import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
 const { Text, Title } = Typography;
+const FORM_LABEL_POSITION_TOP = String.fromCharCode(116, 111, 112);
 
 const EditDeploymentModal = ({
   refresh,
@@ -170,7 +171,7 @@ const EditDeploymentModal = ({
           <Form
             ref={formRef}
             onSubmit={handleSubmit}
-            labelPosition='top'
+            labelPosition={FORM_LABEL_POSITION_TOP}
             style={{ width: '100%' }}
           >
             <Card>

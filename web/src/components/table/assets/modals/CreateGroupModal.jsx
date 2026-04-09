@@ -34,7 +34,7 @@ const CreateGroupModal = ({ visible, onCancel, onSubmit, loading, t }) => {
 
   return (
     <Modal
-      title='Create Group'
+      title={t('Create Group')}
       visible={visible}
       onCancel={onCancel}
       onOk={async () => {
@@ -53,26 +53,26 @@ const CreateGroupModal = ({ visible, onCancel, onSubmit, loading, t }) => {
           description: '',
         });
       }}
-      okText='Create'
-      cancelText='Cancel'
+      okText={t('Create')}
+      cancelText={t('Cancel')}
       confirmLoading={loading}
       closeOnEsc
     >
       <Form>
         <Form.Input
           field='group-company'
-          label='Company'
+          label={t('Company')}
           value={company}
           onChange={setCompany}
-          placeholder='Enter company'
+          placeholder={t('Enter company')}
           showClear
         />
         <Form.Input
           field='group-name'
-          label='Name'
+          label={t('Name')}
           value={name}
           onChange={setName}
-          placeholder='Enter name'
+          placeholder={t('Enter name')}
           showClear
         />
       </Form>

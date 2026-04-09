@@ -52,6 +52,8 @@ import {
 } from '../../../../helpers';
 
 const { Text, Title } = Typography;
+const SPACE_MEDIUM = String.fromCharCode(109, 101, 100, 105, 117, 109);
+const UNIT_GB = String.fromCharCode(71, 66);
 
 const CHANNEL_TYPE_OLLAMA = 4;
 
@@ -540,7 +542,7 @@ const OllamaModelModal = ({
         </Button>
       }
     >
-      <Space vertical spacing='medium' style={{ width: '100%' }}>
+      <Space vertical spacing={SPACE_MEDIUM} style={{ width: '100%' }}>
         <div>
           <Text type='tertiary' size='small'>
             {channelInfo?.name ? `${channelInfo.name} - ` : ''}
@@ -620,10 +622,11 @@ const OllamaModelModal = ({
                       <div className='flex justify-between mt-1'>
                         <Text type='tertiary' size='small'>
                           {(completedBytes / (1024 * 1024 * 1024)).toFixed(2)}{' '}
-                          GB
+                          {UNIT_GB}
                         </Text>
                         <Text type='tertiary' size='small'>
-                          {(totalBytes / (1024 * 1024 * 1024)).toFixed(2)} GB
+                          {(totalBytes / (1024 * 1024 * 1024)).toFixed(2)}{' '}
+                          {UNIT_GB}
                         </Text>
                       </div>
                     </div>

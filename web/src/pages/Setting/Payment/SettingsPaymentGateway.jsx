@@ -574,8 +574,8 @@ export default function SettingsPaymentGateway(props) {
               <Form.Switch
                 field='UserPointsEnabled'
                 size='default'
-                checkedText='｜'
-                uncheckedText='〇'
+                checkedText={t('｜')}
+                uncheckedText={t('〇')}
                 label={t('启用 user_points 预扣校验')}
                 extraText={t('仅匹配用户名前缀的 token 生效')}
               />
@@ -673,8 +673,8 @@ export default function SettingsPaymentGateway(props) {
               <Form.Switch
                 field='ImaProMinBalanceGateEnabled'
                 size='default'
-                checkedText='｜'
-                uncheckedText='〇'
+                checkedText={t('｜')}
+                uncheckedText={t('〇')}
                 label={t('启用 ima-pro 最低余额门槛')}
                 extraText={t('仅对 ima-pro 生效')}
               />
@@ -731,8 +731,8 @@ export default function SettingsPaymentGateway(props) {
                         <Col xs={12} sm={4} md={4} lg={4} xl={4}>
                           <SemiSwitch
                             checked={!!rule.enabled}
-                            checkedText='｜'
-                            uncheckedText='〇'
+                            checkedText={t('｜')}
+                            uncheckedText={t('〇')}
                             onChange={(v) =>
                               updateRoutingRule(index, 'enabled', !!v)
                             }

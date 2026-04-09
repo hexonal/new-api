@@ -422,8 +422,8 @@ export default function SettingsMonitoring(props) {
                   field={'monitor_setting.auto_test_channel_enabled'}
                   label={t('定时测试所有通道')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,
@@ -495,8 +495,8 @@ export default function SettingsMonitoring(props) {
                   field={'AutomaticDisableChannelEnabled'}
                   label={t('失败时自动禁用通道')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={(value) => {
                     setInputs({
                       ...inputs,
@@ -510,8 +510,8 @@ export default function SettingsMonitoring(props) {
                   field={'AutomaticEnableChannelEnabled'}
                   label={t('成功时自动启用通道')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,
@@ -574,8 +574,8 @@ export default function SettingsMonitoring(props) {
                         '仅用于 openai/anthropic/responses 三类端点的消费结算事件；开启后会异步推送到你配置的回调地址（可用于告警系统或工单系统）',
                       )}
                       size='default'
-                      checkedText='｜'
-                      uncheckedText='〇'
+                      checkedText={t('｜')}
+                      uncheckedText={t('〇')}
                       onChange={(value) =>
                         setInputs({
                           ...inputs,
@@ -683,8 +683,8 @@ export default function SettingsMonitoring(props) {
                               <Col xs={12} sm={4} md={4} lg={4} xl={4}>
                                 <SemiSwitch
                                   checked={!!rule.enabled}
-                                  checkedText='｜'
-                                  uncheckedText='〇'
+                                  checkedText={t('｜')}
+                                  uncheckedText={t('〇')}
                                   onChange={(v) =>
                                     updateConsumeRoutingRule(
                                       index,
@@ -807,8 +807,8 @@ export default function SettingsMonitoring(props) {
                         '关闭后将显示完整 URL、错误与请求内容；建议仅在内部环境使用',
                       )}
                       size='default'
-                      checkedText='｜'
-                      uncheckedText='〇'
+                      checkedText={t('｜')}
+                      uncheckedText={t('〇')}
                       onChange={(value) =>
                         setInputs({
                           ...inputs,
@@ -914,16 +914,16 @@ export default function SettingsMonitoring(props) {
               </Button>
             </Row>
           </Form.Section>
-          <Form.Section text='任务轮询设置'>
+          <Form.Section text={t('任务轮询设置')}>
             <Row gutter={16}>
               <Col span={8}>
                 <Form.Switch
                   field={'TaskPollingRebuildOnStartup'}
-                  label='启动时重建轮询队列'
-                  extraText='应用启动时从数据库重建 Redis 轮询队列（推荐开启）'
+                  label={t('启动时重建轮询队列')}
+                  extraText={t('应用启动时从数据库重建 Redis 轮询队列（推荐开启）')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,
@@ -935,11 +935,11 @@ export default function SettingsMonitoring(props) {
               <Col span={8}>
                 <Form.Switch
                   field={'TaskBillingRepairOnStartup'}
-                  label='启动时修复计费异常'
-                  extraText='应用启动时自动修复卡在 charging 状态的任务（推荐开启）'
+                  label={t('启动时修复计费异常')}
+                  extraText={t('应用启动时自动修复卡在 charging 状态的任务（推荐开启）')}
                   size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
+                  checkedText={t('｜')}
+                  uncheckedText={t('〇')}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,

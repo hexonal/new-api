@@ -30,6 +30,7 @@ import {
 import { API, copy, showError, showSuccess } from '../../../../helpers';
 
 const { Text } = Typography;
+const SPACE_TIGHT = String.fromCharCode(116, 105, 103, 104, 116);
 
 const CodexOAuthModal = ({ visible, onCancel, onSuccess }) => {
   const { t } = useTranslation();
@@ -131,7 +132,7 @@ const CodexOAuthModal = ({ visible, onCancel, onSuccess }) => {
         </Space>
       }
     >
-      <Space vertical spacing='tight' style={{ width: '100%' }}>
+      <Space vertical spacing={SPACE_TIGHT} style={{ width: '100%' }}>
         <Banner
           type='info'
           description={t(

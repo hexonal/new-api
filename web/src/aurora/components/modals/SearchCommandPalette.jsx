@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,7 @@ export default function SearchCommandPalette({
   onOpenChange,
   commands = defaultCommands,
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [internalOpen, setInternalOpen] = useState(false);
 
@@ -113,7 +115,7 @@ export default function SearchCommandPalette({
   const groups = useMemo(() => {
     const map = new Map();
     commands.forEach((item) => {
-      const key = item.group || 'General';
+      const key = item.group || t('General');
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     });
@@ -133,12 +135,12 @@ export default function SearchCommandPalette({
     <Dialog open={visible} onOpenChange={setVisible}>
       <DialogContent className='p-0 sm:max-w-2xl'>
         <DialogHeader className='px-4 pt-4'>
-          <DialogTitle>Command Palette</DialogTitle>
+          <DialogTitle>{t('Command Palette')}</DialogTitle>
         </DialogHeader>
         <Command>
-          <CommandInput placeholder='Type a command or search...' />
+          <CommandInput placeholder={t('Type a command or search...')} />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>{t('No results found.')}</CommandEmpty>
             {groups.map(([groupName, items]) => (
               <CommandGroup key={groupName} heading={groupName}>
                 {items.map((item) => (

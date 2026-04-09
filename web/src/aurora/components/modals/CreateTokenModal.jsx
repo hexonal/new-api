@@ -202,7 +202,7 @@ export default function CreateTokenModal({
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, model_limits: e.target.value }))
                 }
-                placeholder='gpt-4o,gpt-4.1-mini'
+                placeholder={t('gpt-4o,gpt-4.1-mini')}
               />
               {models.length > 0 ? (
                 <div className='flex max-h-32 flex-wrap gap-2 overflow-y-auto'>

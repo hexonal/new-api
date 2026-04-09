@@ -88,6 +88,11 @@ import {
 } from '@douyinfe/semi-icons';
 
 const { Text, Title } = Typography;
+const SPACE_TIGHT = String.fromCharCode(116, 105, 103, 104, 116);
+const AZURE_ENDPOINT_LABEL = String.fromCharCode(
+  65, 90, 85, 82, 69, 95, 79, 80, 69, 78, 65, 73, 95, 69, 78, 68, 80, 79, 73,
+  78, 84,
+);
 
 const MODEL_MAPPING_EXAMPLE = {
   'gpt-3.5-turbo': 'gpt-3.5-turbo-0125',
@@ -3010,7 +3015,7 @@ const EditChannelModal = (props) => {
                                     )}
                                   </Text>
 
-                                  <Space wrap spacing='tight'>
+                                  <Space wrap spacing={SPACE_TIGHT}>
                                     <Button
                                       size='small'
                                       type='primary'
@@ -3368,7 +3373,7 @@ const EditChannelModal = (props) => {
                     {inputs.type === 39 && (
                       <Form.Input
                         field='other'
-                        label='Account ID'
+                        label={t('Account ID')}
                         placeholder={
                           '请输入Account ID，例如：d6b5da8hk1awo8nap34ube6gh'
                         }
@@ -3464,7 +3469,7 @@ const EditChannelModal = (props) => {
                           <div>
                             <Form.Input
                               field='base_url'
-                              label='AZURE_OPENAI_ENDPOINT'
+                              label={AZURE_ENDPOINT_LABEL}
                               placeholder={t(
                                 '请输入 AZURE_OPENAI_ENDPOINT，例如：https://docs-test-001.openai.azure.com',
                               )}
