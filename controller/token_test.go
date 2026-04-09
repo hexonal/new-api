@@ -298,31 +298,38 @@ func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {
 	}
 }
 
-func TestTokenExistsByNameRejectsNonAdminUsers(t *testing.T) {
-	db := setupTokenControllerTestDB(t)
-	seedRootUser(t, db, 1)
-	seedToken(t, db, 1, "root-token-name", "root-token-key")
-
-	ctx, recorder := newAuthenticatedContextWithRole(t, http.MethodGet, "/api/token/exists?name=root-token-name", nil, 1, common.RoleCommonUser)
-	TokenExistsByName(ctx)
-
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("expected status %d, got %d body=%s", http.StatusForbidden, recorder.Code, recorder.Body.String())
-	}
-
-	response := decodeAPIResponse(t, recorder)
-	if response.Success {
-		t.Fatalf("expected non-admin token exists request to fail")
-	}
-}
-
-func TestTokenExistsByNameReturnsExistsForRootToken(t *testing.T) {
+func TestTokenExistsByTokenAllowsNonAdminUsers(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	seedRootUser(t, db, 1)
 	token := seedToken(t, db, 1, "root-token-name", "root-token-key")
 
-	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?name=root-token-name", nil, 1)
-	TokenExistsByName(ctx)
+	ctx, recorder := newAuthenticatedContextWithRole(t, http.MethodGet, "/api/token/exists?token=root-token-name", nil, 1, common.RoleCommonUser)
+	TokenExistsByToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected non-admin token exists request to succeed, got message: %s", response.Message)
+	}
+
+	var data struct {
+		Exists  bool `json:"exists"`
+		TokenID int  `json:"token_id"`
+	}
+	if err := common.Unmarshal(response.Data, &data); err != nil {
+		t.Fatalf("failed to decode token exists response: %v", err)
+	}
+	if !data.Exists || data.TokenID != token.Id {
+		t.Fatalf("unexpected token exists payload: %+v", data)
+	}
+}
+
+func TestTokenExistsByTokenReturnsExistsForRootToken(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	seedRootUser(t, db, 1)
+	token := seedToken(t, db, 1, "root-token-name", "root-token-key")
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?token=root-token-name", nil, 1)
+	TokenExistsByToken(ctx)
 
 	response := decodeAPIResponse(t, recorder)
 	if !response.Success {
@@ -341,12 +348,12 @@ func TestTokenExistsByNameReturnsExistsForRootToken(t *testing.T) {
 	}
 }
 
-func TestTokenExistsByNameReturnsFalseForMissingToken(t *testing.T) {
+func TestTokenExistsByTokenReturnsFalseForMissingToken(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	seedRootUser(t, db, 1)
 
-	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?name=missing-token", nil, 1)
-	TokenExistsByName(ctx)
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?token=missing-token", nil, 1)
+	TokenExistsByToken(ctx)
 
 	response := decodeAPIResponse(t, recorder)
 	if !response.Success {
@@ -365,7 +372,7 @@ func TestTokenExistsByNameReturnsFalseForMissingToken(t *testing.T) {
 	}
 }
 
-func TestTokenExistsByNameReturnsInternalServerErrorOnDatabaseError(t *testing.T) {
+func TestTokenExistsByTokenReturnsInternalServerErrorOnDatabaseError(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	seedRootUser(t, db, 1)
 
@@ -377,8 +384,8 @@ func TestTokenExistsByNameReturnsInternalServerErrorOnDatabaseError(t *testing.T
 		t.Fatalf("failed to close raw db: %v", err)
 	}
 
-	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?name=broken-db-token", nil, 1)
-	TokenExistsByName(ctx)
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/exists?token=broken-db-token", nil, 1)
+	TokenExistsByToken(ctx)
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusInternalServerError, recorder.Code, recorder.Body.String())

@@ -133,6 +133,43 @@ func buildProvisionToken(userId int, tokenKey string, req operatorProvisionReque
 	}
 }
 
+// OperatorCreateToken creates a token under the authenticated operator user.
+func OperatorCreateToken(c *gin.Context) {
+	var req struct {
+		Name           string `json:"name"`
+		UnlimitedQuota bool   `json:"unlimited_quota"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" || len(name) > 100 {
+		common.ApiErrorMsg(c, "name is required and must be <= 100 chars")
+		return
+	}
+	key, err := common.GenerateKey()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	currentTimestamp := common.GetTimestamp()
+	token := model.Token{
+		UserId:         c.GetInt("id"),
+		Name:           name,
+		Key:            key,
+		CreatedTime:    currentTimestamp,
+		AccessedTime:   currentTimestamp,
+		ExpiredTime:    -1,
+		UnlimitedQuota: req.UnlimitedQuota,
+	}
+	if err = token.Insert(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}
+
 func OperatorProvision(c *gin.Context) {
 	var req operatorProvisionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

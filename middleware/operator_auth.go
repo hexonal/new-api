@@ -19,8 +19,6 @@ func OperatorAuth() gin.HandlerFunc {
 			key = strings.TrimSpace(key[7:])
 		}
 		key = strings.TrimPrefix(key, "sk-")
-		parts := strings.Split(key, "-")
-		key = parts[0]
 
 		if key == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -89,6 +87,9 @@ func OperatorAuth() gin.HandlerFunc {
 
 		c.Set("operator_user_id", user.Id)
 		c.Set("operator_token_id", token.Id)
+		c.Set("id", user.Id)
+		c.Set("username", user.Username)
+		c.Set("role", user.Role)
 		c.Next()
 	}
 }

@@ -248,7 +248,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			tokenRoute.GET("/", controller.GetAllTokens)
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
-			tokenRoute.GET("/exists", controller.TokenExistsByName)
+			tokenRoute.GET("/exists", controller.TokenExistsByToken)
 			tokenRoute.GET("/:id", controller.GetToken)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)
 			tokenRoute.POST("/", controller.AddToken)
@@ -384,6 +384,8 @@ func SetApiRouter(router *gin.Engine) {
 		operatorRoute := apiRouter.Group("/operator")
 		operatorRoute.Use(middleware.OperatorAuth())
 		{
+			operatorRoute.GET("/token/exists", controller.TokenExistsByToken)
+			operatorRoute.POST("/token/create", controller.OperatorCreateToken)
 			operatorRoute.POST("/provision", controller.OperatorProvision)
 			operatorRoute.POST("/tokens", controller.OperatorTokens)
 			operatorRoute.POST("/quota", controller.OperatorQuota)

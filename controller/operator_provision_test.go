@@ -391,3 +391,179 @@ func TestOperatorProvisionNewUserAmountUSDOverridesQuotaAsTotal(t *testing.T) {
 		t.Fatalf("expected quota=%d, got=%d", expectedQuota, user.Quota)
 	}
 }
+
+func TestOperatorCreateTokenCreatesTokenForAuthenticatedOperatorUser(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	operatorUser := seedProvisionUser(t, db, "operator_root")
+	operatorUser.Role = common.RoleRootUser
+	if err := db.Save(&operatorUser).Error; err != nil {
+		t.Fatalf("failed to update operator role: %v", err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"name":            "prod_app_123_user_456",
+		"unlimited_quota": true,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal create token body: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("id", operatorUser.Id)
+
+	OperatorCreateToken(ctx)
+
+	var resp provisionAPIResponse
+	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got message: %s", resp.Message)
+	}
+
+	var token model.Token
+	if err = db.Where("name = ?", "prod_app_123_user_456").First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
+	}
+	if token.UserId != operatorUser.Id {
+		t.Fatalf("expected token user_id=%d, got=%d", operatorUser.Id, token.UserId)
+	}
+	if !token.UnlimitedQuota {
+		t.Fatal("expected token unlimited_quota to be true")
+	}
+	if token.ExpiredTime != -1 {
+		t.Fatalf("expected token expired_time=-1, got=%d", token.ExpiredTime)
+	}
+	if token.Key != "prod_app_123_user_456" {
+		t.Fatalf("expected token key=%q, got=%q", "prod_app_123_user_456", token.Key)
+	}
+}
+
+func TestOperatorCreateTokenUsesNameAsTokenKeyWithoutSKPrefix(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	operatorUser := seedProvisionUser(t, db, "operator_root")
+	operatorUser.Role = common.RoleRootUser
+	if err := db.Save(&operatorUser).Error; err != nil {
+		t.Fatalf("failed to update operator role: %v", err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"name":            " sk-custom_token_123 ",
+		"unlimited_quota": true,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal create token body: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("id", operatorUser.Id)
+
+	OperatorCreateToken(ctx)
+
+	var resp provisionAPIResponse
+	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got message: %s", resp.Message)
+	}
+
+	var token model.Token
+	if err = db.Where("name = ?", "sk-custom_token_123").First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
+	}
+	if token.Name != "sk-custom_token_123" {
+		t.Fatalf("expected stored token name %q, got %q", "sk-custom_token_123", token.Name)
+	}
+	if token.Key != "custom_token_123" {
+		t.Fatalf("expected stored token key %q, got %q", "custom_token_123", token.Key)
+	}
+}
+
+func TestOperatorCreateTokenRejectsNameLongerThan48CharsAfterSKPrefixStripped(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	operatorUser := seedProvisionUser(t, db, "operator_root")
+	operatorUser.Role = common.RoleRootUser
+	if err := db.Save(&operatorUser).Error; err != nil {
+		t.Fatalf("failed to update operator role: %v", err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"name":            "sk-" + strings.Repeat("a", 49),
+		"unlimited_quota": true,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal create token body: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("id", operatorUser.Id)
+
+	OperatorCreateToken(ctx)
+
+	var resp provisionAPIResponse
+	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
+	}
+	if resp.Success {
+		t.Fatalf("expected invalid token response to fail, body=%s", recorder.Body.String())
+	}
+
+	var count int64
+	if err = db.Model(&model.Token{}).Where("name = ?", "sk-"+strings.Repeat("a", 49)).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count created tokens: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected no token rows to be created, got %d", count)
+	}
+}
+
+func TestOperatorCreateTokenRejectsKeyLongerThan48CharsAfterSKPrefixStripped(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	operatorUser := seedProvisionUser(t, db, "operator_root")
+	operatorUser.Role = common.RoleRootUser
+	if err := db.Save(&operatorUser).Error; err != nil {
+		t.Fatalf("failed to update operator role: %v", err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"name":            strings.Repeat("a", 49),
+		"unlimited_quota": true,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal create token body: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("id", operatorUser.Id)
+
+	OperatorCreateToken(ctx)
+
+	var resp provisionAPIResponse
+	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
+	}
+	if resp.Success {
+		t.Fatalf("expected invalid token response to fail, body=%s", recorder.Body.String())
+	}
+
+	var count int64
+	if err = db.Model(&model.Token{}).Where("name = ?", strings.Repeat("a", 49)).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count created tokens: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected no token rows to be created, got %d", count)
+	}
+}

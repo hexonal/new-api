@@ -47,25 +47,18 @@ func GetAllTokens(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
-// TokenExistsByName checks whether a token with the given name exists (root user tokens only).
-// Returns { exists: true/false, token_id: N } for exact name match.
-func TokenExistsByName(c *gin.Context) {
-	name := strings.TrimSpace(c.Query("name"))
-	if name == "" {
-		common.ApiError(c, fmt.Errorf("name parameter is required"))
+// TokenExistsByToken checks whether a token with the given name exists.
+// Returns { exists: true/false, token_id: N, sk: "sk-xxx" } for exact name match.
+func TokenExistsByToken(c *gin.Context) {
+	tokenName := strings.TrimSpace(c.Query("token"))
+	if tokenName == "" {
+		common.ApiError(c, fmt.Errorf("token parameter is required"))
 		return
 	}
-	if c.GetInt("role") < common.RoleAdminUser {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "无权进行此操作，权限不足",
-		})
-		return
-	}
-	token, err := model.GetTokenByName(name)
+	token, err := model.GetTokenByName(tokenName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.ApiSuccess(c, gin.H{"exists": false, "token_id": 0})
+			common.ApiSuccess(c, gin.H{"exists": false, "token_id": 0, "sk": ""})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -74,7 +67,7 @@ func TokenExistsByName(c *gin.Context) {
 		})
 		return
 	}
-	common.ApiSuccess(c, gin.H{"exists": true, "token_id": token.Id})
+	common.ApiSuccess(c, gin.H{"exists": true, "token_id": token.Id, "sk": "sk-" + token.Key})
 }
 
 func SearchTokens(c *gin.Context) {
