@@ -781,6 +781,14 @@ export const useLogsData = () => {
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
             const billedQuota = Number(logs[i].quota || 0);
+            const deferredPromptTokens =
+              toPositiveNumber(logs[i]?.prompt_tokens) > 0
+                ? toPositiveNumber(logs[i]?.prompt_tokens)
+                : toPositiveNumber(other?.task_prompt_tokens);
+            const deferredCompletionTokens =
+              toPositiveNumber(logs[i]?.completion_tokens) > 0
+                ? toPositiveNumber(logs[i]?.completion_tokens)
+                : toPositiveNumber(other?.task_completion_tokens);
             const totalTokens =
               toPositiveNumber(logs[i]?.prompt_tokens) +
                 toPositiveNumber(logs[i]?.completion_tokens) >
