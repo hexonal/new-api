@@ -19,16 +19,43 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
+import { useLogsData as useUsageLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
 import { timestamp2string, renderQuota, renderNumber } from '../../../helpers';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../primitives/table';
 import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
 import { Input } from '../../primitives/input';
 
+const LOG_TYPE_OPTIONS = [
+  { value: '0', label: '全部' },
+  { value: '1', label: '充值' },
+  { value: '2', label: '消费' },
+  { value: '3', label: '管理' },
+  { value: '4', label: '系统' },
+  { value: '5', label: '错误' },
+  { value: '6', label: '退款' },
+];
+
+const LOG_STATUS_VARIANT = {
+  1: 'secondary',
+  2: 'secondary',
+  3: 'outline',
+  4: 'outline',
+  5: 'destructive',
+  6: 'destructive',
+};
+
+const escapeCsvCell = (value) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const normalized = String(value).replaceAll('"', '""');
+  return /[",\n]/.test(normalized) ? `"${normalized}"` : normalized;
+};
+
 export default function UsageLogsPage() {
   const { t } = useTranslation();
-  const data = useLogsData();
+  const data = useUsageLogsData();
   const [expandedRows, setExpandedRows] = React.useState({});
   const [filters, setFilters] = React.useState({
     from: '',
@@ -38,6 +65,7 @@ export default function UsageLogsPage() {
     channel: '',
     logType: '0',
   });
+  const [pageInput, setPageInput] = React.useState('1');
 
   React.useEffect(() => {
     data.setFormApi({
@@ -64,6 +92,73 @@ export default function UsageLogsPage() {
     filters.to,
     filters.username,
   ]);
+
+  React.useEffect(() => {
+    setPageInput(String(data.activePage || 1));
+  }, [data.activePage]);
+
+  const channelOptions = React.useMemo(() => {
+    const map = new Map();
+    for (const log of data.logs || []) {
+      const channelId = log.channel === null || log.channel === undefined ? '' : String(log.channel);
+      if (!channelId) {
+        continue;
+      }
+      const channelName = String(log.channel_name || '').trim();
+      const label = channelName ? `${channelName} (${channelId})` : channelId;
+      map.set(channelId, label);
+    }
+    if (filters.channel && !map.has(filters.channel)) {
+      map.set(filters.channel, filters.channel);
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [data.logs, filters.channel]);
+
+  const handleExport = React.useCallback(() => {
+    const rows = data.logs || [];
+    const csvRows = [
+      ['时间', '模型', '用户', '渠道', '状态', '用量', '费用'],
+      ...rows.map((log) => {
+        const timeText =
+          log.timestamp2string ||
+          (log.created_at ? timestamp2string(log.created_at) : '-');
+        const channelText = log.channel_name || log.channel || '-';
+        const statusOption = LOG_TYPE_OPTIONS.find(
+          (item) => Number(item.value) === Number(log.type),
+        );
+        return [
+          timeText,
+          log.model_name || '-',
+          log.username || '-',
+          channelText,
+          statusOption ? t(statusOption.label) : t('未知'),
+          `${renderNumber(log.prompt_tokens || 0)} / ${renderNumber(log.completion_tokens || 0)}`,
+          renderQuota(log.quota || 0, 6),
+        ];
+      }),
+    ];
+    const csvText = csvRows
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csvText}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateTag = new Date().toISOString().slice(0, 19).replaceAll(':', '-');
+    link.href = url;
+    link.setAttribute('download', `usage-logs-${dateTag}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [data.logs, t]);
+
+  const statusLabelByType = React.useCallback(
+    (type) => {
+      const option = LOG_TYPE_OPTIONS.find((item) => Number(item.value) === Number(type));
+      return option ? t(option.label) : t('未知');
+    },
+    [t],
+  );
 
   const totalPages = Math.max(
     1,
@@ -102,13 +197,20 @@ export default function UsageLogsPage() {
               setFilters((prev) => ({ ...prev, username: event.target.value }))
             }
           />
-          <Input
-            placeholder={t('渠道')}
+          <select
+            className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
             value={filters.channel}
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, channel: event.target.value }))
             }
-          />
+          >
+            <option value=''>{t('全部渠道')}</option>
+            {channelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <select
             className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
             value={filters.logType}
@@ -116,18 +218,18 @@ export default function UsageLogsPage() {
               setFilters((prev) => ({ ...prev, logType: event.target.value }))
             }
           >
-            <option value='0'>{t('全部状态')}</option>
-            <option value='2'>{t('消费')}</option>
-            <option value='1'>{t('充值')}</option>
-            <option value='3'>{t('管理')}</option>
-            <option value='6'>{t('失败')}</option>
+            {LOG_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label)}
+              </option>
+            ))}
           </select>
         </div>
-        <div className='mt-3 flex items-center justify-end gap-2'>
+        <div className='mt-3 flex flex-wrap items-center justify-end gap-2'>
           <Button
             size='sm'
             variant='outline'
-            onClick={() => data.loadLogs(1, data.pageSize)}
+            onClick={() => data.refresh()}
             loading={data.loading}
           >
             {t('查询')}
@@ -135,7 +237,15 @@ export default function UsageLogsPage() {
           <Button
             size='sm'
             variant='outline'
-            onClick={() => data.refresh()}
+            onClick={handleExport}
+            disabled={data.loading || (data.logs || []).length === 0}
+          >
+            {t('导出')}
+          </Button>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => data.loadLogs(data.activePage, data.pageSize)}
             loading={data.loading}
           >
             {t('刷新')}
@@ -172,8 +282,10 @@ export default function UsageLogsPage() {
                     <Td className='text-xs'>{log.username || '-'}</Td>
                     <Td className='text-xs'>{log.channel_name || log.channel || '-'}</Td>
                     <Td>
-                      <Badge variant={log.type === 6 ? 'destructive' : 'secondary'}>
-                        {log.type === 6 ? t('失败') : t('正常')}
+                      <Badge
+                        variant={LOG_STATUS_VARIANT[Number(log.type)] || 'outline'}
+                      >
+                        {statusLabelByType(log.type)}
                       </Badge>
                     </Td>
                     <Td className='text-xs'>
@@ -206,7 +318,7 @@ export default function UsageLogsPage() {
                             details.map((item, index) => (
                               <div key={`${log.key}-${index}`} className='mb-1 break-all'>
                                 <span className='text-muted-foreground'>{item.key}:</span>{' '}
-                                <span>{item.value || '-'}</span>
+                                <span>{item.value ?? '-'}</span>
                               </div>
                             ))
                           )}
@@ -233,6 +345,18 @@ export default function UsageLogsPage() {
           {t('共')} {data.logCount || 0} {t('条')}
         </span>
         <div className='flex items-center gap-2'>
+          <select
+            className='h-8 rounded-lg border border-input bg-background px-2 text-xs'
+            value={String(data.pageSize)}
+            onChange={(event) => data.handlePageSizeChange(Number(event.target.value))}
+            disabled={data.loading}
+          >
+            {[10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size} / {t('页')}
+              </option>
+            ))}
+          </select>
           <Button
             size='sm'
             variant='outline'
@@ -244,6 +368,30 @@ export default function UsageLogsPage() {
           <span>
             {data.activePage} / {totalPages}
           </span>
+          <div className='flex items-center gap-1'>
+            <Input
+              type='number'
+              min='1'
+              max={String(totalPages)}
+              value={pageInput}
+              onChange={(event) => setPageInput(event.target.value)}
+              className='h-8 w-20'
+            />
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={data.loading}
+              onClick={() => {
+                const nextPage = Math.min(
+                  totalPages,
+                  Math.max(1, Number.parseInt(pageInput, 10) || 1),
+                );
+                data.handlePageChange(nextPage);
+              }}
+            >
+              {t('跳转')}
+            </Button>
+          </div>
           <Button
             size='sm'
             variant='outline'
