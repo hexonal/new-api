@@ -38,7 +38,7 @@ import {
 const quickLinks = [
   { href: '/', label: 'Home' },
   { href: '/console', label: 'Console' },
-  { href: '/console/models', label: 'Models' },
+  { href: '/pricing', label: 'Models' },
   { href: '/about', label: 'Docs' },
 ];
 
