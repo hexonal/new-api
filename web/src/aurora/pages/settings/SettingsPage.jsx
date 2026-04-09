@@ -1,67 +1,47 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard,
-  MessageSquare,
-  Palette,
-  CreditCard,
-  Calculator,
-  Gauge,
-  Shapes,
-  Server,
-  Activity,
-  Cog,
-  Settings,
-  MoreHorizontal,
-  ShieldCheck,
+  SlidersHorizontal,
   Key,
-  Bell,
+  CreditCard,
+  Gauge,
+  Activity,
+  Palette,
+  Shapes,
+  Calculator,
+  Timer,
+  Brush,
+  MessageSquare,
+  ServerCog,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives/tabs';
-import SystemSetting from '../../../components/settings/SystemSetting';
-import OtherSetting from '../../../components/settings/OtherSetting';
-import OperationSetting from '../../../components/settings/OperationSetting';
-import RateLimitSetting from '../../../components/settings/RateLimitSetting';
-import ModelSetting from '../../../components/settings/ModelSetting';
-import DashboardSetting from '../../../components/settings/DashboardSetting';
-import RatioSetting from '../../../components/settings/RatioSetting';
-import ChatsSetting from '../../../components/settings/ChatsSetting';
-import DrawingSetting from '../../../components/settings/DrawingSetting';
-import PaymentSetting from '../../../components/settings/PaymentSetting';
-import ModelDeploymentSetting from '../../../components/settings/ModelDeploymentSetting';
-import PerformanceSetting from '../../../components/settings/PerformanceSetting';
+import GeneralTab from './GeneralTab';
+import AuthTab from './AuthTab';
+import PaymentTab from './PaymentTab';
+import RateLimitTab from './RateLimitTab';
+import MonitoringTab from './MonitoringTab';
+import BrandingTab from './BrandingTab';
+import ModelTab from './ModelTab';
+import RatioTab from './RatioTab';
+import PerformanceTab from './PerformanceTab';
+import DrawingTab from './DrawingTab';
+import ChatTab from './ChatTab';
+import SystemTab from './SystemTab';
 
-const TAB_META = (t) => [
-  {
-    key: 'operation',
-    label: t('运营设置'),
-    icon: LayoutDashboard,
-    Component: OperationSetting,
-  },
-  { key: 'dashboard', label: t('仪表盘设置'), icon: Gauge, Component: DashboardSetting },
-  { key: 'chats', label: t('聊天设置'), icon: MessageSquare, Component: ChatsSetting },
-  { key: 'drawing', label: t('绘图设置'), icon: Palette, Component: DrawingSetting },
-  { key: 'payment', label: t('支付设置'), icon: CreditCard, Component: PaymentSetting },
-  { key: 'ratio', label: t('分组与模型定价设置'), icon: Calculator, Component: RatioSetting },
-  {
-    key: 'rate-limit',
-    label: t('速率限制设置'),
-    icon: Gauge,
-    Component: RateLimitSetting,
-  },
-  { key: 'model', label: t('模型相关设置'), icon: Shapes, Component: ModelSetting },
-  {
-    key: 'model-deployment',
-    label: t('模型部署设置'),
-    icon: Server,
-    Component: ModelDeploymentSetting,
-  },
-  { key: 'performance', label: t('性能设置'), icon: Activity, Component: PerformanceSetting },
-  { key: 'system', label: t('系统设置'), icon: ShieldCheck, Component: SystemSetting },
-  { key: 'auth', label: t('认证设置'), icon: Key, Component: OtherSetting },
-  { key: 'notification', label: t('通知设置'), icon: Bell, Component: OtherSetting },
-  { key: 'misc', label: t('其他设置'), icon: Cog, Component: OtherSetting },
+const TAB_META = [
+  { key: 'general', label: 'General', icon: SlidersHorizontal, Component: GeneralTab },
+  { key: 'auth', label: 'Auth', icon: Key, Component: AuthTab },
+  { key: 'payment', label: 'Payment', icon: CreditCard, Component: PaymentTab },
+  { key: 'rate-limit', label: 'RateLimit', icon: Gauge, Component: RateLimitTab },
+  { key: 'monitoring', label: 'Monitoring', icon: Activity, Component: MonitoringTab },
+  { key: 'branding', label: 'Branding', icon: Palette, Component: BrandingTab },
+  { key: 'model', label: 'Model', icon: Shapes, Component: ModelTab },
+  { key: 'ratio', label: 'Ratio', icon: Calculator, Component: RatioTab },
+  { key: 'performance', label: 'Performance', icon: Timer, Component: PerformanceTab },
+  { key: 'drawing', label: 'Drawing', icon: Brush, Component: DrawingTab },
+  { key: 'chat', label: 'Chat', icon: MessageSquare, Component: ChatTab },
+  { key: 'system', label: 'System', icon: ServerCog, Component: SystemTab },
 ];
 
 const parseInitialTab = (search, tabKeys = []) => {
@@ -70,18 +50,18 @@ const parseInitialTab = (search, tabKeys = []) => {
   if (rawTab && tabKeys.includes(rawTab)) {
     return rawTab;
   }
-  return 'operation';
+  return 'general';
 };
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const tabs = useMemo(() => TAB_META(t), [t]);
+  const tabs = useMemo(() => TAB_META, []);
   const validTabKeys = useMemo(() => tabs.map((tab) => tab.key), [tabs]);
   const [activeTab, setActiveTab] = useState(() => parseInitialTab(location.search, validTabKeys));
 
-  useMemo(() => {
+  useEffect(() => {
     const nextTab = parseInitialTab(location.search, validTabKeys);
     if (nextTab !== activeTab) {
       setActiveTab(nextTab);
@@ -105,7 +85,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={onTabChange} className='w-full'>
-        <TabsList className='grid w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'>
+        <TabsList className='grid w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'>
           {tabs.map((tab) => (
             <TabsTrigger key={tab.key} value={tab.key}>
               <tab.icon size={14} className='mr-2' />
