@@ -18,21 +18,22 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ModalShell from './ModalShell';
 
 export default function KeyRevealModal({ open = false, onClose = () => {}, onConfirm }) {
   return (
     <ModalShell
       open={open}
-      title='View Full Key'
-      description='Aurora placeholder modal shell. Replace with actual form and action handlers.'
-      confirmLabel='确定'
-      cancelLabel='取消'
+      title={t('View Full Key')}
+      description={t('Aurora placeholder modal shell. Replace with actual form and action handlers.')}
+      confirmLabel={t('确定')}
+      cancelLabel={t('取消')}
       onClose={onClose}
       onConfirm={onConfirm}
     >
       <p className='text-sm text-gray-600'>
-        模块文件：<strong>KeyRevealModal</strong>
+        {t('模块文件：')}<strong>{t('KeyRevealModal')}</strong>
       </p>
     </ModalShell>
   );

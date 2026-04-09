@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   CardContent,
@@ -17,13 +18,14 @@ export default function ActionCard({
   saveOptions,
   buttonText = '执行并保存',
 }) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
 
   const onSave = async () => {
     setSaving(true);
     await saveOptions(
       [{ key: optionKey, value: optionValue ?? String(Date.now()) }],
-      `${title} 已执行`,
+      `${title} ${t('已执行')}`,
     );
     setSaving(false);
   };
@@ -36,7 +38,7 @@ export default function ActionCard({
       </CardHeader>
       <CardContent>
         <p className='text-sm text-muted-foreground'>
-          该操作会通过配置写入触发后端处理流程。
+          {t('该操作会通过配置写入触发后端处理流程。')}
         </p>
       </CardContent>
       <CardFooter>

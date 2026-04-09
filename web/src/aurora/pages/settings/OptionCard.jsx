@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   CardContent,
@@ -23,6 +24,7 @@ export default function OptionCard({
   inputLabel = '值',
   inputPlaceholder = '请输入配置值',
 }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,7 @@ export default function OptionCard({
     if (showSwitch) {
       entries.push({ key: keys.enabledKey, value: enabled });
     }
-    await saveOptions(entries, `${title} 已保存`);
+    await saveOptions(entries, `${title} ${t('已保存')}`);
     setSaving(false);
   };
 
@@ -74,14 +76,14 @@ export default function OptionCard({
         ) : null}
         {showSwitch ? (
           <div className='flex items-center justify-between rounded-lg border border-border px-3 py-2'>
-            <span className='text-sm'>启用</span>
+            <span className='text-sm'>{t('启用')}</span>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
         ) : null}
       </CardContent>
       <CardFooter>
         <Button onClick={onSave} loading={saving}>
-          保存
+          {t('保存')}
         </Button>
       </CardFooter>
     </Card>

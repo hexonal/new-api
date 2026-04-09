@@ -71,6 +71,15 @@ const TOP_TAB_LABELS = {
   embeddings: '向量',
   rerank: '重排',
 };
+const ENDPOINT_TAG_PREFIXES = [
+  'openai',
+  'anthropic',
+  'openai-response',
+  'openai-videos',
+  'openai-images',
+  'gemini',
+  'midjourney',
+];
 
 const parseTags = (value) =>
   String(value || '')
@@ -247,6 +256,23 @@ const getModelLogoNode = (model) => {
   );
 };
 
+const getTagBadgeClass = (rawTag) => {
+  const tag = String(rawTag || '').toLowerCase().trim();
+  if (tag === '按量计费' || tag === 'pay as you go') {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+  if (tag === '按次计费') {
+    return 'border-orange-200 bg-orange-50 text-orange-700';
+  }
+  if (tag === 'function calling') {
+    return 'border-blue-200 bg-blue-50 text-blue-700';
+  }
+  if (ENDPOINT_TAG_PREFIXES.some((prefix) => tag.startsWith(prefix))) {
+    return 'border-gray-200 bg-gray-100 text-gray-700';
+  }
+  return 'border-violet-200 bg-violet-50 text-violet-700';
+};
+
 const ModelsExplorerPage = () => {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState('list');
@@ -286,17 +312,6 @@ const ModelsExplorerPage = () => {
       setPageSize(20);
     }
   }, [pageSize, setPageSize]);
-
-  useEffect(() => {
-    if (!Array.isArray(models) || models.length === 0) return;
-    const debugRows = models.slice(0, 3).map((model) => ({
-      model_name: model?.model_name || '',
-      icon: model?.icon || '',
-      vendor_icon: model?.vendor_icon || '',
-      vendor_name: model?.vendor_name || '',
-    }));
-    console.table(debugRows);
-  }, [models]);
 
   const searchableModels = useMemo(() => {
     if (!searchValue) {
@@ -771,7 +786,12 @@ const ModelsExplorerPage = () => {
                         {(() => {
                           const tags = parseTags(model.tags);
                           const endpoints = Array.isArray(model.supported_endpoint_types) ? model.supported_endpoint_types : [];
-                          const billingLabel = model.quota_type === 0 ? '按量计费' : model.quota_type === 1 ? '按次计费' : '';
+                          const billingLabel =
+                            model.quota_type === 0
+                              ? t('按量计费')
+                              : model.quota_type === 1
+                                ? t('按次计费')
+                                : '';
                           const allBadges = [billingLabel, ...tags, ...endpoints].filter(Boolean);
                           return allBadges.length > 0 ? (
                             <div className='mt-2 flex flex-wrap gap-1.5'>
@@ -779,8 +799,9 @@ const ModelsExplorerPage = () => {
                                 <Badge
                                   key={`${model.model_name}-${badge}`}
                                   variant='outline'
-                                  className='rounded-full text-[11px] px-2 py-0'
-                                  style={{ borderColor: `${stringToColor(badge)}44`, color: stringToColor(badge) }}
+                                  className={`rounded-full border text-[11px] px-2 py-0 ${getTagBadgeClass(
+                                    badge,
+                                  )}`}
                                 >
                                   {badge}
                                 </Badge>
@@ -876,8 +897,7 @@ const ModelsExplorerPage = () => {
                           <Badge
                             key={`${model.model_name}-tag-${tag}`}
                             variant='outline'
-                            className='rounded-full'
-                            style={{ borderColor: `${stringToColor(tag)}66` }}
+                            className={`rounded-full border ${getTagBadgeClass(tag)}`}
                           >
                             {tag}
                           </Badge>
