@@ -646,6 +646,9 @@ const ModelsExplorerPage = () => {
                     <div className='flex items-start justify-between gap-4'>
                       <div className='min-w-0 flex-1'>
                         <div className='flex flex-wrap items-center gap-2'>
+                          <div className='flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted flex-shrink-0'>
+                            {getModelLogoNode(model)}
+                          </div>
                           <h2 className='text-[18px] font-bold leading-6 text-foreground'>
                             {model.model_name}
                           </h2>
