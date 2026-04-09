@@ -67,7 +67,7 @@ function DynamicOAuth2Callback() {
   return <OAuth2Callback type={provider} />;
 }
 
-function LegacyApp() {
+export function LegacyApp() {
   const location = useLocation();
   const [statusState] = useContext(StatusContext);
 

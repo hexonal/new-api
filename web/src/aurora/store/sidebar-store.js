@@ -17,24 +17,35 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { create } from 'zustand';
 
-const AuroraShell = () => {
-  return (
-    <AuroraLayout>
-      <LegacyApp />
-    </AuroraLayout>
-  );
+const isMobile = (value) => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 1024;
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export const useSidebarStore = create((set) => ({
+  collapsed: isMobile(),
+  mobileOpen: false,
+  activeSection: 'WORKSPACE',
+
+  setCollapsed: (collapsed) => {
+    set({ collapsed: Boolean(collapsed) });
+  },
+
+  toggleCollapsed: () => {
+    set((state) => ({ collapsed: !state.collapsed }));
+  },
+
+  setMobileOpen: (mobileOpen) => {
+    set({ mobileOpen: Boolean(mobileOpen) });
+  },
+
+  toggleMobileOpen: () => {
+    set((state) => ({ mobileOpen: !state.mobileOpen }));
+  },
+
+  setActiveSection: (activeSection) => {
+    set({ activeSection });
+  },
+}));

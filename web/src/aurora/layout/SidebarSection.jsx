@@ -18,23 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
 
-const AuroraShell = () => {
+const SidebarSection = ({ title, collapsed, children }) => {
   return (
-    <AuroraLayout>
-      <LegacyApp />
-    </AuroraLayout>
+    <section className='aurora-sidebar-section'>
+      {!collapsed && <h3 className='aurora-sidebar-section-title'>{title}</h3>}
+      <ul className='aurora-sidebar-section-list'>{children}</ul>
+    </section>
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default SidebarSection;

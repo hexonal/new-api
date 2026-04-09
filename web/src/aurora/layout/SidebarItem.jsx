@@ -18,23 +18,37 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ThemeProvider } from './theme-provider';
-import { LegacyApp } from '../App';
-import AuroraLayout from './layout/AuroraLayout';
-import './tokens/globals.css';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '../lib/cn';
 
-const AuroraShell = () => {
+const SidebarItem = ({
+  href,
+  label,
+  icon,
+  collapsed,
+  onNavigate = () => {},
+}) => {
+  const location = useLocation();
+  const isActive = location.pathname === href;
+
   return (
-    <AuroraLayout>
-      <LegacyApp />
-    </AuroraLayout>
+    <li>
+      <Link
+        to={href}
+        onClick={onNavigate}
+        className={cn(
+          'aurora-sidebar-item',
+          isActive && 'aurora-sidebar-item-active',
+          collapsed && 'aurora-sidebar-item-collapsed',
+        )}
+      >
+        <span className='aurora-sidebar-item-icon' aria-hidden='true'>
+          {icon}
+        </span>
+        {!collapsed && <span className='aurora-sidebar-item-label'>{label}</span>}
+      </Link>
+    </li>
   );
 };
 
-export default function AuroraApp() {
-  return (
-    <ThemeProvider>
-      <AuroraShell />
-    </ThemeProvider>
-  );
-}
+export default SidebarItem;

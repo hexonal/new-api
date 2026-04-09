@@ -88,34 +88,320 @@
 }
 
 .aurora-root {
-  @apply min-h-screen bg-background text-foreground;
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  position: relative;
 }
 
-.aurora-shell {
-  @apply mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center px-4 py-12;
+.aurora-top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid hsl(var(--border));
+  background: color-mix(in oklab, hsl(var(--background)) 92%, transparent);
+  backdrop-filter: blur(6px);
 }
 
-.aurora-card {
-  @apply w-full max-w-xl;
+.aurora-top-nav-inner {
+  margin: 0 auto;
+  max-width: 1440px;
+  padding: 0 18px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.aurora-title {
-  @apply text-2xl font-bold text-foreground;
+.aurora-top-nav-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.aurora-description {
-  @apply mt-2 text-sm text-muted-foreground;
+.aurora-top-nav-menu-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
-.aurora-stack {
-  @apply space-y-4;
+.aurora-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  letter-spacing: 0.01em;
 }
 
-.aurora-form {
-  @apply flex flex-col gap-3;
+.aurora-brand-mark {
+  display: none;
 }
 
-.aurora-meta {
-  @apply fixed right-4 bottom-4 rounded-full bg-foreground/10 px-3 py-1 text-xs text-foreground;
+.aurora-top-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 40vw);
+  color: hsl(var(--muted-foreground));
 }
 
+.aurora-top-nav-input {
+  background: hsl(var(--background));
+}
+
+.aurora-top-nav-links {
+  margin-left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aurora-top-nav-link {
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+
+.aurora-top-nav-link:hover {
+  color: hsl(var(--primary));
+  background: color-mix(in oklab, hsl(var(--primary)) 8%, transparent);
+}
+
+.aurora-top-nav-user {
+  margin-left: auto;
+}
+
+.aurora-top-nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aurora-avatar-trigger {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 2px 2px;
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+}
+
+.aurora-user-label {
+  font-size: 0.8125rem;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aurora-body-shell {
+  margin: 0 auto;
+  max-width: 1440px;
+  padding: 16px 18px 24px;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.aurora-side-pane {
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  min-height: calc(100vh - 96px);
+  overflow: hidden;
+  transition: width 180ms;
+  width: 250px;
+}
+
+.aurora-side-pane.collapsed {
+  width: 80px;
+}
+
+.aurora-content {
+  min-height: calc(100vh - 96px);
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  overflow: hidden;
+}
+
+.aurora-content.compact {
+  margin-left: 0;
+}
+
+.aurora-page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 18px;
+}
+
+.aurora-page-shell-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.aurora-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+.aurora-breadcrumb-item {
+  text-decoration: none;
+  color: hsl(var(--muted-foreground));
+}
+
+.aurora-breadcrumb-item-current {
+  color: hsl(var(--foreground));
+}
+
+.aurora-breadcrumb-divider {
+  opacity: 0.55;
+}
+
+.aurora-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  font-weight: 700;
+}
+
+.aurora-page-content {
+  flex: 1;
+}
+
+.aurora-sidebar {
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aurora-sidebar-section-title {
+  margin: 0 6px 8px;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  letter-spacing: 0.06em;
+}
+
+.aurora-sidebar-section-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.aurora-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: hsl(var(--sidebar-foreground));
+}
+
+.aurora-sidebar-item-icon {
+  display: inline-flex;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+}
+
+.aurora-sidebar-item-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aurora-sidebar-item:hover {
+  background: hsl(var(--sidebar-accent));
+}
+
+.aurora-sidebar-item-active {
+  background: color-mix(in oklab, hsl(var(--primary)) 18%, hsl(var(--background)));
+  color: hsl(var(--primary));
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.35);
+}
+
+.aurora-sidebar-item-collapsed .aurora-sidebar-item-label {
+  display: none;
+}
+
+.aurora-mobile-nav {
+  padding-top: 12px;
+}
+
+.aurora-mobile-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.aurora-mobile-nav-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aurora-mobile-nav-actions {
+  padding: 10px;
+}
+
+.aurora-mobile-nav .aurora-sidebar {
+  padding: 6px;
+  min-height: auto;
+  margin: 0 2px;
+}
+
+.aurora-theme-announce {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .aurora-top-nav-links {
+    display: none;
+  }
+
+  .aurora-top-nav-search {
+    width: auto;
+    max-width: 180px;
+  }
+
+  .aurora-body-shell {
+    padding: 8px 12px 20px;
+    grid-template-columns: 1fr;
+  }
+
+  .aurora-content {
+    min-height: calc(100vh - 86px);
+  }
+
+  .aurora-side-pane {
+    display: none;
+  }
+
+  .aurora-page-shell {
+    padding: 14px;
+  }
+}

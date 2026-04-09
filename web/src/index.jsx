@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { UserProvider } from './context/User';
@@ -31,6 +31,8 @@ import { LocaleProvider } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
 import en_GB from '@douyinfe/semi-ui/lib/es/locale/source/en_GB';
+import AuroraApp from './aurora';
+import { useThemeStore } from './aurora/store/theme-store';
 
 // 欢迎信息（二次开发者未经允许不准将此移除）
 // Welcome message (Do not remove this without permission from the original developer)
@@ -51,6 +53,21 @@ function SemiLocaleWrapper({ children }) {
   return <LocaleProvider locale={semiLocale}>{children}</LocaleProvider>;
 }
 
+function AuroraThemeRouter() {
+  const theme = useThemeStore((state) => state.theme);
+  const hydrateTheme = useThemeStore((state) => state.hydrateTheme);
+
+  useEffect(() => {
+    hydrateTheme();
+  }, [hydrateTheme]);
+
+  if (theme === 'aurora') {
+    return <AuroraApp />;
+  }
+
+  return <PageLayout />;
+}
+
 // initialization
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -64,11 +81,11 @@ root.render(
             v7_relativeSplatPath: true,
           }}
         >
-          <ThemeProvider>
-            <SemiLocaleWrapper>
-              <PageLayout />
-            </SemiLocaleWrapper>
-          </ThemeProvider>
+            <ThemeProvider>
+              <SemiLocaleWrapper>
+                <AuroraThemeRouter />
+              </SemiLocaleWrapper>
+            </ThemeProvider>
         </BrowserRouter>
       </UserProvider>
     </StatusProvider>
