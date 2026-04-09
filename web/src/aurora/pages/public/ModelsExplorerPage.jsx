@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../primitives/select';
+import ModelDetailModal from './components/ModelDetailModal';
 
 const TOP_TABS = ['text', 'image', 'video', 'audio', 'embeddings', 'rerank'];
 
@@ -265,6 +266,11 @@ const ModelsExplorerPage = () => {
     tokenUnit,
     displayPrice,
     copyText,
+    selectedModel,
+    showModelDetail,
+    openModelDetail,
+    closeModelDetail,
+    autoGroups,
   } = useModelPricingData();
 
   useEffect(() => {
@@ -503,6 +509,19 @@ const ModelsExplorerPage = () => {
 
   return (
     <div className='w-full bg-white font-["Geist","Inter","system-ui",-apple-system,sans-serif] text-foreground'>
+      <ModelDetailModal
+        model={selectedModel}
+        open={showModelDetail}
+        onClose={closeModelDetail}
+        groupRatio={groupRatio}
+        groupModelRatio={groupModelRatio}
+        tokenUnit={tokenUnit}
+        displayPrice={displayPrice}
+        autoGroups={autoGroups}
+        copyText={copyText}
+        t={t}
+      />
+
       <div className='flex w-full gap-6 px-8 py-6 2xl:px-12'>
         <aside className='sticky top-20 h-[calc(100vh-6rem)] w-60 shrink-0 overflow-y-auto rounded-xl border border-border bg-[#f9fafb] p-3'>
           <Accordion
@@ -692,14 +711,21 @@ const ModelsExplorerPage = () => {
                           <div className='flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted flex-shrink-0'>
                             {getModelLogoNode(model)}
                           </div>
-                          <h2 className='text-[18px] font-bold leading-6 text-foreground'>
+                          <button
+                            type='button'
+                            className='text-left text-[18px] font-bold leading-6 text-foreground hover:text-primary'
+                            onClick={() => openModelDetail(model)}
+                          >
                             {model.model_name}
-                          </h2>
+                          </button>
                           <Button
                             size='sm'
                             variant='outline'
                             className='h-7 px-2'
-                            onClick={() => copyText(model.model_name)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              copyText(model.model_name);
+                            }}
                           >
                             <Copy className='h-3.5 w-3.5' />
                           </Button>
@@ -781,6 +807,7 @@ const ModelsExplorerPage = () => {
                   <Card
                     key={model.key || model.model_name || index}
                     className='border-border bg-white'
+                    onClick={() => openModelDetail(model)}
                   >
                     <CardContent className='space-y-3 p-4'>
                       <div className='flex items-start justify-between gap-2'>
@@ -789,7 +816,16 @@ const ModelsExplorerPage = () => {
                             {getModelLogoNode(model)}
                           </div>
                           <div className='min-w-0'>
-                            <p className='truncate font-semibold'>{model.model_name}</p>
+                            <button
+                              type='button'
+                              className='truncate text-left font-semibold hover:text-primary'
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openModelDetail(model);
+                              }}
+                            >
+                              {model.model_name}
+                            </button>
                             <p className='text-xs text-muted-foreground'>{getProviderName(model)}</p>
                           </div>
                         </div>
@@ -797,7 +833,10 @@ const ModelsExplorerPage = () => {
                           size='sm'
                           variant='outline'
                           className='h-7 px-2'
-                          onClick={() => copyText(model.model_name)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            copyText(model.model_name);
+                          }}
                         >
                           <Copy className='h-3.5 w-3.5' />
                         </Button>
