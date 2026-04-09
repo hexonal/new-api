@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func buildMaskedTokenResponse(token *model.Token) *model.Token {
@@ -43,6 +45,36 @@ func GetAllTokens(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
+}
+
+// TokenExistsByName checks whether a token with the given name exists (root user tokens only).
+// Returns { exists: true/false, token_id: N } for exact name match.
+func TokenExistsByName(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	if name == "" {
+		common.ApiError(c, fmt.Errorf("name parameter is required"))
+		return
+	}
+	if c.GetInt("role") < common.RoleAdminUser {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "无权进行此操作，权限不足",
+		})
+		return
+	}
+	token, err := model.GetTokenByName(name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.ApiSuccess(c, gin.H{"exists": false, "token_id": 0})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	common.ApiSuccess(c, gin.H{"exists": true, "token_id": token.Id})
 }
 
 func SearchTokens(c *gin.Context) {

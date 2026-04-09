@@ -259,6 +259,24 @@ func GetTokenByIds(id int, userId int) (*Token, error) {
 	return &token, err
 }
 
+// GetTokenByName retrieves a token by its name, returning the most recently created one if multiple exist.
+func GetTokenByName(name string) (*Token, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("token name is empty")
+	}
+
+	token := Token{}
+	err := DB.Joins("INNER JOIN users ON users.id = tokens.user_id").
+		Where("tokens.name = ? AND tokens.status = ? AND users.role = ?", name, common.TokenStatusEnabled, common.RoleRootUser).
+		Order("tokens.id DESC").
+		First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
 func GetTokenById(id int) (*Token, error) {
 	if id == 0 {
 		return nil, errors.New("id is empty")

@@ -265,7 +265,7 @@ func monitorAlertTokenSKFromContext(c *gin.Context) string {
 		return ""
 	}
 	prefix := strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyTokenAuthPrefix))
-	if prefix == "sk-" || prefix == "customer-sk-" {
+	if prefix == constant.TokenPrefixStandard || prefix == constant.TokenPrefixCustomer {
 		return normalizeMonitorAlertTokenSK(prefix + tokenKey)
 	}
 	return normalizeMonitorAlertTokenSK(tokenKey)
@@ -275,24 +275,16 @@ func monitorAlertPresentedTokenFromRequest(c *gin.Context) string {
 	if c == nil || c.Request == nil {
 		return ""
 	}
-	if value := stripBearerTokenValueForAlert(c.GetHeader("Authorization")); value != "" {
+	if value := common.StripBearerPrefix(c.GetHeader("Authorization")); value != "" {
 		return value
 	}
 	if value := strings.TrimSpace(c.GetHeader("x-api-key")); value != "" {
 		return value
 	}
-	if value := stripBearerTokenValueForAlert(c.GetHeader("mj-api-secret")); value != "" {
+	if value := common.StripBearerPrefix(c.GetHeader("mj-api-secret")); value != "" {
 		return value
 	}
 	return ""
-}
-
-func stripBearerTokenValueForAlert(raw string) string {
-	text := strings.TrimSpace(raw)
-	if strings.HasPrefix(text, "Bearer ") || strings.HasPrefix(text, "bearer ") {
-		text = strings.TrimSpace(text[7:])
-	}
-	return strings.TrimSpace(text)
 }
 
 func NotifyMonitorCallbackError(event *model.CallbackEvent, attemptNo int, statusCode int, errMsg string, responseSnippet string) {
@@ -585,7 +577,7 @@ func normalizeMonitorAlertTokenSK(raw interface{}) string {
 	if text == "" || text == "<nil>" {
 		return ""
 	}
-	if strings.HasPrefix(text, "sk-") || strings.HasPrefix(text, "customer-sk-") {
+	if strings.HasPrefix(text, constant.TokenPrefixStandard) || strings.HasPrefix(text, constant.TokenPrefixCustomer) {
 		return text
 	}
 	// Keep no-prefix custom token forms (e.g. ima_abc123) as-is.
@@ -604,11 +596,11 @@ func maskMonitorAlertSK(raw string) string {
 	prefix := ""
 	key := raw
 	if strings.HasPrefix(key, "customer-sk-") {
-		prefix = "customer-sk-"
-		key = strings.TrimPrefix(key, "customer-sk-")
-	} else if strings.HasPrefix(key, "sk-") {
-		prefix = "sk-"
-		key = strings.TrimPrefix(key, "sk-")
+		prefix = constant.TokenPrefixCustomer
+		key = strings.TrimPrefix(key, constant.TokenPrefixCustomer)
+	} else if strings.HasPrefix(key, constant.TokenPrefixStandard) {
+		prefix = constant.TokenPrefixStandard
+		key = strings.TrimPrefix(key, constant.TokenPrefixStandard)
 	}
 	if len(key) <= 8 {
 		if prefix == "" {

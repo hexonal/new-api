@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -31,8 +32,15 @@ const (
 	userPointsOnErrorDeny                 = "deny"
 	userPointsRechargeURLPlaceholder      = "{recharge_url}"
 	userPointsQuotaInsufficientMessageEN  = "Insufficient quota"
-	skPrefixStandard                      = "sk-"
-	skPrefixCustomer                      = "customer-sk-"
+)
+
+type contextKey string
+
+const (
+	passThroughXUserIDContextKey contextKey = "pass-through-x-user-id"
+	passThroughXAppIDContextKey  contextKey = "pass-through-x-app-id"
+	passThroughXEnvContextKey    contextKey = "pass-through-x-env"
+	passThroughAuthContextKey    contextKey = "pass-through-authorization"
 )
 
 type userPointsPrefixCacheEntry struct {
@@ -266,9 +274,22 @@ func RunUserPointsPreDeductGuard(c *gin.Context, token *model.Token) *types.NewA
 	// If resolved value is false, request is always blocked.
 	// on_error_decision only controls request/parse error behavior.
 	externalSK := resolveUserPointsExternalSK(c, token, tokenKey)
+	enrichedCtx := c.Request.Context()
+	if v := strings.TrimSpace(c.GetString("x-user-id")); v != "" {
+		enrichedCtx = context.WithValue(enrichedCtx, passThroughXUserIDContextKey, v)
+	}
+	if v := strings.TrimSpace(c.GetString("x-app-id")); v != "" {
+		enrichedCtx = context.WithValue(enrichedCtx, passThroughXAppIDContextKey, v)
+	}
+	if v := strings.TrimSpace(c.GetString("x-env")); v != "" {
+		enrichedCtx = context.WithValue(enrichedCtx, passThroughXEnvContextKey, v)
+	}
+	if v := strings.TrimSpace(c.GetString("original_authorization")); v != "" {
+		enrichedCtx = context.WithValue(enrichedCtx, passThroughAuthContextKey, v)
+	}
 
 	canPreDeduct, err := fetchUserPointsCanPreDeduct(
-		c.Request.Context(),
+		enrichedCtx,
 		resolved.queryURL,
 		externalSK,
 		jsonPath,
@@ -443,6 +464,18 @@ func fetchUserPointsCanPreDeduct(ctx context.Context, rawQueryURL string, extern
 	if strings.TrimSpace(traceID) != "" {
 		req.Header.Set(common.TraceIdKey, strings.TrimSpace(traceID))
 	}
+	if v, ok := ctx.Value(passThroughXUserIDContextKey).(string); ok && strings.TrimSpace(v) != "" {
+		req.Header.Set("x-user-id", strings.TrimSpace(v))
+	}
+	if v, ok := ctx.Value(passThroughXAppIDContextKey).(string); ok && strings.TrimSpace(v) != "" {
+		req.Header.Set("x-app-id", strings.TrimSpace(v))
+	}
+	if v, ok := ctx.Value(passThroughXEnvContextKey).(string); ok && strings.TrimSpace(v) != "" {
+		req.Header.Set("x-env", strings.TrimSpace(v))
+	}
+	if v, ok := ctx.Value(passThroughAuthContextKey).(string); ok && strings.TrimSpace(v) != "" {
+		req.Header.Set("Authorization", strings.TrimSpace(v))
+	}
 
 	client := GetHttpClient()
 	if client == nil {
@@ -500,22 +533,14 @@ func normalizeExternalSK(raw string) string {
 	return key
 }
 
-func stripBearerTokenValue(raw string) string {
-	text := strings.TrimSpace(raw)
-	if strings.HasPrefix(text, "Bearer ") || strings.HasPrefix(text, "bearer ") {
-		text = strings.TrimSpace(text[7:])
-	}
-	return strings.TrimSpace(text)
-}
-
 func extractPresentedTokenFromRequest(c *gin.Context) string {
 	if c == nil || c.Request == nil {
 		return ""
 	}
 
-	key := stripBearerTokenValue(c.GetHeader("Authorization"))
+	key := common.StripBearerPrefix(c.GetHeader("Authorization"))
 	if key == "" || key == "midjourney-proxy" {
-		key = stripBearerTokenValue(c.GetHeader("mj-api-secret"))
+		key = common.StripBearerPrefix(c.GetHeader("mj-api-secret"))
 	}
 	return strings.TrimSpace(key)
 }
@@ -525,8 +550,8 @@ func baseTokenKey(tokenKey string, token *model.Token) string {
 	if key == "" && token != nil {
 		key = strings.TrimSpace(token.Key)
 	}
-	key = strings.TrimPrefix(key, skPrefixStandard)
-	key = strings.TrimPrefix(key, skPrefixCustomer)
+	key = strings.TrimPrefix(key, constant.TokenPrefixStandard)
+	key = strings.TrimPrefix(key, constant.TokenPrefixCustomer)
 	return strings.TrimSpace(key)
 }
 

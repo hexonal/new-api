@@ -12,8 +12,8 @@ const (
 	EndpointTypeImageGeneration       EndpointType = "image-generation"
 	EndpointTypeEmbeddings            EndpointType = "embeddings"
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
-	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"
-	//EndpointTypeSuno           EndpointType = "suno-proxy"
-	//EndpointTypeKling          EndpointType = "kling"
-	//EndpointTypeJimeng         EndpointType = "jimeng"
+	EndpointTypeMidjourney            EndpointType = "midjourney-proxy"
+	EndpointTypeSuno                  EndpointType = "suno-proxy"
+	EndpointTypeKling                 EndpointType = "kling"
+	EndpointTypeJimeng                EndpointType = "jimeng"
 )

@@ -1,15 +1,20 @@
 package dto
 
-import "github.com/QuantumNous/new-api/constant"
+import (
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/setting/model_capability"
+)
 
 // 这里不好动就不动了，本来想独立出来的（
 type OpenAIModels struct {
-	Id                     string                  `json:"id"`
-	Object                 string                  `json:"object"`
-	Created                int                     `json:"created"`
-	OwnedBy                string                  `json:"owned_by"`
-	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
-	Reasoning              bool                    `json:"reasoning"`
+	Id                     string                                        `json:"id"`
+	Object                 string                                        `json:"object"`
+	Created                int                                           `json:"created"`
+	OwnedBy                string                                        `json:"owned_by"`
+	SupportedEndpointTypes []constant.EndpointType                       `json:"supported_endpoint_types"`
+	Reasoning              bool                                          `json:"reasoning"`
+	Capabilities           *ModelCapabilities                            `json:"capabilities,omitempty"`
+	Parameters             map[string]model_capability.ModelParameterDef `json:"parameters,omitempty"`
 }
 
 type AnthropicModel struct {

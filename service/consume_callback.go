@@ -1,15 +1,16 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -20,8 +21,6 @@ import (
 const (
 	ConsumeCallbackPhaseSettle      = "settle"
 	ConsumeCallbackPhaseFinalAdjust = "final_adjust"
-	consumeCallbackPrefixSK         = "sk-"
-	consumeCallbackPrefixCustomerSK = "customer-sk-"
 )
 
 type ConsumeCallbackUsage struct {
@@ -38,6 +37,9 @@ type resolvedConsumeCallbackConfig struct {
 type consumeCallbackPayload struct {
 	RequestID        string  `json:"request_id"`
 	UserID           int     `json:"user_id"`
+	AppID            string  `json:"app_id"`
+	Env              string  `json:"env"`
+	BusinessUserID   string  `json:"business_user_id"`
 	Username         string  `json:"username"`
 	TokenID          int     `json:"token_id"`
 	TokenName        string  `json:"token_name"`
@@ -74,6 +76,7 @@ func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usag
 		quota,
 		ConsumeCallbackPhaseSettle,
 	)
+	applyJWTHeaderConsumeCallbackOverrides(relayInfo, &payload)
 	dispatchConsumeCallback(payload)
 }
 
@@ -103,9 +106,13 @@ func newConsumeCallbackPayload(
 	normalizedUserID := maxInt(userID, 0)
 	normalizedTokenID := maxInt(tokenID, 0)
 	username, tokenName, sk := resolveConsumeCallbackIdentity(normalizedUserID, normalizedTokenID, tokenAuthPrefix, presentedToken)
+	appID, businessUserID, env := parseTokenName(tokenName)
 	return consumeCallbackPayload{
 		RequestID:        requestID,
 		UserID:           normalizedUserID,
+		AppID:            appID,
+		Env:              env,
+		BusinessUserID:   businessUserID,
 		Username:         username,
 		TokenID:          normalizedTokenID,
 		TokenName:        tokenName,
@@ -134,14 +141,14 @@ func extractConsumeCallbackRawTokenKey(raw string) string {
 	if key == "" {
 		return ""
 	}
-	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
-	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
+	key = strings.TrimPrefix(key, constant.TokenPrefixCustomer)
+	key = strings.TrimPrefix(key, constant.TokenPrefixStandard)
 	return strings.TrimSpace(key)
 }
 
 func hasConsumeCallbackSKPrefix(raw string) bool {
 	value := strings.TrimSpace(raw)
-	return strings.HasPrefix(value, consumeCallbackPrefixSK) || strings.HasPrefix(value, consumeCallbackPrefixCustomerSK)
+	return strings.HasPrefix(value, constant.TokenPrefixStandard) || strings.HasPrefix(value, constant.TokenPrefixCustomer)
 }
 
 func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix string) string {
@@ -162,23 +169,30 @@ func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix 
 	return rawKey
 }
 
-func normalizeConsumeCallbackPresentedToken(raw string) string {
-	value := strings.TrimSpace(raw)
-	if strings.HasPrefix(value, "Bearer ") || strings.HasPrefix(value, "bearer ") {
-		value = strings.TrimSpace(value[7:])
+// parseTokenName extracts appID, userID, env from token name format: {appID}_{userID}_{env}
+func parseTokenName(name string) (appID string, userID string, env string) {
+	value := strings.TrimSpace(name)
+	if !consumeCallbackTokenNamePattern.MatchString(value) {
+		return "", "", ""
 	}
-	return strings.TrimSpace(value)
+	parts := strings.SplitN(value, "_", 3)
+	if len(parts) >= 3 {
+		return parts[0], parts[1], parts[2]
+	}
+	return "", "", ""
 }
+
+var consumeCallbackTokenNamePattern = regexp.MustCompile(`^[a-zA-Z0-9-]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+$`)
 
 func baseConsumeCallbackTokenKey(raw string) string {
 	key := strings.TrimSpace(raw)
-	key = strings.TrimPrefix(key, consumeCallbackPrefixCustomerSK)
-	key = strings.TrimPrefix(key, consumeCallbackPrefixSK)
+	key = strings.TrimPrefix(key, constant.TokenPrefixCustomer)
+	key = strings.TrimPrefix(key, constant.TokenPrefixStandard)
 	return strings.TrimSpace(key)
 }
 
 func resolveConsumeCallbackPresentedSK(presentedToken string, tokenKey string) string {
-	presented := normalizeConsumeCallbackPresentedToken(presentedToken)
+	presented := common.StripBearerPrefix(presentedToken)
 	if presented == "" {
 		return ""
 	}
@@ -208,13 +222,28 @@ func consumeCallbackHeaderValue(headers map[string]string, headerName string) st
 	return ""
 }
 
+func applyJWTHeaderConsumeCallbackOverrides(relayInfo *relaycommon.RelayInfo, payload *consumeCallbackPayload) {
+	if relayInfo == nil || payload == nil || !relayInfo.JWTHeaderAuth {
+		return
+	}
+	if headerAppID := consumeCallbackHeaderValue(relayInfo.RequestHeaders, "x-app-id"); headerAppID != "" {
+		payload.AppID = headerAppID
+	}
+	if headerEnv := consumeCallbackHeaderValue(relayInfo.RequestHeaders, "x-env"); headerEnv != "" {
+		payload.Env = headerEnv
+	}
+	if headerUserID := consumeCallbackHeaderValue(relayInfo.RequestHeaders, "x-user-id"); headerUserID != "" {
+		payload.BusinessUserID = headerUserID
+	}
+}
+
 func extractConsumeCallbackPresentedToken(relayInfo *relaycommon.RelayInfo) string {
 	if relayInfo == nil {
 		return ""
 	}
-	token := normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "Authorization"))
+	token := common.StripBearerPrefix(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "Authorization"))
 	if token == "" || token == "midjourney-proxy" {
-		token = normalizeConsumeCallbackPresentedToken(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "mj-api-secret"))
+		token = common.StripBearerPrefix(consumeCallbackHeaderValue(relayInfo.RequestHeaders, "mj-api-secret"))
 	}
 	return strings.TrimSpace(token)
 }
@@ -237,7 +266,7 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix str
 		if common.RedisEnabled {
 			if raw, err := common.RedisGet(cacheKey); err == nil && strings.TrimSpace(raw) != "" {
 				var cached consumeCallbackTokenIdentity
-				if unmarshalErr := json.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
+				if unmarshalErr := common.Unmarshal([]byte(raw), &cached); unmarshalErr == nil {
 					tokenName = strings.TrimSpace(cached.Name)
 					sk = resolveConsumeCallbackPresentedSK(presentedToken, strings.TrimSpace(cached.TokenKey))
 					if sk != "" {
@@ -265,7 +294,7 @@ func resolveConsumeCallbackIdentity(userID int, tokenID int, tokenAuthPrefix str
 		sk = buildConsumeCallbackSK(token.Key, "", tokenAuthPrefix)
 
 		if common.RedisEnabled {
-			payload, marshalErr := json.Marshal(consumeCallbackTokenIdentity{
+			payload, marshalErr := common.Marshal(consumeCallbackTokenIdentity{
 				Name:     tokenName,
 				TokenKey: strings.TrimSpace(token.Key),
 			})

@@ -24,6 +24,7 @@ import {
   SideSheet,
   Form,
   Button,
+  Checkbox,
   Space,
   Spin,
   Typography,
@@ -38,6 +39,7 @@ import { IconAlertTriangle, IconLink } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../../helpers';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
+import { MODEL_CAPABILITIES } from '../../../../constants/modelCapabilities';
 
 const { Text, Title } = Typography;
 
@@ -50,6 +52,68 @@ const ENDPOINT_TEMPLATE = {
   gemini: { path: '/v1beta/models/{model}:generateContent', method: 'POST' },
   'jina-rerank': { path: '/v1/rerank', method: 'POST' },
   'image-generation': { path: '/v1/images/generations', method: 'POST' },
+};
+
+const CAPABILITY_ENDPOINT_TEMPLATE = {
+  chat: { path: '/v1/chat/completions', method: 'POST' },
+  text_to_image: { path: '/v1/images/generations', method: 'POST' },
+  image_to_image: { path: '/v1/images/edits', method: 'POST' },
+  speech_to_text: { path: '/v1/audio/transcriptions', method: 'POST' },
+  text_to_speech: { path: '/v1/audio/speech', method: 'POST' },
+  audio_translation: { path: '/v1/audio/translations', method: 'POST' },
+  embeddings: { path: '/v1/embeddings', method: 'POST' },
+  video_generation: { path: '/v1/videos/generations', method: 'POST' },
+  rerank: { path: '/v1/rerank', method: 'POST' },
+  music_generation: { path: '/suno/submit/MUSIC', method: 'POST' },
+  realtime: { path: '/v1/realtime', method: 'GET' },
+};
+
+const parseEndpointsValue = (value) => {
+  if (!value || typeof value !== 'string' || !value.trim()) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const stringifyEndpointsValue = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return '';
+  }
+  return Object.keys(value).length === 0 ? '' : JSON.stringify(value, null, 2);
+};
+
+const getSelectedCapabilityKeys = (endpoints) =>
+  MODEL_CAPABILITIES.filter(({ endpointKey }) =>
+    Object.prototype.hasOwnProperty.call(endpoints, endpointKey),
+  ).map(({ key }) => key);
+
+const syncEndpointsWithCapabilities = (selectedKeys, currentEndpoints) => {
+  const nextEndpoints = { ...currentEndpoints };
+  const selectedKeySet = new Set(selectedKeys);
+
+  MODEL_CAPABILITIES.forEach(({ key, endpointKey }) => {
+    if (selectedKeySet.has(key)) {
+      if (!Object.prototype.hasOwnProperty.call(nextEndpoints, endpointKey)) {
+        nextEndpoints[endpointKey] =
+          CAPABILITY_ENDPOINT_TEMPLATE[endpointKey] || {
+            path: '',
+            method: 'POST',
+          };
+      }
+      return;
+    }
+
+    delete nextEndpoints[endpointKey];
+  });
+
+  return nextEndpoints;
 };
 
 const nameRuleOptions = [
@@ -461,6 +525,57 @@ const EditModelModal = (props) => {
                       )}
                       style={{ marginBottom: 12 }}
                     />
+                    {(() => {
+                      const currentEndpoints = parseEndpointsValue(
+                        values.endpoints,
+                      );
+                      const selectedCapabilities =
+                        getSelectedCapabilityKeys(currentEndpoints);
+
+                      return (
+                        <div className='mb-4'>
+                          <div className='mb-2'>
+                            <Text className='text-[14px] font-medium'>
+                              {t('模型能力')}
+                            </Text>
+                            <div className='text-xs text-gray-600 mt-1'>
+                              {t(
+                                '勾选能力会自动同步下方端点 JSON，未识别的自定义端点会保留。',
+                              )}
+                            </div>
+                          </div>
+                          <Checkbox.Group
+                            value={selectedCapabilities}
+                            onChange={(capabilityKeys) => {
+                              const nextEndpoints =
+                                syncEndpointsWithCapabilities(
+                                  Array.isArray(capabilityKeys)
+                                    ? capabilityKeys
+                                    : [],
+                                  currentEndpoints,
+                                );
+                              formApiRef.current?.setValue(
+                                'endpoints',
+                                stringifyEndpointsValue(nextEndpoints),
+                              );
+                            }}
+                          >
+                            <Row gutter={[12, 12]}>
+                              {MODEL_CAPABILITIES.map((capability) => (
+                                <Col
+                                  key={capability.key}
+                                  span={isMobile ? 24 : 12}
+                                >
+                                  <Checkbox value={capability.key}>
+                                    {t(capability.label)}
+                                  </Checkbox>
+                                </Col>
+                              ))}
+                            </Row>
+                          </Checkbox.Group>
+                        </div>
+                      );
+                    })()}
                     <JSONEditor
                       field='endpoints'
                       label={t('在模型广场向用户展示的端点')}

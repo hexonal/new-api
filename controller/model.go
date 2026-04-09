@@ -147,17 +147,23 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
-				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
+				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
+				oaiModel.SupportedEndpointTypes = endpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
+				oaiModel.Capabilities = dto.BuildModelCapabilities(endpointTypes)
+				oaiModel.Parameters = resolveModelParameters(allowModel)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
+				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     allowModel,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
-					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
+					SupportedEndpointTypes: endpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
+					Capabilities:           dto.BuildModelCapabilities(endpointTypes),
+					Parameters:             resolveModelParameters(allowModel),
 				})
 			}
 		}
@@ -197,17 +203,23 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
-				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+				oaiModel.SupportedEndpointTypes = endpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
+				oaiModel.Capabilities = dto.BuildModelCapabilities(endpointTypes)
+				oaiModel.Parameters = resolveModelParameters(modelName)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
+				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     modelName,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
-					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+					SupportedEndpointTypes: endpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
+					Capabilities:           dto.BuildModelCapabilities(endpointTypes),
+					Parameters:             resolveModelParameters(modelName),
 				})
 			}
 		}
@@ -254,6 +266,20 @@ func ListModels(c *gin.Context, modelType int) {
 func isModelReasoningEnabled(modelName string) bool {
 	v, ok := model_capability.GetModelReasoning(modelName)
 	return ok && v
+}
+
+func resolveModelParameters(modelName string) map[string]model_capability.ModelParameterDef {
+	params := model_capability.GetDefaultParameters(modelName)
+	if model.DB == nil || modelName == "" {
+		return params
+	}
+
+	var meta model.Model
+	if err := model.DB.Select("parameters").Where("model_name = ?", modelName).First(&meta).Error; err != nil {
+		return params
+	}
+
+	return model_capability.MergeParameters(params, meta.GetParsedParameters())
 }
 
 func ChannelListModels(c *gin.Context) {

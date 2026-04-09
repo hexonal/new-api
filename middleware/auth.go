@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -181,6 +182,72 @@ func detectTokenAuthPrefix(key string) string {
 	return ""
 }
 
+var jwtHeaderAppIDAllowedValue = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+var jwtHeaderStrictAllowedValue = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+var jwtHeaderPattern = regexp.MustCompile(`^eyJ`)
+
+func isLikelyJWTToken(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	if jwtHeaderPattern.MatchString(value) {
+		return true
+	}
+	return strings.Count(value, ".") >= 2
+}
+
+func isValidJWTAppID(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	return jwtHeaderAppIDAllowedValue.MatchString(value)
+}
+
+func isValidJWTStrictMetadataValue(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	return jwtHeaderStrictAllowedValue.MatchString(value)
+}
+
+func tryJWTHeaderAuth(c *gin.Context, key string) (*model.Token, bool) {
+	if c == nil {
+		return nil, false
+	}
+	authorization := strings.TrimSpace(key)
+	if !isLikelyJWTToken(authorization) {
+		return nil, false
+	}
+	xUserID := strings.TrimSpace(c.GetHeader("x-user-id"))
+	xAppID := strings.TrimSpace(c.GetHeader("x-app-id"))
+	xEnv := strings.TrimSpace(c.GetHeader("x-env"))
+	if xUserID == "" || xAppID == "" || xEnv == "" ||
+		!isValidJWTStrictMetadataValue(xUserID) || !isValidJWTAppID(xAppID) || !isValidJWTStrictMetadataValue(xEnv) {
+		return nil, false
+	}
+	tokenName := xAppID + "_" + xUserID + "_" + xEnv
+	jwtToken, err := model.GetTokenByName(tokenName)
+	if err != nil || jwtToken == nil {
+		return nil, false
+	}
+	currentTimestamp := common.GetTimestamp()
+	if jwtToken.ExpiredTime != -1 && jwtToken.ExpiredTime < currentTimestamp {
+		return nil, false
+	}
+	if !jwtToken.UnlimitedQuota && jwtToken.RemainQuota <= 0 {
+		return nil, false
+	}
+	c.Set("x-app-id", xAppID)
+	c.Set("x-env", xEnv)
+	c.Set("x-user-id", xUserID)
+	c.Set("original_authorization", c.Request.Header.Get("Authorization"))
+	common.SetContextKey(c, constant.ContextKeyJWTHeaderAuth, true)
+	return jwtToken, true
+}
+
 func extractTokenKeyAndParts(key string) (string, []string) {
 	if strings.HasPrefix(key, "customer-sk-") {
 		key = strings.TrimPrefix(key, "customer-sk-")
@@ -335,7 +402,25 @@ func TokenAuth() func(c *gin.Context) {
 		} else {
 			key, parts = extractTokenKeyAndParts(key)
 		}
-		token, err := model.ValidateUserToken(key)
+		var token *model.Token
+		var err error
+		rawAuthorization := strings.TrimSpace(c.Request.Header.Get("Authorization"))
+		if tokenFromHeader, ok := tryJWTHeaderAuth(c, rawAuthorization); ok {
+			token = tokenFromHeader
+			key = token.Key
+			parts = []string{token.Key}
+			tokenAuthPrefix = ""
+		} else if key != "" && tokenAuthPrefix == "" && isLikelyJWTToken(key) {
+			if tokenFromHeader, ok := tryJWTHeaderAuth(c, key); ok {
+				token = tokenFromHeader
+				key = token.Key
+				parts = []string{token.Key}
+				tokenAuthPrefix = ""
+			}
+		}
+		if token == nil {
+			token, err = model.ValidateUserToken(key)
+		}
 		if err != nil {
 			if keyWithSuffix, keyPartsWithSuffix, ok := splitTokenKeyAndSuffix(key); ok {
 				legacyToken, legacyErr := model.ValidateUserToken(keyWithSuffix)
