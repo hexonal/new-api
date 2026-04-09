@@ -64,17 +64,29 @@ const TAB_META = (t) => [
   { key: 'misc', label: t('其他设置'), icon: Cog, Component: OtherSetting },
 ];
 
-const parseInitialTab = (search) => {
+const parseInitialTab = (search, tabKeys = []) => {
   const params = new URLSearchParams(search);
-  return params.get('tab') || 'operation';
+  const rawTab = params.get('tab');
+  if (rawTab && tabKeys.includes(rawTab)) {
+    return rawTab;
+  }
+  return 'operation';
 };
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(parseInitialTab(location.search));
   const tabs = useMemo(() => TAB_META(t), [t]);
+  const validTabKeys = useMemo(() => tabs.map((tab) => tab.key), [tabs]);
+  const [activeTab, setActiveTab] = useState(() => parseInitialTab(location.search, validTabKeys));
+
+  useMemo(() => {
+    const nextTab = parseInitialTab(location.search, validTabKeys);
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [location.search, activeTab, validTabKeys]);
 
   const onTabChange = (tab) => {
     setActiveTab(tab);
