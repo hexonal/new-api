@@ -148,22 +148,17 @@ func OperatorCreateToken(c *gin.Context) {
 		common.ApiErrorMsg(c, "name is required and must be <= 100 chars")
 		return
 	}
-	key, err := common.GenerateKey()
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	currentTimestamp := common.GetTimestamp()
 	token := model.Token{
 		UserId:         c.GetInt("id"),
 		Name:           name,
-		Key:            key,
+		Key:            name,
 		CreatedTime:    currentTimestamp,
 		AccessedTime:   currentTimestamp,
 		ExpiredTime:    -1,
 		UnlimitedQuota: req.UnlimitedQuota,
 	}
-	if err = token.Insert(); err != nil {
+	if err := token.Insert(); err != nil {
 		common.ApiError(c, err)
 		return
 	}
