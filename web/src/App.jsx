@@ -75,6 +75,20 @@ const AuroraKeyCostPage = lazy(() => import('./aurora/pages/console/KeyCostPage'
 const AuroraCallbackLogsPage = lazy(() => import('./aurora/pages/console/CallbackLogsPage'));
 const AuroraMjLogsPage = lazy(() => import('./aurora/pages/console/MjLogsPage'));
 const AuroraTaskLogsPage = lazy(() => import('./aurora/pages/console/TaskLogsPage'));
+const AuroraModelDeploymentPage = lazy(() =>
+  import('./aurora/pages/console/ModelDeploymentPage'),
+);
+const AuroraChannelListPage = lazy(() => import('./aurora/pages/admin/ChannelListPage'));
+const AuroraChannelFormPage = lazy(() => import('./aurora/pages/admin/ChannelFormPage'));
+const AuroraModelListPage = lazy(() => import('./aurora/pages/admin/ModelListPage'));
+const AuroraModelFormPage = lazy(() => import('./aurora/pages/admin/ModelFormPage'));
+const AuroraUserListPage = lazy(() => import('./aurora/pages/admin/UserListPage'));
+const AuroraGroupManagementPage = lazy(() => import('./aurora/pages/admin/GroupManagementPage'));
+const AuroraSubscriptionPage = lazy(() => import('./aurora/pages/admin/SubscriptionPage'));
+const AuroraRedemptionPage = lazy(() => import('./aurora/pages/admin/RedemptionPage'));
+const AuroraSettingPage = lazy(() => import('./aurora/pages/settings/SettingsPage'));
+const AuroraPersonalSettingsPage = lazy(() => import('./aurora/pages/account/PersonalSettingsPage'));
+const AuroraTopUpPage = lazy(() => import('./aurora/pages/account/TopUpPage'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -138,7 +152,41 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/models'
           element={
             <AdminRoute>
-              <ModelPage />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraModelListPage />
+                </Suspense>
+              ) : (
+                <ModelPage />
+              )}
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/models/create'
+          element={
+            <AdminRoute>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraModelFormPage />
+                </Suspense>
+              ) : (
+                <ModelPage />
+              )}
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/models/:id/edit'
+          element={
+            <AdminRoute>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraModelFormPage />
+                </Suspense>
+              ) : (
+                <ModelPage />
+              )}
             </AdminRoute>
           }
         />
@@ -146,7 +194,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/deployment'
           element={
             <AdminRoute>
-              <ModelDeploymentPage />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraModelDeploymentPage />
+                </Suspense>
+              ) : (
+                <ModelDeploymentPage />
+              )}
             </AdminRoute>
           }
         />
@@ -154,7 +208,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/subscription'
           element={
             <AdminRoute>
-              <Subscription />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraSubscriptionPage />
+                </Suspense>
+              ) : (
+                <Subscription />
+              )}
             </AdminRoute>
           }
         />
@@ -162,7 +222,41 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/channel'
           element={
             <AdminRoute>
-              <Channel />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraChannelListPage />
+                </Suspense>
+              ) : (
+                <Channel />
+              )}
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/channel/create'
+          element={
+            <AdminRoute>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraChannelFormPage />
+                </Suspense>
+              ) : (
+                <Channel />
+              )}
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/channel/:id/edit'
+          element={
+            <AdminRoute>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraChannelFormPage />
+                </Suspense>
+              ) : (
+                <Channel />
+              )}
             </AdminRoute>
           }
         />
@@ -202,7 +296,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/redemption'
           element={
             <AdminRoute>
-              <Redemption />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraRedemptionPage />
+                </Suspense>
+              ) : (
+                <Redemption />
+              )}
             </AdminRoute>
           }
         />
@@ -210,7 +310,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/user'
           element={
             <AdminRoute>
-              <User />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraUserListPage />
+                </Suspense>
+              ) : (
+                <User />
+              )}
             </AdminRoute>
           }
         />
@@ -302,9 +408,15 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/setting'
           element={
             <AdminRoute>
-              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <Setting />
-              </Suspense>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraSettingPage />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <Setting />
+                </Suspense>
+              )}
             </AdminRoute>
           }
         />
@@ -312,7 +424,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/setting/group-management'
           element={
             <AdminRoute>
-              <GroupManagement />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraGroupManagementPage />
+                </Suspense>
+              ) : (
+                <GroupManagement />
+              )}
             </AdminRoute>
           }
         />
@@ -320,9 +438,15 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/personal'
           element={
             <PrivateRoute>
-              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <PersonalSetting />
-              </Suspense>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraPersonalSettingsPage />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <PersonalSetting />
+                </Suspense>
+              )}
             </PrivateRoute>
           }
         />
@@ -330,9 +454,15 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/topup'
           element={
             <PrivateRoute>
-              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <TopUp />
-              </Suspense>
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraTopUpPage />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <TopUp />
+                </Suspense>
+              )}
             </PrivateRoute>
           }
         />
