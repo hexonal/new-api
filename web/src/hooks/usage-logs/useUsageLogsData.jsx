@@ -526,6 +526,14 @@ export const useLogsData = () => {
               other?.group_ratio_source,
             )
           : null;
+        const deferredPromptTokens =
+          toPositiveNumber(logs[i]?.prompt_tokens) > 0
+            ? toPositiveNumber(logs[i]?.prompt_tokens)
+            : toPositiveNumber(other?.task_prompt_tokens);
+        const deferredCompletionTokens =
+          toPositiveNumber(logs[i]?.completion_tokens) > 0
+            ? toPositiveNumber(logs[i]?.completion_tokens)
+            : toPositiveNumber(other?.task_completion_tokens);
         expandDataLocal.push({
           key: t('日志详情'),
           value: deferredTokenRecalculate
@@ -697,16 +705,27 @@ export const useLogsData = () => {
                 ? toPositiveNumber(logs[i]?.prompt_tokens) +
                   toPositiveNumber(logs[i]?.completion_tokens)
                 : toPositiveNumber(other?.task_total_tokens);
-            const billingSummary = renderLogContent(
+            const billingProcess = renderModelPrice(
+              deferredPromptTokens,
+              deferredCompletionTokens,
               other?.model_ratio,
-              other?.completion_ratio,
               other?.model_price,
+              other?.completion_ratio,
               other?.group_ratio,
               other?.user_group_ratio,
+              other?.cache_tokens || 0,
               other?.cache_ratio || 1.0,
               false,
               1.0,
+              0,
               false,
+              0,
+              0,
+              false,
+              0,
+              0,
+              false,
+              0,
               0,
               false,
               0,
@@ -720,11 +739,7 @@ export const useLogsData = () => {
                     cost: renderQuota(billedQuota, 6),
                   })}
                 </p>
-                {billingSummary && (
-                  <p>
-                    {billingSummary}
-                  </p>
-                )}
+                {billingProcess}
                 <p>
                   {t('结算原因：{{reason}}', {
                     reason: other?.terminal_charge_reason || logs[i].content || '-',

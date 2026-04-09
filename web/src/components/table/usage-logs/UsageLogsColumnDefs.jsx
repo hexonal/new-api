@@ -362,6 +362,57 @@ function formatDisplayPrice(usdAmount) {
   return `${symbol}${(usdAmount * rate).toFixed(6)}`;
 }
 
+function buildDeferredTokenFormulaPreview(record, other, t) {
+  const promptTokens =
+    toTokenNumber(record?.prompt_tokens) || toTokenNumber(other?.task_prompt_tokens);
+  const completionTokens =
+    toTokenNumber(record?.completion_tokens) ||
+    toTokenNumber(other?.task_completion_tokens);
+  const cacheTokens = toTokenNumber(other?.cache_tokens);
+  const modelRatio = Number(other?.model_ratio);
+  const completionRatio = Number(other?.completion_ratio || 1);
+  const cacheRatio = Number(other?.cache_ratio || 1);
+  const groupRatio = Number(other?.group_ratio);
+
+  if (
+    !Number.isFinite(modelRatio) ||
+    modelRatio <= 0 ||
+    !Number.isFinite(completionRatio) ||
+    completionRatio <= 0 ||
+    !Number.isFinite(groupRatio) ||
+    groupRatio <= 0
+  ) {
+    return null;
+  }
+
+  const inputPrice = modelRatio * 2;
+  const completionPrice = inputPrice * completionRatio;
+  const cachePrice = inputPrice * cacheRatio;
+  const nonCacheInputTokens = Math.max(promptTokens - cacheTokens, 0);
+
+  const terms = [];
+  if (nonCacheInputTokens > 0) {
+    terms.push(
+      `${t('输入')} ${formatTokenCount(nonCacheInputTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}`,
+    );
+  }
+  if (cacheTokens > 0) {
+    terms.push(
+      `${t('缓存')} ${formatTokenCount(cacheTokens)} tokens / 1M tokens * $${cachePrice.toFixed(6)}`,
+    );
+  }
+  if (completionTokens > 0) {
+    terms.push(
+      `${t('输出')} ${formatTokenCount(completionTokens)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
+    );
+  }
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${groupRatio}`;
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -945,9 +996,11 @@ export const getLogsColumns = ({
             billingDisplayMode,
             other?.group_ratio_source,
           );
+          const formulaPreview = buildDeferredTokenFormulaPreview(record, other, t);
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
             billingSummary,
+            formulaPreview,
             `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
