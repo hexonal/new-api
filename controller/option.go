@@ -444,6 +444,8 @@ func UpdateGroupPricingOption(c *gin.Context) {
 	if err := model.BroadcastRuntimeCacheRefreshSignal(); err != nil {
 		common.SysLog(fmt.Sprintf("broadcast runtime cache refresh failed: %v", err))
 	}
+	// Refresh channel routing cache after abilities/channels.group changed
+	model.InitChannelCacheAndBroadcast()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

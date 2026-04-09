@@ -1,10 +1,12 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -15,6 +17,86 @@ import (
 var group2model2channels map[string]map[string][]int // enabled channel
 var channelsIDM map[int]*Channel                     // all channels include disabled
 var channelSyncLock sync.RWMutex
+var localCacheVersion atomic.Int64 // local version, updated after each InitChannelCache
+
+// negativeCacheMiss stores group|model keys confirmed absent from DB,
+// with an expiry timestamp. Prevents repeated DB queries for non-existent models.
+var negativeCacheMiss sync.Map // key: "group|model" → value: int64 (unix timestamp of expiry)
+
+const (
+	channelCacheVersionKey = "new-api:channel-cache-version"
+	negativeCacheTTLSec    = 10 // negative cache entries expire after 10 seconds
+)
+
+// refreshingCache prevents concurrent InitChannelCache storms.
+// Multiple goroutines hitting cache miss simultaneously should not all
+// trigger a full DB reload — only one proceeds, others skip.
+var refreshingCache atomic.Bool
+
+// IncrChannelCacheVersion atomically increments the Redis-based channel cache
+// version counter. Returns the new version, or 0 if Redis is unavailable.
+func IncrChannelCacheVersion() int64 {
+	if !common.RedisEnabled || common.RDB == nil {
+		return 0
+	}
+	ver, err := common.RDB.Incr(context.Background(), channelCacheVersionKey).Result()
+	if err != nil {
+		common.SysError("incr channel cache version failed: " + err.Error())
+		return 0
+	}
+	return ver
+}
+
+// GetChannelCacheVersion returns the current Redis-based channel cache version,
+// or 0 if Redis is unavailable or the key does not exist.
+func GetChannelCacheVersion() int64 {
+	if !common.RedisEnabled || common.RDB == nil {
+		return 0
+	}
+	ver, err := common.RDB.Get(context.Background(), channelCacheVersionKey).Int64()
+	if err != nil {
+		return 0
+	}
+	return ver
+}
+
+// tryRefreshChannelCache attempts to refresh the channel cache, but skips
+// if another goroutine is already refreshing. Returns true if refresh was performed.
+func tryRefreshChannelCache() bool {
+	if !refreshingCache.CompareAndSwap(false, true) {
+		return false // another goroutine is already refreshing
+	}
+	defer refreshingCache.Store(false)
+	InitChannelCache()
+	return true
+}
+
+// isNegativelyCached returns true if group|model was recently confirmed absent.
+func isNegativelyCached(group, model string) bool {
+	key := group + "|" + model
+	if v, ok := negativeCacheMiss.Load(key); ok {
+		if expiry, _ := v.(int64); time.Now().Unix() < expiry {
+			return true
+		}
+		negativeCacheMiss.Delete(key) // expired
+	}
+	return false
+}
+
+// setNegativeCache marks a group|model as confirmed absent for a short TTL.
+func setNegativeCache(group, model string) {
+	key := group + "|" + model
+	negativeCacheMiss.Store(key, time.Now().Unix()+negativeCacheTTLSec)
+}
+
+// invalidateNegativeCache clears all negative cache entries.
+// Called after InitChannelCache since the routing table has changed.
+func invalidateNegativeCache() {
+	negativeCacheMiss.Range(func(key, _ any) bool {
+		negativeCacheMiss.Delete(key)
+		return true
+	})
+}
 
 func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
@@ -101,6 +183,8 @@ func InitChannelCache() {
 	}
 	channelsIDM = newChannelId2channel
 	channelSyncLock.Unlock()
+	localCacheVersion.Store(GetChannelCacheVersion())
+	invalidateNegativeCache()
 	common.SysLog("channels synced from database")
 }
 
@@ -118,30 +202,66 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return GetChannel(group, model, retry)
 	}
 
-	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
+	// Try cache lookup, with one optional refresh retry on miss
+	for attempt := 0; attempt < 2; attempt++ {
+		channelSyncLock.RLock()
+		channels := group2model2channels[group][model]
+		if len(channels) == 0 {
+			normalizedModel := ratio_setting.FormatMatchingModelName(model)
+			channels = group2model2channels[group][normalizedModel]
+		}
 
-	// First, try to find channels with the exact model name.
-	channels := group2model2channels[group][model]
+		if len(channels) > 0 {
+			// Cache hit — select channel and return
+			targetChannels := make([]*Channel, 0, len(channels))
+			for _, channelId := range channels {
+				if channel, ok := channelsIDM[channelId]; ok {
+					targetChannels = append(targetChannels, channel)
+				} else {
+					channelSyncLock.RUnlock()
+					return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
+				}
+			}
+			channelSyncLock.RUnlock()
+			return selectChannelByPriorityWithBreaker(targetChannels, retry)
+		}
+		channelSyncLock.RUnlock()
 
-	// If no channels found, try to find channels with the normalized model name.
-	if len(channels) == 0 {
-		normalizedModel := ratio_setting.FormatMatchingModelName(model)
-		channels = group2model2channels[group][normalizedModel]
+		// Cache miss — on first attempt, check if cache is stale and refresh
+		if attempt == 0 && common.RedisEnabled && common.RDB != nil {
+			remoteVer := GetChannelCacheVersion()
+			if remoteVer > localCacheVersion.Load() {
+				common.SysLog(fmt.Sprintf("channel cache version stale (local=%d, remote=%d), refreshing on miss",
+					localCacheVersion.Load(), remoteVer))
+				tryRefreshChannelCache()
+				continue // retry lookup from refreshed cache
+			}
+		}
+		break // version is current or no Redis, no point retrying
 	}
 
-	if len(channels) == 0 {
+	// Cache confirmed miss — check negative cache to avoid DB pressure
+	if isNegativelyCached(group, model) {
 		return nil, nil
 	}
-	targetChannels := make([]*Channel, 0, len(channels))
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			targetChannels = append(targetChannels, channel)
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
+
+	// DB fallback: last resort
+	dbChannel, err := GetChannel(group, model, retry)
+	if err != nil {
+		return nil, err
 	}
-	return selectChannelByPriorityWithBreaker(targetChannels, retry)
+	if dbChannel == nil {
+		// Confirmed absent in both cache and DB — set negative cache
+		setNegativeCache(group, model)
+		return nil, nil
+	}
+
+	// DB found something cache didn't — async refresh
+	go func() {
+		IncrChannelCacheVersion()
+		tryRefreshChannelCache()
+	}()
+	return dbChannel, nil
 }
 
 func CacheGetChannel(id int) (*Channel, error) {
@@ -233,6 +353,7 @@ func RegisterChannelCacheBroadcastFailureHook(fn func(err error)) {
 // Use this instead of bare InitChannelCache() in controller/handler code
 // to ensure multi-node consistency.
 func InitChannelCacheAndBroadcast() {
+	IncrChannelCacheVersion()
 	InitChannelCache()
 	if err := BroadcastChannelCacheRefreshSignal(); err != nil {
 		common.SysError(fmt.Sprintf("broadcast channel cache refresh failed: %v", err))
