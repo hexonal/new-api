@@ -36,8 +36,6 @@ import {
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
-  getQuotaPerUnit,
-  getCurrencyConfig,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -75,32 +73,6 @@ const isDeferredSettlePendingLog = (log, other) => {
   }
   const state = String(other?.terminal_charge_state || '').toLowerCase();
   return state === 'pending';
-};
-
-const deriveEffectiveTokenPricePer1M = (quota, totalTokens) => {
-  const quotaValue = Number(quota);
-  const tokensValue = Number(totalTokens);
-  const quotaPerUnit = Number(getQuotaPerUnit());
-  if (
-    !Number.isFinite(quotaValue) ||
-    quotaValue <= 0 ||
-    !Number.isFinite(tokensValue) ||
-    tokensValue <= 0 ||
-    !Number.isFinite(quotaPerUnit) ||
-    quotaPerUnit <= 0
-  ) {
-    return null;
-  }
-  const totalUsd = quotaValue / quotaPerUnit;
-  return (totalUsd * 1000000) / tokensValue;
-};
-
-const formatDisplayPrice = (usdAmount) => {
-  if (!Number.isFinite(usdAmount)) {
-    return '-';
-  }
-  const { symbol, rate } = getCurrencyConfig();
-  return `${symbol}${(usdAmount * rate).toFixed(6)}`;
 };
 
 export const useLogsData = () => {
@@ -536,10 +508,22 @@ export const useLogsData = () => {
           promptTokens + completionTokens > 0
             ? promptTokens + completionTokens
             : toPositiveNumber(other?.task_total_tokens);
-        const effectiveTokenPricePer1M = deferredTokenRecalculate
-          ? deriveEffectiveTokenPricePer1M(
-              other?.actual_quota || logs[i]?.quota,
-              totalTokens,
+        const deferredBillingSummary = deferredTokenRecalculate
+          ? renderLogContent(
+              other?.model_ratio,
+              other?.completion_ratio,
+              other?.model_price,
+              other?.group_ratio,
+              other?.user_group_ratio,
+              other?.cache_ratio || 1.0,
+              false,
+              1.0,
+              false,
+              0,
+              false,
+              0,
+              billingDisplayMode,
+              other?.group_ratio_source,
             )
           : null;
         expandDataLocal.push({
@@ -554,11 +538,7 @@ export const useLogsData = () => {
                 t('终态重算扣费：{{cost}}', {
                   cost: renderQuota(logs[i].quota || 0, 6),
                 }),
-                Number.isFinite(effectiveTokenPricePer1M)
-                  ? t('模型价格（按 token）：{{price}} / 1M tokens', {
-                      price: formatDisplayPrice(effectiveTokenPricePer1M),
-                    })
-                  : null,
+                deferredBillingSummary,
                 t('结算原因：{{reason}}', {
                   reason: other?.terminal_charge_reason || logs[i].content || '-',
                 }),
@@ -717,9 +697,21 @@ export const useLogsData = () => {
                 ? toPositiveNumber(logs[i]?.prompt_tokens) +
                   toPositiveNumber(logs[i]?.completion_tokens)
                 : toPositiveNumber(other?.task_total_tokens);
-            const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
-              other?.actual_quota || billedQuota,
-              totalTokens,
+            const billingSummary = renderLogContent(
+              other?.model_ratio,
+              other?.completion_ratio,
+              other?.model_price,
+              other?.group_ratio,
+              other?.user_group_ratio,
+              other?.cache_ratio || 1.0,
+              false,
+              1.0,
+              false,
+              0,
+              false,
+              0,
+              billingDisplayMode,
+              other?.group_ratio_source,
             );
             content = (
               <article>
@@ -728,11 +720,9 @@ export const useLogsData = () => {
                     cost: renderQuota(billedQuota, 6),
                   })}
                 </p>
-                {Number.isFinite(effectiveTokenPricePer1M) && (
+                {billingSummary && (
                   <p>
-                    {t('模型价格（按 token）：{{price}} / 1M tokens', {
-                      price: formatDisplayPrice(effectiveTokenPricePer1M),
-                    })}
+                    {billingSummary}
                   </p>
                 )}
                 <p>

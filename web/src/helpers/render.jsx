@@ -1244,7 +1244,7 @@ function getEffectiveRatio(groupRatio, user_group_ratio, groupRatioSource) {
   if (source === 'group_model') {
     return {
       ratio: groupRatio,
-      label: i18next.t('模型倍率'),
+      label: i18next.t('分组倍率(模型覆盖)'),
       useUserGroupRatio: false,
     };
   }

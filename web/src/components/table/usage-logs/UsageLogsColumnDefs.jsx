@@ -929,15 +929,25 @@ export const getLogsColumns = ({
             toTokenNumber(other?.task_total_tokens) ||
             toTokenNumber(record?.prompt_tokens) +
               toTokenNumber(record?.completion_tokens);
-          const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
-            other?.actual_quota || billedQuota,
-            tokenTotal,
+          const billingSummary = renderLogContent(
+            other?.model_ratio,
+            other?.completion_ratio,
+            other?.model_price,
+            other?.group_ratio,
+            other?.user_group_ratio,
+            other?.cache_ratio || 1.0,
+            false,
+            1.0,
+            false,
+            0,
+            false,
+            0,
+            billingDisplayMode,
+            other?.group_ratio_source,
           );
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
-            Number.isFinite(effectiveTokenPricePer1M)
-              ? `${t('模型价格（按 token）')}：${formatDisplayPrice(effectiveTokenPricePer1M)} / 1M tokens`
-              : null,
+            billingSummary,
             `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
