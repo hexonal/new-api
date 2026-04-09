@@ -75,6 +75,33 @@ const isDeferredSettlePendingLog = (log, other) => {
   return state === 'pending';
 };
 
+const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
+  const quotaValue = Number(quota);
+  const modelRatioValue = Number(modelRatio);
+  const groupRatioValue = Number(groupRatio);
+  if (
+    !Number.isFinite(quotaValue) ||
+    quotaValue <= 0 ||
+    !Number.isFinite(modelRatioValue) ||
+    modelRatioValue <= 0 ||
+    !Number.isFinite(groupRatioValue) ||
+    groupRatioValue <= 0
+  ) {
+    return null;
+  }
+  const estimatedTokens = Math.round(quotaValue / (modelRatioValue * groupRatioValue));
+  const inputPrice = modelRatioValue * 2;
+  return t(
+    '(预扣 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
+    {
+      tokens: renderNumber(estimatedTokens),
+      inputPrice: Number(inputPrice).toFixed(6),
+      groupRatio: Number(groupRatioValue).toFixed(4),
+      cost: renderQuota(quotaValue, 6),
+    },
+  );
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
 
@@ -561,6 +588,12 @@ export const useLogsData = () => {
                         cost: renderQuota(other.estimated_quota, 6),
                       })
                     : null,
+                  buildDeferredPendingFormula(
+                    other?.estimated_quota,
+                    other?.model_ratio,
+                    other?.group_ratio,
+                    t,
+                  ),
                   t('结算状态：{{state}}', {
                     state: other?.terminal_charge_state || 'pending',
                   }),
@@ -756,6 +789,12 @@ export const useLogsData = () => {
               </article>
             );
           } else if (isDeferredSettlePendingLog(logs[i], other)) {
+            const pendingFormula = buildDeferredPendingFormula(
+              other?.estimated_quota,
+              other?.model_ratio,
+              other?.group_ratio,
+              t,
+            );
             content = (
               <article>
                 <p>{t('延迟结算（提交阶段）')}</p>
@@ -766,6 +805,7 @@ export const useLogsData = () => {
                     })}
                   </p>
                 )}
+                {pendingFormula && <p>{pendingFormula}</p>}
                 <p>
                   {t('结算状态：{{state}}', {
                     state: other?.terminal_charge_state || 'pending',

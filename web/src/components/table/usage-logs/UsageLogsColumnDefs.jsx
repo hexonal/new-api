@@ -413,6 +413,25 @@ function buildDeferredTokenFormulaPreview(record, other, t) {
   return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${groupRatio}`;
 }
 
+function buildDeferredPendingFormulaPreview(other, t) {
+  const quota = Number(other?.estimated_quota);
+  const modelRatio = Number(other?.model_ratio);
+  const groupRatio = Number(other?.group_ratio);
+  if (
+    !Number.isFinite(quota) ||
+    quota <= 0 ||
+    !Number.isFinite(modelRatio) ||
+    modelRatio <= 0 ||
+    !Number.isFinite(groupRatio) ||
+    groupRatio <= 0
+  ) {
+    return null;
+  }
+  const estimatedTokens = Math.round(quota / (modelRatio * groupRatio));
+  const inputPrice = modelRatio * 2;
+  return `(${t('预扣')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -1026,11 +1045,13 @@ export const getLogsColumns = ({
         }
 
         if (isDeferredSettlePendingLog(record, other)) {
+          const pendingFormula = buildDeferredPendingFormulaPreview(other, t);
           const summary = [
             t('延迟结算（提交阶段）'),
             toTokenNumber(other?.estimated_quota) > 0
               ? `${t('预估扣费')}：${renderQuota(other.estimated_quota, 6)}`
               : null,
+            pendingFormula,
             `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
             t('仅供参考，以实际扣费为准'),
           ]

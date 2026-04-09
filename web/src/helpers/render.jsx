@@ -1587,7 +1587,7 @@ export function renderModelPrice(
             </p>
             <p>
               {i18next.t(
-                '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+                '(模型价格 {{symbol}}{{price}} / 次) * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
                 {
                   symbol,
                   price: (normalizedModelPrice * rate).toFixed(6),
@@ -1823,7 +1823,7 @@ export function renderModelPrice(
     const displayPrice = (modelPrice * rate).toFixed(6);
     const displayTotal = (modelPrice * groupRatio * rate).toFixed(6);
     return i18next.t(
-      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
+      '(模型价格：{{symbol}}{{price}} / 次) * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
         symbol: symbol,
         price: displayPrice,
@@ -2118,7 +2118,7 @@ export function renderLogContent(
   }
 
   if (hasModelPrice) {
-    return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
+    return i18next.t('(模型价格 {{symbol}}{{price}} / 次) * {{ratioType}} {{ratio}}', {
       symbol: symbol,
       price: (normalizedModelPrice * rate).toFixed(6),
       ratioType: ratioLabel,
@@ -2248,7 +2248,7 @@ export function renderAudioModelPrice(
             </p>
             <p>
               {i18next.t(
-                '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+                '(模型价格 {{symbol}}{{price}} / 次) * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
                 {
                   symbol,
                   price: (modelPrice * rate).toFixed(6),
@@ -2357,7 +2357,7 @@ export function renderAudioModelPrice(
   // 1 ratio = $0.002 / 1K tokens
   if (hasDirectModelPrice(modelPrice)) {
     return i18next.t(
-      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
+      '(模型价格：{{symbol}}{{price}} / 次) * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
         symbol: symbol,
         price: (modelPrice * rate).toFixed(6),
@@ -2574,7 +2574,7 @@ export function renderClaudeModelPrice(
             </p>
             <p>
               {i18next.t(
-                '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+                '(模型价格 {{symbol}}{{price}} / 次) * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
                 {
                   symbol,
                   price: (modelPrice * rate).toFixed(6),
@@ -2772,7 +2772,7 @@ export function renderClaudeModelPrice(
 
   if (hasDirectModelPrice(modelPrice)) {
     return i18next.t(
-      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
+      '(模型价格：{{symbol}}{{price}} / 次) * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
         symbol: symbol,
         price: (modelPrice * rate).toFixed(6),
@@ -3061,7 +3061,7 @@ export function renderClaudeLogContent(
   }
 
   if (hasDirectModelPrice(modelPrice)) {
-    return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
+    return i18next.t('(模型价格 {{symbol}}{{price}} / 次) * {{ratioType}} {{ratio}}', {
       symbol: symbol,
       price: (modelPrice * rate).toFixed(6),
       ratioType: ratioLabel,
