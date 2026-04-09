@@ -102,6 +102,56 @@ const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   );
 };
 
+const buildDeferredTokenFormula = (
+  promptTokens,
+  completionTokens,
+  cacheTokens,
+  modelRatio,
+  completionRatio,
+  cacheRatio,
+  groupRatio,
+  t,
+) => {
+  const p = Number(promptTokens);
+  const c = Number(completionTokens);
+  const k = Number(cacheTokens || 0);
+  const mr = Number(modelRatio);
+  const cr = Number(completionRatio || 1);
+  const kr = Number(cacheRatio || 1);
+  const gr = Number(groupRatio);
+  if (
+    !Number.isFinite(p) ||
+    !Number.isFinite(c) ||
+    !Number.isFinite(mr) ||
+    mr <= 0 ||
+    !Number.isFinite(cr) ||
+    cr <= 0 ||
+    !Number.isFinite(gr) ||
+    gr <= 0
+  ) {
+    return null;
+  }
+  const inputPrice = mr * 2;
+  const completionPrice = inputPrice * cr;
+  const cachePrice = inputPrice * kr;
+  const nonCachePrompt = Math.max(p - k, 0);
+  const terms = [];
+  if (nonCachePrompt > 0) {
+    terms.push(
+      `${t('输入')} ${renderNumber(nonCachePrompt)} tokens / 1M tokens * $${inputPrice.toFixed(6)}`,
+    );
+  }
+  if (k > 0) {
+    terms.push(
+      `${t('缓存')} ${renderNumber(k)} tokens / 1M tokens * $${cachePrice.toFixed(6)}`,
+    );
+  }
+  terms.push(
+    `${t('输出')} ${renderNumber(c)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
+  );
+  return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${gr.toFixed(4)}`;
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
 
@@ -765,6 +815,16 @@ export const useLogsData = () => {
               billingDisplayMode,
               other?.group_ratio_source,
             );
+            const forcedFormula = buildDeferredTokenFormula(
+              deferredPromptTokens,
+              deferredCompletionTokens,
+              other?.cache_tokens || 0,
+              other?.model_ratio,
+              other?.completion_ratio,
+              other?.cache_ratio || 1.0,
+              other?.group_ratio,
+              t,
+            );
             content = (
               <article>
                 <p>
@@ -773,6 +833,7 @@ export const useLogsData = () => {
                   })}
                 </p>
                 {billingProcess}
+                {forcedFormula && <p>{forcedFormula}</p>}
                 <p>
                   {t('结算原因：{{reason}}', {
                     reason: other?.terminal_charge_reason || logs[i].content || '-',
