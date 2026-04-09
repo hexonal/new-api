@@ -211,7 +211,7 @@ jobs:
                 .[]
                 | {id, tags: (.metadata.container.tags // [])}
                 | select((.tags | length) > 0)
-                | select(any(.tags[] as $t | $prefixes[]; ($t | startswith(.))))
+                | select(any(.tags[]; . as $t | any($prefixes[]; ($t | startswith(.)))))
                 | select(all(.tags[]; ($keep | index(.) | not)))
               ')
 
