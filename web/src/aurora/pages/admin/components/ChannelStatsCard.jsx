@@ -1,11 +1,52 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function ChannelStatsCard() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
+
+export default function ChannelStatsCard({ stats = {} }) {
+  const items = [
+    ['请求', stats.requests || 0],
+    ['成功率', `${stats.successRate || 0}%`],
+    ['耗时(ms)', stats.avgLatency || 0],
+    ['错误', stats.errors || 0],
+  ];
+
   return (
-    <SectionPlaceholder
-      title="ChannelStatsCard"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <Card>
+      <CardHeader>
+        <CardTitle className='text-base'>通道统计</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className='grid grid-cols-2 gap-2'>
+          {items.map(([key, value]) => (
+            <div
+              key={key}
+              className='rounded border border-border px-3 py-2 text-sm flex justify-between'
+            >
+              <span className='text-muted-foreground'>{key}</span>
+              <span className='font-medium'>{value}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

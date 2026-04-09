@@ -1,11 +1,46 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function ModelCapabilities() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
+
+export default function ModelCapabilities({ capabilities = [] }) {
   return (
-    <SectionPlaceholder
-      title="ModelCapabilities"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <Card>
+      <CardHeader>
+        <CardTitle className='text-base'>模型能力</CardTitle>
+      </CardHeader>
+      <CardContent className='flex flex-wrap gap-2'>
+        {capabilities.length ? (
+          capabilities.map((capability) => (
+            <span
+              key={capability}
+              className='text-xs rounded-full border border-border px-3 py-1 bg-card'
+            >
+              {capability}
+            </span>
+          ))
+        ) : (
+          <p className='text-sm text-muted-foreground'>未配置能力标签</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

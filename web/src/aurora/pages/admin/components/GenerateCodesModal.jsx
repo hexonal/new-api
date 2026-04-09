@@ -1,11 +1,49 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function GenerateCodesModal() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Button } from '../../../primitives/button';
+
+export default function GenerateCodesModal({
+  visible = false,
+  codeList = [],
+  onGenerate,
+  onClose,
+}) {
+  if (!visible) {
+    return <Button onClick={onGenerate}>生成兑换码</Button>;
+  }
+
   return (
-    <SectionPlaceholder
-      title="GenerateCodesModal"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <section className='rounded-lg border border-border bg-card/70 p-4 space-y-3'>
+      <div className='font-medium'>兑换码列表</div>
+      <ul className='space-y-1 text-sm'>
+        {codeList.length ? (
+          codeList.map((code) => <li key={code}>{code}</li>)
+        ) : (
+          <li className='text-muted-foreground'>暂无</li>
+        )}
+      </ul>
+      <div className='flex gap-2 justify-end'>
+        <Button variant='outline' onClick={onClose}>关闭</Button>
+      </div>
+    </section>
   );
 }
