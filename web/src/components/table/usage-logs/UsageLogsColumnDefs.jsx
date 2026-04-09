@@ -999,6 +999,58 @@ export const getLogsColumns = ({
           );
         }
 
+        const requestPath = String(other?.request_path || '');
+        const isNonTextTaskEndpoint =
+          requestPath.startsWith('/v1/video/') ||
+          requestPath.startsWith('/v1/images/generations') ||
+          requestPath.startsWith('/mj/');
+        const hasNoTokenUsage =
+          toTokenNumber(record?.prompt_tokens) <= 0 &&
+          toTokenNumber(record?.completion_tokens) <= 0 &&
+          toTokenNumber(other?.task_prompt_tokens) <= 0 &&
+          toTokenNumber(other?.task_completion_tokens) <= 0 &&
+          toTokenNumber(other?.task_total_tokens) <= 0;
+        const modelPrice = Number(other?.model_price);
+        if (isNonTextTaskEndpoint && hasNoTokenUsage && !(Number.isFinite(modelPrice) && modelPrice > 0)) {
+          const billedQuota = toTokenNumber(record?.quota);
+          const modelRatio = Number(other?.model_ratio);
+          const groupRatio = Number(other?.group_ratio);
+          const estimatedPreconsumeTokens =
+            Number.isFinite(modelRatio) &&
+            modelRatio > 0 &&
+            Number.isFinite(groupRatio) &&
+            groupRatio > 0 &&
+            billedQuota > 0
+              ? Math.round(billedQuota / (modelRatio * groupRatio))
+              : 0;
+          const summary = [
+            t('按量计费（预扣阶段）'),
+            `${t('输入价格')}：$${Number(modelRatio * 2 || 0).toFixed(6)} / 1M tokens`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            `${t('本次未回传 Token，用预扣额度计费')}：${renderQuota(billedQuota, 6)}`,
+            estimatedPreconsumeTokens > 0
+              ? `${t('预扣 Token 基数（估算）')}：${formatTokenCount(estimatedPreconsumeTokens)}`
+              : null,
+            t('仅供参考，以实际扣费为准'),
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
+
         let content = other?.claude
           ? renderModelPriceSimple(
               other.model_ratio,

@@ -36,7 +36,6 @@ import {
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
-  renderModelPriceSimple,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -761,26 +760,50 @@ export const useLogsData = () => {
               </article>
             );
           } else if (isNonTextTaskEndpoint && hasNoTokenUsage) {
-            // Task-style non-text endpoints usually don't carry prompt/completion token
-            // usage in submit logs. Avoid rendering token math with zero tokens.
-            content = renderModelPriceSimple(
-              other?.model_ratio,
-              other?.model_price,
-              other?.group_ratio,
-              other?.user_group_ratio,
-              0,
-              other?.cache_ratio || 1.0,
-              0,
-              1.0,
-              0,
-              1.0,
-              0,
-              1.0,
-              false,
-              false,
-              'openai',
-              billingDisplayMode,
-              other?.group_ratio_source,
+            const billedQuota = toPositiveNumber(logs[i]?.quota);
+            const modelRatio = Number(other?.model_ratio);
+            const groupRatio = Number(other?.group_ratio);
+            const estimatedPreconsumeTokens =
+              Number.isFinite(modelRatio) &&
+              modelRatio > 0 &&
+              Number.isFinite(groupRatio) &&
+              groupRatio > 0 &&
+              billedQuota > 0
+                ? Math.round(billedQuota / (modelRatio * groupRatio))
+                : 0;
+
+            content = (
+              <article>
+                <p>{t('按量计费（预扣阶段）')}</p>
+                <p>
+                  {t('输入价格：{{price}} / 1M tokens', {
+                    price: `${Number(modelRatio * 2 || 0).toFixed(6)}`,
+                  })}
+                </p>
+                <p>
+                  {t('分组倍率（模型覆盖）：{{ratio}}', {
+                    ratio: Number.isFinite(groupRatio)
+                      ? Number(groupRatio).toFixed(4)
+                      : '-',
+                  })}
+                </p>
+                <p>
+                  {t('本次未回传 Token，用预扣额度计费：{{cost}}', {
+                    cost: renderQuota(billedQuota, 6),
+                  })}
+                </p>
+                {estimatedPreconsumeTokens > 0 && (
+                  <p>
+                    {t(
+                      '预扣 Token 基数（估算）：{{tokens}}（公式：quota / model_ratio / group_ratio）',
+                      {
+                        tokens: renderNumber(estimatedPreconsumeTokens),
+                      },
+                    )}
+                  </p>
+                )}
+                <p>{t('仅供参考，以实际扣费为准')}</p>
+              </article>
             );
           } else {
             content = renderModelPrice(
