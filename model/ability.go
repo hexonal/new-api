@@ -284,7 +284,7 @@ func SyncAbilitiesForGroup(group string, modelNames []string, tx *gorm.DB) error
 	// 2. For each model, find serving channels that actually include this group
 	// and replace abilities(group, model) atomically to avoid stale mappings.
 	for _, modelName := range normalizedModelNames {
-		channels, err := FindChannelsWithModel(modelName)
+		channels, err := FindChannelsWithModelTx(tx, modelName)
 		if err != nil {
 			return fmt.Errorf("find channels for model %s: %w", modelName, err)
 		}

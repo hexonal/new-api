@@ -926,8 +926,17 @@ func (channel *Channel) GetHeaderOverride() map[string]interface{} {
 // FindChannelsWithModel finds all enabled channels that serve the given model name.
 // Uses LIKE for initial DB filtering, then exact-matches against GetModels().
 func FindChannelsWithModel(modelName string) ([]*Channel, error) {
+	return FindChannelsWithModelTx(DB, modelName)
+}
+
+// FindChannelsWithModelTx finds all enabled channels that serve the given model name
+// within the given transaction/session.
+func FindChannelsWithModelTx(tx *gorm.DB, modelName string) ([]*Channel, error) {
+	if tx == nil {
+		tx = DB
+	}
 	var channels []*Channel
-	err := DB.Where("status = ? AND models LIKE ?", common.ChannelStatusEnabled, "%"+modelName+"%").Find(&channels).Error
+	err := tx.Where("status = ? AND models LIKE ?", common.ChannelStatusEnabled, "%"+modelName+"%").Find(&channels).Error
 	if err != nil {
 		return nil, err
 	}
@@ -950,7 +959,7 @@ func SyncChannelGroupForPricing(tx *gorm.DB, group string, modelNames []string) 
 	}
 	channelSet := make(map[int]*Channel)
 	for _, modelName := range modelNames {
-		channels, err := FindChannelsWithModel(modelName)
+		channels, err := FindChannelsWithModelTx(tx, modelName)
 		if err != nil {
 			return fmt.Errorf("find channels for model %s: %w", modelName, err)
 		}

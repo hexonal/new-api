@@ -65,6 +65,35 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func validateGroupAbilitiesInTx(tx *gorm.DB, group string, modelNames []string) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is nil")
+	}
+	if strings.TrimSpace(group) == "" {
+		return fmt.Errorf("group is empty")
+	}
+	missing := make([]string, 0)
+	for _, modelName := range modelNames {
+		name := strings.TrimSpace(modelName)
+		if name == "" {
+			continue
+		}
+		var cnt int64
+		if err := tx.Model(&model.Ability{}).
+			Where(model.CommonGroupCol()+" = ? AND model = ? AND enabled = ?", group, name, true).
+			Count(&cnt).Error; err != nil {
+			return fmt.Errorf("validate ability for model %s: %w", name, err)
+		}
+		if cnt == 0 {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("group %s has no enabled ability for models: %s", group, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
@@ -396,6 +425,9 @@ func UpdateGroupPricingOption(c *gin.Context) {
 			return err
 		}
 		if err := model.SyncAbilitiesForGroup(req.Group, modelNames, tx); err != nil {
+			return err
+		}
+		if err := validateGroupAbilitiesInTx(tx, req.Group, modelNames); err != nil {
 			return err
 		}
 		return nil
