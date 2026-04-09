@@ -44,19 +44,21 @@ export default function DashboardPage() {
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
 
-  // Synchronously ensure quota_per_unit exists before any renderQuota calls
-  if (statusState?.status?.quota_per_unit) {
-    localStorage.setItem('quota_per_unit', String(statusState.status.quota_per_unit));
-  }
-  if (!localStorage.getItem('quota_per_unit')) {
-    localStorage.setItem('quota_per_unit', '500000');
-  }
-  if (statusState?.status?.quota_display_type) {
-    localStorage.setItem('quota_display_type', statusState.status.quota_display_type);
-  }
-  if (statusState?.status) {
-    localStorage.setItem('status', JSON.stringify(statusState.status));
-  }
+  // Ensure quota_per_unit is in localStorage before renderQuota is called.
+  // Use useMemo to run once per statusState change, not on every render.
+  React.useMemo(() => {
+    const qpu = statusState?.status?.quota_per_unit;
+    if (qpu && localStorage.getItem('quota_per_unit') !== String(qpu)) {
+      localStorage.setItem('quota_per_unit', String(qpu));
+    }
+    if (!localStorage.getItem('quota_per_unit')) {
+      localStorage.setItem('quota_per_unit', '500000');
+    }
+    const qdt = statusState?.status?.quota_display_type;
+    if (qdt && localStorage.getItem('quota_display_type') !== qdt) {
+      localStorage.setItem('quota_display_type', qdt);
+    }
+  }, [statusState?.status?.quota_per_unit, statusState?.status?.quota_display_type]);
 
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
   const { groupedStatsData } = useDashboardStats(
@@ -70,10 +72,14 @@ export default function DashboardPage() {
     dashboardData.t,
   );
 
+  // Load data once on mount — NOT on function reference changes
+  const dataLoaded = React.useRef(false);
   useEffect(() => {
-    dashboardData.refresh();
-    dashboardData.loadUptimeData();
-  }, [dashboardData.refresh, dashboardData.loadUptimeData]);
+    if (!dataLoaded.current) {
+      dataLoaded.current = true;
+      dashboardData.refresh();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trendData = (dashboardData.quotaData || [])
     .slice()
