@@ -193,7 +193,7 @@ export default function ModelDetailModal({
 
             {Array.isArray(autoGroups) && autoGroups.length > 0 ? (
               <div className='rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-700'>
-                {t('auto分组调用链路')} {'->'} {autoGroups.join(', ') || 'default'}
+                {t('auto分组调用链路')} {'->'} {autoGroups.join(', ') || t('默认分组')}
               </div>
             ) : null}
 

@@ -63,6 +63,14 @@ const PROVIDER_ORDER = [
   'Vidu',
   'PixVerse',
 ];
+const TOP_TAB_LABELS = {
+  text: '文本',
+  image: '图片',
+  video: '视频',
+  audio: '音频',
+  embeddings: '向量',
+  rerank: '重排',
+};
 
 const parseTags = (value) =>
   String(value || '')
@@ -195,7 +203,7 @@ const parseNumericPrice = (value) => {
   return parsed;
 };
 
-const getProviderName = (model) => model?.vendor_name || 'Unknown';
+const getProviderName = (model) => model?.vendor_name || '';
 const PROVIDER_ICON_FALLBACK = {
   OpenAI: 'OpenAI',
   Anthropic: 'Claude.Color',
@@ -311,7 +319,7 @@ const ModelsExplorerPage = () => {
   const providersWithCount = useMemo(() => {
     const counter = new Map();
     searchableModels.forEach((model) => {
-      const provider = getProviderName(model);
+      const provider = getProviderName(model) || t('未知供应商');
       counter.set(provider, (counter.get(provider) || 0) + 1);
     });
     const sorted = [...counter.entries()].sort((a, b) =>
@@ -322,7 +330,7 @@ const ModelsExplorerPage = () => {
       ...sorted.filter((item) => !PROVIDER_ORDER.includes(item[0])),
     ];
     return prioritized.map(([name, count]) => ({ name, count }));
-  }, [searchableModels]);
+  }, [searchableModels, t]);
 
   const categoryWithCount = useMemo(() => {
     const counter = new Map();
@@ -536,17 +544,17 @@ const ModelsExplorerPage = () => {
             ]}
           >
             <AccordionItem value='modalities'>
-              <AccordionTrigger>{t('Input Modalities')}</AccordionTrigger>
+              <AccordionTrigger>{t('输入类型')}</AccordionTrigger>
               <AccordionContent>
                 {[
-                  ['text', 'Text'],
-                  ['image', 'Image'],
-                  ['audio', 'Audio'],
-                  ['video', 'Video'],
+                  ['text', '文本'],
+                  ['image', '图片'],
+                  ['audio', '音频'],
+                  ['video', '视频'],
                 ].map(([key, label]) => (
                   <FilterCheckboxItem
                     key={key}
-                    label={label}
+                    label={t(label)}
                     count={topTabCounts[key] || 0}
                     checked={selectedModalities.includes(key)}
                     onCheckedChange={() => toggleArrayValue(setSelectedModalities, key)}
@@ -558,12 +566,12 @@ const ModelsExplorerPage = () => {
             {/* Context Length and Prompt Pricing filters removed — API does not return context/pricing filter data */}
 
             <AccordionItem value='series'>
-              <AccordionTrigger>{t('Series')}</AccordionTrigger>
+              <AccordionTrigger>{t('系列')}</AccordionTrigger>
               <AccordionContent>
                 {seriesWithCount.map((item) => (
                   <FilterCheckboxItem
                     key={item.name}
-                    label={item.name}
+                    label={t(item.name)}
                     count={item.count}
                     checked={selectedSeries.includes(item.name)}
                     onCheckedChange={() => toggleArrayValue(setSelectedSeries, item.name)}
@@ -573,7 +581,7 @@ const ModelsExplorerPage = () => {
             </AccordionItem>
 
             <AccordionItem value='categories'>
-              <AccordionTrigger>{t('Categories')}</AccordionTrigger>
+              <AccordionTrigger>{t('分类')}</AccordionTrigger>
               <AccordionContent>
                 {categoryWithCount.slice(0, 18).map((item) => (
                   <FilterCheckboxItem
@@ -588,12 +596,12 @@ const ModelsExplorerPage = () => {
             </AccordionItem>
 
             <AccordionItem value='providers'>
-              <AccordionTrigger>{t('Providers')}</AccordionTrigger>
+              <AccordionTrigger>{t('供应商')}</AccordionTrigger>
               <AccordionContent>
                 {providersWithCount.map((item) => (
                   <FilterCheckboxItem
                     key={item.name}
-                    label={item.name}
+                    label={t(item.name)}
                     count={item.count}
                     checked={selectedProviders.includes(item.name)}
                     onCheckedChange={() => toggleArrayValue(setSelectedProviders, item.name)}
@@ -606,7 +614,7 @@ const ModelsExplorerPage = () => {
 
         <main className='flex-1 min-w-0'>
           <div className='mb-4 border-b border-border pb-4'>
-            <h1 className='text-2xl font-extrabold tracking-tight'>{t('Models')}</h1>
+            <h1 className='text-2xl font-extrabold tracking-tight'>{t('模型广场')}</h1>
 
             <div className='mt-3 flex flex-wrap items-center gap-2'>
               {TOP_TABS.map((tab) => (
@@ -625,7 +633,7 @@ const ModelsExplorerPage = () => {
                     }
                   }}
                 >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)} ({topTabCounts[tab] || 0})
+                  {t(TOP_TAB_LABELS[tab] || tab)} ({topTabCounts[tab] || 0})
                 </button>
               ))}
             </div>
@@ -635,7 +643,7 @@ const ModelsExplorerPage = () => {
                 <Input
                   value={searchValue}
                   onChange={(event) => handleChange(event.target.value)}
-                  placeholder='Search models...'
+                  placeholder={t('搜索模型名称')}
                   icon={<Search className='h-4 w-4' />}
                 />
               </div>
@@ -643,11 +651,11 @@ const ModelsExplorerPage = () => {
               <div className='flex items-center gap-2'>
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className='h-9 w-[130px]'>
-                    <SelectValue placeholder='Sort' />
+                    <SelectValue placeholder={t('排序')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value='newest'>Newest</SelectItem>
+                      <SelectItem value='newest'>{t('最新')}</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -756,7 +764,7 @@ const ModelsExplorerPage = () => {
                         </div>
 
                         <p className='mt-2 text-xs text-muted-foreground'>
-                          by {getProviderName(model)}
+                          {t('来自 ')}{getProviderName(model) || t('未知供应商')}
                           {formatDate(getModelTimestamp(model)) ? ` | ${formatDate(getModelTimestamp(model))}` : ''}
                         </p>
 
@@ -826,7 +834,9 @@ const ModelsExplorerPage = () => {
                             >
                               {model.model_name}
                             </button>
-                            <p className='text-xs text-muted-foreground'>{getProviderName(model)}</p>
+                            <p className='text-xs text-muted-foreground'>
+                              {getProviderName(model) || t('未知供应商')}
+                            </p>
                           </div>
                         </div>
                         <Button
