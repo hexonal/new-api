@@ -116,7 +116,7 @@ func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 	}{
 		{
 			name:      "expired token is rejected",
-			tokenName: "app_user1_prod",
+			tokenName: "prod_app_user1",
 			headers: map[string]string{
 				"x-app-id":  "app",
 				"x-user-id": "user1",
@@ -128,7 +128,7 @@ func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 		},
 		{
 			name:      "zero expiry token is rejected",
-			tokenName: "app_user0_prod",
+			tokenName: "prod_app_user0",
 			headers: map[string]string{
 				"x-app-id":  "app",
 				"x-user-id": "user0",
@@ -140,7 +140,7 @@ func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 		},
 		{
 			name:      "quota exhausted token is rejected",
-			tokenName: "app_user2_prod",
+			tokenName: "prod_app_user2",
 			headers: map[string]string{
 				"x-app-id":  "app",
 				"x-user-id": "user2",
@@ -168,7 +168,7 @@ func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 func TestTryJWTHeaderAuthAllowsHyphenMetadata(t *testing.T) {
 	db := setupJWTHeaderAuthTestDB(t)
 	seedJWTHeaderRootUser(t, db, 1)
-	seedJWTHeaderToken(t, db, 1, "app_user-1_prod-env", -1, 100, true)
+	seedJWTHeaderToken(t, db, 1, "prod-env_app_user-1", -1, 100, true)
 
 	ctx := newJWTHeaderAuthContext(map[string]string{
 		"x-app-id":  "app",
@@ -199,7 +199,7 @@ func TestTryJWTHeaderAuthRejectsUnderscoreMetadata(t *testing.T) {
 	}{
 		{
 			name:      "app id cannot contain underscore",
-			tokenName: "app_id_user1_prod",
+			tokenName: "prod_app_id_user1",
 			headers: map[string]string{
 				"x-app-id":  "app_id",
 				"x-user-id": "user1",
@@ -208,7 +208,7 @@ func TestTryJWTHeaderAuthRejectsUnderscoreMetadata(t *testing.T) {
 		},
 		{
 			name:      "user id cannot contain underscore",
-			tokenName: "app_user_1_prod",
+			tokenName: "prod_app_user_1",
 			headers: map[string]string{
 				"x-app-id":  "app",
 				"x-user-id": "user_1",
@@ -217,7 +217,7 @@ func TestTryJWTHeaderAuthRejectsUnderscoreMetadata(t *testing.T) {
 		},
 		{
 			name:      "env cannot contain underscore",
-			tokenName: "app_user1_prod_env",
+			tokenName: "prod_env_app_user1",
 			headers: map[string]string{
 				"x-app-id":  "app",
 				"x-user-id": "user1",
@@ -242,7 +242,7 @@ func TestTryJWTHeaderAuthRejectsUnderscoreMetadata(t *testing.T) {
 func TestTryJWTHeaderAuthSetsJWTHeaderAuthContextFlag(t *testing.T) {
 	db := setupJWTHeaderAuthTestDB(t)
 	seedJWTHeaderRootUser(t, db, 1)
-	seedJWTHeaderToken(t, db, 1, "app_user1_prod", -1, 100, true)
+	seedJWTHeaderToken(t, db, 1, "prod_app_user1", -1, 100, true)
 
 	ctx := newJWTHeaderAuthContext(map[string]string{
 		"x-app-id":  "app",

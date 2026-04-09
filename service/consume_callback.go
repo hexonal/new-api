@@ -169,7 +169,7 @@ func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix 
 	return rawKey
 }
 
-// parseTokenName extracts appID, userID, env from token name format: {appID}_{userID}_{env}
+// parseTokenName extracts appID, userID, env from token name format: {env}_{appID}_{userID}
 func parseTokenName(name string) (appID string, userID string, env string) {
 	value := strings.TrimSpace(name)
 	if !consumeCallbackTokenNamePattern.MatchString(value) {
@@ -177,7 +177,7 @@ func parseTokenName(name string) (appID string, userID string, env string) {
 	}
 	parts := strings.SplitN(value, "_", 3)
 	if len(parts) >= 3 {
-		return parts[0], parts[1], parts[2]
+		return parts[1], parts[2], parts[0]
 	}
 	return "", "", ""
 }

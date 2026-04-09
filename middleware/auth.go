@@ -228,7 +228,7 @@ func tryJWTHeaderAuth(c *gin.Context, key string) (*model.Token, bool) {
 		!isValidJWTStrictMetadataValue(xUserID) || !isValidJWTAppID(xAppID) || !isValidJWTStrictMetadataValue(xEnv) {
 		return nil, false
 	}
-	tokenName := xAppID + "_" + xUserID + "_" + xEnv
+	tokenName := xEnv + "_" + xAppID + "_" + xUserID
 	jwtToken, err := model.GetTokenByName(tokenName)
 	if err != nil || jwtToken == nil {
 		return nil, false
