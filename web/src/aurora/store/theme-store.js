@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { API } from '../../helpers';
 import { create } from 'zustand';
 
-const DEFAULT_THEME = 'aurora';
+const DEFAULT_THEME = 'legacy';
 
 const normalizeThemeValue = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();

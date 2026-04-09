@@ -18,8 +18,25 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import AuroraAppEntry from './AuroraApp';
+import { ThemeProvider } from './theme-provider';
+import AuroraLayout from './layout/AuroraLayout';
+import { LegacyApp } from '../App';
+import './tokens/globals.css';
+import './routes';
+
+const AuroraShell = () => {
+  return (
+    <AuroraLayout>
+      <LegacyApp isAuroraTheme />
+    </AuroraLayout>
+  );
+};
 
 export default function AuroraApp() {
-  return <AuroraAppEntry />;
+  return (
+    <ThemeProvider>
+      <AuroraShell />
+    </ThemeProvider>
+  );
 }
+
