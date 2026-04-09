@@ -1,11 +1,58 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function ModelBasicInfo() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../primitives/card';
+import { Input } from '../../../primitives/input';
+
+export default function ModelBasicInfo({
+  values = {},
+  onChange,
+  editable = true,
+}) {
+  const fields = [
+    { key: 'name', label: '模型名称', placeholder: '例如：gpt-4.1' },
+    { key: 'provider', label: 'Provider', placeholder: 'OpenAI / Google / Azure' },
+    { key: 'max_tokens', label: '最大 token', placeholder: '输入数字' },
+    { key: 'support', label: '支持能力', placeholder: 'chat / image / video' },
+  ];
+
   return (
-    <SectionPlaceholder
-      title="ModelBasicInfo"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <Card>
+      <CardHeader>
+        <CardTitle className='text-base'>模型基础信息</CardTitle>
+        <CardDescription>先保留字段入口，便于后续接入提交校验逻辑。</CardDescription>
+      </CardHeader>
+      <CardContent className='space-y-3'>
+        {fields.map((item) => (
+          <label className='block' key={item.key}>
+            <div className='text-xs text-muted-foreground mb-1'>{item.label}</div>
+            <Input
+              value={values[item.key] || ''}
+              placeholder={item.placeholder}
+              disabled={!editable}
+              onChange={(e) => onChange?.(item.key, e.target.value)}
+            />
+          </label>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

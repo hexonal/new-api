@@ -1,11 +1,58 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function ChannelBasicInfo() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../primitives/card';
+import { Input } from '../../../primitives/input';
+
+export default function ChannelBasicInfo({
+  values = {},
+  onChange,
+  editable = true,
+}) {
+  const fields = [
+    { key: 'name', label: '名称', placeholder: '例如：openai-main' },
+    { key: 'type', label: '类型', placeholder: '例如：OpenAI' },
+    { key: 'base_url', label: 'Base URL', placeholder: 'https://api.openai.com/v1' },
+    { key: 'api_key', label: 'API Key', placeholder: '输入密钥' },
+  ];
+
   return (
-    <SectionPlaceholder
-      title="ChannelBasicInfo"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <Card>
+      <CardHeader>
+        <CardTitle className='text-base'>通道基础信息</CardTitle>
+        <CardDescription>表单会按字段变更回调，当前先做配置入口承接。</CardDescription>
+      </CardHeader>
+      <CardContent className='space-y-3'>
+        {fields.map((item) => (
+          <label className='block' key={item.key}>
+            <div className='text-xs text-muted-foreground mb-1'>{item.label}</div>
+            <Input
+              value={values[item.key] || ''}
+              placeholder={item.placeholder}
+              disabled={!editable}
+              onChange={(e) => onChange?.(item.key, e.target.value)}
+            />
+          </label>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

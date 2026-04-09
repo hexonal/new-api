@@ -1,11 +1,70 @@
-import React from 'react';
-import SectionPlaceholder from './SectionPlaceholder';
+/*
+Copyright (C) 2025 QuantumNous
 
-export default function GroupModelAccess() {
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
+
+const DEFAULT_ITEMS = [
+  'mj_imagine',
+  'mj_variation',
+  'gpt-4.1',
+  'claude-3-5-sonnet',
+  'gemini-2.0-flash',
+];
+
+export default function GroupModelAccess({
+  groupName = '未命名分组',
+  selected = [],
+  options = DEFAULT_ITEMS,
+  onChange,
+  disabled = false,
+}) {
+  const normalizeSelected = new Set((selected || []).filter(Boolean));
+
   return (
-    <SectionPlaceholder
-      title="GroupModelAccess"
-      description="该区块当前为 Aurora 主题占位区，功能待补齐后将与后端配置形成联动。"
-    />
+    <Card>
+      <CardHeader>
+        <CardTitle className='text-base'>模型访问控制</CardTitle>
+        <CardDescription>为分组 {groupName} 选择可调用的模型</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2'>
+          {options.map((item) => {
+            const checked = normalizeSelected.has(item);
+            return (
+              <label
+                key={item}
+                className='flex items-center gap-2 rounded border border-border bg-muted/20 px-3 py-2 text-sm'
+              >
+                <input
+                  type='checkbox'
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => onChange?.(item, !checked)}
+                />
+                <span>{item}</span>
+              </label>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
