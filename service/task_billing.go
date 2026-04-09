@@ -34,8 +34,20 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	}
 	// 按次计费任务仅记录模式，不展开倍率参数。
 	if perCallBilling {
-		logContent = fmt.Sprintf("%s，按次计费", logContent)
+		logContent = fmt.Sprintf(
+			"%s，按次计费：model_price=%.6f, group_ratio=%.2f",
+			logContent,
+			info.PriceData.ModelPrice,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+		)
 	} else {
+		logContent = fmt.Sprintf(
+			"%s，按量计费：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
+			logContent,
+			info.PriceData.ModelRatio,
+			info.PriceData.CompletionRatio,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+		)
 		if len(info.PriceData.OtherRatios) > 0 {
 			var contents []string
 			for key, ra := range info.PriceData.OtherRatios {
@@ -89,7 +101,24 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 // to terminal success settlement.
 func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, estimatedQuota int, taskID string) {
 	tokenName := c.GetString("token_name")
-	logContent := fmt.Sprintf("操作 %s，延迟结算(提交阶段)", info.Action)
+	logContent := fmt.Sprintf(
+		"操作 %s，延迟结算(提交阶段)：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
+		info.Action,
+		info.PriceData.ModelRatio,
+		info.PriceData.CompletionRatio,
+		info.PriceData.GroupRatioInfo.GroupRatio,
+	)
+	if len(info.PriceData.OtherRatios) > 0 {
+		var contents []string
+		for key, ra := range info.PriceData.OtherRatios {
+			if 1.0 != ra {
+				contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+			}
+		}
+		if len(contents) > 0 {
+			logContent = fmt.Sprintf("%s, 计算参数：%s", logContent, strings.Join(contents, ", "))
+		}
+	}
 	other := make(map[string]interface{})
 	other["request_path"] = c.Request.URL.Path
 	other["model_price"] = info.PriceData.ModelPrice

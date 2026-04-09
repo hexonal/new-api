@@ -652,6 +652,17 @@ export const useLogsData = () => {
 
         let content = '';
         if (!isViolationFeeLog) {
+          const requestPath = String(other?.request_path || '');
+          const isNonTextTaskEndpoint =
+            requestPath.includes('/v1/videos') ||
+            requestPath.includes('/v1/video/generations') ||
+            requestPath.includes('/kling/v1/videos') ||
+            requestPath.includes('/jimeng');
+          const hasNoTokenUsage =
+            toPositiveNumber(logs[i]?.prompt_tokens) +
+              toPositiveNumber(logs[i]?.completion_tokens) ===
+            0;
+
           if (other?.ws || other?.audio) {
             content = renderAudioModelPrice(
               other?.text_input,
@@ -757,6 +768,28 @@ export const useLogsData = () => {
                 </p>
                 <p>{t('仅供参考，以实际扣费为准')}</p>
               </article>
+            );
+          } else if (isNonTextTaskEndpoint && hasNoTokenUsage) {
+            // Task-style non-text endpoints usually don't carry prompt/completion token
+            // usage in submit logs. Avoid rendering token math with zero tokens.
+            content = renderModelPriceSimple(
+              other?.model_ratio,
+              other?.model_price,
+              other?.group_ratio,
+              other?.user_group_ratio,
+              0,
+              other?.cache_ratio || 1.0,
+              0,
+              1.0,
+              0,
+              1.0,
+              0,
+              1.0,
+              false,
+              false,
+              'openai',
+              billingDisplayMode,
+              other?.group_ratio_source,
             );
           } else {
             content = renderModelPrice(
