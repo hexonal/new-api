@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useContext, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Search as SearchIcon, LayoutDashboard } from 'lucide-react';
+import { Menu, Search as SearchIcon, LayoutDashboard, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { API, getLogo, getSystemName, showSuccess } from '../../helpers';
@@ -41,6 +41,14 @@ const quickLinks = [
   { href: '/pricing', label: 'Models' },
   { href: '/about', label: 'Docs' },
 ];
+const languageOptions = [
+  { code: 'zh', label: '简体中文' },
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'vi', label: 'Tiếng Việt' },
+];
 
 const buildDisplayName = (user) => {
   if (!user) return '';
@@ -51,7 +59,7 @@ const buildDisplayName = (user) => {
 };
 
 const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -122,6 +130,34 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
             </Link>
           ))}
         </nav>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-accent'
+              aria-label={t('切换语言')}
+            >
+              <Globe size={16} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side='bottom' align='end'>
+            <DropdownMenuLabel>{t('语言')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {languageOptions.map((option) => {
+              const active = i18n.language === option.code || i18n.language.startsWith(`${option.code}-`);
+              return (
+                <DropdownMenuItem
+                  key={option.code}
+                  onSelect={() => i18n.changeLanguage(option.code)}
+                  className={active ? 'bg-accent font-medium' : ''}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className='aurora-top-nav-user'>
           {currentUser ? (
