@@ -187,12 +187,12 @@ const LoginPage = () => {
             <CardContent className='space-y-4'>
               <form className='space-y-3' onSubmit={handleLogin}>
                 <Input
-                  type='email'
+                  type='text'
                   value={form.email}
                   onChange={handleInputChange('email')}
-                  placeholder={t('邮箱')}
+                  placeholder={t('用户名 / 邮箱')}
                   icon={<Mail size={16} />}
-                  autoComplete='email'
+                  autoComplete='username'
                 />
                 <Input
                   type='password'
