@@ -97,9 +97,12 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
           ) : null}
 
           <Link to='/' className='aurora-brand' aria-label={getSystemName() || 'Home'}>
-            <LayoutDashboard size={20} />
-            <span>{'ima-router'}</span>
-            <img src={getLogo()} alt='' className='aurora-brand-mark' />
+            {getLogo() ? (
+              <img src={getLogo()} alt={getSystemName() || 'Logo'} style={{ height: 28, width: 'auto' }} />
+            ) : (
+              <LayoutDashboard size={20} />
+            )}
+            <span>{getSystemName() || 'ima-router'}</span>
           </Link>
         </div>
 
