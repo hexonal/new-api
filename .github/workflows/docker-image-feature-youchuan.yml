@@ -205,7 +205,8 @@ jobs:
               fi
               has_data=1
 
-              candidates=$(echo "${versions}" | jq -c \
+              # Delete old tagged versions matching branch prefixes
+              tagged=$(echo "${versions}" | jq -c \
                 --argjson prefixes "${PREFIXES_JSON}" \
                 --argjson keep "${KEEP_TAGS_JSON}" '
                 .[]
@@ -215,26 +216,48 @@ jobs:
                 | select(all(.tags[]; ($keep | index(.) | not)))
               ')
 
-              if [ -n "${candidates}" ]; then
+              if [ -n "${tagged}" ]; then
                 while IFS= read -r row; do
                   [ -z "${row}" ] && continue
                   id=$(echo "${row}" | jq -r '.id')
                   tags=$(echo "${row}" | jq -r '.tags | join(",")')
-                  echo "deleting package version id=${id}, tags=${tags}"
-                  gh api -X DELETE "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}"
+                  echo "deleting tagged id=${id} tags=${tags}"
+                  gh api -X DELETE \
+                    "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}" \
+                    || true
                   pass_deleted=$((pass_deleted + 1))
                   total_deleted=$((total_deleted + 1))
-                done <<< "${candidates}"
+                done <<< "${tagged}"
+              fi
+
+              # Delete untagged orphan versions
+              untagged=$(echo "${versions}" | jq -c '
+                .[]
+                | {id, tags: (.metadata.container.tags // [])}
+                | select((.tags | length) == 0)
+              ')
+
+              if [ -n "${untagged}" ]; then
+                while IFS= read -r row; do
+                  [ -z "${row}" ] && continue
+                  id=$(echo "${row}" | jq -r '.id')
+                  echo "deleting untagged id=${id}"
+                  gh api -X DELETE \
+                    "${BASE}/packages/container/${PACKAGE_NAME}/versions/${id}" \
+                    || true
+                  pass_deleted=$((pass_deleted + 1))
+                  total_deleted=$((total_deleted + 1))
+                done <<< "${untagged}"
               fi
 
               page=$((page + 1))
             done
 
-            echo "cleanup pass ${pass} deleted=${pass_deleted}"
+            echo "pass ${pass} deleted=${pass_deleted}"
             if [ "${has_data}" -eq 0 ] || [ "${pass_deleted}" -eq 0 ]; then
               break
             fi
             pass=$((pass + 1))
           done
 
-          echo "cleanup done, total deleted=${total_deleted}"
+          echo "cleanup done total_deleted=${total_deleted}"
