@@ -17,10 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { API } from '../../helpers';
 import { create } from 'zustand';
 
-const DEFAULT_THEME = 'legacy';
+// Theme is determined at build time via VITE_THEME env var (set in Dockerfile).
+// Default: 'aurora'. Set VITE_THEME=legacy to use old UI.
+const DEFAULT_THEME = import.meta.env.VITE_THEME || 'aurora';
 
 const normalizeThemeValue = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -37,29 +38,11 @@ export const useThemeStore = create((set, get) => ({
       theme: normalizeThemeValue(theme),
     }),
 
-  hydrateTheme: async () => {
-    try {
-      const response = await API.get('/api/option/');
-      const { success, data } = response.data || {};
-
-      if (!success || !Array.isArray(data)) {
-        if (get().theme === 'legacy') return;
-        set({ theme: DEFAULT_THEME });
-        return;
-      }
-
-      const rawTheme = data.find(
-        (item) => item?.key && item.key.toLowerCase() === 'theme',
-      )?.value;
-
-      const resolvedTheme = normalizeThemeValue(rawTheme);
-      set({ theme: resolvedTheme });
-      return resolvedTheme;
-    } catch (error) {
-      if (get().theme !== DEFAULT_THEME) {
-        set({ theme: DEFAULT_THEME });
-      }
-      return get().theme;
-    }
+  hydrateTheme: () => {
+    // Theme is static, determined at build time via VITE_THEME env var.
+    // No API call needed. Set in Dockerfile: ENV VITE_THEME=aurora
+    const resolved = normalizeThemeValue(DEFAULT_THEME);
+    set({ theme: resolved });
+    return resolved;
   },
 }));

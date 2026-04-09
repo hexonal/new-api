@@ -1,8 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind directives are in index.css (root entry).
+   This file only defines Aurora CSS variables and custom styles. */
 
 :root {
   --background: 0 0% 100%;
@@ -76,37 +75,43 @@
   --sidebar-ring: 224 76% 48%;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+/* Aurora base styles — applied via .aurora-root scope instead of body
+   to avoid conflicting with Semi Design's global styles */
+.aurora-root *,
+.aurora-root *::before,
+.aurora-root *::after {
+  border-color: hsl(var(--border));
+}
 
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'Geist', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  }
+.aurora-root {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', 'Geist', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 .aurora-root {
   min-height: 100vh;
+  width: 100%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   position: relative;
+  overflow-x: hidden;
 }
 
 .aurora-top-nav {
   position: sticky;
   top: 0;
   z-index: 40;
+  width: 100%;
   border-bottom: 1px solid hsl(var(--border));
   background: color-mix(in oklab, hsl(var(--background)) 92%, transparent);
   backdrop-filter: blur(6px);
 }
 
 .aurora-top-nav-inner {
+  width: 100%;
   margin: 0 auto;
-  max-width: 1440px;
-  padding: 0 18px;
+  padding: 0 24px;
   min-height: 64px;
   display: flex;
   align-items: center;
@@ -206,9 +211,9 @@
 }
 
 .aurora-body-shell {
+  width: 100%;
   margin: 0 auto;
-  max-width: 1440px;
-  padding: 16px 18px 24px;
+  padding: 16px 24px 24px;
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 16px;
@@ -414,6 +419,14 @@
   border-radius: 0;
   background: transparent;
   min-height: calc(100vh - 76px);
+  grid-column: 1 / -1;
+}
+
+/* When only public content exists (no sidebar), switch to single column */
+.aurora-body-shell:has(.aurora-public-content) {
+  grid-template-columns: 1fr;
+  max-width: 100%;
+  padding: 0;
 }
 
 .aurora-page-shell-plain {
