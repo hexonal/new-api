@@ -20,6 +20,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -59,7 +60,21 @@ func shouldUsePerCallBillingForTaskModel(modelName string) bool {
 	if shouldUseTokenBillingForTaskModel(modelName) {
 		return false
 	}
-	return common.StringsContains(constant.TaskPricePatches, modelName)
+	normalizedModel := strings.TrimSpace(modelName)
+	if normalizedModel == "" {
+		return false
+	}
+	// Keep runtime billing mode aligned with pricing display:
+	// - model has fixed price => per-call billing
+	// - model has ratio pricing => token billing
+	// - otherwise fallback to TASK_PRICE_PATCH legacy list
+	if _, hasPrice := ratio_setting.GetModelPrice(normalizedModel, false); hasPrice {
+		return true
+	}
+	if _, hasRatio, _ := ratio_setting.GetModelRatio(normalizedModel); hasRatio {
+		return false
+	}
+	return common.StringsContains(constant.TaskPricePatches, normalizedModel)
 }
 
 func estimateTaskPromptTokens(c *gin.Context, info *relaycommon.RelayInfo, modelName string) int {
@@ -238,14 +253,18 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	deferredSettle := shouldUseDeferredSettleForTaskModel(modelName)
 	var priceData types.PriceData
 	var err error
-	if shouldUseTokenBillingForTaskModel(modelName) {
-		promptTokens := estimateTaskPromptTokens(c, info, modelName)
-		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
+	// Pricing mode selection:
+	// - per-call models: fixed price via ModelPriceHelperPerCall
+	// - all others: ratio-based via ModelPriceHelperTokenOnly
+	// This keeps runtime billing aligned with model marketplace ratio settings.
+	if perCallBilling {
+		priceData, err = helper.ModelPriceHelperPerCall(c, info)
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 		}
 	} else {
-		priceData, err = helper.ModelPriceHelperPerCall(c, info)
+		promptTokens := estimateTaskPromptTokens(c, info, modelName)
+		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 		}
