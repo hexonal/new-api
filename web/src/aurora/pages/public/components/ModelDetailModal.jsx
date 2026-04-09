@@ -122,7 +122,7 @@ export default function ModelDetailModal({
                 {getLogoNode(model)}
               </div>
               <div className='min-w-0'>
-                <SheetTitle className='truncate text-3xl font-bold'>
+                <SheetTitle className='font-mono truncate text-3xl font-bold'>
                   {model?.model_name || t('未知模型')}
                 </SheetTitle>
                 <SheetDescription className='mt-1 text-sm'>
@@ -223,7 +223,7 @@ export default function ModelDetailModal({
                               className='text-sm text-muted-foreground'
                             >
                               <span>{item.label} </span>
-                              <span className='font-semibold text-foreground'>
+                              <span className='font-mono font-semibold text-foreground'>
                                 {item.value}
                                 {item.suffix || ''}
                               </span>

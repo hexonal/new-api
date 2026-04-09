@@ -54,7 +54,13 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'Geist', 'system-ui', 'sans-serif'],
-        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        mono: [
+          'JetBrains Mono',
+          'Geist Mono',
+          'ui-monospace',
+          'SFMono-Regular',
+          'monospace',
+        ],
       },
       spacing: {
         '18': '4.5rem',

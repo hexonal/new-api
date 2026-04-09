@@ -18,23 +18,25 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '../../../primitives/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 
-export default function ModelDangerZone({ onDelete, onDisable, title = '危险操作' }) {
+export default function ModelDangerZone({ onDelete, onDisable, title }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>{title}</CardTitle>
-        <CardDescription>对外部可见开关和删除操作</CardDescription>
+        <CardTitle className='text-base'>{title || t('危险操作')}</CardTitle>
+        <CardDescription>{t('对外部可见开关和删除操作')}</CardDescription>
       </CardHeader>
       <CardContent className='flex gap-2 flex-wrap'>
         <Button variant='destructive' onClick={onDisable}>
-          禁用模型
+          {t('禁用模型')}
         </Button>
         <Button variant='destructive' onClick={onDelete}>
-          删除模型
+          {t('删除模型')}
         </Button>
       </CardContent>
     </Card>

@@ -98,7 +98,7 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
               type='button'
               className='aurora-top-nav-menu-btn'
               onClick={onMobileMenu}
-              aria-label='Open navigation'
+              aria-label={t('Open navigation')}
             >
               <Menu size={20} />
             </button>
@@ -173,7 +173,7 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side='bottom' align='end'>
-                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('Account')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Link to='/console/personal'>{t('Profile')}</Link>

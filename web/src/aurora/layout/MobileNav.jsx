@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Sheet,
   SheetContent,
@@ -31,18 +32,19 @@ import { Button } from '../primitives/button';
 import Sidebar from './Sidebar';
 
 const MobileNav = ({ open, onOpenChange }) => {
+  const { t } = useTranslation();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side='left' className='aurora-mobile-nav'>
         <SheetHeader className='aurora-mobile-nav-head'>
           <div className='aurora-mobile-nav-header'>
-            <SheetTitle>Menu</SheetTitle>
-            <SheetDescription>Access all console modules</SheetDescription>
+            <SheetTitle>{t('Menu')}</SheetTitle>
+            <SheetDescription>{t('Access all console modules')}</SheetDescription>
             <Button
               variant='ghost'
               size='icon'
               onClick={() => onOpenChange(false)}
-              aria-label='Close menu'
+              aria-label={t('Close menu')}
             >
               <X size={16} />
             </Button>
@@ -59,7 +61,7 @@ const MobileNav = ({ open, onOpenChange }) => {
           <div className='aurora-mobile-nav-actions'>
             <Link to='/' onClick={() => onOpenChange(false)}>
               <Button size='sm' variant='outline' className='w-full'>
-                Home
+                {t('Home')}
               </Button>
             </Link>
           </div>

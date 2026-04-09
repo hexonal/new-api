@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import useSettingsOptions, { parseBoolean, parseString } from './useSettingsOpti
 const MODEL_KEYS = ['gpt-4o', 'claude-3-7-sonnet', 'gemini-2.5-pro', 'grok-3'];
 
 export default function RateLimitTab() {
+  const { t } = useTranslation();
   const { options, saveOptions } = useSettingsOptions();
   const [globalRpm, setGlobalRpm] = useState('');
   const [globalEnabled, setGlobalEnabled] = useState(false);
@@ -41,7 +43,7 @@ export default function RateLimitTab() {
         { key: 'aurora.rate_limit.global.value', value: globalRpm },
         { key: 'aurora.rate_limit.global.enabled', value: globalEnabled },
       ],
-      '全局限速已保存',
+      t('全局限速已保存'),
     );
     setSavingGlobal(false);
   };
@@ -50,7 +52,7 @@ export default function RateLimitTab() {
     setSavingModel(model);
     await saveOptions(
       [{ key: `aurora.rate_limit.model.${model}`, value: modelRpm[model] || '' }],
-      `${model} 限速已保存`,
+      `${model} ${t('限速已保存')}`,
     );
     setSavingModel('');
   };
@@ -59,40 +61,40 @@ export default function RateLimitTab() {
     <div className='space-y-4'>
       <Card>
         <CardHeader>
-          <CardTitle>全局限速</CardTitle>
-          <CardDescription>统一限制所有模型的请求速率。</CardDescription>
+          <CardTitle>{t('全局限速')}</CardTitle>
+          <CardDescription>{t('统一限制所有模型的请求速率。')}</CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
           <Input
-            label='RPM'
-            placeholder='例如 3000'
+            label={t('RPM')}
+            placeholder={t('例如 3000')}
             value={globalRpm}
             onChange={(event) => setGlobalRpm(event.target.value)}
           />
           <div className='flex items-center justify-between rounded-lg border border-border px-3 py-2'>
-            <span className='text-sm'>启用全局限速</span>
+            <span className='text-sm'>{t('启用全局限速')}</span>
             <Switch checked={globalEnabled} onCheckedChange={setGlobalEnabled} />
           </div>
         </CardContent>
         <CardFooter>
           <Button onClick={saveGlobal} loading={savingGlobal}>
-            保存
+            {t('保存')}
           </Button>
         </CardFooter>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Per-Model</CardTitle>
-          <CardDescription>按模型定义独立限速策略。</CardDescription>
+          <CardTitle>{t('Per-Model')}</CardTitle>
+          <CardDescription>{t('按模型定义独立限速策略。')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <Thead>
               <Tr>
-                <Th>Model</Th>
-                <Th>RPM</Th>
-                <Th className='text-right'>Action</Th>
+                <Th>{t('Model')}</Th>
+                <Th>{t('RPM')}</Th>
+                <Th className='text-right'>{t('Action')}</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -101,7 +103,7 @@ export default function RateLimitTab() {
                   <Td>{model}</Td>
                   <Td>
                     <Input
-                      placeholder='输入 RPM'
+                      placeholder={t('输入 RPM')}
                       value={modelRpm[model] || ''}
                       onChange={(event) =>
                         setModelRpm((prev) => ({ ...prev, [model]: event.target.value }))
@@ -114,7 +116,7 @@ export default function RateLimitTab() {
                       onClick={() => saveModel(model)}
                       loading={savingModel === model}
                     >
-                      保存
+                      {t('保存')}
                     </Button>
                   </Td>
                 </Tr>

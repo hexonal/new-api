@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Progress } from '../../../primitives/progress';
 
@@ -28,6 +29,7 @@ export default function QuotaProgressBar({
   title = '配额',
   className = '',
 }) {
+  const { t } = useTranslation();
   const safeTotal = Number(total || 0);
   const safeUsed = Number(used || 0);
   const percent = safeTotal > 0 ? Math.min(100, Math.max(0, (safeUsed / safeTotal) * 100)) : 0;
@@ -42,7 +44,7 @@ export default function QuotaProgressBar({
       </div>
       <Progress value={percent} className='mt-3' />
       <div className='mt-2 text-xs text-muted-foreground text-right'>
-        使用率 {percent.toFixed(1)}%
+        {t('使用率')} {percent.toFixed(1)}%
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import OptionCard from './OptionCard';
 import useSettingsOptions from './useSettingsOptions';
 
@@ -10,6 +11,7 @@ const CARDS = [
 ];
 
 export default function PaymentTab() {
+  const { t } = useTranslation();
   const { options, saveOptions } = useSettingsOptions();
 
   return (
@@ -18,7 +20,7 @@ export default function PaymentTab() {
         <OptionCard
           key={card.prefix}
           title={card.title}
-          description='支付通道与回调配置'
+          description={t('支付通道与回调配置')}
           optionPrefix={card.prefix}
           options={options}
           saveOptions={saveOptions}

@@ -18,14 +18,16 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 
 export default function ModelCapabilities({ capabilities = [] }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型能力</CardTitle>
+        <CardTitle className='text-base'>{t('模型能力')}</CardTitle>
       </CardHeader>
       <CardContent className='flex flex-wrap gap-2'>
         {capabilities.length ? (
@@ -38,7 +40,7 @@ export default function ModelCapabilities({ capabilities = [] }) {
             </span>
           ))
         ) : (
-          <p className='text-sm text-muted-foreground'>未配置能力标签</p>
+          <p className='text-sm text-muted-foreground'>{t('未配置能力标签')}</p>
         )}
       </CardContent>
     </Card>

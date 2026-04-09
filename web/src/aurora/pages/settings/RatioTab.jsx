@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import OptionCard from './OptionCard';
 import useSettingsOptions from './useSettingsOptions';
 
@@ -9,6 +10,7 @@ const CARDS = [
 ];
 
 export default function RatioTab() {
+  const { t } = useTranslation();
   const { options, saveOptions } = useSettingsOptions();
 
   return (
@@ -17,7 +19,7 @@ export default function RatioTab() {
         <OptionCard
           key={card.prefix}
           title={card.title}
-          description='定价与倍率配置'
+          description={t('定价与倍率配置')}
           optionPrefix={card.prefix}
           options={options}
           saveOptions={saveOptions}

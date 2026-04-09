@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
 import { Input } from '../../../primitives/input';
@@ -26,34 +27,35 @@ export default function ModelPricing({
   prices = { prompt: '', completion: '', multiplier: '' },
   onChange,
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型定价</CardTitle>
-        <CardDescription>以 USD/1M 为主，支持分字段配置</CardDescription>
+        <CardTitle className='text-base'>{t('模型定价')}</CardTitle>
+        <CardDescription>{t('以 USD/1M 为主，支持分字段配置')}</CardDescription>
       </CardHeader>
       <CardContent className='grid gap-3'>
         <label className='block'>
-          <div className='mb-1 text-xs text-muted-foreground'>Prompt 费用</div>
+          <div className='mb-1 text-xs text-muted-foreground'>{t('Prompt 费用')}</div>
           <Input
             value={prices.prompt}
-            placeholder='prompt price'
+            placeholder={t('prompt price')}
             onChange={(e) => onChange?.('prompt', e.target.value)}
           />
         </label>
         <label className='block'>
-          <div className='mb-1 text-xs text-muted-foreground'>Completion 费用</div>
+          <div className='mb-1 text-xs text-muted-foreground'>{t('Completion 费用')}</div>
           <Input
             value={prices.completion}
-            placeholder='completion price'
+            placeholder={t('completion price')}
             onChange={(e) => onChange?.('completion', e.target.value)}
           />
         </label>
         <label className='block'>
-          <div className='mb-1 text-xs text-muted-foreground'>倍率</div>
+          <div className='mb-1 text-xs text-muted-foreground'>{t('倍率')}</div>
           <Input
             value={prices.multiplier}
-            placeholder='ratio'
+            placeholder={t('ratio')}
             onChange={(e) => onChange?.('multiplier', e.target.value)}
           />
         </label>

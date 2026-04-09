@@ -5,6 +5,7 @@ Copyright (C) 2025 QuantumNous
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 
 const Dialog = DialogPrimitive.Root;
@@ -35,19 +36,27 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogClose = React.forwardRef(({ className, ...props }, ref) => (
-  <DialogPrimitive.Close
-    ref={ref}
-    className={cn(
-      'absolute right-3 top-3 rounded-sm p-1 text-foreground/70 transition-colors hover:bg-accent',
-      className,
-    )}
-    {...props}
-  >
-    <X className='h-4 w-4' />
-    <span className='sr-only'>Close</span>
-  </DialogPrimitive.Close>
+  <DialogCloseInner ref={ref} className={className} {...props} />
 ));
 DialogClose.displayName = DialogPrimitive.Close.displayName;
+
+const DialogCloseInner = React.forwardRef(({ className, ...props }, ref) => {
+  const { t } = useTranslation();
+  return (
+    <DialogPrimitive.Close
+      ref={ref}
+      className={cn(
+        'absolute right-3 top-3 rounded-sm p-1 text-foreground/70 transition-colors hover:bg-accent',
+        className,
+      )}
+      {...props}
+    >
+      <X className='h-4 w-4' />
+      <span className='sr-only'>{t('Close')}</span>
+    </DialogPrimitive.Close>
+  );
+});
+DialogCloseInner.displayName = 'DialogCloseInner';
 
 const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
@@ -86,4 +95,3 @@ export {
   DialogTitle,
   DialogTrigger,
 };
-

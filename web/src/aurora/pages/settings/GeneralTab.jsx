@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import OptionCard from './OptionCard';
 import useSettingsOptions from './useSettingsOptions';
 
@@ -14,6 +15,7 @@ const CARDS = [
 ];
 
 export default function GeneralTab() {
+  const { t } = useTranslation();
   const { options, saveOptions } = useSettingsOptions();
 
   return (
@@ -22,7 +24,7 @@ export default function GeneralTab() {
         <OptionCard
           key={card.prefix}
           title={card.title}
-          description='Aurora General 设置项'
+          description={t('Aurora General 设置项')}
           optionPrefix={card.prefix}
           options={options}
           saveOptions={saveOptions}

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/card';
 
@@ -26,11 +27,12 @@ export default function ModelChannelBinding({
   selected = [],
   onChange,
 }) {
+  const { t } = useTranslation();
   const set = new Set(selected);
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-base'>模型绑定通道</CardTitle>
+        <CardTitle className='text-base'>{t('模型绑定通道')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-2'>
         {channels.map((item) => (
