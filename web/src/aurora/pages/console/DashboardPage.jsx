@@ -85,15 +85,7 @@ export default function DashboardPage() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trendData = (dashboardData.quotaData || [])
-    .slice()
-    .sort((a, b) => a.created_at - b.created_at)
-    .map((item) => ({
-      time: item.created_at,
-      quota: Number(item.quota || 0),
-      count: Number(item.count || 0),
-      model: item.model_name || dashboardData.t('未分类'),
-    }));
+
 
   const faqItems = Array.isArray(statusState?.status?.faq) ? statusState.status.faq : [];
   const apiInfo = Array.isArray(statusState?.status?.api_info) ? statusState.status.api_info : [];
@@ -144,8 +136,10 @@ export default function DashboardPage() {
       <section className='grid gap-4 lg:grid-cols-3'>
         <div className='lg:col-span-2'>
           <SpendChart
-            title={dashboardData.t('额度消耗趋势')}
-            data={trendData}
+            title={dashboardData.t('模型数据分析')}
+            data={dashboardData.quotaData || []}
+            pieData={dashboardData.pieData}
+            modelColors={dashboardData.modelColors}
             loading={dashboardData.loading}
           />
         </div>
