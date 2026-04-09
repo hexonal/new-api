@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { lazy, Suspense, useContext, useMemo } from 'react';
+import React, { lazy, Suspense, useContext, useEffect, useMemo } from 'react';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
@@ -29,6 +29,7 @@ import Forbidden from './pages/Forbidden';
 import Setting from './pages/Setting';
 import GroupManagement from './pages/Setting/GroupManagement';
 import { StatusContext } from './context/Status';
+import { useThemeStore } from './aurora/store/theme-store';
 
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
@@ -59,13 +60,14 @@ const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const Asset = lazy(() => import('./pages/Asset'));
+const AuroraApp = lazy(() => import('./aurora'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
   return <OAuth2Callback type={provider} />;
 }
 
-function App() {
+function LegacyApp() {
   const location = useLocation();
   const [statusState] = useContext(StatusContext);
 
@@ -423,6 +425,25 @@ function App() {
       </Routes>
     </SetupCheck>
   );
+}
+
+function App() {
+  const theme = useThemeStore((state) => state.theme);
+  const hydrateTheme = useThemeStore((state) => state.hydrateTheme);
+
+  useEffect(() => {
+    hydrateTheme();
+  }, [hydrateTheme]);
+
+  if (theme === 'aurora') {
+    return (
+      <Suspense fallback={<Loading></Loading>}>
+        <AuroraApp />
+      </Suspense>
+    );
+  }
+
+  return <LegacyApp />;
 }
 
 export default App;

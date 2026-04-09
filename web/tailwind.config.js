@@ -16,9 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import auroraPreset from './src/aurora/tokens/tailwind.config.js';
 
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  content: [
+    './index.html',
+    './src/**/*.{js,jsx,ts,tsx}',
+    './src/aurora/**/*.{js,jsx,ts,tsx}',
+  ],
+  presets: [auroraPreset],
   theme: {
     colors: {
       'semi-color-white': 'var(--semi-color-white)',
