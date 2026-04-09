@@ -44,6 +44,20 @@ export default function DashboardPage() {
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
 
+  // Synchronously ensure quota_per_unit exists before any renderQuota calls
+  if (statusState?.status?.quota_per_unit) {
+    localStorage.setItem('quota_per_unit', String(statusState.status.quota_per_unit));
+  }
+  if (!localStorage.getItem('quota_per_unit')) {
+    localStorage.setItem('quota_per_unit', '500000');
+  }
+  if (statusState?.status?.quota_display_type) {
+    localStorage.setItem('quota_display_type', statusState.status.quota_display_type);
+  }
+  if (statusState?.status) {
+    localStorage.setItem('status', JSON.stringify(statusState.status));
+  }
+
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
   const { groupedStatsData } = useDashboardStats(
     userState,
