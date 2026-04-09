@@ -475,6 +475,7 @@ const ModelsExplorerPage = () => {
     const offset = (safePage - 1) * 20;
     return sortedModels.slice(offset, offset + 20);
   }, [safePage, sortedModels]);
+  const normalizedViewMode = viewMode === 'grid' ? 'grid' : 'list';
 
   const pageNumbers = useMemo(() => {
     const start = Math.max(1, safePage - 2);
@@ -628,16 +629,20 @@ const ModelsExplorerPage = () => {
                 </Select>
 
                 <Button
+                  type='button'
                   size='sm'
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  variant={normalizedViewMode === 'grid' ? 'default' : 'outline'}
                   onClick={() => setViewMode('grid')}
+                  aria-pressed={normalizedViewMode === 'grid'}
                 >
                   <Grid3X3 className='h-4 w-4' />
                 </Button>
                 <Button
+                  type='button'
                   size='sm'
-                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  variant={normalizedViewMode === 'list' ? 'default' : 'outline'}
                   onClick={() => setViewMode('list')}
+                  aria-pressed={normalizedViewMode === 'list'}
                 >
                   <List className='h-4 w-4' />
                 </Button>
@@ -657,7 +662,7 @@ const ModelsExplorerPage = () => {
             </div>
           ) : null}
 
-          {!loading && pagedModels.length > 0 && viewMode === 'list' ? (
+          {!loading && pagedModels.length > 0 && normalizedViewMode === 'list' ? (
             <div className='rounded-xl border border-border bg-white'>
               {pagedModels.map((model, index) => {
                 const priceData = calculateModelPrice({
@@ -703,10 +708,24 @@ const ModelsExplorerPage = () => {
                           {model.description || '-'}
                         </p>
 
+                        <div className='mt-3 grid max-w-[520px] grid-cols-1 gap-2 md:grid-cols-2'>
+                          <div className='rounded-lg border border-border bg-muted/20 px-3 py-2'>
+                            <p className='text-xs text-muted-foreground'>{t('输入价格')}</p>
+                            <p className='text-sm font-semibold'>
+                              {priceData?.inputPrice || '-'} / 1M Tokens
+                            </p>
+                          </div>
+                          <div className='rounded-lg border border-border bg-muted/20 px-3 py-2'>
+                            <p className='text-xs text-muted-foreground'>{t('补全价格')}</p>
+                            <p className='text-sm font-semibold'>
+                              {priceData?.completionPrice || '-'} / 1M Tokens
+                            </p>
+                          </div>
+                        </div>
+
                         <p className='mt-2 text-xs text-muted-foreground'>
                           by {getProviderName(model)}
                           {formatDate(getModelTimestamp(model)) ? ` | ${formatDate(getModelTimestamp(model))}` : ''}
-                          {' | '}{priceData?.inputPrice || '-'} /M input | {priceData?.completionPrice || '-'} /M output
                         </p>
 
                         {(() => {
@@ -737,7 +756,7 @@ const ModelsExplorerPage = () => {
             </div>
           ) : null}
 
-          {!loading && pagedModels.length > 0 && viewMode === 'grid' ? (
+          {!loading && pagedModels.length > 0 && normalizedViewMode === 'grid' ? (
             <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
               {pagedModels.map((model, index) => {
                 const priceData = calculateModelPrice({
