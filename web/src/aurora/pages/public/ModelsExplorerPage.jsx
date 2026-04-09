@@ -708,6 +708,27 @@ const ModelsExplorerPage = () => {
                           {formatDate(getModelTimestamp(model)) ? ` | ${formatDate(getModelTimestamp(model))}` : ''}
                           {' | '}{priceData?.inputPrice || '-'} /M input | {priceData?.completionPrice || '-'} /M output
                         </p>
+
+                        {(() => {
+                          const tags = parseTags(model.tags);
+                          const endpoints = Array.isArray(model.supported_endpoint_types) ? model.supported_endpoint_types : [];
+                          const billingLabel = model.quota_type === 0 ? '按量计费' : model.quota_type === 1 ? '按次计费' : '';
+                          const allBadges = [billingLabel, ...tags, ...endpoints].filter(Boolean);
+                          return allBadges.length > 0 ? (
+                            <div className='mt-2 flex flex-wrap gap-1.5'>
+                              {allBadges.map((badge) => (
+                                <Badge
+                                  key={`${model.model_name}-${badge}`}
+                                  variant='outline'
+                                  className='rounded-full text-[11px] px-2 py-0'
+                                  style={{ borderColor: `${stringToColor(badge)}44`, color: stringToColor(badge) }}
+                                >
+                                  {badge}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   </div>
