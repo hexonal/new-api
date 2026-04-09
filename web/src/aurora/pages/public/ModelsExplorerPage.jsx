@@ -74,10 +74,10 @@ const getModelTimestamp = (model) => {
 };
 
 const formatDate = (ts) => {
-  if (!ts) {
-    return 'N/A';
-  }
-  return new Date(ts).toISOString().slice(0, 10);
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
 };
 
 const detectModalities = (model) => {
@@ -171,9 +171,7 @@ const extractContextLength = (model) => {
 };
 
 const formatContextBadge = (contextLength) => {
-  if (!contextLength) {
-    return 'N/A context';
-  }
+  if (!contextLength) return null;
   if (contextLength >= 1000000) {
     return `${Math.round(contextLength / 1000000)}M context`;
   }
@@ -748,9 +746,11 @@ const ModelsExplorerPage = () => {
                           >
                             <Copy className='h-3.5 w-3.5' />
                           </Button>
-                          <Badge variant='outline' className='rounded-full text-xs'>
-                            {formatContextBadge(extractContextLength(model))}
-                          </Badge>
+                          {formatContextBadge(extractContextLength(model)) && (
+                            <Badge variant='outline' className='rounded-full text-xs'>
+                              {formatContextBadge(extractContextLength(model))}
+                            </Badge>
+                          )}
                         </div>
 
                         <p className='mt-1 line-clamp-2 text-sm text-muted-foreground'>
@@ -758,8 +758,9 @@ const ModelsExplorerPage = () => {
                         </p>
 
                         <p className='mt-2 text-xs text-muted-foreground'>
-                          by {getProviderName(model)} | {formatDate(getModelTimestamp(model))} |{' '}
-                          {priceData?.inputPrice || '-'} /M input | {priceData?.completionPrice || '-'} /M output
+                          by {getProviderName(model)}
+                          {formatDate(getModelTimestamp(model)) ? ` | ${formatDate(getModelTimestamp(model))}` : ''}
+                          {' | '}{priceData?.inputPrice || '-'} /M input | {priceData?.completionPrice || '-'} /M output
                         </p>
                       </div>
                     </div>
