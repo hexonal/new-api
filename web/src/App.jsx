@@ -68,6 +68,13 @@ const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const Asset = lazy(() => import('./pages/Asset'));
 const AuroraApp = lazy(() => import('./aurora'));
+const AuroraDashboardPage = lazy(() => import('./aurora/pages/console/DashboardPage'));
+const AuroraTokenListPage = lazy(() => import('./aurora/pages/console/TokenListPage'));
+const AuroraUsageLogsPage = lazy(() => import('./aurora/pages/console/UsageLogsPage'));
+const AuroraKeyCostPage = lazy(() => import('./aurora/pages/console/KeyCostPage'));
+const AuroraCallbackLogsPage = lazy(() => import('./aurora/pages/console/CallbackLogsPage'));
+const AuroraMjLogsPage = lazy(() => import('./aurora/pages/console/MjLogsPage'));
+const AuroraTaskLogsPage = lazy(() => import('./aurora/pages/console/TaskLogsPage'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -163,7 +170,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/token'
           element={
             <PrivateRoute>
-              <Token />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraTokenListPage />
+                </Suspense>
+              ) : (
+                <Token />
+              )}
             </PrivateRoute>
           }
         />
@@ -327,7 +340,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/console/log'
           element={
             <PrivateRoute>
-              <Log />
+              {isAuroraTheme ? (
+                <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                  <AuroraUsageLogsPage />
+                </Suspense>
+              ) : (
+                <Log />
+              )}
             </PrivateRoute>
           }
         />
@@ -336,7 +355,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           element={
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <KeyCostAnalysis />
+                {isAuroraTheme ? <AuroraKeyCostPage /> : <KeyCostAnalysis />}
               </Suspense>
             </PrivateRoute>
           }
@@ -346,7 +365,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           element={
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <Dashboard />
+                {isAuroraTheme ? <AuroraDashboardPage /> : <Dashboard />}
               </Suspense>
             </PrivateRoute>
           }
@@ -356,7 +375,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           element={
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <Midjourney />
+                {isAuroraTheme ? <AuroraMjLogsPage /> : <Midjourney />}
               </Suspense>
             </PrivateRoute>
           }
@@ -366,7 +385,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           element={
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <Task />
+                {isAuroraTheme ? <AuroraTaskLogsPage /> : <Task />}
               </Suspense>
             </PrivateRoute>
           }
@@ -376,7 +395,7 @@ export function LegacyApp({ isAuroraTheme = false }) {
           element={
             <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <CallbackLog />
+                {isAuroraTheme ? <AuroraCallbackLogsPage /> : <CallbackLog />}
               </Suspense>
             </AdminRoute>
           }

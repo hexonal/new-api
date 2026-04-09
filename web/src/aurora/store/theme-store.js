@@ -20,13 +20,17 @@ For commercial licensing, please contact support@quantumnous.com
 import { API } from '../../helpers';
 import { create } from 'zustand';
 
+const DEFAULT_THEME = 'aurora';
+
 const normalizeThemeValue = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();
-  return normalized === 'aurora' ? 'aurora' : 'legacy';
+  return normalized === 'aurora' || normalized.includes('aurora')
+    ? 'aurora'
+    : 'legacy';
 };
 
 export const useThemeStore = create((set, get) => ({
-  theme: 'legacy',
+  theme: DEFAULT_THEME,
 
   setTheme: (theme) =>
     set({
@@ -40,7 +44,7 @@ export const useThemeStore = create((set, get) => ({
 
       if (!success || !Array.isArray(data)) {
         if (get().theme === 'legacy') return;
-        set({ theme: 'legacy' });
+        set({ theme: DEFAULT_THEME });
         return;
       }
 
@@ -48,13 +52,14 @@ export const useThemeStore = create((set, get) => ({
         (item) => item?.key && item.key.toLowerCase() === 'theme',
       )?.value;
 
-      set({ theme: normalizeThemeValue(rawTheme) });
-      return normalizeThemeValue(rawTheme);
+      const resolvedTheme = normalizeThemeValue(rawTheme);
+      set({ theme: resolvedTheme });
+      return resolvedTheme;
     } catch (error) {
-      if (get().theme !== 'legacy') {
-        set({ theme: 'legacy' });
+      if (get().theme !== DEFAULT_THEME) {
+        set({ theme: DEFAULT_THEME });
       }
-      return 'legacy';
+      return get().theme;
     }
   },
 }));
