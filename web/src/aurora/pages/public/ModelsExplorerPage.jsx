@@ -190,6 +190,15 @@ const parseNumericPrice = (value) => {
 };
 
 const getProviderName = (model) => model?.vendor_name || 'Unknown';
+const PROVIDER_ICON_FALLBACK = {
+  OpenAI: 'OpenAI',
+  Anthropic: 'Claude.Color',
+  Google: 'Gemini.Color',
+  MiniMax: 'Minimax.Color',
+  ByteDance: 'Doubao.Color',
+  Kling: 'Kling.Color',
+  PixVerse: 'Replicate',
+};
 
 const FilterCheckboxItem = ({ label, count, checked, onCheckedChange }) => (
   <label className='flex cursor-pointer items-center justify-between py-1 text-sm'>
@@ -202,14 +211,26 @@ const FilterCheckboxItem = ({ label, count, checked, onCheckedChange }) => (
 );
 
 const getModelLogoNode = (model) => {
-  if (model?.icon) {
-    return getLobeHubIcon(model.icon, 20);
+  const providerName = getProviderName(model);
+  const iconName =
+    model?.vendor_icon ||
+    model?.icon ||
+    PROVIDER_ICON_FALLBACK[providerName] ||
+    '';
+
+  if (iconName) {
+    return getLobeHubIcon(iconName, 20);
   }
-  if (model?.vendor_icon) {
-    return getLobeHubIcon(model.vendor_icon, 20);
-  }
-  const letter = String(getProviderName(model)).slice(0, 1).toUpperCase();
-  return <span className='text-xs font-semibold'>{letter}</span>;
+  const letter = String(providerName).slice(0, 1).toUpperCase();
+  const color = stringToColor(providerName || letter);
+  return (
+    <span
+      className='flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-semibold'
+      style={{ backgroundColor: `${color}22`, color }}
+    >
+      {letter}
+    </span>
+  );
 };
 
 const ModelsExplorerPage = () => {
@@ -246,6 +267,17 @@ const ModelsExplorerPage = () => {
       setPageSize(20);
     }
   }, [pageSize, setPageSize]);
+
+  useEffect(() => {
+    if (!Array.isArray(models) || models.length === 0) return;
+    const debugRows = models.slice(0, 3).map((model) => ({
+      model_name: model?.model_name || '',
+      icon: model?.icon || '',
+      vendor_icon: model?.vendor_icon || '',
+      vendor_name: model?.vendor_name || '',
+    }));
+    console.table(debugRows);
+  }, [models]);
 
   const searchableModels = useMemo(() => {
     if (!searchValue) {
@@ -465,8 +497,8 @@ const ModelsExplorerPage = () => {
 
   return (
     <div className='w-full bg-white font-["Geist","Inter","system-ui",-apple-system,sans-serif] text-foreground'>
-      <div className='mx-auto flex w-full max-w-[1500px] gap-6 px-6 py-6'>
-        <aside className='sticky top-20 h-[calc(100vh-6rem)] w-[220px] shrink-0 overflow-y-auto rounded-xl border border-border bg-[#f9fafb] p-3'>
+      <div className='flex w-full gap-6 px-8 py-6 2xl:px-12'>
+        <aside className='sticky top-20 h-[calc(100vh-6rem)] w-60 shrink-0 overflow-y-auto rounded-xl border border-border bg-[#f9fafb] p-3'>
           <Accordion
             type='multiple'
             defaultValue={[
@@ -547,7 +579,7 @@ const ModelsExplorerPage = () => {
           </Accordion>
         </aside>
 
-        <main className='min-w-0 flex-1'>
+        <main className='flex-1 min-w-0'>
           <div className='mb-4 border-b border-border pb-4'>
             <h1 className='text-2xl font-extrabold tracking-tight'>{t('Models')}</h1>
 
