@@ -18,9 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-
-import LegacyCallbackLog from '../../../pages/CallbackLog';
+import { CallbackLogTable } from './components';
 
 export default function CallbackLogsPage() {
-  return <LegacyCallbackLog />;
+  return <CallbackLogTable />;
 }

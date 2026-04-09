@@ -18,9 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-
-import LegacyUsageLogs from '../../../pages/Log';
+import { UsageLogTable } from './components';
 
 export default function UsageLogsPage() {
-  return <LegacyUsageLogs />;
+  return <UsageLogTable />;
 }

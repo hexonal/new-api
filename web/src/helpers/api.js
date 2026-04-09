@@ -26,10 +26,17 @@ import {
 import axios from 'axios';
 import { MESSAGE_ROLES } from '../constants/playground.constants';
 
+const resolveBaseURL = () => {
+  const rawBaseURL = import.meta.env.VITE_REACT_APP_SERVER_URL;
+  if (typeof rawBaseURL !== 'string') {
+    return '';
+  }
+  const trimmed = rawBaseURL.trim();
+  return trimmed.endsWith('/') ? trimmed.replace(/\/+$/, '') : trimmed;
+};
+
 export let API = axios.create({
-  baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
-    ? import.meta.env.VITE_REACT_APP_SERVER_URL
-    : '',
+  baseURL: resolveBaseURL(),
   headers: {
     'New-API-User': getUserIdFromLocalStorage(),
     'Cache-Control': 'no-store',
@@ -68,9 +75,7 @@ patchAPIInstance(API);
 
 export function updateAPI() {
   API = axios.create({
-    baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
-      ? import.meta.env.VITE_REACT_APP_SERVER_URL
-      : '',
+    baseURL: resolveBaseURL(),
     headers: {
       'New-API-User': getUserIdFromLocalStorage(),
       'Cache-Control': 'no-store',

@@ -18,9 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-
-import LegacyTask from '../../../pages/Task';
+import { TaskLogTable } from './components';
 
 export default function TaskLogsPage() {
-  return <LegacyTask />;
+  return <TaskLogTable />;
 }

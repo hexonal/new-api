@@ -17,10 +17,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-
-import LegacyKeyCost from '../../../pages/KeyCostAnalysis';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives/tabs';
+import { TAB_ANALYSIS, TAB_COMPARE } from '../../../constants/key-cost.constants';
+import { KeyCostAnalysis, KeyCostCompare } from './components';
 
 export default function KeyCostPage() {
-  return <LegacyKeyCost />;
+  const { t } = useTranslation();
+  const [tab, setTab] = useState(TAB_ANALYSIS);
+
+  return (
+    <div className='space-y-4'>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value={TAB_ANALYSIS}>{t('Key 成本分析')}</TabsTrigger>
+          <TabsTrigger value={TAB_COMPARE}>{t('Key 成本对比')}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={TAB_ANALYSIS}>
+          <KeyCostAnalysis />
+        </TabsContent>
+        <TabsContent value={TAB_COMPARE}>
+          <KeyCostCompare />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }

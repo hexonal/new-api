@@ -18,9 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-
-import LegacyMjLogs from '../../../pages/Midjourney';
+import { MjLogTable } from './components';
 
 export default function MjLogsPage() {
-  return <LegacyMjLogs />;
+  return <MjLogTable />;
 }
