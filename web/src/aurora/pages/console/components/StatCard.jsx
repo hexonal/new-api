@@ -11,7 +11,9 @@ const StatCard = ({
     <div className='flex items-start justify-between'>
       <div>
         <p className='text-xs text-muted-foreground'>{title}</p>
-        <p className='mt-2 text-2xl font-semibold text-foreground'>{value}</p>
+        <p className='mt-2 text-2xl font-semibold text-foreground'>
+          {typeof value === 'number' && isNaN(value) ? '—' : value}
+        </p>
         {description ? (
           <p className='text-xs text-muted-foreground mt-1'>{description}</p>
         ) : null}
