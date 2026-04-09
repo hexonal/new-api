@@ -13,6 +13,7 @@ import {
 } from './components';
 import { useDashboardData } from '../../../hooks/dashboard/useDashboardData';
 import { useDashboardStats } from '../../../hooks/dashboard/useDashboardStats';
+import { useDashboardCharts } from '../../../hooks/dashboard/useDashboardCharts';
 
 const QUICK_ACTIONS = [
   {
@@ -45,6 +46,20 @@ export default function DashboardPage() {
   const [statusState] = useContext(StatusContext);
 
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
+
+  // Chart hook aggregates quotaData → consumeQuota, consumeTokens, times
+  const dashboardCharts = useDashboardCharts(
+    dashboardData.dataExportDefaultTime,
+    dashboardData.setTrendData,
+    dashboardData.setConsumeQuota,
+    dashboardData.setTimes,
+    dashboardData.setConsumeTokens,
+    dashboardData.setPieData,
+    dashboardData.setLineData,
+    dashboardData.setModelColors,
+    dashboardData.t,
+  );
+
   const { groupedStatsData } = useDashboardStats(
     userState,
     dashboardData.consumeQuota,
@@ -56,13 +71,18 @@ export default function DashboardPage() {
     dashboardData.t,
   );
 
-  // Load data once on mount — NOT on function reference changes
+  // Load data once on mount — mirrors Legacy Dashboard init flow
   const dataLoaded = React.useRef(false);
   useEffect(() => {
-    if (!dataLoaded.current) {
-      dataLoaded.current = true;
-      dashboardData.refresh();
-    }
+    if (dataLoaded.current) return;
+    dataLoaded.current = true;
+
+    (async () => {
+      const data = await dashboardData.refresh();
+      if (data && data.length > 0) {
+        dashboardCharts.updateChartData(data);
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trendData = (dashboardData.quotaData || [])
@@ -95,7 +115,10 @@ export default function DashboardPage() {
           <button
             type='button'
             className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent'
-            onClick={() => dashboardData.refresh()}
+            onClick={async () => {
+              const data = await dashboardData.refresh();
+              if (data && data.length > 0) dashboardCharts.updateChartData(data);
+            }}
             disabled={dashboardData.loading}
           >
             <RefreshCw className='h-4 w-4' />
