@@ -17,13 +17,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import PageShell from './PageShell';
 import { useSidebarStore } from '../store/sidebar-store';
+import { StatusContext } from '../../context/Status';
+import { UserContext } from '../../context/User';
+import { API, setStatusData } from '../../helpers';
 
 const getCompactMode = () => {
   if (typeof window === 'undefined') return false;
@@ -32,6 +35,34 @@ const getCompactMode = () => {
 
 const AuroraLayout = ({ children }) => {
   const location = useLocation();
+  const [, statusDispatch] = useContext(StatusContext);
+  const [, userDispatch] = useContext(UserContext);
+
+  // Mirror PageLayout's loadStatus + loadUser — writes quota_per_unit etc. to localStorage
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    // Load user from localStorage
+    const raw = localStorage.getItem('user');
+    if (raw) {
+      try {
+        userDispatch({ type: 'login', payload: JSON.parse(raw) });
+      } catch {}
+    }
+
+    // Load status from API (same as PageLayout.loadStatus)
+    API.get('/api/status')
+      .then((res) => {
+        const { success, data } = res.data;
+        if (success) {
+          statusDispatch({ type: 'set', payload: data });
+          setStatusData(data); // writes quota_per_unit, quota_display_type, etc. to localStorage
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const isCompact = getCompactMode();
   const collapsed = useSidebarStore((state) => state.collapsed);
   const setCollapsed = useSidebarStore((state) => state.setCollapsed);

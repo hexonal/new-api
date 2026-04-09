@@ -44,22 +44,6 @@ export default function DashboardPage() {
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
 
-  // Ensure quota_per_unit is in localStorage before renderQuota is called.
-  // Use useMemo to run once per statusState change, not on every render.
-  React.useMemo(() => {
-    const qpu = statusState?.status?.quota_per_unit;
-    if (qpu && localStorage.getItem('quota_per_unit') !== String(qpu)) {
-      localStorage.setItem('quota_per_unit', String(qpu));
-    }
-    if (!localStorage.getItem('quota_per_unit')) {
-      localStorage.setItem('quota_per_unit', '500000');
-    }
-    const qdt = statusState?.status?.quota_display_type;
-    if (qdt && localStorage.getItem('quota_display_type') !== qdt) {
-      localStorage.setItem('quota_display_type', qdt);
-    }
-  }, [statusState?.status?.quota_per_unit, statusState?.status?.quota_display_type]);
-
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
   const { groupedStatsData } = useDashboardStats(
     userState,
