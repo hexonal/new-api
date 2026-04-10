@@ -32,7 +32,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if info.TaskRelayInfo != nil {
 		perCallBilling = info.TaskRelayInfo.PerCallBilling
 	}
-	// 按次计费任务仅记录模式，不展开倍率参数。
+	// 按次计费任务记录模式与 OtherRatios（如 duration/quality 乘数）。
 	if perCallBilling {
 		logContent = fmt.Sprintf(
 			"%s，按次计费：model_price=%.6f, group_ratio=%.2f",
@@ -40,6 +40,17 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 			info.PriceData.ModelPrice,
 			info.PriceData.GroupRatioInfo.GroupRatio,
 		)
+		if len(info.PriceData.OtherRatios) > 0 {
+			var contents []string
+			for key, ra := range info.PriceData.OtherRatios {
+				if ra != 1.0 {
+					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+				}
+			}
+			if len(contents) > 0 {
+				logContent = fmt.Sprintf("%s, 计算参数：%s", logContent, strings.Join(contents, ", "))
+			}
+		}
 	} else {
 		logContent = fmt.Sprintf(
 			"%s，按量计费：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",

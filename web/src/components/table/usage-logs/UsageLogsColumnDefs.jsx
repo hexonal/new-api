@@ -1084,6 +1084,44 @@ export const getLogsColumns = ({
           toTokenNumber(other?.task_prompt_tokens) <= 0 &&
           toTokenNumber(other?.task_completion_tokens) <= 0 &&
           toTokenNumber(other?.task_total_tokens) <= 0;
+
+        // Deferred settle tasks: show actual settled amount instead of
+        // misleading $0 token-based estimate.
+        if (other?.deferred_settle) {
+          const billedQuota = toTokenNumber(record?.quota);
+          const groupRatio = Number(other?.group_ratio);
+          const chargeState = other?.terminal_charge_state || 'pending';
+          const estimatedQuota = toTokenNumber(other?.estimated_quota);
+          const summaryLines = [
+            t('延迟结算'),
+            chargeState === 'applied'
+              ? `${t('终态重算扣费')}：${renderQuota(billedQuota, 6)}`
+              : chargeState === 'skipped'
+                ? t('终态未扣费')
+                : `${t('等待任务完成结算')}`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            estimatedQuota > 0
+              ? `${t('预估额度')}：${renderQuota(estimatedQuota, 6)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summaryLines}
+            </Typography.Paragraph>
+          );
+        }
+
         const modelPrice = Number(other?.model_price);
         if (isNonTextTaskEndpoint && hasNoTokenUsage && !(Number.isFinite(modelPrice) && modelPrice > 0)) {
           const billedQuota = toTokenNumber(record?.quota);
