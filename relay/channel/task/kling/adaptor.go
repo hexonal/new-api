@@ -186,22 +186,19 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 					if v, ok := tolerant["mode"]; ok {
 						payload.Mode = fmt.Sprintf("%v", v)
 					}
-					if v, ok := tolerant["model_name"]; ok {
-						payload.ModelName = fmt.Sprintf("%v", v)
-					}
-					// Also check "model" — override may target either field.
-					if v, ok := tolerant["model"]; ok {
-						payload.Model = fmt.Sprintf("%v", v)
-					}
+					// Don't override model_name/model for billing —
+					// preserve UpstreamModelName for correct substring matching.
 				}
 			}
 		}
 	}
 
-	// Use effective model from payload for all billing decisions
-	// (image detection + quality ratio), ensuring consistency.
-	// Prefer model_name, fall back to model, then OriginModelName.
-	effectiveModel := payload.ModelName
+	// Use UpstreamModelName for billing — it's the post-mapping model name
+	// and contains correct substrings for multiplier matching.
+	effectiveModel := info.UpstreamModelName
+	if effectiveModel == "" {
+		effectiveModel = payload.ModelName
+	}
 	if effectiveModel == "" {
 		effectiveModel = payload.Model
 	}

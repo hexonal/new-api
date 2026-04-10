@@ -23,6 +23,18 @@ const (
 	TaskTerminalChargeStateSkipped = "skipped"
 )
 
+func requestPathForLog(c *gin.Context) string {
+	if v, ok := c.Get("original_request_path"); ok {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	if c != nil && c.Request != nil && c.Request.URL != nil {
+		return c.Request.URL.Path
+	}
+	return ""
+}
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
 func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
@@ -72,7 +84,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		}
 	}
 	other := make(map[string]interface{})
-	other["request_path"] = c.Request.URL.Path
+	other["request_path"] = requestPathForLog(c)
 	other["model_price"] = info.PriceData.ModelPrice
 	other["model_ratio"] = info.PriceData.ModelRatio
 	other["completion_ratio"] = info.PriceData.CompletionRatio
@@ -131,7 +143,7 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 		}
 	}
 	other := make(map[string]interface{})
-	other["request_path"] = c.Request.URL.Path
+	other["request_path"] = requestPathForLog(c)
 	other["model_price"] = info.PriceData.ModelPrice
 	other["model_ratio"] = info.PriceData.ModelRatio
 	other["completion_ratio"] = info.PriceData.CompletionRatio

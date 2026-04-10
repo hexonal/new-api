@@ -292,6 +292,45 @@ func TestLogTaskConsumption_StoresTokenBillingFieldsInOther(t *testing.T) {
 	assert.Equal(t, float64(5), other["seconds"])
 }
 
+func TestLogTaskConsumption_UsesOriginalRequestPathWhenPresent(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/video/generations")
+	ctx.Set("original_request_path", "/kling/v1/videos/text2video")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "kling-v1",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId: 1,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: true,
+		},
+		PriceData: types.PriceData{
+			ModelPrice:     0.147059,
+			Quota:          102941,
+			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1.4, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "/kling/v1/videos/text2video", other["request_path"])
+}
+
 func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T) {
 	truncate(t)
 
