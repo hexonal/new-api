@@ -851,11 +851,14 @@ export const getLogsColumns = ({
         if (other?.deferred_settle && other?.terminal_charge_state === 'pending') {
           const est = toTokenNumber(other?.estimated_quota);
           const tip = est > 0
-            ? t('未实际扣费，预估 {{cost}}，以任务完成后结算为准', { cost: renderQuota(est, 6) })
-            : t('未实际扣费，等待任务完成后结算');
+            ? t('预估 {{cost}}，以任务完成后结算为准', { cost: renderQuota(est, 6) })
+            : t('等待任务完成后结算');
           return (
             <Tooltip content={tip}>
-              <Tag color='orange' size='small'>{t('待结算')}</Tag>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Tag color='orange' size='small'>{t('待结算')}</Tag>
+                <span style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}>{t('未扣费')}</span>
+              </span>
             </Tooltip>
           );
         }
