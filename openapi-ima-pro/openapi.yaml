@@ -210,9 +210,8 @@ paths:
     post:
       tags:
       - IMA-Pro 视频
-      - MiniMax 视频
-      summary: 创建异步视频任务
-      description: '使用以下模型之一提交任务：
+      summary: 创建异步视频任务（Seedance）
+      description: '使用 Seedance 模型提交视频任务：
 
         - `seedance-2.0`
 
@@ -222,15 +221,11 @@ paths:
 
         - `seedance-2.0-fast-cn`
 
-        - `MiniMax-Hailuo-02`
-
-        - `MiniMax-Hailuo-2.3`
-
-        - `MiniMax-Hailuo-2.3-Fast`（仅图生视频，必须传 `metadata.first_frame_image`，且仅支持 `size=768p|1080p`）
-
         - ~~`ima-pro`~~（海外渠道历史别名，已过期；向后兼容，请改用 `seedance-2.0` / `seedance-2.0-cn`）
 
         - ~~`ima-pro-fast`~~（海外渠道历史别名，已过期；向后兼容，请改用 `seedance-2.0-fast` / `seedance-2.0-fast-cn`）
+
+        MiniMax Hailuo 视频模型也支持此端点，详见「MiniMax 视频」分类。
 
         鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
 
@@ -248,8 +243,6 @@ paths:
         - 参考音频：`metadata.reference_audio_urls`
 
         - 音频开关：`metadata.audio`（版权风险场景建议先置为 `false`，即无背景音乐）
-
-        - MiniMax 首帧图：`metadata.first_frame_image`（`MiniMax-Hailuo-2.3-Fast` 必填）
 
 
         组合逻辑（对齐 New API 当前行为）：
@@ -523,29 +516,7 @@ paths:
                   metadata:
                     aspect_ratio: '16:9'
                     audio: false
-              C15_minimax_fast_img2video:
-                summary: C15 MiniMax-Hailuo-2.3-Fast 图生视频（openai-videos）
-                value:
-                  model: MiniMax-Hailuo-2.3-Fast
-                  prompt: A gentle camera movement over a cup of tea
-                  duration: 6
-                  size: 1080p
-                  metadata:
-                    first_frame_image: https://ark-project.tos-cn-beijing.volces.com/doc_image/r2v_tea_pic2.jpg
-              C16_minimax_hailuo_02:
-                summary: C16 MiniMax-Hailuo-02 文生视频（openai-videos）
-                value:
-                  model: MiniMax-Hailuo-02
-                  prompt: A cinematic drone shot above a quiet lake at sunrise
-                  duration: 6
-                  size: 1080p
-              C17_minimax_hailuo_23:
-                summary: C17 MiniMax-Hailuo-2.3 文生视频（openai-videos）
-                value:
-                  model: MiniMax-Hailuo-2.3
-                  prompt: A cinematic drone shot above a quiet lake at sunrise
-                  duration: 6
-                  size: 1080p
+              # MiniMax Hailuo 示例见「MiniMax 视频」分类下的 /v1/video/generations 端点
       responses:
         '200':
           description: 任务提交成功
@@ -686,14 +657,15 @@ paths:
                     code: '500'
                     message: 暂不支持人像
                     data: null
-      x-apifox-folder: MiniMax 视频
+      x-apifox-folder: IMA-Pro 视频
   /v1/videos/{task_id}:
     get:
       tags:
       - IMA-Pro 视频
-      - MiniMax 视频
       summary: 查询任务状态与结果
       description: '使用创建接口返回的公开 `task_id` 轮询任务结果（OpenAI 视频对象风格）。
+
+        适用于所有视频任务（Seedance、MiniMax Hailuo 等），通用查询端点。
 
         鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
 
