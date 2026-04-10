@@ -27,6 +27,7 @@ servers:
 tags:
 - name: IMA-Pro 视频
 - name: MiniMax 视频
+- name: Kling 视频
 - name: Gemini Image
 - name: Midjourney
 - name: 人像
@@ -1860,6 +1861,162 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-apifox-folder: Chat
       x-apifox-status: released
+  /kling/v1/videos/text2video:
+    post:
+      tags:
+      - Kling 视频
+      summary: 文生视频
+      operationId: klingText2Video
+      description: "Kling 文生视频端点（异步任务制）。提交后返回 `task_id`，通过 `GET /kling/v1/videos/text2video/{task_id}` 或 `GET /v1/video/generations/{task_id}` 轮询结果。\n\n\
+        **可用端点（三选一，参数格式相同）：**\n\
+        | 端点 | 说明 |\n\
+        |------|------|\n\
+        | `POST /kling/v1/videos/text2video` | Kling 原生端点（本文档） |\n\
+        | `POST /v1/video/generations` | 通用视频端点 |\n\
+        | `POST /v1/videos` | OpenAI 兼容端点 |\n\n\
+        **支持模型：**\n\
+        - `kling-v1`\n\
+        - `kling-v1-6`\n\
+        - `kling-v2-master`（大师版，无 std/pro 区分）\n\
+        - `kling-v2-1-master`（大师版，无 std/pro 区分）\n\
+        - `kling-v2-5-turbo`\n\
+        - `kling-v2-6`\n\
+        - `kling-video-o1`\n\n\
+        **参数说明：**\n\
+        - `mode`：品质，`std`（标准，默认）或 `pro`（高品质）。大师版模型无此参数。\n\
+        - `duration`：时长（秒），默认 5，支持 5 或 10。\n\
+        - `aspect_ratio`：宽高比，`1:1`（默认）、`16:9`、`9:16`。也可通过 `size` 传尺寸自动映射。\n\
+        - `cfg_scale`：生成自由度，0~1，默认 0.5。\n\
+        - `negative_prompt`：反向提示词（可选）。\n\
+        - `camera_control`：镜头控制（可选，通过 metadata 传递）。\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlingVideoRequest'
+            examples:
+              text2video_std_5s:
+                summary: 文生视频 std 5s
+                value:
+                  model_name: kling-v1-6
+                  prompt: A cat playing with a ball of yarn in a sunny room
+                  mode: std
+                  duration: '5'
+                  aspect_ratio: '16:9'
+              text2video_pro_10s:
+                summary: 文生视频 pro 10s
+                value:
+                  model_name: kling-v2-5-turbo
+                  prompt: A cinematic drone shot above a quiet lake at sunrise
+                  mode: pro
+                  duration: '10'
+                  aspect_ratio: '16:9'
+              text2video_master:
+                summary: 文生视频（大师版）
+                value:
+                  model_name: kling-v2-master
+                  prompt: Hyper-realistic close-up of a dewdrop on a leaf
+                  duration: '5'
+                  aspect_ratio: '1:1'
+      responses:
+        '200':
+          description: 任务提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Kling 视频
+      x-apifox-status: released
+  /kling/v1/videos/image2video:
+    post:
+      tags:
+      - Kling 视频
+      summary: 图生视频
+      operationId: klingImage2Video
+      description: "Kling 图生视频端点。通过参考图片生成视频。\n\n\
+        **参数说明：**\n\
+        - `image`：必填，参考图片 URL。\n\
+        - `image_tail`：可选，尾帧图片 URL（首尾帧模式）。\n\
+        - 其他参数同文生视频。\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlingVideoRequest'
+            examples:
+              image2video:
+                summary: 图生视频
+                value:
+                  model_name: kling-v1-6
+                  prompt: A gentle camera pan revealing the scene
+                  image: https://example.com/reference.jpg
+                  mode: std
+                  duration: '5'
+                  aspect_ratio: '16:9'
+              image2video_head_tail:
+                summary: 首尾帧图生视频
+                value:
+                  model_name: kling-v2-5-turbo
+                  prompt: Smooth transition between two scenes
+                  image: https://example.com/first_frame.jpg
+                  image_tail: https://example.com/last_frame.jpg
+                  mode: pro
+                  duration: '5'
+      responses:
+        '200':
+          description: 任务提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Kling 视频
+      x-apifox-status: released
+  /kling/v1/videos/text2video/{task_id}:
+    get:
+      tags:
+      - Kling 视频
+      summary: 查询 Kling 视频任务状态
+      operationId: getKlingVideoTaskStatus
+      description: "使用提交接口返回的 `task_id` 轮询任务结果。\n\n\
+        **也可通过以下端点查询（通用）：**\n\
+        - `GET /v1/video/generations/{task_id}`\n\
+        - `GET /v1/videos/{task_id}`\n"
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 创建任务时返回的任务 ID。
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaProGetResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Kling 视频
+      x-apifox-status: released
   /v1/video/generations:
     post:
       tags:
@@ -3587,6 +3744,71 @@ components:
             img_id:
               type: string
               description: PixVerse 已上传的图片 ID
+    KlingVideoRequest:
+      type: object
+      required:
+      - model_name
+      - prompt
+      properties:
+        model_name:
+          type: string
+          enum:
+          - kling-v1
+          - kling-v1-6
+          - kling-v2-master
+          - kling-v2-1-master
+          - kling-v2-5-turbo
+          - kling-v2-6
+          - kling-video-o1
+          description: Kling 视频模型名称。
+        model:
+          type: string
+          description: 模型名称（与 model_name 二选一）。
+        prompt:
+          type: string
+          description: 视频描述提示词。文生视频时必填。
+        negative_prompt:
+          type: string
+          description: 反向提示词（可选），描述不希望出现的内容。
+        image:
+          type: string
+          description: 参考图片 URL（图生视频时必填）。
+        image_tail:
+          type: string
+          description: 尾帧图片 URL（首尾帧模式，可选）。
+        mode:
+          type: string
+          enum:
+          - std
+          - pro
+          default: std
+          description: 品质模式。`std`（标准，默认）或 `pro`（高品质）。大师版模型无此区分。
+        duration:
+          type: string
+          default: '5'
+          description: 视频时长（秒），支持 `5` 或 `10`，默认 `5`。
+        aspect_ratio:
+          type: string
+          enum:
+          - '1:1'
+          - '16:9'
+          - '9:16'
+          default: '1:1'
+          description: 宽高比，默认 `1:1`。
+        cfg_scale:
+          type: number
+          default: 0.5
+          description: 生成自由度，0~1，默认 0.5。值越小越自由，越大越贴合提示词。
+        camera_control:
+          type: object
+          description: 镜头控制参数（可选）。
+          properties:
+            type:
+              type: string
+              description: 控制类型。
+            config:
+              type: object
+              description: 镜头参数（horizontal, vertical, pan, tilt, roll, zoom）。
     MiniMaxVideoGenerationRequest:
       type: object
       required:

@@ -302,6 +302,36 @@ function toTokenNumber(value) {
   return parsed;
 }
 
+function parseTokenRecalculateTotal(...candidates) {
+  for (const candidate of candidates) {
+    const text = String(candidate || '');
+    const matched = text.match(/token(?:_recalculate|重算)\s*[:=]\s*(\d+)/i);
+    if (!matched) {
+      continue;
+    }
+    const total = Number(matched[1]);
+    if (Number.isFinite(total) && total > 0) {
+      return total;
+    }
+  }
+  return 0;
+}
+
+function resolveDeferredTotalTokens(record, other, promptTokens, completionTokens) {
+  const directTotal = toTokenNumber(other?.task_total_tokens);
+  if (directTotal > 0) {
+    return directTotal;
+  }
+  const recalculatedTotal = parseTokenRecalculateTotal(
+    other?.terminal_charge_reason,
+    record?.content,
+  );
+  if (recalculatedTotal > 0) {
+    return recalculatedTotal;
+  }
+  return toTokenNumber(promptTokens) + toTokenNumber(completionTokens);
+}
+
 function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
@@ -368,6 +398,12 @@ function buildDeferredTokenFormulaPreview(record, other, t) {
   const completionTokens =
     toTokenNumber(record?.completion_tokens) ||
     toTokenNumber(other?.task_completion_tokens);
+  const totalTokens = resolveDeferredTotalTokens(
+    record,
+    other,
+    promptTokens,
+    completionTokens,
+  );
   const cacheTokens = toTokenNumber(other?.cache_tokens);
   const modelRatio = Number(other?.model_ratio);
   const completionRatio = Number(other?.completion_ratio || 1);
@@ -387,8 +423,14 @@ function buildDeferredTokenFormulaPreview(record, other, t) {
 
   const inputPrice = modelRatio * 2;
   const completionPrice = inputPrice * completionRatio;
+  const modelName = String(record?.model_name || '');
+  const isGeminiImagePreview =
+    modelName.includes('image-preview') || modelName.includes('image_preview');
+  const thoughtRatio = isGeminiImagePreview ? 6 : completionRatio;
+  const thoughtPrice = inputPrice * thoughtRatio;
   const cachePrice = inputPrice * cacheRatio;
   const nonCacheInputTokens = Math.max(promptTokens - cacheTokens, 0);
+  const thoughtTokens = Math.max(totalTokens - promptTokens - completionTokens, 0);
 
   const terms = [];
   if (nonCacheInputTokens > 0) {
@@ -404,6 +446,11 @@ function buildDeferredTokenFormulaPreview(record, other, t) {
   if (completionTokens > 0) {
     terms.push(
       `${t('输出')} ${formatTokenCount(completionTokens)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
+    );
+  }
+  if (thoughtTokens > 0) {
+    terms.push(
+      `${t('思考')} ${formatTokenCount(thoughtTokens)} tokens / 1M tokens * $${thoughtPrice.toFixed(6)}`,
     );
   }
   if (terms.length === 0) {
@@ -1009,11 +1056,13 @@ export const getLogsColumns = ({
           isDeferredTokenRecalculateLog(record, other) &&
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
-          const billedQuota = Number(record?.quota || 0);
-          const tokenTotal =
-            toTokenNumber(other?.task_total_tokens) ||
-            toTokenNumber(record?.prompt_tokens) +
-              toTokenNumber(record?.completion_tokens);
+          const billedQuota = Number(other?.actual_quota || record?.quota || 0);
+          const tokenTotal = resolveDeferredTotalTokens(
+            record,
+            other,
+            record?.prompt_tokens,
+            record?.completion_tokens,
+          );
           const billingSummary = renderLogContent(
             other?.model_ratio,
             other?.completion_ratio,

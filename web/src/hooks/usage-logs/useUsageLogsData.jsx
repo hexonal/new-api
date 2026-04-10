@@ -45,6 +45,41 @@ const toPositiveNumber = (value) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
+const parseTokenRecalculateTotal = (...candidates) => {
+  for (const candidate of candidates) {
+    const text = String(candidate || '');
+    const matched = text.match(/token(?:_recalculate|重算)\s*[:=]\s*(\d+)/i);
+    if (!matched) {
+      continue;
+    }
+    const total = Number(matched[1]);
+    if (Number.isFinite(total) && total > 0) {
+      return total;
+    }
+  }
+  return 0;
+};
+
+const resolveDeferredTotalTokens = (
+  log,
+  other,
+  promptTokens,
+  completionTokens,
+) => {
+  const directTotal = toPositiveNumber(other?.task_total_tokens);
+  if (directTotal > 0) {
+    return directTotal;
+  }
+  const recalculatedTotal = parseTokenRecalculateTotal(
+    other?.terminal_charge_reason,
+    log?.content,
+  );
+  if (recalculatedTotal > 0) {
+    return recalculatedTotal;
+  }
+  return toPositiveNumber(promptTokens) + toPositiveNumber(completionTokens);
+};
+
 const isDeferredTokenRecalculateLog = (log, other) => {
   if (!other?.deferred_settle) {
     return false;
@@ -595,10 +630,12 @@ export const useLogsData = () => {
         const completionTokens = toPositiveNumber(
           logs[i]?.completion_tokens || other?.task_completion_tokens,
         );
-        const totalTokens =
-          promptTokens + completionTokens > 0
-            ? promptTokens + completionTokens
-            : toPositiveNumber(other?.task_total_tokens);
+        const totalTokens = resolveDeferredTotalTokens(
+          logs[i],
+          other,
+          promptTokens,
+          completionTokens,
+        );
         const deferredBillingSummary = deferredTokenRecalculate
           ? renderLogContent(
               other?.model_ratio,
@@ -794,7 +831,7 @@ export const useLogsData = () => {
             isDeferredTokenRecalculateLog(logs[i], other) &&
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
-            const billedQuota = Number(logs[i].quota || 0);
+            const billedQuota = Number(other?.actual_quota || logs[i]?.quota || 0);
             const deferredPromptTokens =
               toPositiveNumber(logs[i]?.prompt_tokens) > 0
                 ? toPositiveNumber(logs[i]?.prompt_tokens)
@@ -803,34 +840,22 @@ export const useLogsData = () => {
               toPositiveNumber(logs[i]?.completion_tokens) > 0
                 ? toPositiveNumber(logs[i]?.completion_tokens)
                 : toPositiveNumber(other?.task_completion_tokens);
-            // Prefer task_total_tokens (includes thought/reasoning tokens),
-            // fall back to prompt + completion sum.
-            const totalTokens =
-              toPositiveNumber(other?.task_total_tokens) > 0
-                ? toPositiveNumber(other?.task_total_tokens)
-                : toPositiveNumber(logs[i]?.prompt_tokens) +
-                  toPositiveNumber(logs[i]?.completion_tokens);
-            const billingProcess = renderModelPrice(
+            const totalTokens = resolveDeferredTotalTokens(
+              logs[i],
+              other,
               deferredPromptTokens,
               deferredCompletionTokens,
+            );
+            const billingProcess = renderLogContent(
               other?.model_ratio,
-              other?.model_price,
               other?.completion_ratio,
+              other?.model_price,
               other?.group_ratio,
               other?.user_group_ratio,
-              other?.cache_tokens || 0,
               other?.cache_ratio || 1.0,
               false,
               1.0,
-              0,
               false,
-              0,
-              0,
-              false,
-              0,
-              0,
-              false,
-              0,
               0,
               false,
               0,
