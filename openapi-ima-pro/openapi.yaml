@@ -2428,6 +2428,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
+                hailuo_fast_text2video_rejected:
+                  summary: Hailuo-2.3-Fast 纯文本被拒绝（仅支持图生视频）
+                  value:
+                    code: '500'
+                    message: 'hailuo api error: model MiniMax-Hailuo-2.3-Fast does not support Text-to-Video mode'
+                    data: null
                 hailuo_fast_invalid_resolution:
                   summary: Hailuo-2.3-Fast 使用 720p 被拒绝
                   value:
