@@ -148,13 +148,15 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
 				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
+				customEndpointKeys := model.GetModelCustomEndpointKeys(allowModel)
 				oaiModel.SupportedEndpointTypes = endpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
-				oaiModel.Capabilities = dto.BuildModelCapabilities(endpointTypes)
+				oaiModel.Capabilities = dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes)
 				oaiModel.Parameters = resolveModelParameters(allowModel)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
+				customEndpointKeys := model.GetModelCustomEndpointKeys(allowModel)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     allowModel,
 					Object:                 "model",
@@ -162,7 +164,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: endpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
-					Capabilities:           dto.BuildModelCapabilities(endpointTypes),
+					Capabilities:           dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes),
 					Parameters:             resolveModelParameters(allowModel),
 				})
 			}
@@ -204,13 +206,15 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
 				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+				customEndpointKeys := model.GetModelCustomEndpointKeys(modelName)
 				oaiModel.SupportedEndpointTypes = endpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
-				oaiModel.Capabilities = dto.BuildModelCapabilities(endpointTypes)
+				oaiModel.Capabilities = dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes)
 				oaiModel.Parameters = resolveModelParameters(modelName)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+				customEndpointKeys := model.GetModelCustomEndpointKeys(modelName)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     modelName,
 					Object:                 "model",
@@ -218,7 +222,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: endpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
-					Capabilities:           dto.BuildModelCapabilities(endpointTypes),
+					Capabilities:           dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes),
 					Parameters:             resolveModelParameters(modelName),
 				})
 			}

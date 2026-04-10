@@ -182,3 +182,16 @@ func TestBuildModelCapabilitiesUsesResponsesDefinitionForOpenAIResponses(t *test
 		t.Fatalf("expected openai responses sdk method, got %q", caps.Chat.SDKMethod)
 	}
 }
+
+func TestBuildModelCapabilitiesByCustomEndpointsUsesTextToImageOnlyForImageGeneration(t *testing.T) {
+	caps := BuildModelCapabilitiesByCustomEndpoints(
+		[]string{"image-generation"},
+		[]constant.EndpointType{constant.EndpointTypeImageGeneration},
+	)
+	if caps == nil || caps.TextToImage == nil {
+		t.Fatalf("expected custom image-generation endpoint to expose text_to_image")
+	}
+	if caps.ImageToImage != nil {
+		t.Fatalf("expected custom image-generation endpoint to hide image_to_image")
+	}
+}

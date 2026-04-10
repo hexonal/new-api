@@ -437,12 +437,15 @@ func TestOperatorCreateTokenCreatesTokenForAuthenticatedOperatorUser(t *testing.
 	if token.ExpiredTime != -1 {
 		t.Fatalf("expected token expired_time=-1, got=%d", token.ExpiredTime)
 	}
-	if token.Key != "prod_app_123_user_456" {
-		t.Fatalf("expected token key=%q, got=%q", "prod_app_123_user_456", token.Key)
+	if token.Key == "prod_app_123_user_456" {
+		t.Fatalf("expected page create flow to keep random key, got name-backed key")
+	}
+	if got := len(strings.TrimSpace(token.Key)); got != 48 {
+		t.Fatalf("expected random key length 48, got %d", got)
 	}
 }
 
-func TestOperatorCreateTokenUsesNameAsTokenKeyWithoutSKPrefix(t *testing.T) {
+func TestOperatorCreateTokenUsesNameAsTokenKeyWithoutSKPrefixForHexonalApp(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	operatorUser := seedProvisionUser(t, db, "operator_root")
 	operatorUser.Role = common.RoleRootUser
@@ -462,6 +465,7 @@ func TestOperatorCreateTokenUsesNameAsTokenKeyWithoutSKPrefix(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
 	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Request.Header.Set(operatorTokenSourceHeader, operatorTokenSourceHexonalApp)
 	ctx.Set("id", operatorUser.Id)
 
 	OperatorCreateToken(ctx)
@@ -486,7 +490,7 @@ func TestOperatorCreateTokenUsesNameAsTokenKeyWithoutSKPrefix(t *testing.T) {
 	}
 }
 
-func TestOperatorCreateTokenRejectsNameLongerThan48CharsAfterSKPrefixStripped(t *testing.T) {
+func TestOperatorCreateTokenGeneratesKeyWhenNameLongerThan48CharsAfterSKPrefixStrippedForHexonalApp(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	operatorUser := seedProvisionUser(t, db, "operator_root")
 	operatorUser.Role = common.RoleRootUser
@@ -506,6 +510,7 @@ func TestOperatorCreateTokenRejectsNameLongerThan48CharsAfterSKPrefixStripped(t 
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
 	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Request.Header.Set(operatorTokenSourceHeader, operatorTokenSourceHexonalApp)
 	ctx.Set("id", operatorUser.Id)
 
 	OperatorCreateToken(ctx)
@@ -514,20 +519,23 @@ func TestOperatorCreateTokenRejectsNameLongerThan48CharsAfterSKPrefixStripped(t 
 	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
 	}
-	if resp.Success {
-		t.Fatalf("expected invalid token response to fail, body=%s", recorder.Body.String())
+	if !resp.Success {
+		t.Fatalf("expected create token response to succeed, body=%s", recorder.Body.String())
 	}
 
-	var count int64
-	if err = db.Model(&model.Token{}).Where("name = ?", "sk-"+strings.Repeat("a", 49)).Count(&count).Error; err != nil {
-		t.Fatalf("failed to count created tokens: %v", err)
+	var token model.Token
+	if err = db.Where("name = ?", "sk-"+strings.Repeat("a", 49)).First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
 	}
-	if count != 0 {
-		t.Fatalf("expected no token rows to be created, got %d", count)
+	if token.Key == strings.Repeat("a", 49) {
+		t.Fatalf("expected oversized raw key to fall back to generated key")
+	}
+	if got := len(strings.TrimSpace(token.Key)); got >= 48 {
+		t.Fatalf("expected generated key length < 48, got %d", got)
 	}
 }
 
-func TestOperatorCreateTokenRejectsKeyLongerThan48CharsAfterSKPrefixStripped(t *testing.T) {
+func TestOperatorCreateTokenGeneratesKeyWhenNameIsNotValidRawKeyForHexonalApp(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	operatorUser := seedProvisionUser(t, db, "operator_root")
 	operatorUser.Role = common.RoleRootUser
@@ -547,6 +555,7 @@ func TestOperatorCreateTokenRejectsKeyLongerThan48CharsAfterSKPrefixStripped(t *
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
 	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Request.Header.Set(operatorTokenSourceHeader, operatorTokenSourceHexonalApp)
 	ctx.Set("id", operatorUser.Id)
 
 	OperatorCreateToken(ctx)
@@ -555,15 +564,18 @@ func TestOperatorCreateTokenRejectsKeyLongerThan48CharsAfterSKPrefixStripped(t *
 	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
 	}
-	if resp.Success {
-		t.Fatalf("expected invalid token response to fail, body=%s", recorder.Body.String())
+	if !resp.Success {
+		t.Fatalf("expected create token response to succeed, body=%s", recorder.Body.String())
 	}
 
-	var count int64
-	if err = db.Model(&model.Token{}).Where("name = ?", strings.Repeat("a", 49)).Count(&count).Error; err != nil {
-		t.Fatalf("failed to count created tokens: %v", err)
+	var token model.Token
+	if err = db.Where("name = ?", strings.Repeat("a", 49)).First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
 	}
-	if count != 0 {
-		t.Fatalf("expected no token rows to be created, got %d", count)
+	if token.Key == strings.Repeat("a", 49) {
+		t.Fatalf("expected invalid raw key to fall back to generated key")
+	}
+	if got := len(strings.TrimSpace(token.Key)); got >= 48 {
+		t.Fatalf("expected generated key length < 48, got %d", got)
 	}
 }

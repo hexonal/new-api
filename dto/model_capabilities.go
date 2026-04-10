@@ -101,6 +101,19 @@ var endpointToCapabilities = map[constant.EndpointType][]string{
 	constant.EndpointTypeJimeng:                 {"jimeng_image"},
 }
 
+func customEndpointKeyToCapabilities(key string) []string {
+	switch key {
+	case "text_to_image":
+		return []string{"text_to_image"}
+	case "image_to_image":
+		return []string{"image_to_image"}
+	case "image-generation":
+		return []string{"text_to_image"}
+	default:
+		return endpointToCapabilities[constant.EndpointType(key)]
+	}
+}
+
 // BuildModelCapabilities converts a list of EndpointTypes into a structured ModelCapabilities object.
 func BuildModelCapabilities(endpointTypes []constant.EndpointType) *ModelCapabilities {
 	if len(endpointTypes) == 0 {
@@ -210,6 +223,73 @@ func BuildModelCapabilities(endpointTypes []constant.EndpointType) *ModelCapabil
 				}
 			}
 			delete(capKeys, key)
+		}
+	}
+	return caps
+}
+
+func BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys []string, fallbackEndpointTypes []constant.EndpointType) *ModelCapabilities {
+	if len(customEndpointKeys) == 0 {
+		return BuildModelCapabilities(fallbackEndpointTypes)
+	}
+
+	capKeys := make(map[string]bool)
+	for _, key := range customEndpointKeys {
+		for _, capKey := range customEndpointKeyToCapabilities(key) {
+			capKeys[capKey] = true
+		}
+	}
+	if len(capKeys) == 0 {
+		return BuildModelCapabilities(fallbackEndpointTypes)
+	}
+
+	caps := &ModelCapabilities{}
+	for _, key := range []string{"chat", "text_to_image", "image_to_image", "speech_to_text", "text_to_speech", "audio_translation", "embeddings", "video_generation", "kling_video", "moderation", "rerank", "music_generation", "midjourney_generation", "jimeng_image", "realtime"} {
+		if !capKeys[key] {
+			continue
+		}
+		def, ok := capabilityDefs[key]
+		if !ok {
+			continue
+		}
+		cap := &ModelCapability{
+			Supported:     true,
+			Async:         def.Async,
+			Endpoint:      def.Endpoint,
+			RequestFormat: def.RequestFormat,
+			SDKMethod:     def.SDKMethod,
+		}
+		switch key {
+		case "chat":
+			caps.Chat = cap
+		case "text_to_image":
+			caps.TextToImage = cap
+		case "image_to_image":
+			caps.ImageToImage = cap
+		case "speech_to_text":
+			caps.SpeechToText = cap
+		case "text_to_speech":
+			caps.TextToSpeech = cap
+		case "audio_translation":
+			caps.AudioTranslation = cap
+		case "embeddings":
+			caps.Embeddings = cap
+		case "video_generation":
+			caps.VideoGeneration = cap
+		case "kling_video":
+			caps.KlingVideo = cap
+		case "moderation":
+			caps.Moderation = cap
+		case "rerank":
+			caps.Rerank = cap
+		case "music_generation":
+			caps.MusicGeneration = cap
+		case "midjourney_generation":
+			caps.MidjourneyGeneration = cap
+		case "jimeng_image":
+			caps.JimengImage = cap
+		case "realtime":
+			caps.Realtime = cap
 		}
 	}
 	return caps

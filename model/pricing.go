@@ -58,6 +58,7 @@ var (
 var (
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
 	modelSupportEndpointsLock = sync.RWMutex{}
+	modelCustomEndpointKeys   = make(map[string][]string)
 )
 
 func GetPricing() []Pricing {
@@ -93,6 +94,18 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 		return endpoints
 	}
 	return make([]constant.EndpointType, 0)
+}
+
+func GetModelCustomEndpointKeys(model string) []string {
+	if model == "" {
+		return make([]string, 0)
+	}
+	modelSupportEndpointsLock.RLock()
+	defer modelSupportEndpointsLock.RUnlock()
+	if keys, ok := modelCustomEndpointKeys[model]; ok {
+		return append([]string(nil), keys...)
+	}
+	return make([]string, 0)
 }
 
 func updatePricing() {
@@ -225,6 +238,7 @@ func updatePricing() {
 	}
 
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
+	modelCustomEndpointKeys = make(map[string][]string)
 	for model, endpoints := range modelSupportEndpointsStr {
 		supportedEndpoints := make([]constant.EndpointType, 0)
 		for _, endpointStr := range endpoints {
@@ -232,6 +246,25 @@ func updatePricing() {
 			supportedEndpoints = append(supportedEndpoints, endpointType)
 		}
 		modelSupportEndpointTypes[model] = supportedEndpoints
+	}
+	for modelName, meta := range metaMap {
+		if strings.TrimSpace(meta.Endpoints) == "" {
+			continue
+		}
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err != nil {
+			continue
+		}
+		keys := make([]string, 0, len(raw))
+		for key, val := range raw {
+			switch val.(type) {
+			case string, map[string]interface{}:
+				keys = append(keys, key)
+			}
+		}
+		if len(keys) > 0 {
+			modelCustomEndpointKeys[modelName] = keys
+		}
 	}
 
 	// 构建全局 supportedEndpointMap（默认 + 自定义覆盖）
