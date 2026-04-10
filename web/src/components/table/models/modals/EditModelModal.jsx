@@ -89,6 +89,13 @@ const stringifyEndpointsValue = (value) => {
   return Object.keys(value).length === 0 ? '' : JSON.stringify(value, null, 2);
 };
 
+const normalizeEndpointsValue = (value) => {
+  if (!value || typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+  return stringifyEndpointsValue(parseEndpointsValue(value));
+};
+
 const getSelectedCapabilityKeys = (endpoints) =>
   MODEL_CAPABILITIES.filter(({ endpointKey }) =>
     Object.prototype.hasOwnProperty.call(endpoints, endpointKey),
@@ -208,10 +215,7 @@ const EditModelModal = (props) => {
         } else {
           data.tags = [];
         }
-        // endpoints 保持原始 JSON 字符串，若为空设为空串
-        if (!data.endpoints) {
-          data.endpoints = '';
-        }
+        data.endpoints = normalizeEndpointsValue(data.endpoints);
         // 处理status/sync_official，将数字转为布尔值
         data.status = data.status === 1;
         data.sync_official = (data.sync_official ?? 1) === 1;
@@ -259,7 +263,7 @@ const EditModelModal = (props) => {
       const submitData = {
         ...values,
         tags: Array.isArray(values.tags) ? values.tags.join(',') : values.tags,
-        endpoints: values.endpoints || '',
+        endpoints: normalizeEndpointsValue(values.endpoints),
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
       };
@@ -584,7 +588,10 @@ const EditModelModal = (props) => {
                       }
                       value={values.endpoints}
                       onChange={(val) =>
-                        formApiRef.current?.setValue('endpoints', val)
+                        formApiRef.current?.setValue(
+                          'endpoints',
+                          normalizeEndpointsValue(val),
+                        )
                       }
                       formApi={formApiRef.current}
                       editorType='object'
