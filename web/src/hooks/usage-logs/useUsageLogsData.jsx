@@ -883,6 +883,51 @@ export const useLogsData = () => {
                 <p>{t('仅供参考，以实际扣费为准')}</p>
               </article>
             );
+          } else if (
+            isNonTextTaskEndpoint &&
+            hasNoTokenUsage &&
+            Number.isFinite(Number(other?.model_price)) &&
+            Number(other?.model_price) > 0
+          ) {
+            // Per-call billing for task models (e.g. Kling video)
+            const billedQuota = toPositiveNumber(logs[i]?.quota);
+            const perCallPrice = Number(other?.model_price);
+            const groupRatio = Number(other?.group_ratio);
+            const otherRatioKeys = Object.keys(other || {}).filter(
+              (k) =>
+                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
+                Number(other[k]) !== 1,
+            );
+            content = (
+              <article>
+                <p>{t('按次计费')}</p>
+                <p>
+                  {t('模型单价：{{price}} / 次', {
+                    price: `$${perCallPrice.toFixed(6)}`,
+                  })}
+                </p>
+                <p>
+                  {t('分组倍率（模型覆盖）：{{ratio}}', {
+                    ratio: Number.isFinite(groupRatio)
+                      ? Number(groupRatio).toFixed(4)
+                      : '-',
+                  })}
+                </p>
+                {otherRatioKeys.length > 0 && (
+                  <p>
+                    {t('计算参数')}：
+                    {otherRatioKeys
+                      .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
+                      .join(', ')}
+                  </p>
+                )}
+                <p>
+                  {t('实际扣费：{{cost}}', {
+                    cost: renderQuota(billedQuota, 6),
+                  })}
+                </p>
+              </article>
+            );
           } else if (isNonTextTaskEndpoint && hasNoTokenUsage) {
             const billedQuota = toPositiveNumber(logs[i]?.quota);
             const modelRatio = Number(other?.model_ratio);
