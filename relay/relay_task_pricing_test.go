@@ -54,6 +54,44 @@ func TestShouldUsePerCallBillingForTaskModel_ImaProAlwaysToken(t *testing.T) {
 	}
 }
 
+func TestShouldUsePerCallBillingForTaskModel_ViduDeferredButPerCallWhenPriceExists(t *testing.T) {
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	originalModelRatio := ratio_setting.ModelRatio2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+		if err := ratio_setting.UpdateModelRatioByJSONString(originalModelRatio); err != nil {
+			t.Fatalf("restore model ratio map failed: %v", err)
+		}
+	})
+
+	priceMap := map[string]float64{
+		"viduq1": 0.40,
+	}
+	ratioMap := map[string]float64{
+		"viduq1": 1.0,
+	}
+	priceJSON, _ := json.Marshal(priceMap)
+	ratioJSON, _ := json.Marshal(ratioMap)
+	if err := ratio_setting.UpdateModelPriceByJSONString(string(priceJSON)); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+	if err := ratio_setting.UpdateModelRatioByJSONString(string(ratioJSON)); err != nil {
+		t.Fatalf("update model ratio map failed: %v", err)
+	}
+
+	if !shouldUseDeferredSettleForTaskModel("viduq1") {
+		t.Fatalf("viduq1 should keep deferred settle strategy")
+	}
+	if shouldUseTokenBillingForTaskModel("viduq1") {
+		t.Fatalf("viduq1 should not be forced to token billing")
+	}
+	if !shouldUsePerCallBillingForTaskModel("viduq1") {
+		t.Fatalf("viduq1 should use per-call billing when model_price exists")
+	}
+}
+
 func TestShouldUseDeferredSettleForTaskModel_AsyncImageTaskModels(t *testing.T) {
 	if !shouldUseDeferredSettleForTaskModel("ima-pro") {
 		t.Fatalf("ima-pro should use deferred settle strategy")

@@ -51,13 +51,21 @@ var taskDeferredSettleModels = map[string]struct{}{
 	"vidu2.0":                        {},
 }
 
+var taskForcedTokenBillingModels = map[string]struct{}{
+	"ima-pro":                        {},
+	"ima-pro-fast":                   {},
+	"gemini-3-pro-image-preview":     {},
+	"gemini-3.1-flash-image-preview": {},
+}
+
 func isDeferredSettleTaskModel(modelName string) bool {
 	_, ok := taskDeferredSettleModels[strings.ToLower(strings.TrimSpace(modelName))]
 	return ok
 }
 
 func shouldUseTokenBillingForTaskModel(modelName string) bool {
-	return isDeferredSettleTaskModel(modelName)
+	_, ok := taskForcedTokenBillingModels[strings.ToLower(strings.TrimSpace(modelName))]
+	return ok
 }
 
 func shouldUseDeferredSettleForTaskModel(modelName string) bool {

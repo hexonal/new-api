@@ -1139,8 +1139,11 @@ export const getLogsColumns = ({
 
         const requestPath = String(other?.request_path || '');
         const isNonTextTaskEndpoint =
-          requestPath.startsWith('/v1/video/') ||
+          requestPath.startsWith('/v1/videos') ||
+          requestPath.startsWith('/v1/video/generations') ||
           requestPath.startsWith('/v1/images/generations') ||
+          requestPath.startsWith('/kling/v1/videos') ||
+          requestPath.startsWith('/jimeng') ||
           requestPath.startsWith('/mj/');
         const hasNoTokenUsage =
           toTokenNumber(record?.prompt_tokens) <= 0 &&
@@ -1187,8 +1190,41 @@ export const getLogsColumns = ({
         }
 
         const modelPrice = Number(other?.model_price);
+        const billedQuota = toTokenNumber(record?.quota);
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          !(Number.isFinite(modelPrice) && modelPrice > 0) &&
+          billedQuota > 0
+        ) {
+          const groupRatio = Number(other?.group_ratio);
+          const safeRatio = Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
+          const derivedModelPrice = billedQuota / safeRatio;
+          const summary = [
+            t('按次计费（根据实际扣费反推）'),
+            `${t('模型单价')}：${renderQuota(derivedModelPrice, 6)} / ${t('次')}`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            `(${t('模型单价')} ${renderQuota(derivedModelPrice, 6)} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
+            t('仅供参考，以实际扣费为准'),
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
         if (isNonTextTaskEndpoint && hasNoTokenUsage && !(Number.isFinite(modelPrice) && modelPrice > 0)) {
-          const billedQuota = toTokenNumber(record?.quota);
           const modelRatio = Number(other?.model_ratio);
           const groupRatio = Number(other?.group_ratio);
           const estimatedPreconsumeTokens =

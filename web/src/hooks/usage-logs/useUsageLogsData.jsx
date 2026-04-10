@@ -778,8 +778,10 @@ export const useLogsData = () => {
           const isNonTextTaskEndpoint =
             requestPath.includes('/v1/videos') ||
             requestPath.includes('/v1/video/generations') ||
+            requestPath.includes('/v1/images/generations') ||
             requestPath.includes('/kling/v1/videos') ||
-            requestPath.includes('/jimeng');
+            requestPath.includes('/jimeng') ||
+            requestPath.includes('/mj/');
           const hasNoTokenUsage =
             toPositiveNumber(logs[i]?.prompt_tokens) +
               toPositiveNumber(logs[i]?.completion_tokens) ===
@@ -992,6 +994,40 @@ export const useLogsData = () => {
             );
           } else if (isNonTextTaskEndpoint && hasNoTokenUsage) {
             const billedQuota = toPositiveNumber(logs[i]?.quota);
+            if (billedQuota > 0) {
+              const groupRatio = Number(other?.group_ratio);
+              const safeGroupRatio =
+                Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
+              const derivedModelPrice = billedQuota / safeGroupRatio;
+              content = (
+                <article>
+                  <p>{t('按次计费（根据实际扣费反推）')}</p>
+                  <p>
+                    {t('模型单价：{{price}} / 次', {
+                      price: `$${derivedModelPrice.toFixed(6)}`,
+                    })}
+                  </p>
+                  <p>
+                    {t('分组倍率（模型覆盖）：{{ratio}}', {
+                      ratio: Number.isFinite(groupRatio)
+                        ? Number(groupRatio).toFixed(4)
+                        : '-',
+                    })}
+                  </p>
+                  <p>
+                    {t(
+                      '(模型单价 {{price}} / 次) * 分组倍率（模型覆盖） {{ratio}} = {{cost}}',
+                      {
+                        price: `$${derivedModelPrice.toFixed(6)}`,
+                        ratio: safeGroupRatio.toFixed(4),
+                        cost: renderQuota(billedQuota, 6),
+                      },
+                    )}
+                  </p>
+                  <p>{t('仅供参考，以实际扣费为准')}</p>
+                </article>
+              );
+            } else {
             const modelRatio = Number(other?.model_ratio);
             const groupRatio = Number(other?.group_ratio);
             const estimatedPreconsumeTokens =
@@ -1036,6 +1072,7 @@ export const useLogsData = () => {
                 <p>{t('仅供参考，以实际扣费为准')}</p>
               </article>
             );
+            }
           } else {
             content = renderModelPrice(
               logs[i].prompt_tokens,
