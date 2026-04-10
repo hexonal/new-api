@@ -172,7 +172,7 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	if endpointType != "" {
 		// 根据指定的端点类型设置 relayFormat
 		switch constant.EndpointType(endpointType) {
-		case constant.EndpointTypeOpenAI:
+		case constant.EndpointTypeOpenAIChat:
 			relayFormat = types.RelayFormatOpenAI
 		case constant.EndpointTypeOpenAIResponse:
 			relayFormat = types.RelayFormatOpenAIResponses
@@ -639,7 +639,7 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 				Model: model,
 				Input: testResponsesInput,
 			}
-		case constant.EndpointTypeAnthropic, constant.EndpointTypeGemini, constant.EndpointTypeOpenAI:
+		case constant.EndpointTypeAnthropic, constant.EndpointTypeGemini, constant.EndpointTypeOpenAIChat:
 			// 返回 GeneralOpenAIRequest
 			maxTokens := uint(16)
 			if constant.EndpointType(endpointType) == constant.EndpointTypeGemini {

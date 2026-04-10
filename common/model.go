@@ -24,6 +24,10 @@ var (
 		"o4",
 		"chatgpt",
 	}
+	VideoGenerationModels = []string{
+		"prefix:veo-",
+		"sora",
+	}
 )
 
 func IsOpenAIResponseOnlyModel(modelName string) bool {
@@ -56,4 +60,36 @@ func IsOpenAITextModel(modelName string) bool {
 		}
 	}
 	return false
+}
+
+func IsSTTModel(modelName string) bool {
+	return strings.HasPrefix(strings.ToLower(modelName), "whisper-")
+}
+
+func IsTTSModel(modelName string) bool {
+	return strings.HasPrefix(strings.ToLower(modelName), "tts-")
+}
+
+func IsEmbeddingModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.HasPrefix(modelName, "text-embedding-") ||
+		strings.HasPrefix(modelName, "gemini-embedding-") ||
+		strings.HasPrefix(modelName, "embedding-")
+}
+
+func IsVideoGenerationModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	for _, m := range VideoGenerationModels {
+		if strings.Contains(modelName, m) {
+			return true
+		}
+		if strings.HasPrefix(m, "prefix:") && strings.HasPrefix(modelName, strings.TrimPrefix(m, "prefix:")) {
+			return true
+		}
+	}
+	return false
+}
+
+func IsModerationModel(modelName string) bool {
+	return strings.Contains(strings.ToLower(modelName), "moderation")
 }

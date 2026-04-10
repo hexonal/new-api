@@ -17,18 +17,23 @@ type EndpointInfo struct {
 
 // defaultEndpointInfoMap 保存内置端点的默认 Path 与 Method
 var defaultEndpointInfoMap = map[constant.EndpointType]EndpointInfo{
-	constant.EndpointTypeOpenAI:                {Path: "/v1/chat/completions", Method: "POST"},
-	constant.EndpointTypeOpenAIResponse:        {Path: "/v1/responses", Method: "POST"},
-	constant.EndpointTypeOpenAIResponseCompact: {Path: "/v1/responses/compact", Method: "POST"},
-	constant.EndpointTypeAnthropic:             {Path: "/v1/messages", Method: "POST"},
-	constant.EndpointTypeGemini:                {Path: "/v1beta/models/{model}:generateContent", Method: "POST"},
-	constant.EndpointTypeJinaRerank:            {Path: "/v1/rerank", Method: "POST"},
-	constant.EndpointTypeImageGeneration:       {Path: "/v1/images/generations", Method: "POST"},
-	constant.EndpointTypeEmbeddings:            {Path: "/v1/embeddings", Method: "POST"},
-	constant.EndpointTypeSuno:                  {Path: "/suno/submit/{action}", Method: "POST"},
-	constant.EndpointTypeKling:                 {Path: "/v1/videos/generations", Method: "POST"},
-	constant.EndpointTypeMidjourney:            {Path: "/mj/submit/imagine", Method: "POST"},
-	constant.EndpointTypeJimeng:                {Path: "/v1/images/generations", Method: "POST"},
+	constant.EndpointTypeOpenAIChat:             {Path: "/v1/chat/completions", Method: "POST"},
+	constant.EndpointTypeOpenAISTT:              {Path: "/v1/audio/transcriptions", Method: "POST"},
+	constant.EndpointTypeOpenAITTS:              {Path: "/v1/audio/speech", Method: "POST"},
+	constant.EndpointTypeOpenAIAudioTranslation: {Path: "/v1/audio/translations", Method: "POST"},
+	constant.EndpointTypeOpenAIModeration:       {Path: "/v1/moderations", Method: "POST"},
+	constant.EndpointTypeOpenAIResponse:         {Path: "/v1/responses", Method: "POST"},
+	constant.EndpointTypeOpenAIResponseCompact:  {Path: "/v1/responses/compact", Method: "POST"},
+	constant.EndpointTypeAnthropic:              {Path: "/v1/messages", Method: "POST"},
+	constant.EndpointTypeGemini:                 {Path: "/v1beta/models/{model}:generateContent", Method: "POST"},
+	constant.EndpointTypeJinaRerank:             {Path: "/v1/rerank", Method: "POST"},
+	constant.EndpointTypeImageGeneration:        {Path: "/v1/images/generations", Method: "POST"},
+	constant.EndpointTypeEmbeddings:             {Path: "/v1/embeddings", Method: "POST"},
+	constant.EndpointTypeVideoGeneration:        {Path: "/v1/videos/generations", Method: "POST"},
+	constant.EndpointTypeSuno:                   {Path: "/suno/submit/{action}", Method: "POST"},
+	constant.EndpointTypeKling:                  {Path: "/v1/videos/generations", Method: "POST"},
+	constant.EndpointTypeMidjourney:             {Path: "/mj/submit/imagine", Method: "POST"},
+	constant.EndpointTypeJimeng:                 {Path: "/v1/images/generations", Method: "POST"},
 }
 
 // GetDefaultEndpointInfo 返回指定端点类型的默认信息以及是否存在
