@@ -803,13 +803,13 @@ export const useLogsData = () => {
               toPositiveNumber(logs[i]?.completion_tokens) > 0
                 ? toPositiveNumber(logs[i]?.completion_tokens)
                 : toPositiveNumber(other?.task_completion_tokens);
+            // Prefer task_total_tokens (includes thought/reasoning tokens),
+            // fall back to prompt + completion sum.
             const totalTokens =
-              toPositiveNumber(logs[i]?.prompt_tokens) +
-                toPositiveNumber(logs[i]?.completion_tokens) >
-              0
-                ? toPositiveNumber(logs[i]?.prompt_tokens) +
-                  toPositiveNumber(logs[i]?.completion_tokens)
-                : toPositiveNumber(other?.task_total_tokens);
+              toPositiveNumber(other?.task_total_tokens) > 0
+                ? toPositiveNumber(other?.task_total_tokens)
+                : toPositiveNumber(logs[i]?.prompt_tokens) +
+                  toPositiveNumber(logs[i]?.completion_tokens);
             const billingProcess = renderModelPrice(
               deferredPromptTokens,
               deferredCompletionTokens,
