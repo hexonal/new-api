@@ -1865,17 +1865,26 @@ paths:
       tags:
       - MiniMax 视频
       summary: 提交视频生成任务
-      description: 'MiniMax 视频生成端点（异步任务制）。提交后返回 `task_id`，通过 `/v1/videos/{task_id}` 轮询结果。
-
-        支持模型：
-        - `MiniMax-Hailuo-02`
-        - `MiniMax-Hailuo-2.3`
-        - `MiniMax-Hailuo-2.3-Fast`
-
-        约束：
-        - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`
-        - `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`（不支持 `720p`）
-        '
+      description: "MiniMax 视频生成（异步任务制）。提交后返回 `task_id`，通过 `GET /v1/video/generations/{task_id}` 轮询结果。\n\n\
+        **可用端点（二选一，参数和行为完全相同）：**\n\
+        | 端点 | 说明 |\n\
+        |------|------|\n\
+        | `POST /v1/video/generations` | MiniMax 专用端点（本文档） |\n\
+        | `POST /v1/videos` | 通用视频端点（也支持 MiniMax 模型） |\n\n\
+        **支持模型：**\n\
+        - `MiniMax-Hailuo-02`\n\
+        - `MiniMax-Hailuo-2.3`\n\
+        - `MiniMax-Hailuo-2.3-Fast`\n\n\
+        **约束：**\n\
+        - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`\n\
+        - `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`（不支持 `720p`）\n\n\
+        **`/v1/videos` 调用示例（与本端点参数完全相同）：**\n\
+        ```bash\n\
+        curl -X POST https://open-route.fashionlabs.cn/v1/videos \\\n\
+        \  -H \"Authorization: Bearer sk-xxxx\" \\\n\
+        \  -H \"Content-Type: application/json\" \\\n\
+        \  -d '{\"model\":\"MiniMax-Hailuo-2.3\",\"prompt\":\"A cat playing\",\"duration\":6,\"size\":\"1080p\"}'\n\
+        ```\n"
       requestBody:
         required: true
         content:
@@ -3570,8 +3579,6 @@ components:
 
             - PixVerse 图生视频：`{"img_id": "上传后的图片ID"}`
 
-            - 回调通知（可选）：`{"callback_url": "https://your.domain/callback"}`
-
             '
           properties:
             first_frame_image:
@@ -3580,14 +3587,6 @@ components:
             img_id:
               type: string
               description: PixVerse 已上传的图片 ID
-            callback_url:
-              type: string
-              format: uri
-              description: '可选回调地址。提交任务后，供应商会将任务状态推送到该 URL。
-
-                建议使用可公网访问的 https 地址。
-
-                '
     MiniMaxVideoGenerationRequest:
       type: object
       required:
@@ -3615,17 +3614,11 @@ components:
 
             - 图生视频：`{"first_frame_image":"URL"}`
 
-            - 回调通知（可选）：`{"callback_url":"https://your.domain/callback"}`
-
             '
           properties:
             first_frame_image:
               type: string
               description: Hailuo 图生视频首帧图片 URL（`MiniMax-Hailuo-2.3-Fast` 必填）。
-            callback_url:
-              type: string
-              format: uri
-              description: 可选回调地址。
     VideoTaskResponse:
       type: object
       properties:
