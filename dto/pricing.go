@@ -12,7 +12,7 @@ type OpenAIModels struct {
 	OwnedBy                string                                        `json:"owned_by"`
 	SupportedEndpointTypes []constant.EndpointType                       `json:"supported_endpoint_types"`
 	Reasoning              bool                                          `json:"reasoning"`
-	Capabilities           PublicCapabilityMap                           `json:"capabilities"`
+	Capabilities           CapabilityMap                                 `json:"capabilities"`
 }
 
 type AnthropicModel struct {

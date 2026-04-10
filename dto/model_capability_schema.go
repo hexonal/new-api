@@ -14,17 +14,6 @@ type CapabilityParameter = model_capability.EndpointParameterDef
 type CapabilitySpec = model_capability.ModelEndpointSchema
 type CapabilityMap map[string]CapabilitySpec
 
-// PublicCapabilitySpec is the lightweight capability payload exposed by /v1/models.
-type PublicCapabilitySpec struct {
-	Supported     bool   `json:"supported"`
-	Endpoint      string `json:"endpoint"`
-	RequestFormat string `json:"request_format"`
-	SDKMethod     string `json:"sdk_method"`
-}
-
-// PublicCapabilityMap stores public capability payload keyed by capability name.
-type PublicCapabilityMap map[string]PublicCapabilitySpec
-
 type legacyCapabilitySpec struct {
 	Path          string                              `json:"path"`
 	Method        string                              `json:"method"`
@@ -89,23 +78,6 @@ func SupportedEndpointTypes(capabilities CapabilityMap) []constant.EndpointType 
 		endpointTypes = append(endpointTypes, constant.EndpointType(key))
 	}
 	return endpointTypes
-}
-
-func ToPublicCapabilityMap(capabilities CapabilityMap) PublicCapabilityMap {
-	if len(capabilities) == 0 {
-		return PublicCapabilityMap{}
-	}
-
-	result := make(PublicCapabilityMap, len(capabilities))
-	for key, capability := range capabilities {
-		result[key] = PublicCapabilitySpec{
-			Supported:     capability.Supported,
-			Endpoint:      capability.Endpoint,
-			RequestFormat: capability.RequestFormat,
-			SDKMethod:     capability.SDKMethod,
-		}
-	}
-	return result
 }
 
 func parseCapabilitySpec(capabilityKey string, raw json.RawMessage) (CapabilitySpec, bool) {

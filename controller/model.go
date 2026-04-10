@@ -150,7 +150,7 @@ func ListModels(c *gin.Context, modelType int) {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
-				oaiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
+				oaiModel.Capabilities = capabilities
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
@@ -161,7 +161,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
-					Capabilities:           dto.ToPublicCapabilityMap(capabilities),
+					Capabilities:           capabilities,
 				})
 			}
 		}
@@ -204,7 +204,7 @@ func ListModels(c *gin.Context, modelType int) {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
-				oaiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
+				oaiModel.Capabilities = capabilities
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
@@ -215,7 +215,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
-					Capabilities:           dto.ToPublicCapabilityMap(capabilities),
+					Capabilities:           capabilities,
 				})
 			}
 		}
@@ -311,7 +311,7 @@ func RetrieveModel(c *gin.Context, modelType int) {
 	if aiModel, ok := openAIModelsMap[modelId]; ok {
 		supportedEndpointTypes, capabilities := resolveModelCapabilities(modelId)
 		aiModel.SupportedEndpointTypes = supportedEndpointTypes
-		aiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
+		aiModel.Capabilities = capabilities
 		aiModel.Reasoning = isModelReasoningEnabled(modelId)
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
@@ -337,7 +337,7 @@ func RetrieveModel(c *gin.Context, modelType int) {
 			OwnedBy:                "custom",
 			SupportedEndpointTypes: supportedEndpointTypes,
 			Reasoning:              isModelReasoningEnabled(modelId),
-			Capabilities:           dto.ToPublicCapabilityMap(capabilities),
+			Capabilities:           capabilities,
 		})
 	} else {
 		openAIError := types.OpenAIError{
