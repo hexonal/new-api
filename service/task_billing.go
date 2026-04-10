@@ -489,8 +489,8 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	other["estimated_quota"] = bc.EstimatedQuota
 	other["terminal_charge_state"] = bc.TerminalChargeState
 	other["terminal_charge_reason"] = reason
-	// When terminal charge is token-based recalculation, override the submit-time
-	// per-call model_price with token-based ratios so the frontend renders correctly.
+	// Clear submit-time model_price for terminal charge logs so frontend
+	// renders deferred-settle format instead of per-call format.
 	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
 		modelName := taskModelName(task)
 		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
@@ -498,6 +498,10 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		other["model_price"] = float64(-1) // clear per-call pricing flag
 		other["model_ratio"] = modelRatio
 		other["completion_ratio"] = completionRatio
+	} else if strings.Contains(reason, "adaptor_adjust") {
+		// Adaptor-based settlement (e.g. Vidu credits): clear model_price
+		// to prevent frontend from showing misleading per-call format.
+		other["model_price"] = float64(-1)
 	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {
