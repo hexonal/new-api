@@ -52,11 +52,6 @@ type operatorProvisionRequest struct {
 var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
 var operatorProvisionIMASuffixPattern = regexp.MustCompile(`^(ima_[0-9]+)_[0-9A-Za-z]+$`)
 
-const (
-	operatorTokenSourceHeader     = "X-Hexonal-Client"
-	operatorTokenSourceHexonalApp = "hexonal-app"
-)
-
 func validateOperatorProvisionToken(token string) bool {
 	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
 }
@@ -138,24 +133,16 @@ func buildProvisionToken(userId int, tokenKey string, req operatorProvisionReque
 	}
 }
 
-func isHexonalAppOperatorCreateRequest(c *gin.Context) bool {
-	source := strings.TrimSpace(c.GetHeader(operatorTokenSourceHeader))
-	return strings.EqualFold(source, operatorTokenSourceHexonalApp)
-}
-
-func buildOperatorCreateTokenKey(name string, allowNameBackedKey bool) (string, error) {
-	if !allowNameBackedKey {
-		return common.GenerateKey()
-	}
-	tokenKey := normalizeOperatorSKToRawKey(name)
+func buildOperatorCreateTokenKey(name string) (string, error) {
+	tokenKey := strings.TrimSpace(name)
 	if validateOperatorProvisionToken(tokenKey) {
 		return tokenKey, nil
 	}
-	return common.GenerateRandomCharsKey(32)
+	return "", errors.New("token must contain only letters, numbers, or underscore, and be 1-48 characters")
 }
 
 func isOperatorNameBackedTokenKey(name string, key string) bool {
-	return normalizeOperatorSKToRawKey(name) == strings.TrimSpace(key)
+	return strings.TrimSpace(name) == strings.TrimSpace(key)
 }
 
 // OperatorCreateToken creates a token under the authenticated operator user.
@@ -173,7 +160,7 @@ func OperatorCreateToken(c *gin.Context) {
 		common.ApiErrorMsg(c, "name is required and must be <= 100 chars")
 		return
 	}
-	tokenKey, err := buildOperatorCreateTokenKey(name, isHexonalAppOperatorCreateRequest(c))
+	tokenKey, err := buildOperatorCreateTokenKey(name)
 	if err != nil {
 		common.ApiError(c, err)
 		return
