@@ -45,13 +45,20 @@ const { Text, Title } = Typography;
 
 // Example endpoint template for quick fill
 const ENDPOINT_TEMPLATE = {
-  openai: { path: '/v1/chat/completions', method: 'POST' },
-  'openai-response': { path: '/v1/responses', method: 'POST' },
-  'openai-response-compact': { path: '/v1/responses/compact', method: 'POST' },
-  anthropic: { path: '/v1/messages', method: 'POST' },
-  gemini: { path: '/v1beta/models/{model}:generateContent', method: 'POST' },
-  'jina-rerank': { path: '/v1/rerank', method: 'POST' },
-  'image-generation': { path: '/v1/images/generations', method: 'POST' },
+  chat: { path: '/v1/chat/completions', method: 'POST', parameters: {} },
+  text_to_image: {
+    path: '/v1/images/generations',
+    method: 'POST',
+    parameters: {},
+  },
+  image_to_image: {
+    path: '/v1/images/edits',
+    method: 'POST',
+    parameters: {},
+  },
+  text_to_video: { path: '/v1/videos', method: 'POST', parameters: {} },
+  image_to_video: { path: '/v1/videos', method: 'POST', parameters: {} },
+  embeddings: { path: '/v1/embeddings', method: 'POST', parameters: {} },
 };
 
 const CAPABILITY_ENDPOINT_TEMPLATE = {
@@ -62,7 +69,8 @@ const CAPABILITY_ENDPOINT_TEMPLATE = {
   text_to_speech: { path: '/v1/audio/speech', method: 'POST' },
   audio_translation: { path: '/v1/audio/translations', method: 'POST' },
   embeddings: { path: '/v1/embeddings', method: 'POST' },
-  video_generation: { path: '/v1/videos/generations', method: 'POST' },
+  text_to_video: { path: '/v1/videos', method: 'POST' },
+  image_to_video: { path: '/v1/videos', method: 'POST' },
   rerank: { path: '/v1/rerank', method: 'POST' },
   music_generation: { path: '/suno/submit/MUSIC', method: 'POST' },
   realtime: { path: '/v1/realtime', method: 'GET' },
@@ -584,7 +592,7 @@ const EditModelModal = (props) => {
                       field='endpoints'
                       label={t('在模型广场向用户展示的端点')}
                       placeholder={
-                        '{\n  "openai": {"path": "/v1/chat/completions", "method": "POST"}\n}'
+                        '{\n  "text_to_video": {\n    "path": "/v1/videos",\n    "method": "POST",\n    "parameters": {}\n  }\n}'
                       }
                       value={values.endpoints}
                       onChange={(val) =>
@@ -594,10 +602,12 @@ const EditModelModal = (props) => {
                         )
                       }
                       formApi={formApiRef.current}
-                      editorType='object'
+                      editorType='endpointSchema'
                       template={ENDPOINT_TEMPLATE}
                       templateLabel={t('填入模板')}
-                      extraText={t('留空则使用默认端点；支持 {path, method}')}
+                      extraText={t(
+                        '留空则使用默认端点；支持 path、method、parameters',
+                      )}
                       extraFooter={
                         endpointGroups.length > 0 && (
                           <Space wrap>

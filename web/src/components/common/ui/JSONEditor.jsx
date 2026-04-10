@@ -132,6 +132,7 @@ const JSONEditor = ({
   });
 
   const [jsonError, setJsonError] = useState('');
+  const [parameterDrafts, setParameterDrafts] = useState({});
 
   // 计算重复的键
   const duplicateKeys = useMemo(() => {
@@ -310,6 +311,29 @@ const JSONEditor = ({
       handleVisualChange(newPairs);
     },
     [keyValuePairs, handleVisualChange],
+  );
+
+  const updateEndpointField = useCallback(
+    (id, fieldName, fieldValue) => {
+      const newPairs = keyValuePairs.map((pair) => {
+        if (pair.id !== id) {
+          return pair;
+        }
+        const currentValue =
+          pair.value && typeof pair.value === 'object' && !Array.isArray(pair.value)
+            ? pair.value
+            : {};
+        return {
+          ...pair,
+          value: {
+            ...currentValue,
+            [fieldName]: fieldValue,
+          },
+        };
+      });
+      handleVisualChange(newPairs);
+    },
+    [handleVisualChange, keyValuePairs],
   );
 
   // 填入模板
@@ -612,9 +636,160 @@ const JSONEditor = ({
     );
   };
 
+  const renderEndpointSchemaEditor = () => {
+    return (
+      <div className='space-y-2'>
+        {duplicateKeys.size > 0 && (
+          <Banner
+            type='warning'
+            icon={<IconAlertTriangle />}
+            description={
+              <div>
+                <Text strong>{t('存在重复的键名：')}</Text>
+                <Text>{Array.from(duplicateKeys).join(', ')}</Text>
+              </div>
+            }
+            className='mb-3'
+          />
+        )}
+
+        {keyValuePairs.length === 0 && (
+          <div className='text-center py-6 px-4'>
+            <Text type='tertiary' className='text-gray-500 text-sm'>
+              {t('暂无端点配置，点击下方按钮添加')}
+            </Text>
+          </div>
+        )}
+
+        {keyValuePairs.map((pair) => {
+          const endpointValue =
+            pair.value && typeof pair.value === 'object' && !Array.isArray(pair.value)
+              ? pair.value
+              : {};
+          const parameterText =
+            Object.prototype.hasOwnProperty.call(parameterDrafts, pair.id)
+              ? parameterDrafts[pair.id]
+              : JSON.stringify(endpointValue.parameters || {}, null, 2);
+
+          return (
+            <div key={pair.id} className='border rounded-xl p-3'>
+              <Row gutter={8} align='middle'>
+                <Col span={5}>
+                  <Input
+                    placeholder={t('端点类型')}
+                    value={pair.key}
+                    onChange={(newKey) => updateKey(pair.id, newKey)}
+                  />
+                </Col>
+                <Col span={9}>
+                  <Input
+                    placeholder={t('路径，如 /v1/videos')}
+                    value={endpointValue.path || ''}
+                    onChange={(newValue) =>
+                      updateEndpointField(pair.id, 'path', newValue)
+                    }
+                  />
+                </Col>
+                <Col span={4}>
+                  <Input
+                    placeholder='POST'
+                    value={endpointValue.method || 'POST'}
+                    onChange={(newValue) =>
+                      updateEndpointField(
+                        pair.id,
+                        'method',
+                        (newValue || 'POST').toUpperCase(),
+                      )
+                    }
+                  />
+                </Col>
+                <Col span={4}>
+                  <Button
+                    icon={<IconDelete />}
+                    type='danger'
+                    theme='borderless'
+                    onClick={() => removeKeyValue(pair.id)}
+                    style={{ width: '100%' }}
+                  />
+                </Col>
+              </Row>
+
+              <div className='mt-3'>
+                <Text type='secondary' size='small'>
+                  {t('parameters')}
+                </Text>
+                <TextArea
+                  rows={4}
+                  value={parameterText}
+                  placeholder={'{\n  "prompt": {\n    "required": true\n  }\n}'}
+                  onChange={(nextValue) => {
+                    setParameterDrafts((prev) => ({
+                      ...prev,
+                      [pair.id]: nextValue,
+                    }));
+                  }}
+                  onBlur={() => {
+                    const nextValue =
+                      parameterDrafts[pair.id] ??
+                      JSON.stringify(endpointValue.parameters || {}, null, 2);
+                    if (!nextValue.trim()) {
+                      updateEndpointField(pair.id, 'parameters', {});
+                      setParameterDrafts((prev) => ({
+                        ...prev,
+                        [pair.id]: '{}',
+                      }));
+                      setJsonError('');
+                      return;
+                    }
+                    try {
+                      const parsed = JSON.parse(nextValue);
+                      updateEndpointField(
+                        pair.id,
+                        'parameters',
+                        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                          ? parsed
+                          : {},
+                      );
+                      setJsonError('');
+                    } catch (error) {
+                      setJsonError(error.message);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        <div className='mt-2 flex justify-center'>
+          <Button
+            icon={<IconPlus />}
+            type='primary'
+            theme='outline'
+            onClick={() => {
+              const newPairs = [
+                ...keyValuePairs,
+                {
+                  id: generateUniqueId(),
+                  key: `endpoint_${keyValuePairs.length + 1}`,
+                  value: { path: '', method: 'POST', parameters: {} },
+                },
+              ];
+              handleVisualChange(newPairs);
+            }}
+          >
+            {t('添加键值对')}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // 渲染可视化编辑器
   const renderVisualEditor = () => {
     switch (editorType) {
+      case 'endpointSchema':
+        return renderEndpointSchemaEditor();
       case 'region':
         return renderRegionEditor();
       case 'object':

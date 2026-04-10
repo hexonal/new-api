@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 )
@@ -60,6 +60,15 @@ var (
 	modelSupportEndpointsLock = sync.RWMutex{}
 	modelCustomEndpointKeys   = make(map[string][]string)
 )
+
+func capabilityKeysFromMap(capabilities dto.CapabilityMap) []string {
+	endpointTypes := dto.SupportedEndpointTypes(capabilities)
+	keys := make([]string, 0, len(endpointTypes))
+	for _, endpointType := range endpointTypes {
+		keys = append(keys, string(endpointType))
+	}
+	return keys
+}
 
 func GetPricing() []Pricing {
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
@@ -217,51 +226,25 @@ func updatePricing() {
 
 	// 再补充模型自定义端点：若配置有效则替换默认端点，不做合并
 	for modelName, meta := range metaMap {
-		if strings.TrimSpace(meta.Endpoints) == "" {
-			continue
-		}
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
-			endpoints := make([]string, 0, len(raw))
-			for k, v := range raw {
-				switch v.(type) {
-				case string, map[string]interface{}:
-					if !common.StringsContains(endpoints, k) {
-						endpoints = append(endpoints, k)
-					}
-				}
-			}
-			if len(endpoints) > 0 {
-				modelSupportEndpointsStr[modelName] = endpoints
-			}
+		capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
+		if len(capabilities) > 0 {
+			modelSupportEndpointsStr[modelName] = capabilityKeysFromMap(capabilities)
 		}
 	}
 
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
 	modelCustomEndpointKeys = make(map[string][]string)
 	for model, endpoints := range modelSupportEndpointsStr {
-		supportedEndpoints := make([]constant.EndpointType, 0)
+		supportedEndpoints := make([]constant.EndpointType, 0, len(endpoints))
 		for _, endpointStr := range endpoints {
-			endpointType := constant.EndpointType(endpointStr)
-			supportedEndpoints = append(supportedEndpoints, endpointType)
+			supportedEndpoints = append(supportedEndpoints, constant.EndpointType(endpointStr))
 		}
-		modelSupportEndpointTypes[model] = supportedEndpoints
+		capabilities := dto.BuildCapabilityMapFromEndpointTypes(supportedEndpoints)
+		modelSupportEndpointTypes[model] = dto.SupportedEndpointTypes(capabilities)
 	}
 	for modelName, meta := range metaMap {
-		if strings.TrimSpace(meta.Endpoints) == "" {
-			continue
-		}
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err != nil {
-			continue
-		}
-		keys := make([]string, 0, len(raw))
-		for key, val := range raw {
-			switch val.(type) {
-			case string, map[string]interface{}:
-				keys = append(keys, key)
-			}
-		}
+		capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
+		keys := capabilityKeysFromMap(capabilities)
 		if len(keys) > 0 {
 			modelCustomEndpointKeys[modelName] = keys
 		}
@@ -281,27 +264,14 @@ func updatePricing() {
 	}
 	// 2. 自定义端点（models 表）覆盖默认
 	for _, meta := range metaMap {
-		if strings.TrimSpace(meta.Endpoints) == "" {
-			continue
-		}
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
-			for k, v := range raw {
-				switch val := v.(type) {
-				case string:
-					supportedEndpointMap[k] = common.EndpointInfo{Path: val, Method: "POST"}
-				case map[string]interface{}:
-					ep := common.EndpointInfo{Method: "POST"}
-					if p, ok := val["path"].(string); ok {
-						ep.Path = p
-					}
-					if m, ok := val["method"].(string); ok {
-						ep.Method = strings.ToUpper(m)
-					}
-					supportedEndpointMap[k] = ep
-				default:
-					// ignore unsupported types
-				}
+		capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
+		for capabilityKey, capability := range capabilities {
+			if capability.Endpoint == "" {
+				continue
+			}
+			supportedEndpointMap[capabilityKey] = common.EndpointInfo{
+				Path:   capability.Endpoint,
+				Method: "POST",
 			}
 		}
 	}

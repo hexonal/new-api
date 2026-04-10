@@ -38,9 +38,14 @@ export const MODEL_CAPABILITIES = [
   },
   { key: 'embeddings', label: '向量', endpointKey: 'embeddings' },
   {
-    key: 'video_generation',
-    label: '视频生成',
-    endpointKey: 'video_generation',
+    key: 'text_to_video',
+    label: '文生视频',
+    endpointKey: 'text_to_video',
+  },
+  {
+    key: 'image_to_video',
+    label: '图生视频',
+    endpointKey: 'image_to_video',
   },
   { key: 'rerank', label: '重排序', endpointKey: 'rerank' },
   {

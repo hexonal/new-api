@@ -1,11 +1,11 @@
 package model
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/model_capability"
 
 	"gorm.io/gorm"
 )
@@ -30,7 +30,6 @@ type Model struct {
 	Tags         string         `json:"tags,omitempty" gorm:"type:varchar(255)"`
 	VendorID     int            `json:"vendor_id,omitempty" gorm:"index"`
 	Endpoints    string         `json:"endpoints,omitempty" gorm:"type:text"`
-	Parameters   string         `json:"parameters,omitempty" gorm:"type:text"`
 	Status       int            `json:"status" gorm:"default:1"`
 	SyncOfficial int            `json:"sync_official" gorm:"default:1"`
 	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
@@ -46,14 +45,14 @@ type Model struct {
 	MatchedCount  int      `json:"matched_count,omitempty" gorm:"-"`
 }
 
-func (m *Model) GetParsedParameters() map[string]model_capability.ModelParameterDef {
-	if m == nil || strings.TrimSpace(m.Parameters) == "" {
-		return map[string]model_capability.ModelParameterDef{}
+func (m *Model) GetParsedEndpoints() map[string]json.RawMessage {
+	if m == nil || strings.TrimSpace(m.Endpoints) == "" {
+		return map[string]json.RawMessage{}
 	}
 
-	var parsed map[string]model_capability.ModelParameterDef
-	if err := common.Unmarshal([]byte(m.Parameters), &parsed); err != nil || parsed == nil {
-		return map[string]model_capability.ModelParameterDef{}
+	var parsed map[string]json.RawMessage
+	if err := common.Unmarshal([]byte(m.Endpoints), &parsed); err != nil || parsed == nil {
+		return map[string]json.RawMessage{}
 	}
 	return parsed
 }
@@ -92,7 +91,7 @@ func (mi *Model) Update() error {
 	mi.UpdatedTime = common.GetTimestamp()
 	// 使用 Select 强制更新所有字段，包括零值
 	return DB.Model(&Model{}).Where("id = ?", mi.Id).
-		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "parameters", "status", "sync_official", "name_rule", "updated_time").
+		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "updated_time").
 		Updates(mi).Error
 }
 

@@ -147,25 +147,21 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
-				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
-				customEndpointKeys := model.GetModelCustomEndpointKeys(allowModel)
-				oaiModel.SupportedEndpointTypes = endpointTypes
+				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
+				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
-				oaiModel.Capabilities = dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes)
-				oaiModel.Parameters = resolveModelParameters(allowModel)
+				oaiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
-				endpointTypes := model.GetModelSupportEndpointTypes(allowModel)
-				customEndpointKeys := model.GetModelCustomEndpointKeys(allowModel)
+				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     allowModel,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
-					SupportedEndpointTypes: endpointTypes,
+					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
-					Capabilities:           dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes),
-					Parameters:             resolveModelParameters(allowModel),
+					Capabilities:           dto.ToPublicCapabilityMap(capabilities),
 				})
 			}
 		}
@@ -205,25 +201,21 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
-				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
-				customEndpointKeys := model.GetModelCustomEndpointKeys(modelName)
-				oaiModel.SupportedEndpointTypes = endpointTypes
+				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
+				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
-				oaiModel.Capabilities = dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes)
-				oaiModel.Parameters = resolveModelParameters(modelName)
+				oaiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
-				endpointTypes := model.GetModelSupportEndpointTypes(modelName)
-				customEndpointKeys := model.GetModelCustomEndpointKeys(modelName)
+				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     modelName,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
-					SupportedEndpointTypes: endpointTypes,
+					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
-					Capabilities:           dto.BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys, endpointTypes),
-					Parameters:             resolveModelParameters(modelName),
+					Capabilities:           dto.ToPublicCapabilityMap(capabilities),
 				})
 			}
 		}
@@ -272,18 +264,25 @@ func isModelReasoningEnabled(modelName string) bool {
 	return ok && v
 }
 
-func resolveModelParameters(modelName string) map[string]model_capability.ModelParameterDef {
-	params := model_capability.GetDefaultParameters(modelName)
+func resolveModelCapabilities(modelName string) ([]constant.EndpointType, dto.CapabilityMap) {
 	if model.DB == nil || modelName == "" {
-		return params
+		return []constant.EndpointType{}, dto.CapabilityMap{}
 	}
 
 	var meta model.Model
-	if err := model.DB.Select("parameters").Where("model_name = ?", modelName).First(&meta).Error; err != nil {
-		return params
+	if err := model.DB.Select("endpoints").Where("model_name = ?", modelName).First(&meta).Error; err != nil {
+		endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+		capabilities := dto.BuildCapabilityMapFromEndpointTypes(endpointTypes)
+		return dto.SupportedEndpointTypes(capabilities), capabilities
 	}
 
-	return model_capability.MergeParameters(params, meta.GetParsedParameters())
+	capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
+	if len(capabilities) == 0 {
+		endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+		capabilities = dto.BuildCapabilityMapFromEndpointTypes(endpointTypes)
+	}
+
+	return dto.SupportedEndpointTypes(capabilities), capabilities
 }
 
 func ChannelListModels(c *gin.Context) {
@@ -310,6 +309,10 @@ func EnabledListModels(c *gin.Context) {
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
 	if aiModel, ok := openAIModelsMap[modelId]; ok {
+		supportedEndpointTypes, capabilities := resolveModelCapabilities(modelId)
+		aiModel.SupportedEndpointTypes = supportedEndpointTypes
+		aiModel.Capabilities = dto.ToPublicCapabilityMap(capabilities)
+		aiModel.Reasoning = isModelReasoningEnabled(modelId)
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{
@@ -321,6 +324,21 @@ func RetrieveModel(c *gin.Context, modelType int) {
 		default:
 			c.JSON(200, aiModel)
 		}
+		return
+	}
+
+	var meta model.Model
+	if model.DB != nil && model.DB.Select("model_name").Where("model_name = ?", modelId).First(&meta).Error == nil {
+		supportedEndpointTypes, capabilities := resolveModelCapabilities(modelId)
+		c.JSON(200, dto.OpenAIModels{
+			Id:                     modelId,
+			Object:                 "model",
+			Created:                1626777600,
+			OwnedBy:                "custom",
+			SupportedEndpointTypes: supportedEndpointTypes,
+			Reasoning:              isModelReasoningEnabled(modelId),
+			Capabilities:           dto.ToPublicCapabilityMap(capabilities),
+		})
 	} else {
 		openAIError := types.OpenAIError{
 			Message: fmt.Sprintf("The model '%s' does not exist", modelId),
