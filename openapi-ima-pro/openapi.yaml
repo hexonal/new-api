@@ -2009,7 +2009,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImaProGetResponse'
+                $ref: '#/components/schemas/VideoTaskResponse'
         '401':
           description: 鉴权失败
           content:
@@ -2106,7 +2106,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImaProGetResponse'
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                processing:
+                  summary: 处理中
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: pixverse-c1
+                    status: in_progress
+                    progress: 50
+                    created_at: 1712345678
+                completed:
+                  summary: 完成
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: pixverse-c1
+                    status: completed
+                    progress: 100
+                    created_at: 1712345678
+                    completed_at: 1712345778
+                    metadata:
+                      url: https://cdn.example.com/video.mp4
         '401':
           description: 鉴权失败
           content:
@@ -2229,7 +2253,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImaProGetResponse'
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                processing:
+                  summary: 处理中
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: MiniMax-Hailuo-2.3
+                    status: in_progress
+                    progress: 30
+                    created_at: 1712345678
+                completed:
+                  summary: 完成
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: MiniMax-Hailuo-2.3
+                    status: completed
+                    progress: 100
+                    created_at: 1712345678
+                    completed_at: 1712345778
+                    metadata:
+                      url: https://cdn.example.com/video.mp4
         '401':
           description: 鉴权失败
           content:
@@ -3842,6 +3890,54 @@ components:
             img_id:
               type: string
               description: PixVerse 已上传的图片 ID
+    PixVerseVideoRequest:
+      type: object
+      required:
+      - model
+      - prompt
+      properties:
+        model:
+          type: string
+          enum:
+          - pixverse-c1
+          - pixverse-v6
+          description: PixVerse 视频模型。
+        prompt:
+          type: string
+          description: 视频描述提示词（必填）。
+        duration:
+          type: integer
+          default: 5
+          description: 视频时长（秒），默认 5。
+        quality:
+          type: string
+          enum:
+          - 360p
+          - 540p
+          - 720p
+          - 1080p
+          default: 720p
+          description: 分辨率，默认 `720p`。
+        size:
+          type: string
+          default: '16:9'
+          description: 宽高比，如 `16:9`、`9:16`、`1:1`。
+        negative_prompt:
+          type: string
+          description: 反向提示词（可选）。
+        metadata:
+          type: object
+          description: 扩展参数。
+          properties:
+            img_id:
+              type: integer
+              description: 图生视频时传已上传的图片 ID。
+            negative_prompt:
+              type: string
+              description: 反向提示词。
+            motion_mode:
+              type: string
+              description: 运动模式。
     KlingVideoRequest:
       type: object
       required:
