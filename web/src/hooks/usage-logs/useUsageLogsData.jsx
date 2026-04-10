@@ -864,6 +864,13 @@ export const useLogsData = () => {
               other?.group_ratio,
               t,
             );
+            // Extract OtherRatios from log data (e.g. seconds, duration, quality, resolution)
+            const otherRatioKeys = Object.keys(other || {}).filter(
+              (k) =>
+                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
+                Number(other[k]) !== 1 &&
+                Number.isFinite(Number(other[k])),
+            );
             content = (
               <article>
                 <p>{t('延迟结算（提交阶段）')}</p>
@@ -875,6 +882,14 @@ export const useLogsData = () => {
                   </p>
                 )}
                 {pendingFormula && <p>{pendingFormula}</p>}
+                {otherRatioKeys.length > 0 && (
+                  <p>
+                    {t('计算参数')}：
+                    {otherRatioKeys
+                      .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
+                      .join(', ')}
+                  </p>
+                )}
                 <p>
                   {t('结算状态：{{state}}', {
                     state: other?.terminal_charge_state || 'pending',
