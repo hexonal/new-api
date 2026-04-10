@@ -847,23 +847,15 @@ export const getLogsColumns = ({
             </Tooltip>
           );
         }
-        // Deferred settle pending: show estimated quota with "预估" label
+        // Deferred settle pending: clearly show not yet charged
         if (other?.deferred_settle && other?.terminal_charge_state === 'pending') {
           const est = toTokenNumber(other?.estimated_quota);
-          if (est > 0) {
-            return (
-              <Tooltip content={t('延迟结算，未实际扣费，预估金额仅供参考')}>
-                <span style={{ color: 'var(--semi-color-text-2)' }}>
-                  ~{renderQuota(est, 6)}
-                </span>
-              </Tooltip>
-            );
-          }
+          const tip = est > 0
+            ? t('未实际扣费，预估 {{cost}}，以任务完成后结算为准', { cost: renderQuota(est, 6) })
+            : t('未实际扣费，等待任务完成后结算');
           return (
-            <Tooltip content={t('延迟结算，等待任务完成后结算')}>
-              <span style={{ color: 'var(--semi-color-text-2)' }}>
-                {t('待结算')}
-              </span>
+            <Tooltip content={tip}>
+              <Tag color='orange' size='small'>{t('待结算')}</Tag>
             </Tooltip>
           );
         }
