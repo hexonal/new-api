@@ -266,12 +266,12 @@ func updatePricing() {
 	for _, meta := range metaMap {
 		capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
 		for capabilityKey, capability := range capabilities {
-			if capability.Endpoint == "" {
+			if capability.Path == "" {
 				continue
 			}
 			supportedEndpointMap[capabilityKey] = common.EndpointInfo{
-				Path:   capability.Endpoint,
-				Method: "POST",
+				Path:   capability.Path,
+				Method: capability.Method,
 			}
 		}
 	}

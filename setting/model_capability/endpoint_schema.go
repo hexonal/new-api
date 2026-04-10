@@ -31,7 +31,6 @@ type EndpointParameterDef struct {
 
 type ModelEndpointSchema struct {
 	Supported     bool                            `json:"supported"`
-	Endpoint      string                          `json:"endpoint"`
 	RequestFormat string                          `json:"request_format"`
 	SDKMethod     string                          `json:"sdk_method"`
 	Parameters    map[string]EndpointParameterDef `json:"parameters"`
