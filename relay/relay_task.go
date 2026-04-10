@@ -285,11 +285,22 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 6. 将 OtherRatios 应用到基础额度
-	if !perCallBilling {
+	// Per-call 模式默认跳过 OtherRatios（固定价格不应被乘数修改）。
+	// 需要 per-call 也应用乘数的 adaptor（如 Kling 按时长/品质调价）
+	// 须实现 PerCallRatiosEnabled() bool 接口显式 opt-in。
+	applyRatios := !perCallBilling
+	if perCallBilling {
+		if opt, ok := adaptor.(interface{ PerCallRatiosEnabled() bool }); ok {
+			applyRatios = opt.PerCallRatiosEnabled()
+		}
+	}
+	if applyRatios && len(info.PriceData.OtherRatios) > 0 {
+		combined := 1.0
 		for _, ra := range info.PriceData.OtherRatios {
-			if ra != 1.0 {
-				info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
-			}
+			combined *= ra
+		}
+		if combined != 1.0 {
+			info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
 		}
 	}
 
