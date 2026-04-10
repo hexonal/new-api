@@ -78,6 +78,35 @@ type TaskAdaptor struct {
 	baseURL     string
 }
 
+// AdjustBillingOnComplete converts Vidu credits to internal quota for deferred settlement.
+// 1 credit = $0.005 = 2500 quota (500000 quota = $1).
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	if task == nil || len(task.Data) == 0 {
+		return 0
+	}
+
+	var resp taskResultResponse
+	if err := common.Unmarshal(task.Data, &resp); err != nil {
+		return 0
+	}
+
+	credits := resp.Credits
+	if credits <= 0 {
+		return 0
+	}
+
+	// 1 credit = $0.005 → 2500 internal quota units
+	baseQuota := credits * 2500
+
+	// Apply group ratio from billing context
+	groupRatio := 1.0
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.GroupRatio > 0 {
+		groupRatio = bc.GroupRatio
+	}
+
+	return int(float64(baseQuota) * groupRatio)
+}
+
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
 	a.baseURL = info.ChannelBaseUrl
@@ -259,6 +288,11 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskInfo.Status = model.TaskStatusSuccess
 		if len(taskResp.Creations) > 0 {
 			taskInfo.Url = taskResp.Creations[0].URL
+		}
+		// Store credits for deferred settlement (used by AdjustBillingOnComplete
+		// as primary, and as TotalTokens fallback for token-based recalculation).
+		if taskResp.Credits > 0 {
+			taskInfo.TotalTokens = taskResp.Credits
 		}
 	case "failed":
 		taskInfo.Status = model.TaskStatusFailure

@@ -41,6 +41,14 @@ var taskDeferredSettleModels = map[string]struct{}{
 	"ima-pro-fast":                   {},
 	"gemini-3-pro-image-preview":     {},
 	"gemini-3.1-flash-image-preview": {},
+	"viduq1":                         {},
+	"viduq2":                         {},
+	"viduq2-pro":                     {},
+	"viduq2-turbo":                   {},
+	"viduq3-pro":                     {},
+	"viduq3-turbo":                   {},
+	"vidu1.5":                        {},
+	"vidu2.0":                        {},
 }
 
 func isDeferredSettleTaskModel(modelName string) bool {
