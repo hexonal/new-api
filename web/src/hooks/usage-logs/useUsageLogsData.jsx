@@ -834,78 +834,106 @@ export const useLogsData = () => {
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
             const billedQuota = Number(other?.actual_quota || logs[i]?.quota || 0);
-            const deferredPromptTokens =
-              toPositiveNumber(logs[i]?.prompt_tokens) > 0
-                ? toPositiveNumber(logs[i]?.prompt_tokens)
-                : toPositiveNumber(other?.task_prompt_tokens);
-            const deferredCompletionTokens =
-              toPositiveNumber(logs[i]?.completion_tokens) > 0
-                ? toPositiveNumber(logs[i]?.completion_tokens)
-                : toPositiveNumber(other?.task_completion_tokens);
-            const totalTokens = resolveDeferredTotalTokens(
-              logs[i],
-              other,
-              deferredPromptTokens,
-              deferredCompletionTokens,
-            );
-            const billingProcess = renderLogContent(
-              other?.model_ratio,
-              other?.completion_ratio,
-              other?.model_price,
-              other?.group_ratio,
-              other?.user_group_ratio,
-              other?.cache_ratio || 1.0,
-              false,
-              1.0,
-              false,
-              0,
-              false,
-              0,
-              billingDisplayMode,
-              other?.group_ratio_source,
-            );
-            // Gemini image-preview models bill thought tokens at text-output
-            // rate (6.0) instead of image-output rate (60.0).
-            const modelName = logs[i]?.model_name || '';
-            const isGeminiImagePreview =
-              modelName.includes('image-preview') || modelName.includes('image_preview');
-            const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
-            const forcedFormula = buildDeferredTokenFormula(
-              deferredPromptTokens,
-              deferredCompletionTokens,
-              other?.cache_tokens || 0,
-              other?.model_ratio,
-              other?.completion_ratio,
-              other?.cache_ratio || 1.0,
-              other?.group_ratio,
-              t,
-              totalTokens,
-              thoughtRatio,
-            );
-            content = (
-              <article>
-                <p>
-                  {t('终态重算扣费：{{cost}}', {
-                    cost: renderQuota(billedQuota, 6),
-                  })}
-                </p>
-                {billingProcess}
-                {forcedFormula && <p>{forcedFormula}</p>}
-                <p>
-                  {t('结算原因：{{reason}}', {
-                    reason: other?.terminal_charge_reason || logs[i].content || '-',
-                  })}
-                </p>
-                {totalTokens > 0 && (
+            const reason = other?.terminal_charge_reason || logs[i].content || '-';
+            const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
+
+            if (isAdaptorAdjust) {
+              // Adaptor-based settlement (e.g. Vidu credits): no token formula,
+              // show actual charge directly.
+              const groupRatio = Number(other?.group_ratio);
+              content = (
+                <article>
                   <p>
-                    {t('任务总 Tokens：{{tokens}}', {
-                      tokens: renderNumber(totalTokens),
+                    {t('终态重算扣费：{{cost}}', {
+                      cost: renderQuota(billedQuota, 6),
                     })}
                   </p>
-                )}
-                <p>{t('仅供参考，以实际扣费为准')}</p>
-              </article>
-            );
+                  <p>
+                    {t('结算方式：上游实际消耗结算')}
+                  </p>
+                  {Number.isFinite(groupRatio) && groupRatio !== 1 && (
+                    <p>
+                      {t('分组倍率（模型覆盖）：{{ratio}}', {
+                        ratio: groupRatio.toFixed(4),
+                      })}
+                    </p>
+                  )}
+                  <p>
+                    {t('结算原因：{{reason}}', { reason })}
+                  </p>
+                </article>
+              );
+            } else {
+              // Token-based recalculation: show full token formula
+              const deferredPromptTokens =
+                toPositiveNumber(logs[i]?.prompt_tokens) > 0
+                  ? toPositiveNumber(logs[i]?.prompt_tokens)
+                  : toPositiveNumber(other?.task_prompt_tokens);
+              const deferredCompletionTokens =
+                toPositiveNumber(logs[i]?.completion_tokens) > 0
+                  ? toPositiveNumber(logs[i]?.completion_tokens)
+                  : toPositiveNumber(other?.task_completion_tokens);
+              const totalTokens = resolveDeferredTotalTokens(
+                logs[i],
+                other,
+                deferredPromptTokens,
+                deferredCompletionTokens,
+              );
+              const billingProcess = renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+              );
+              const modelName = logs[i]?.model_name || '';
+              const isGeminiImagePreview =
+                modelName.includes('image-preview') || modelName.includes('image_preview');
+              const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
+              const forcedFormula = buildDeferredTokenFormula(
+                deferredPromptTokens,
+                deferredCompletionTokens,
+                other?.cache_tokens || 0,
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.cache_ratio || 1.0,
+                other?.group_ratio,
+                t,
+                totalTokens,
+                thoughtRatio,
+              );
+              content = (
+                <article>
+                  <p>
+                    {t('终态重算扣费：{{cost}}', {
+                      cost: renderQuota(billedQuota, 6),
+                    })}
+                  </p>
+                  {billingProcess}
+                  {forcedFormula && <p>{forcedFormula}</p>}
+                  <p>
+                    {t('结算原因：{{reason}}', { reason })}
+                  </p>
+                  {totalTokens > 0 && (
+                    <p>
+                      {t('任务总 Tokens：{{tokens}}', {
+                        tokens: renderNumber(totalTokens),
+                      })}
+                    </p>
+                  )}
+                  <p>{t('仅供参考，以实际扣费为准')}</p>
+                </article>
+              );
+            }
           } else if (isDeferredSettlePendingLog(logs[i], other)) {
             const pendingFormula = buildDeferredPendingFormula(
               other?.estimated_quota,
