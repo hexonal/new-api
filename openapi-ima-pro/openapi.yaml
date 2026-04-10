@@ -29,6 +29,7 @@ tags:
 - name: MiniMax 视频
 - name: Kling 视频
 - name: PixVerse 视频
+- name: Vidu 视频
 - name: Gemini Image
 - name: Midjourney
 - name: 人像
@@ -2139,6 +2140,213 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-apifox-folder: PixVerse 视频
       x-apifox-status: released
+  /v1/video/generations#vidu:
+    post:
+      tags:
+      - Vidu 视频
+      summary: 提交 Vidu 视频任务
+      operationId: createViduVideoTask
+      description: "Vidu 视频生成端点（异步任务制，延迟结算）。提交后返回 `task_id`，通过 `GET /v1/video/generations/{task_id}` 轮询结果。\n\n\
+        **可用端点（二选一，参数格式相同）：**\n\
+        | 端点 | 说明 |\n\
+        |------|------|\n\
+        | `POST /v1/video/generations` | 通用视频端点 |\n\
+        | `POST /v1/videos` | OpenAI 兼容端点 |\n\n\
+        **支持模型：**\n\
+        - `viduq1`（固定 1080P/5s）\n\
+        - `viduq2`（文生视频，支持 540P~1080P）\n\
+        - `viduq2-pro`（仅图生视频，支持 540P~1080P）\n\
+        - `viduq2-turbo`（仅图生视频，支持 540P~1080P）\n\
+        - `viduq3-pro`（文生视频/图生视频，按秒计费，支持 540P~1080P）\n\
+        - `viduq3-turbo`（文生视频/图生视频，按秒计费，支持 540P~1080P）\n\n\
+        **参数说明：**\n\
+        - `prompt`：文生视频时必填。\n\
+        - `images`：图生视频时传图片 URL 数组。单图=参考图，双图=首尾帧。\n\
+        - `duration`：时长（秒），默认 5。viduq1 固定 5s。viduq3 支持 1~16s。\n\
+        - `size`：宽高比，如 `16:9`（默认）、`9:16`、`1:1`。\n\
+        - `metadata.resolution`：分辨率，`540p`、`720p`、`1080p`（默认）。\n\n\
+        **计费说明：**\n\
+        - 延迟结算模式：提交时不扣费，任务完成后按上游实际消耗的 credits 精确结算。\n\
+        - 1 credit = $0.005。\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ViduVideoRequest'
+            examples:
+              viduq1_text2video:
+                summary: viduq1 文生视频（1080P/5s）
+                value:
+                  model: viduq1
+                  prompt: A golden retriever running on a sunny beach with waves crashing in the background
+              viduq2_text2video_720p:
+                summary: viduq2 文生视频（720P/5s）
+                value:
+                  model: viduq2
+                  prompt: A cinematic drone shot above a quiet lake at sunrise
+                  duration: 5
+                  metadata:
+                    resolution: 720p
+              viduq2_text2video_1080p:
+                summary: viduq2 文生视频（1080P/8s）
+                value:
+                  model: viduq2
+                  prompt: A time-lapse of clouds moving over a mountain landscape
+                  duration: 8
+                  metadata:
+                    resolution: 1080p
+              viduq2pro_img2video:
+                summary: viduq2-pro 图生视频（单图参考）
+                value:
+                  model: viduq2-pro
+                  prompt: The person slowly turns and smiles
+                  images:
+                  - https://example.com/reference.jpg
+                  duration: 5
+              viduq2pro_img2video_headtail:
+                summary: viduq2-pro 首尾帧图生视频（双图）
+                value:
+                  model: viduq2-pro
+                  prompt: Smooth transition from day to night
+                  images:
+                  - https://example.com/first_frame.jpg
+                  - https://example.com/last_frame.jpg
+                  duration: 5
+              viduq3pro_text2video:
+                summary: viduq3-pro 文生视频（720P/10s）
+                value:
+                  model: viduq3-pro
+                  prompt: A cat playing with a ball of yarn in a cozy room with warm lighting
+                  duration: 10
+                  metadata:
+                    resolution: 720p
+              viduq3turbo_text2video:
+                summary: viduq3-turbo 文生视频（1080P/5s）
+                value:
+                  model: viduq3-turbo
+                  prompt: Aerial view of a city skyline at sunset
+                  duration: 5
+                  metadata:
+                    resolution: 1080p
+              viduq3pro_img2video:
+                summary: viduq3-pro 图生视频
+                value:
+                  model: viduq3-pro
+                  prompt: The flowers gently sway in the breeze
+                  images:
+                  - https://example.com/garden.jpg
+                  duration: 8
+                  metadata:
+                    resolution: 720p
+      responses:
+        '200':
+          description: 任务提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                success:
+                  summary: 提交成功
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: viduq3-pro
+                    status: ''
+                    progress: 0
+                    created_at: 1712345678
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                model_not_supported:
+                  summary: 仅图生视频模型发送纯文本
+                  value:
+                    error:
+                      code: ''
+                      message: model viduq2-pro only supports image-to-video, please provide images
+                      type: new_api_error
+      x-apifox-folder: Vidu 视频
+      x-apifox-status: released
+  /v1/video/generations/{task_id}#vidu:
+    get:
+      tags:
+      - Vidu 视频
+      summary: 查询 Vidu 视频任务状态
+      operationId: getViduVideoTaskStatus
+      description: "使用提交接口返回的 `task_id` 轮询任务结果。\n\n\
+        也可通过 `GET /v1/videos/{task_id}` 查询。\n\n\
+        当 `status` 为 `completed` 时，`metadata.url` 包含视频下载链接。\n"
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 创建任务时返回的任务 ID。
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                processing:
+                  summary: 处理中
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: viduq3-pro
+                    status: in_progress
+                    progress: 45
+                    created_at: 1712345678
+                completed:
+                  summary: 完成
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: viduq3-pro
+                    status: completed
+                    progress: 100
+                    created_at: 1712345678
+                    completed_at: 1712345778
+                    metadata:
+                      url: https://video.cf.vidu.com/example/video.mp4
+                failed:
+                  summary: 失败
+                  value:
+                    id: task_xxxxxxxxxxxxx
+                    task_id: task_xxxxxxxxxxxxx
+                    object: video
+                    model: viduq3-pro
+                    status: failed
+                    progress: 0
+                    created_at: 1712345678
+                    error:
+                      message: content moderation failed
+                      code: MODERATION_FAILED
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Vidu 视频
+      x-apifox-status: released
   /v1/video/generations:
     post:
       tags:
@@ -3890,6 +4098,61 @@ components:
             img_id:
               type: string
               description: PixVerse 已上传的图片 ID
+    ViduVideoRequest:
+      type: object
+      required:
+      - model
+      properties:
+        model:
+          type: string
+          enum:
+          - viduq1
+          - viduq2
+          - viduq2-pro
+          - viduq2-turbo
+          - viduq3-pro
+          - viduq3-turbo
+          description: "Vidu 视频模型。\n\
+            - `viduq1`：固定 1080P/5s\n\
+            - `viduq2`：文生视频\n\
+            - `viduq2-pro`：仅图生视频\n\
+            - `viduq2-turbo`：仅图生视频\n\
+            - `viduq3-pro`：文生/图生视频，按秒计费\n\
+            - `viduq3-turbo`：文生/图生视频，按秒计费"
+        prompt:
+          type: string
+          description: 视频描述提示词。文生视频时必填，图生视频时可选。
+        images:
+          type: array
+          items:
+            type: string
+          description: "图生视频的参考图片 URL 数组。\n\
+            - 单图：参考图生视频\n\
+            - 双图：首尾帧生视频（第一张=首帧，第二张=尾帧）\n\
+            - `viduq2-pro`、`viduq2-turbo` 仅支持图生视频（必须传 images）"
+        duration:
+          type: integer
+          default: 5
+          description: "视频时长（秒）。\n\
+            - `viduq1`：固定 5s\n\
+            - `viduq2` 系列：支持 4~8s\n\
+            - `viduq3` 系列：支持 1~16s"
+        size:
+          type: string
+          default: '16:9'
+          description: 宽高比，如 `16:9`（默认）、`9:16`、`1:1`。
+        metadata:
+          type: object
+          description: 扩展参数。
+          properties:
+            resolution:
+              type: string
+              enum:
+              - 540p
+              - 720p
+              - 1080p
+              default: 1080p
+              description: 分辨率，默认 `1080p`。
     PixVerseVideoRequest:
       type: object
       required:
