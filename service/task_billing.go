@@ -502,6 +502,23 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		// Adaptor-based settlement (e.g. Vidu credits): clear model_price
 		// to prevent frontend from showing misleading per-call format.
 		other["model_price"] = float64(-1)
+		other["settlement_type"] = "adaptor"
+		// Try to extract upstream credits from task data for billing display.
+		// Only for known credits-based channels (Vidu = type 52).
+		if len(task.Data) > 0 && task.ChannelId > 0 {
+			ch, chErr := model.GetChannelById(task.ChannelId, false)
+			if chErr == nil && ch != nil && ch.Type == constant.ChannelTypeVidu {
+				var dataMap map[string]any
+				if err := common.Unmarshal(task.Data, &dataMap); err == nil {
+					if credits, ok := dataMap["credits"]; ok {
+						if c, isNum := credits.(float64); isNum && c > 0 {
+							other["upstream_credits"] = int(c)
+							other["settlement_type"] = "credits"
+						}
+					}
+				}
+			}
+		}
 	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {

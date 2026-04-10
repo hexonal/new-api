@@ -636,23 +636,35 @@ export const useLogsData = () => {
           promptTokens,
           completionTokens,
         );
+        const isAdaptorAdjustLog = String(other?.terminal_charge_reason || '').includes('adaptor_adjust');
+        const isCreditSettlement = other?.settlement_type === 'credits';
+        const upstreamCredits = toPositiveNumber(other?.upstream_credits);
         const deferredBillingSummary = deferredTokenRecalculate
-          ? renderLogContent(
-              other?.model_ratio,
-              other?.completion_ratio,
-              other?.model_price,
-              other?.group_ratio,
-              other?.user_group_ratio,
-              other?.cache_ratio || 1.0,
-              false,
-              1.0,
-              false,
-              0,
-              false,
-              0,
-              billingDisplayMode,
-              other?.group_ratio_source,
-            )
+          ? isAdaptorAdjustLog
+            ? isCreditSettlement && upstreamCredits > 0
+              ? t('上游消耗 {{credits}} credits × 分组倍率 {{ratio}}', {
+                  credits: upstreamCredits,
+                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                })
+              : t('上游实际消耗结算，分组倍率(模型覆盖) {{ratio}}', {
+                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                })
+            : renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+              )
           : null;
         const deferredPromptTokens =
           toPositiveNumber(logs[i]?.prompt_tokens) > 0
@@ -838,9 +850,10 @@ export const useLogsData = () => {
             const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
 
             if (isAdaptorAdjust) {
-              // Adaptor-based settlement (e.g. Vidu credits): no token formula,
-              // show actual charge directly.
+              // Adaptor-based settlement: show actual charge as authoritative amount.
               const groupRatio = Number(other?.group_ratio);
+              const credits = toPositiveNumber(other?.upstream_credits);
+              const isCreditSettle = other?.settlement_type === 'credits';
               content = (
                 <article>
                   <p>
@@ -849,8 +862,15 @@ export const useLogsData = () => {
                     })}
                   </p>
                   <p>
-                    {t('结算方式：上游实际消耗结算')}
+                    {isCreditSettle
+                      ? t('结算方式：上游实际消耗结算（按 credits）')
+                      : t('结算方式：上游实际消耗结算')}
                   </p>
+                  {isCreditSettle && credits > 0 && (
+                    <p>
+                      {t('上游消耗：{{credits}} credits', { credits })}
+                    </p>
+                  )}
                   {Number.isFinite(groupRatio) && groupRatio !== 1 && (
                     <p>
                       {t('分组倍率（模型覆盖）：{{ratio}}', {
