@@ -1,0 +1,3864 @@
+openapi: 3.0.3
+info:
+  title: New API - IMA Pro（OpenAI 兼容）
+  version: 1.5.14
+  description: "IMA Pro 对外接口文档（严格对齐 New API 当前实现）。\n\n版本更新（1.5.14）：\n- `/v1/videos` 新增 Seedance 模型支持（同 Ima-Pro 端点）：\n  - `seedance-2.0`\n  - `seedance-2.0-fast`\n  - `seedance-2.0-cn`\n  - `seedance-2.0-fast-cn`\n\
+    - Asset 上传模型补充海外模型说明：\n  - `seedance-upload`（海外）\n\n版本更新（1.5.13）：\n- Asset 接口请求体新增 `model` 字段（支持按模型做权限/渠道映射）：\n  - `/v1/assets/group/create`\n  - `/v1/assets/group/list`\n  - `/v1/assets/create`\n \
+    \ - `/v1/assets/list`\n- 明确计费行为：\n  - 仅 `/v1/assets/create` 会触发扣费\n  - 扣费模型与请求体 `model` 一致（未传时默认 `ima-pro-upload`）\n\n版本更新（1.5.12）：\n- 新增“音乐版权风险规避”反例示例（C14）：\n  - 建议先禁用背景音乐（`metadata.audio=false`），避免潜在版权争议\n\
+    \  - 提示词约束“无字幕、无背景音乐，仅保留剧情人声/环境音效/动作音效”\n\n版本更新（1.5.11）：\n- 补充 `asset://` 素材协议示例（包含人像参考图场景）：\n  - `POST /v1/videos` 请求示例新增“文本 + 图片(公网 URL + asset://) + 视频 + 音频”案例\n  - 明确 `images` / `input_reference`\
+    \ 均支持 `asset://asset-xxxx` 与 `https://` URL\n\n版本更新（1.5.10）：\n- 明确 `/v1/videos` 仅用于视频任务：\n  - 仅支持：`ima-pro`、`ima-pro-fast`\n  - 图片模型（如 `gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview`）不支持该端点\n\
+    - 补充图片模型误用 `/v1/videos` 的 400 错误示例（`invalid_model_endpoint`）\n\n版本更新（1.5.9）：\n- 新增 Asset 对外端点文档：\n  - `/v1/assets/group/create|list|get|update`\n  - `/v1/assets/create|list|get|update|delete|quota`\n\
+    - 明确 Asset 排序参数为严格枚举：\n  - `sort_by`: `CreateTime|UpdateTime|GroupId`（资产列表）\n  - `sort_by`: `CreateTime|UpdateTime`（分组列表）\n  - `sort_order`: `Asc|Desc`\n- 明确计费行为：仅 `/v1/assets/create` 会触发 Asset 上传扣费。\n\
+    \n版本更新（1.5.8）：\n- 补充 `/settings` 参数语义验证案例（无独立 `/settings` 端点）：\n  - `SET-001`：仅 `x-youchuan-setting`\n  - `SET-002`：`x-youchuan-setting` + prompt 中显式 `--v`\n  - `SET-003`：仅 prompt 中显式 `--niji`\n- 补充\
+    \ `/mj/submit/change` 高级动作示例：`REROLL`、`ZOOM`、`CUSTOM_ZOOM`、`PAN`、`INPAINT`、`REMIX`\n\n版本更新（1.5.3）：\n- 补充 Midjourney 公开接口文档（`/mj/submit/imagine`、`/mj/submit/change`、`/mj/task/{task_id}/fetch`、`/mj/image/{task_id}`）\n\
+    - 保持 IMA OpenAI 兼容视频接口优先展示（`/v1/videos`、`/v1/videos/{task_id}`）\n- 明确 MJ 与 IMA 共用同一 SK 鉴权头（`Authorization: Bearer sk-...`）\n\n版本更新（1.5.4）：\n- `duration` 从枚举值调整为区间约束：`4-15` 秒（避免误导）\n- `seconds` 同步调整为字符串区间约束（`\"\
+    4\"` ~ `\"15\"`）\n\n版本更新（1.5.5）：\n- 补充 `x-youchuan-setting` 可选请求头说明（MJ 提交接口）\n- 明确“用户手动参数优先”规则：用户已写 `--v/--niji` 或已传 `x-youchuan-setting` 时，服务端不覆盖\n\n版本更新（1.5.6）：\n- 补充 Midjourney 参数别名说明：`--stylize/--s`、`--chaos/--c`、`--weird/--w`\n\
+    - 明确“多样化”对应混沌参数（`--chaos` / `--c`）\n\n版本更新（1.5.7）：\n- 将 Midjourney 参数能力前置到 `prompt` 字段描述，确保在端点参数详情页直接可见\n\n版本更新（1.5.2）：\n- 完成 OpenAI 兼容接口对齐更新（模型/渠道迁移后统一对外以 `/v1/videos` 与 `/v1/videos/{task_id}` 为准）\n\
+    - 补充 OpenAI 风格调用说明，明确请求头需传 `Authorization: Bearer sk-...`\n\n版本更新（1.5.1）：\n- 明确 OpenAI 兼容接口的 SK 鉴权传递方式（`Authorization: Bearer sk-...`）\n- 统一图片角色参数为 `metadata.role_mode`（`reference` / `frame`）\n- 补充\
+    \ 401 鉴权错误示例（未提供 token / token 不可用）\n\n对外公开端点：\n1. `POST /v1/videos`：创建异步视频任务\n2. `GET /v1/videos/{task_id}`：查询任务状态与结果\n3. `POST /mj/submit/imagine`：MJ 绘图提交\n4. `POST /mj/submit/blend`：MJ 融图提交\n5. `POST\
+    \ /mj/submit/change`：MJ 放大/变体\n6. `GET /mj/task/{task_id}/fetch`：MJ 任务查询\n7. `GET /mj/image/{task_id}`：MJ 首图代理\n\n重要说明：\n- 鉴权方式（必填）：`Authorization: Bearer sk-xxxx`\n- 示例：\n  - `Authorization: Bearer\
+    \ sk-xxxxxxxxxxxxxxxx`\n- 这是 New API 对外 OpenAI 风格接口，不是上游 `/api/v1/aigc/task/create` 原生接口。\n- IMA Pro 不对外暴露 `callback_url`，请通过轮询查询任务结果。\n- 兼容别名渠道说明：`ima-pro`、`ima-pro-fast` 为**海外渠道**历史别名（保留向后兼容）。\n- 内部租户与应用字段由服务端侧处理，不作为对外参数。\n- `user_id` 由服务端自动注入为当前调用 SK，不对外暴露。\n\
+    - `prompt` 规则：仅“文本”组合必填；其余 6 种组合为可选。\n- 图片角色映射规则（服务端行为）：\n  - 默认（`metadata.role_mode` 不传或 `reference`）：单图与多图均映射 `reference_image`\n  - 显式 `metadata.role_mode=frame`：启用首尾帧语义（单图=first_frame；双图=first_frame+last_frame）\n\
+    \  - `frame` 模式不能与 `reference_video_urls`/`reference_audio_urls` 混用\n- Midjourney `/settings` 说明：\n  - 不提供独立 `/settings` API。\n  - 通过 prompt 参数与请求头 `x-youchuan-setting` 表达设置语义。\n- 下述“组合逻辑”基于 New API\
+    \ 当前对外行为编写。\n"
+servers:
+- url: https://open-route.fashionlabs.cn/
+- url: https://api.imarouter.com/
+tags:
+- name: IMA-Pro 视频
+- name: MiniMax 视频
+- name: Gemini Image
+- name: Midjourney
+- name: 人像
+- name: Chat
+- name: Video
+security:
+- BearerAuth: []
+paths:
+  /v1/images/generations:
+    post:
+      tags:
+      - Gemini Image
+      summary: 生成图片
+      description: "OpenAI Images 兼容端点（当前按异步任务提交）。\n\n当前支持模型：\n- `gemini-3-pro-image-preview`\n- `gemini-3.1-flash-image-preview`\n- 不支持 `gemini-3-pro-preview`（text_to_text）\n\n参数说明（按上游 `gemini-3` 参数原名对齐）：\n\
+        - `prompt`：必填\n- `aspect_ratio`：可选\n- `size`：可选\n- `image` / `images`：可选（用于 image-to-image）\n- `image_to_image` 输入数量：`1~14`\n- `image_to_image` 文件类型：`jpg/png`\n- 参数处理规则（重要）：\n  - 图片模型请求仅使用上游图片参数：`prompt`、`image/images`、`aspect_ratio`、`size`\n\
+        \  - 不执行 `size -> resolution` 映射\n  - 不自动补 `duration`\n  - 不注入视频参数 `resolution`\n- 返回值中的 `id/task_id` 为任务 ID，需再调用 `GET /v1/images/generations/{task_id}` 轮询获取结果。\n"
+      operationId: createImageGenerationTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImaImageGenerationRequest'
+            examples:
+              gemini3_pro_text_to_image:
+                summary: gemini-3-pro-image-preview 文生图
+                value:
+                  model: gemini-3-pro-image-preview
+                  prompt: a futuristic city at sunset
+                  aspect_ratio: '16:9'
+                  size: 2K
+              gemini3_pro_single_image_to_image:
+                summary: gemini-3-pro-image-preview 单图生图（image）
+                value:
+                  model: gemini-3-pro-image-preview
+                  prompt: convert to cinematic film still style
+                  image: https://example.com/source.jpg
+                  aspect_ratio: '4:3'
+                  size: 1K
+              gemini3_pro_multi_image_to_image:
+                summary: gemini-3-pro-image-preview 多图生图（images）
+                value:
+                  model: gemini-3-pro-image-preview
+                  prompt: blend these references into one product poster
+                  images:
+                  - https://example.com/ref-1.jpg
+                  - https://example.com/ref-2.png
+                  aspect_ratio: '3:2'
+                  size: 4K
+              gemini31_flash_image_to_image:
+                summary: gemini-3.1-flash-image-preview 图生图
+                value:
+                  model: gemini-3.1-flash-image-preview
+                  prompt: turn this into watercolor style
+                  images:
+                  - https://example.com/input.jpg
+                  aspect_ratio: '1:1'
+                  size: 1K
+              gemini31_flash_text_to_image_512:
+                summary: gemini-3.1-flash-image-preview 文生图（512px）
+                value:
+                  model: gemini-3.1-flash-image-preview
+                  prompt: minimalist icon set for weather app
+                  aspect_ratio: '1:1'
+                  size: 512px
+      responses:
+        '200':
+          description: 提交成功（异步任务）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaImageCreateTaskResponse'
+              examples:
+                task_submitted:
+                  summary: 返回任务 ID（需继续轮询）
+                  value:
+                    id: task_202603200001
+                    task_id: task_202603200001
+                    object: image
+                    model: gemini-3.1-flash-image-preview
+                    status: queued
+                    progress: 0
+                    created_at: 1774000000
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Gemini Image
+  /v1/images/generations/{task_id}:
+    get:
+      tags:
+      - Gemini Image
+      summary: 查询图片任务状态与结果
+      description: '查询 `POST /v1/images/generations` 提交后的异步任务。
+
+        '
+      operationId: fetchImageGenerationTask
+      parameters:
+      - in: path
+        name: task_id
+        required: true
+        schema:
+          type: string
+        description: 提交创建接口返回的任务 ID。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaImageTaskFetchResponse'
+              examples:
+                pending:
+                  summary: 处理中
+                  value:
+                    code: success
+                    data:
+                      task_id: task_202603200001
+                      status: processing
+                      format: png
+                      url: ''
+                      usage:
+                        input_tokens: 9
+                        output_tokens: 0
+                        total_tokens: 9
+                      error: null
+                      metadata: null
+                success:
+                  summary: 成功
+                  value:
+                    code: success
+                    data:
+                      task_id: task_202603200001
+                      status: succeeded
+                      format: png
+                      url: https://cdn.example.com/gen/abc123.png
+                      usage:
+                        input_tokens: 9
+                        output_tokens: 1505
+                        total_tokens: 1514
+                      error: null
+                      metadata: null
+                failed:
+                  summary: 失败
+                  value:
+                    code: success
+                    data:
+                      task_id: task_202603200001
+                      status: failed
+                      format: png
+                      url: ''
+                      usage:
+                        input_tokens: 9
+                        output_tokens: 0
+                        total_tokens: 9
+                      error:
+                        message: upstream task failed
+                      metadata: null
+        '400':
+          description: 参数错误（如 task_id 不存在）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Gemini Image
+  /v1/videos:
+    post:
+      tags:
+      - IMA-Pro 视频
+      - MiniMax 视频
+      summary: 创建异步视频任务
+      description: '使用以下模型之一提交任务：
+
+        - `seedance-2.0`
+
+        - `seedance-2.0-fast`
+
+        - `seedance-2.0-cn`
+
+        - `seedance-2.0-fast-cn`
+
+        - `MiniMax-Hailuo-02`
+
+        - `MiniMax-Hailuo-2.3`
+
+        - `MiniMax-Hailuo-2.3-Fast`（仅图生视频，必须传 `metadata.first_frame_image`，且仅支持 `size=768p|1080p`）
+
+        - ~~`ima-pro`~~（海外渠道历史别名，已过期；向后兼容，请改用 `seedance-2.0` / `seedance-2.0-cn`）
+
+        - ~~`ima-pro-fast`~~（海外渠道历史别名，已过期；向后兼容，请改用 `seedance-2.0-fast` / `seedance-2.0-fast-cn`）
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+        端点约束：`/v1/videos` 为视频任务端点，不支持图片模型（例如 `gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview`）。
+
+
+        常用字段：
+
+        - 文本：`prompt`
+
+        - 图片：`images`（支持多图）
+
+        - 参考视频：`metadata.reference_video_urls`
+
+        - 参考音频：`metadata.reference_audio_urls`
+
+        - 音频开关：`metadata.audio`（版权风险场景建议先置为 `false`，即无背景音乐）
+
+        - MiniMax 首帧图：`metadata.first_frame_image`（`MiniMax-Hailuo-2.3-Fast` 必填）
+
+
+        组合逻辑（对齐 New API 当前行为）：
+
+        - 文本（`prompt` 必填）
+
+        - 文本 + 图片（`prompt` 可选）
+
+        - 文本 + 视频（`prompt` 可选）
+
+        - 文本 + 图片 + 音频（`prompt` 可选）
+
+        - 文本 + 图片 + 视频（`prompt` 可选）
+
+        - 文本 + 视频 + 音频（`prompt` 可选）
+
+        - 文本 + 图片 + 视频 + 音频（`prompt` 可选）
+
+
+        图片角色映射（重要）：
+
+        - 默认模式（`role_mode=reference`）：图片统一映射为 `reference_image`
+
+        - 帧模式（`role_mode=frame`）：单图映射 `first_frame`，双图映射 `first_frame + last_frame`
+
+        - 帧模式不能与 `reference_video_urls`/`reference_audio_urls` 同时使用
+
+
+        人物素材合规说明：
+
+        - 使用自有虚拟人物或真人素材时，仅限素人，不支持明星人物。
+
+        - 平台会对上传素材进行审核，以规避可能的法律风险。
+
+        - 已支持通过 `/v1/assets/create` 上传人物素材（创建素材）并进入审核流程。
+
+        - 建议流程：先调用 `/v1/assets/create` 上传并沉淀素材，再在 `/v1/videos` 请求中引用已审核素材。
+
+        - 上传后可调用 `/v1/assets/get` 轮询素材状态，一般 10s 内即可获取结果。
+
+        - 文档示例支持点击复制；复制后的请求体可直接交给 AI 自动识别并生成最终接入代码。
+
+        - 如需批量接入素材，请优先走素材库接口而非临时直链。
+
+
+        下方示例是请求体，不是返回体。
+
+        '
+      operationId: createImaProVideoTask
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+        example: Bearer sk-xxxxxxxxxxxxxxxx
+        description: '鉴权请求头，格式：`Bearer sk-...`。
+
+          '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/ImaProVideoCreateRequest'
+              - $ref: '#/components/schemas/MiniMaxVideosCreateRequest'
+            examples:
+              C01_text_fast:
+                summary: C01 文本（ima-pro-fast）
+                value:
+                  model: ima-pro-fast
+                  prompt: 清晨城市延时摄影，暖色调，电影感。
+                  duration: 5
+              C02_text_image_pro:
+                summary: C02 文本+图片(1图)（ima-pro）
+                value:
+                  model: ima-pro
+                  prompt: C02 单图基础示例（1图）
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    role_mode: reference
+              C03_single_image_ref_pro:
+                summary: C03 单图默认参考图（ima-pro）
+                description: 未传 `role_mode`，按默认 `reference_image` 处理。
+                value:
+                  model: ima-pro
+                  prompt: C03 单图默认参考图（1图）
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 5
+                  metadata:
+                    aspect_ratio: '9:16'
+                    role_mode: reference
+              C04_single_image_ref_fast:
+                summary: C04 单图显式首帧（ima-pro-fast）
+                description: '`role_mode=frame`，单图按 `first_frame` 处理。'
+                value:
+                  model: ima-pro-fast
+                  prompt: C04 单图显式首帧（1图，fast）
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 10
+                  metadata:
+                    role_mode: frame
+                    aspect_ratio: '21:9'
+              C05_two_images_ref_pro:
+                summary: C05 两图默认参考图（ima-pro）
+                description: '未传 `role_mode`，两图按 `reference_image + reference_image` 处理。
+
+                  '
+                value:
+                  model: ima-pro
+                  prompt: C05 两图默认参考图（2图）
+                  images:
+                  - https://dev-jiman.oss-cn-hangzhou.aliyuncs.com/jm/20260316/ac5fe9ec6640426bafd6200b254b4b5f.png
+                  - https://dev-jiman.oss-cn-hangzhou.aliyuncs.com/jm/20260316/321175f98af24025b835debeb18002cc.png
+                  duration: 5
+                  metadata:
+                    aspect_ratio: '16:9'
+                    role_mode: reference
+              C06_two_images_ref_fast:
+                summary: C06 两图显式首尾帧（ima-pro-fast）
+                description: '`role_mode=frame`，两图按 `first_frame + last_frame` 处理。
+
+                  '
+                value:
+                  model: ima-pro-fast
+                  prompt: C06 两图显式首尾帧（2图，fast）
+                  images:
+                  - https://dev-jiman.oss-cn-hangzhou.aliyuncs.com/jm/20260316/ac5fe9ec6640426bafd6200b254b4b5f.png
+                  - https://dev-jiman.oss-cn-hangzhou.aliyuncs.com/jm/20260316/321175f98af24025b835debeb18002cc.png
+                  duration: 15
+                  metadata:
+                    role_mode: frame
+                    aspect_ratio: '4:3'
+              C07_text_video_pro:
+                summary: C07 文本+视频（ima-pro）
+                value:
+                  model: ima-pro
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    reference_video_urls:
+                    - https://file.fashionlabs.cn/doc_video/r2v_tea_video1.mp4
+              C08_text_image_audio_pro:
+                summary: C08 文本+图片+音频（ima-pro）
+                value:
+                  model: ima-pro
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    reference_audio_urls:
+                    - https://file.fashionlabs.cn/doc_audio/r2v_tea_audio1.mp3
+              C09_text_image_video_pro:
+                summary: C09 文本+图片+视频（ima-pro）
+                value:
+                  model: ima-pro
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    reference_video_urls:
+                    - https://file.fashionlabs.cn/doc_video/r2v_tea_video1.mp4
+              C10_text_video_audio_pro:
+                summary: C10 文本+视频+音频（ima-pro）
+                value:
+                  model: ima-pro
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    reference_video_urls:
+                    - https://file.fashionlabs.cn/doc_video/r2v_tea_video1.mp4
+                    reference_audio_urls:
+                    - https://file.fashionlabs.cn/doc_audio/r2v_tea_audio1.mp3
+              C11_text_image_video_audio_pro:
+                summary: C11 文本+图片+视频+音频（ima-pro）
+                value:
+                  model: ima-pro
+                  images:
+                  - https://file.fashionlabs.cn/doc_image/r2v_tea_pic1.jpg
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    reference_video_urls:
+                    - https://file.fashionlabs.cn/doc_video/r2v_tea_video1.mp4
+                    reference_audio_urls:
+                    - https://file.fashionlabs.cn/doc_audio/r2v_tea_audio1.mp3
+              C12_text_portrait_video_audio_pro:
+                summary: C12 文本+人像+视频+音频（ima-pro）
+                description: '人像参考图场景示例：
+
+                  - 第一张为公网人像 URL
+
+                  - 第二张为素材库人像协议 `asset://asset-20260319150455-wmb65`
+
+                  - 参考音频使用 15 秒样例（上限 15 秒）
+
+                  - 参考视频最多 3 条，且总时长不超过 15 秒
+
+                  两张人像均按 `reference_image` 语义处理。
+
+                  '
+                value:
+                  model: ima-pro
+                  prompt: 15秒电影级环球旅行MV，两位主角全程面向镜头，丝滑转场串联多地标。
+                  images:
+                  - https://ima-ga.esxscloud.com/aiagent/src/d/20260209/in/1770621940910426538_0.png
+                  - asset://asset-20260319150455-wmb65
+                  duration: 15
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    role_mode: reference
+                    reference_video_urls:
+                    - https://file2.fashionlabs.cn/aiagent/src/d/20260319/in/ac45807a51f68c21556b7872827a4569.mp4
+                    reference_audio_urls:
+                    - https://file2.fashionlabs.cn/aiagent/src/d510cae243c24eafcfadf3a9e3b6c6ad_%5Bcut_15sec%5D.mp3
+              C13_ref_video_pixel_too_low_negative_case:
+                summary: C13 反例-参考视频像素不足（601300）
+                description: '该示例用于演示常见失败场景（参数错误）：
+
+                  - 参考视频画面像素（宽×高）必须在 `[409600,927408]` 范围内
+
+                  - 当参考视频像素低于 `409600`（例如低于 `640x640`）时，任务会失败并出现错误码 `601300`
+
+                  - 参考视频最多 3 条，且总时长 `<=15s`
+
+                  '
+                value:
+                  model: ima-pro
+                  prompt: 反例演示：参考视频像素不足会触发 601300
+                  images:
+                  - asset://asset-20260319150455-wmb65
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: true
+                    role_mode: reference
+                    reference_video_urls:
+                    - https://dev-jiman.oss-cn-hangzhou.aliyuncs.com/jm/20260323/6788a25956614761b77f99005080cbe0.mp4
+                    reference_audio_urls:
+                    - https://file2.fashionlabs.cn/aiagent/src/d510cae243c24eafcfadf3a9e3b6c6ad_%5Bcut_15sec%5D.mp3
+              C14_music_copyright_risk_no_bgm:
+                summary: C14 反例修正-音乐版权风险场景（先禁背景音乐）
+                description: '当素材/诉求可能触发音乐版权争议时，建议先用“无背景音乐”方案进行验证：
+
+                  - `metadata.audio=false`（先不加背景音乐）
+
+                  - 提示词明确“无字幕、无背景音乐”
+
+                  - 仅保留剧情人声、环境音效、动作音效
+
+                  '
+                value:
+                  model: ima-pro
+                  prompt: 全程无字幕、无背景音乐，仅保留三类清晰声音——剧情人声（清晰可辨，无杂音、无失真）、环境音效（贴合场景，自然不突兀）、动作音效（贴合人物细微动作，真实细腻）。
+                  images:
+                  - https://ark-project.tos-cn-beijing.volces.com/doc_image/r2v_tea_pic2.jpg
+                  duration: 10
+                  metadata:
+                    aspect_ratio: '16:9'
+                    audio: false
+              C15_minimax_fast_img2video:
+                summary: C15 MiniMax-Hailuo-2.3-Fast 图生视频（openai-videos）
+                value:
+                  model: MiniMax-Hailuo-2.3-Fast
+                  prompt: A gentle camera movement over a cup of tea
+                  duration: 6
+                  size: 1080p
+                  metadata:
+                    first_frame_image: https://ark-project.tos-cn-beijing.volces.com/doc_image/r2v_tea_pic2.jpg
+              C16_minimax_hailuo_02:
+                summary: C16 MiniMax-Hailuo-02 文生视频（openai-videos）
+                value:
+                  model: MiniMax-Hailuo-02
+                  prompt: A cinematic drone shot above a quiet lake at sunrise
+                  duration: 6
+                  size: 1080p
+              C17_minimax_hailuo_23:
+                summary: C17 MiniMax-Hailuo-2.3 文生视频（openai-videos）
+                value:
+                  model: MiniMax-Hailuo-2.3
+                  prompt: A cinematic drone shot above a quiet lake at sunrise
+                  duration: 6
+                  size: 1080p
+      responses:
+        '200':
+          description: 任务提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaProCreateResponse'
+              examples:
+                创建成功:
+                  value:
+                    id: task_202603131631387ETKUBM91MTD72X9
+                    task_id: task_202603131631387ETKUBM91MTD72X9
+                    object: video
+                    model: ima-pro
+                    status: ''
+                    progress: 0
+                    created_at: 1773395498
+                角色图场景图_创建成功:
+                  summary: 对应“两图（角色+场景）非首尾帧”请求
+                  value:
+                    id: task_kfOFFyhQAA1kGTnfdvhcMvhq7K1zIfZ4
+                    task_id: task_kfOFFyhQAA1kGTnfdvhcMvhq7K1zIfZ4
+                    object: video
+                    model: ima-pro
+                    status: in_progress
+                    progress: 0
+                    created_at: 1773561120
+        '400':
+          description: 参数错误或任务创建请求不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+              examples:
+                缺少模型:
+                  value:
+                    code: missing_model
+                    message: model field is required
+                    data: null
+                文本组合缺少提示词:
+                  value:
+                    code: invalid_request
+                    message: prompt is required
+                    data: null
+                上游要求文本内容:
+                  value:
+                    code: '500'
+                    message: text_to_video requires one text content item
+                    data: null
+                任务ID为空:
+                  value:
+                    code: '500'
+                    message: status_code=500, task_id is empty
+                    data: null
+                role_mode非法:
+                  value:
+                    code: invalid_request
+                    message: metadata.role_mode must be one of [reference, frame]
+                    data: null
+                图片模型误用视频端点:
+                  value:
+                    code: invalid_model_endpoint
+                    message: model gemini-3-pro-image-preview is image-only and not supported on /v1/videos
+                    data: null
+                frame模式与参考媒体冲突:
+                  value:
+                    code: invalid_request
+                    message: frame mode cannot be mixed with reference video/audio
+                    data: null
+                视频像素超限:
+                  value:
+                    code: '500'
+                    message: the parameter video pixel count specified in the request must be less than or equal to 927408
+                    data: null
+                暂不支持人像:
+                  value:
+                    code: '500'
+                    message: 暂不支持人像
+                    data: null
+                参考音频超时长:
+                  value:
+                    code: invalid_request
+                    message: reference audio duration must be <= 15s
+                    data: null
+                三条参考视频总时长超限:
+                  value:
+                    code: invalid_request
+                    message: total duration of reference videos must be <= 15s
+                    data: null
+                MiniMaxFast分辨率不支持720p:
+                  value:
+                    code: '2013'
+                    message: 'hailuo api error: invalid params, model MiniMax-Hailuo-2.3-Fast does not support resolution 720P, supported resolutions: 768P, 1080P'
+                    data: null
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                未提供token:
+                  value:
+                    error:
+                      code: ''
+                      message: token not provided
+                      type: new_api_error
+                token不可用:
+                  value:
+                    error:
+                      code: ''
+                      message: token status is unavailable
+                      type: new_api_error
+        '500':
+          description: 上游创建任务失败或服务内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+              examples:
+                上游创建失败:
+                  value:
+                    code: '500'
+                    message: text_to_video requires one text content item
+                    data: null
+                上游创建失败_taskid为空:
+                  value:
+                    code: '500'
+                    message: status_code=500, task_id is empty
+                    data: null
+                上游创建失败_像素超限:
+                  value:
+                    code: '500'
+                    message: the parameter video pixel count specified in the request must be less than or equal to 927408
+                    data: null
+                上游创建失败_暂不支持人像:
+                  value:
+                    code: '500'
+                    message: 暂不支持人像
+                    data: null
+      x-apifox-folder: MiniMax 视频
+  /v1/videos/{task_id}:
+    get:
+      tags:
+      - IMA-Pro 视频
+      - MiniMax 视频
+      summary: 查询任务状态与结果
+      description: '使用创建接口返回的公开 `task_id` 轮询任务结果（OpenAI 视频对象风格）。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+        当上游返回时，响应中会透出：
+
+        - `results`（视频结果数组）
+
+        - `usage`（token 用量）
+
+        - `error`（失败时的错误对象）
+
+        '
+      operationId: getImaProVideoTask
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+        example: Bearer sk-xxxxxxxxxxxxxxxx
+        description: '鉴权请求头，格式：`Bearer sk-...`。
+
+          '
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 创建任务时返回的 `task_id`
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaProQueryResponse'
+              examples:
+                处理中:
+                  value:
+                    id: task_202603131631387ETKUBM91MTD72X9
+                    task_id: task_202603131631387ETKUBM91MTD72X9
+                    object: video
+                    model: ima-pro
+                    status: in_progress
+                    progress: 42
+                    created_at: 1773395498
+                已完成:
+                  value:
+                    id: task_202603131631387ETKUBM91MTD72X9
+                    task_id: task_202603131631387ETKUBM91MTD72X9
+                    object: video
+                    model: ima-pro
+                    status: completed
+                    progress: 100
+                    created_at: 1773395498
+                    completed_at: 1773395600
+                    results:
+                    - url: https://file.fashionlabs.cn/aiagent/src/d/20260313/in/742dd3d75edb57c57d70f62e2f94059e.mp4
+                      size: 4444046
+                      content_type: video
+                    usage:
+                      completion_tokens: 324900
+                      total_tokens: 324900
+                角色图场景图_已完成:
+                  summary: 对应“两图（角色+场景）非首尾帧”任务查询成功
+                  description: '该任务由 `images[2]` 组合创建。图片在服务端按 `reference_image` 语义处理，
+
+                    不会自动推断为 `first_frame + last_frame`。
+
+                    '
+                  value:
+                    id: task_kfOFFyhQAA1kGTnfdvhcMvhq7K1zIfZ4
+                    task_id: task_kfOFFyhQAA1kGTnfdvhcMvhq7K1zIfZ4
+                    object: video
+                    model: ima-pro
+                    status: completed
+                    progress: 100
+                    created_at: 1773561120
+                    completed_at: 1773562786
+                    metadata:
+                      url: https://file2.fashionlabs.cn/aiagent/src/d/20260316/in/e0a3e95679cf76ae58827854a7a0e74a.mp4
+                    results:
+                    - url: https://file2.fashionlabs.cn/aiagent/src/d/20260316/in/e0a3e95679cf76ae58827854a7a0e74a.mp4
+                      width: 1280
+                      height: 720
+                      duration: 10
+                      size: 4053581
+                      content_type: video
+                    usage:
+                      completion_tokens: 324900
+                      total_tokens: 324900
+                单图_reference_image_已完成:
+                  summary: 对应“单图 reference_image”任务查询成功
+                  description: '该任务由单图创建。图片在服务端按 `reference_image` 语义处理，
+
+                    不会自动推断为 `first_frame`。
+
+                    '
+                  value:
+                    id: task_single_ref_image_demo_20260317
+                    task_id: task_single_ref_image_demo_20260317
+                    object: video
+                    model: ima-pro-fast
+                    status: completed
+                    progress: 100
+                    created_at: 1773666000
+                    completed_at: 1773666120
+                    results:
+                    - url: https://file.fashionlabs.cn/aiagent/src/d/20260317/in/single_ref_image_demo.mp4
+                      width: 720
+                      height: 1280
+                      duration: 5
+                      size: 1987654
+                      content_type: video
+                    usage:
+                      completion_tokens: 162450
+                      total_tokens: 162450
+                单图_frame_已完成:
+                  summary: 对应“单图 frame 模式”任务查询成功
+                  description: '该任务提交时设置 `metadata.role_mode=frame`，
+
+                    单图按 `first_frame` 语义处理。
+
+                    '
+                  value:
+                    id: task_single_frame_demo_20260317
+                    task_id: task_single_frame_demo_20260317
+                    object: video
+                    model: ima-pro-fast
+                    status: completed
+                    progress: 100
+                    created_at: 1773667000
+                    completed_at: 1773667130
+                    results:
+                    - url: https://file.fashionlabs.cn/aiagent/src/d/20260317/in/single_frame_demo.mp4
+                      width: 720
+                      height: 1280
+                      duration: 5
+                      size: 2065432
+                      content_type: video
+                    usage:
+                      completion_tokens: 162450
+                      total_tokens: 162450
+                失败:
+                  value:
+                    id: task_Qx7xsV8zGQHf5xz7xePS0m4B4fLrmtlp
+                    task_id: task_Qx7xsV8zGQHf5xz7xePS0m4B4fLrmtlp
+                    object: video
+                    model: ima-pro
+                    status: failed
+                    progress: 100
+                    created_at: 1773494530
+                    completed_at: 1773508363
+                    metadata:
+                      url: 'video generation failed: internal error: 601300'
+                    error:
+                      code: task_failed
+                      message: 'video generation failed: internal error: 601300'
+                失败_参考视频像素不足601300:
+                  summary: 参考视频像素不足（参数错误）
+                  description: '常见触发条件：
+
+                    - `metadata.reference_video_urls` 中存在像素不达标视频
+
+                    - 豆包 seedance-2-0 r2v 要求参考视频像素（宽×高）`>=409600`
+
+                    - 例如小于 `640x640` 会触发错误码 `601300`
+
+                    '
+                  value:
+                    id: task_6HwrcAuc83ypDhrNQA5k2s9kM4uFVRz
+                    task_id: task_6HwrcAuc83ypDhrNQA5k2s9kM4uFVRz
+                    object: video
+                    model: ima-pro
+                    status: failed
+                    progress: 100
+                    created_at: 1774300000
+                    completed_at: 1774300120
+                    metadata:
+                      url: 'video generation failed: reference video pixel count too low (code: 601300)'
+                    error:
+                      code: task_failed
+                      message: '601300: reference video pixel count must be >= 409600 (at least 640x640)'
+        '400':
+          description: task_id 无效或请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+              examples:
+                task_id为空:
+                  value:
+                    code: invalid_request
+                    message: task_id is required
+                    data: null
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+              examples:
+                task不存在:
+                  value:
+                    code: task_not_exist
+                    message: task_not_exist
+                    data: null
+        '500':
+          description: 查询任务失败（上游或服务内部异常）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskErrorResponse'
+              examples:
+                查询失败:
+                  value:
+                    code: get_task_failed
+                    message: failed to fetch task from upstream
+                    data: null
+      x-apifox-folder: IMA-Pro 视频
+  /v1/assets/group/create:
+    post:
+      summary: 创建素材分组
+      description: '创建素材分组（不扣费）。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+
+        字段说明：
+
+        - `name`：分组名称（必填，<=64 字符）
+
+        - `description`：分组描述（可选，<=300 字符）
+
+        - `group_type`：分组类型（可选；默认 `AIGC`）
+
+        - `project_name`：项目名（可选；默认 `default`）
+
+        - `model`：可选，资产模型名（建议显式传，避免默认模型与分组权限不匹配）
+
+        '
+      operationId: createAssetGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetGroupCreateRequest'
+            examples:
+              minimal:
+                summary: 最小可用请求
+                value:
+                  name: marketing-assets
+              full:
+                summary: 带可选字段的请求
+                value:
+                  name: marketing-assets
+                  description: 素材分组-市场投放
+                  group_type: AIGC
+                  project_name: default
+                  model: ima-pro-upload-cn
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGroupResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/group/list:
+    post:
+      summary: 查询素材分组列表
+      description: '查询分组列表（不扣费）。
+
+        排序参数严格校验：
+
+        - `sort_by`: `CreateTime|UpdateTime`
+
+        - `sort_order`: `Asc|Desc`
+
+        - `model`: 可选，建议显式传用于按模型权限过滤。
+
+        '
+      operationId: listAssetGroups
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetGroupListRequest'
+            examples:
+              default_page:
+                summary: 默认分页查询
+                value:
+                  page_number: 1
+                  page_size: 20
+                  model: ima-pro-upload-cn
+              with_filter:
+                summary: 按名称过滤并按时间倒序
+                value:
+                  filters:
+                    name: marketing
+                    group_type: AIGC
+                  sort_by: CreateTime
+                  sort_order: Desc
+                  page_number: 1
+                  page_size: 20
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGroupListResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/group/get:
+    post:
+      summary: 查询单个素材分组
+      operationId: getAssetGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGroupResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/group/update:
+    post:
+      summary: 更新素材分组
+      operationId: updateAssetGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetIdResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/create:
+    post:
+      summary: 上传素材（创建素材）
+      description: '上传素材 URL 到素材库。
+
+        计费说明：仅此端点扣费，计费模型取请求体 `model`（未传时默认 `ima-pro-upload`，按次）。
+
+        默认扣费令牌：当前请求头 `Authorization` 对应的 SK。
+
+        可选字段 `billing_token_id` 仅用于覆盖默认扣费令牌（必须是当前用户且启用）。
+
+        `asset_type` 表示素材类型，默认值 `Image`，支持 `Image|Video|Audio`（不传则按 `Image`）。
+
+        `asset_type=Audio` 时，音频时长由上游服务校验，需在 `1.8s` 到 `15.2s` 闭区间内，超限会报：
+        `InvalidParameter.DurationTooLong: Duration must be between 1.8s and 15.2s`。
+
+        '
+      operationId: createAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetCreateRequest'
+            examples:
+              video_create_success:
+                summary: 视频素材上传示例（成功）
+                value:
+                  group_id: group-20260403210537-6v56x
+                  url: https://ws.esxscloud.com/aiagent/src/d/20260407/in/1a2011e98a41847d70a49b570995d379.mp4
+                  name: verify-overseas-video-check
+                  asset_type: Video
+                  model: ima-pro-upload-cn
+              image_create_success:
+                summary: 图片素材上传示例（成功）
+                value:
+                  group_id: group-20260403210537-6v56x
+                  url: https://dxii5p4krscl5.cloudfront.net/resource/image/dd40f8e8-9296-4daf-9277-4a842d79fbee.jpg
+                  name: verify-overseas-image-check
+                  asset_type: Image
+                  model: ima-pro-upload-cn
+              audio_create_success:
+                summary: 音频素材上传示例（成功）
+                value:
+                  group_id: group-20260403210537-6v56x
+                  url: https://ima-ga.esxscloud.com/drama_pro/privite/2026/04/02/1775124683350_1930188605918449664_35ae6ccc808744e5bcb2fc2354bf9c1c.mp3
+                  name: verify-overseas-audio-check
+                  asset_type: Audio
+                  model: ima-pro-upload-cn
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetIdResponse'
+              examples:
+                create_success:
+                  value:
+                    success: true
+                    message: ""
+                    data:
+                      Id: asset-20260409110407-jpbr5
+        '400':
+          description: '参数错误。
+            常见错误示例：
+            - `InvalidParameter.DurationTooLong: Duration must be between 1.8s and 15.2s`
+            - `doubao asset request failed: InvalidParameter.DownloadFailed`
+            '
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  message:
+                    type: string
+                  success:
+                    type: boolean
+              examples:
+                invalid_audio_duration:
+                  value:
+                    success: false
+                    message: "doubao asset request failed: InvalidParameter.DurationTooLong: Duration must be between 1.8s and 15.2s"
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/list:
+    post:
+      summary: 查询素材列表
+      description: '查询素材列表（不扣费）。
+
+        排序参数严格校验：
+
+        - `sort_by`: `CreateTime|UpdateTime|GroupId`
+
+        - `sort_order`: `Asc|Desc`
+
+        - `model`: 可选，建议显式传用于按模型权限过滤。
+
+        '
+      operationId: listAssets
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetListRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetListResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/get:
+    post:
+      summary: 查询单个素材
+      operationId: getAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGetResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/update:
+    post:
+      summary: 更新素材名称
+      operationId: updateAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id
+              - name
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetIdResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /v1/assets/quota:
+    post:
+      summary: 查询素材配额信息
+      operationId: getAssetQuota
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetQuotaResponse'
+      tags:
+      - 人像
+      x-apifox-folder: 人像
+  /mj/submit/imagine:
+    post:
+      tags:
+      - Midjourney
+      summary: MJ 提交绘图任务
+      description: '提交 Midjourney 绘图任务（MJ Proxy 协议）。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+
+        可用模型：`mj_imagine`（由渠道路由自动选择，无需在请求体传 model）。
+
+
+        所有 MJ 参数（模型版本、速度模式、画质等）通过 prompt 尾部 `--` 语法传递，
+
+        详见 Midjourney tag 说明中的"支持的 Prompt 参数（Settings）"。
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - name: x-youchuan-setting
+        in: header
+        required: false
+        schema:
+          type: string
+        example: '3'
+        description: '悠船上游扩展开关（可选，透传到上游）。
+
+          若你已在请求头中传入该值，服务端不会覆盖。
+
+          具体取值语义请以悠船上游文档/支持确认为准。
+
+          '
+      operationId: submitMidjourneyImagine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - prompt
+              properties:
+                prompt:
+                  type: string
+                  description: 'MJ 提示词（支持参数后缀）。
+
+                    常用参数：
+
+                    - 模型版本：`--v 6` / `--v 6.1` / `--v 7` / `--niji 6` / `--niji 7`
+
+                    - 风格化：`--stylize` / `--s`
+
+                    - 怪异化：`--weird` / `--w`
+
+                    - 多样化（混沌）：`--chaos` / `--c`
+
+                    - 其他：`--ar` / `--q` / `--seed` / `--raw` / `--no` / `--stop` / `--tile` / `--cref` / `--sref` / `--iw`
+
+                    '
+            examples:
+              basic:
+                summary: 基础绘图
+                value:
+                  prompt: a cute cat watercolor style --ar 16:9
+              with_settings:
+                summary: 带速度和模型设置
+                value:
+                  prompt: futuristic city --v 7 --fast --ar 16:9 --s 200 --q 2
+              v61_profile:
+                summary: 指定 V6.1
+                value:
+                  prompt: cinematic landscape --v 6.1 --ar 16:9
+              niji7_profile:
+                summary: 指定 Niji 7
+                value:
+                  prompt: anime style girl in rain --niji 7 --ar 9:16
+              image_reference:
+                summary: 图生图（图片引用）
+                value:
+                  prompt: https://example.com/photo.jpg a beautiful landscape --iw 1.5
+              style_reference:
+                summary: 风格参考
+                value:
+                  prompt: a portrait --sref https://example.com/style.jpg --sw 500 --v 7
+              settings_case_001_header_only:
+                summary: SET-001 仅 x-youchuan-setting（请求头）
+                description: 'Header 传 `x-youchuan-setting: 3`，prompt 不携带版本参数。
+
+                  '
+                value:
+                  prompt: settings-case header only city skyline
+              settings_case_002_header_and_prompt_v:
+                summary: SET-002 Header + prompt 显式 --v
+                description: 'Header 传 `x-youchuan-setting: 3`，prompt 显式 `--v 6.1`，按用户 prompt 透传。
+
+                  '
+                value:
+                  prompt: settings-case header + prompt --v 6.1 --ar 1:1
+              settings_case_003_prompt_niji_only:
+                summary: SET-003 仅 prompt 显式 --niji
+                value:
+                  prompt: settings-case prompt only --niji 7 --ar 1:1
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MjSubmitResponse'
+              examples:
+                success:
+                  value:
+                    code: 1
+                    result: task_id_123
+                    description: submitted
+      x-apifox-folder: Midjourney
+  /mj/submit/blend:
+    post:
+      tags:
+      - Midjourney
+      summary: MJ 融图（Blend）
+      description: '上传 2-5 张图片进行融合生成，返回任务 ID（异步）。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+        '
+      operationId: submitMidjourneyBlend
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - base64Array
+              properties:
+                base64Array:
+                  type: array
+                  minItems: 2
+                  maxItems: 5
+                  description: '2-5 张图片 URL 数组（当前实现按 URL 输入处理）。
+
+                    '
+                  items:
+                    type: string
+                prompt:
+                  type: string
+                  description: 可选，附加文字描述。
+            examples:
+              blend_two_images:
+                summary: 两图融合
+                value:
+                  base64Array:
+                  - https://example.com/a.png
+                  - https://example.com/b.png
+              blend_two_images_with_prompt:
+                summary: 两图融合+文字
+                value:
+                  base64Array:
+                  - https://example.com/a.png
+                  - https://example.com/b.png
+                  prompt: cinematic style
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MjSubmitResponse'
+              examples:
+                success:
+                  value:
+                    code: 1
+                    result: task_id_blend_123
+                    description: submitted
+      x-apifox-folder: Midjourney
+  /mj/submit/change:
+    post:
+      tags:
+      - Midjourney
+      summary: MJ 变换操作（放大/变体/扩图/延展/重绘/重塑等）
+      description: '对已完成的 MJ 任务执行变换操作。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+
+        可用操作：
+
+        - `UPSCALE` — 放大（Subtle 默认，customId 含 "creative" 则为 Creative）
+
+        - `VARIATION` — 变体（Strong 默认）
+
+        - `LOW_VARIATION` — 细微变体（Vary Subtle）
+
+        - `HIGH_VARIATION` — 大幅变体（Vary Strong）
+
+        - `REROLL` — 重新生成（仅需 taskId，无需 index）
+
+        - `ZOOM` — 扩图 Zoom Out（scale 从 customId 解析：outpaint::50=2x, outpaint::75=1.5x）
+
+        - `CUSTOM_ZOOM` — 自定义扩图（scale 从 prompt 中 `--zoom 1.3` 解析）
+
+        - `PAN` — 延展（方向从 customId 解析：pan_left/pan_right/pan_up/pan_down）
+
+        - `REMIX` — 重塑（需 prompt）
+
+
+        > 注：当前悠船上游对局部重绘能力返回限制错误，平台已下线 `mj_inpaint`。
+
+
+        也可通过 `/mj/submit/action` 端点用 customId 格式触发（MJ Proxy Plus 协议）。
+
+        '
+      operationId: submitMidjourneyChange
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              - taskId
+              properties:
+                action:
+                  type: string
+                  enum:
+                  - UPSCALE
+                  - VARIATION
+                  - LOW_VARIATION
+                  - HIGH_VARIATION
+                  - REROLL
+                  - ZOOM
+                  - CUSTOM_ZOOM
+                  - PAN
+                  - REMIX
+                  description: 操作类型。
+                taskId:
+                  type: string
+                  description: 原始任务 ID（即上次任务返回的 result）。
+                index:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  description: 图片序号（1-4），REROLL 不需要。
+                prompt:
+                  type: string
+                  description: 新提示词（REMIX 必填，CUSTOM_ZOOM/ZOOM/PAN/INPAINT 可选作为 remixPrompt）。
+                maskBase64:
+                  type: string
+                  description: INPAINT 必填，PNG 二值图 base64（白色=重绘区域）。
+                customId:
+                  type: string
+                  description: '可选。用于解析特定动作语义（例如 `pan_right`、`outpaint::75`、`upscale::creative`）。
+
+                    '
+            examples:
+              upscale_subtle:
+                summary: 标准高清放大第 1 张
+                value:
+                  action: UPSCALE
+                  taskId: task_id_123
+                  index: 1
+              vary_subtle:
+                summary: 细微变体第 2 张
+                value:
+                  action: LOW_VARIATION
+                  taskId: task_id_123
+                  index: 2
+              vary_strong:
+                summary: 大幅变体第 3 张
+                value:
+                  action: HIGH_VARIATION
+                  taskId: task_id_123
+                  index: 3
+              reroll:
+                summary: 重新生成
+                value:
+                  action: REROLL
+                  taskId: task_id_123
+              zoom_2x:
+                summary: Zoom Out 2x
+                value:
+                  action: ZOOM
+                  taskId: task_id_123
+                  index: 1
+              pan_right:
+                summary: 向右延展
+                value:
+                  action: PAN
+                  taskId: task_id_123
+                  index: 1
+                  customId: pan_right
+              zoom_custom:
+                summary: 自定义扩图（CUSTOM_ZOOM）
+                value:
+                  action: CUSTOM_ZOOM
+                  taskId: task_id_123
+                  index: 1
+                  prompt: --zoom 1.4 add flowers
+              remix:
+                summary: 重塑（REMIX）
+                value:
+                  action: REMIX
+                  taskId: task_id_123
+                  index: 1
+                  prompt: watercolor style
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MjSubmitResponse'
+              examples:
+                success:
+                  value:
+                    code: 1
+                    result: task_id_456
+                    description: submitted
+      x-apifox-folder: Midjourney
+  /mj/task/{task_id}/fetch:
+    get:
+      tags:
+      - Midjourney
+      summary: 查询 MJ 任务状态
+      description: '查询 Midjourney 任务的进度和结果。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+
+        状态流转：`""` -> `SUCCESS` / `FAILURE`。
+
+        成功时推荐读取 `urls`（完整图片列表）；`imageUrl` 为兼容字段（首图）。
+
+        '
+      operationId: fetchMidjourneyTask
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: MJ 任务 ID（提交时返回的 `result`）。
+      responses:
+        '200':
+          description: 任务状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MjTaskFetchResponse'
+              examples:
+                success:
+                  value:
+                    mj_id: task_id_123
+                    status: SUCCESS
+                    progress: 100%
+                    imageUrl: https://cdn.example.com/mj-image.png
+                    urls:
+                    - https://cdn.example.com/mj-image-1.png
+                    - https://cdn.example.com/mj-image-2.png
+                    - https://cdn.example.com/mj-image-3.png
+                    - https://cdn.example.com/mj-image-4.png
+                    action: IMAGINE
+      x-apifox-folder: Midjourney
+  /mj/image/{task_id}:
+    get:
+      tags:
+      - Midjourney
+      summary: MJ 图片代理（首图）
+      description: '代理获取 MJ 任务的首图（`imageUrl` 对应）。
+
+        若需完整图集，请优先读取 `/mj/task/{task_id}/fetch` 的 `urls`。
+
+        '
+      operationId: fetchMidjourneyImage
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: MJ 任务 ID。
+      responses:
+        '200':
+          description: 图片二进制流
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: 图片二进制流（通常为 `image/png` 或 `image/jpeg`）。
+      x-apifox-folder: Midjourney
+  /v1/chat/completions:
+    post:
+      tags:
+      - Chat
+      summary: 创建对话补全
+      description: '兼容 OpenAI Chat Completions API 格式。支持流式和非流式响应。
+
+
+        **可用模型（43 个）：**
+
+
+        | 供应商 | 模型 |
+
+        |--------|------|
+
+        | OpenAI | `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-5`, `gpt-5-mini`, `gpt-5.1`, `gpt-5.2`, `gpt-5.3-codex` |
+
+        | Google | `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-3-pro-image-preview`⚡, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-flash-image`⚡,
+        `gemini-2.0-flash`, `g3-pro-image-preview`⚡, `g2.5-flash-image`⚡ |
+
+        | Anthropic | `claude-3-haiku-20240307`, `claude-3-5-haiku-20241022`, `claude-sonnet-4-20250514`, `claude-sonnet-4-5-20250929`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-1-20250805`,
+        `claude-opus-4-5-20251101`, `claude-opus-4-6` |
+
+        | 字节跳动 | `seed-1-8-251228`, `seed-2-0-mini-260215`, `seed-1-6-flash-250715`, `seed-1-6-250915`, `gpt-oss-120b-250805` |
+
+        | MiniMax | `MiniMax-Text-01`, `MiniMax-M1`, `MiniMax-M2`, `MiniMax-M2.1`, `MiniMax-M2.1-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed` |
+
+        | Moonshot | `kimi-for-coding` |
+
+
+        **模型端点能力（2026-03-04 已验证）：**
+
+        | 端点标识 | 网关路径 | 当前可用模型 |
+
+        |---------|---------|-------------|
+
+        | `openai` | `/v1/chat/completions` | Chat 模型通用 |
+
+        | `openai-response` | `/v1/responses` | `gpt-5.2`, `gpt-5.3-codex` |
+
+        | `anthropic` | `/v1/messages` | `claude-sonnet-4-6`, `claude-opus-4-6` |
+
+
+        > ⚡ 带 ⚡ 标记的模型支持对话式生图，返回内联 base64 图片。MiniMax M 系列、`kimi-for-coding` 为推理模型，响应包含思维链内容。Anthropic Claude 系列通过 AWS Bedrock 接入。
+
+
+        > ⚠️ **推理模型注意事项**：MiniMax M 系列（`MiniMax-M2` 至 `MiniMax-M2.5-highspeed`）和 `kimi-for-coding` 在生成正式回答前会先输出思维链（`reasoning_content` 字段），思维链本身会消耗大量 token。**建议 `max_tokens` 设置不低于 1000**，否则 token 配额可能在推理阶段耗尽，导致
+        `content` 为空。
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+            examples:
+              basic:
+                summary: 基础对话
+                value:
+                  model: gpt-4.1-mini
+                  messages:
+                  - role: user
+                    content: Hello, how are you?
+              stream:
+                summary: 流式对话
+                value:
+                  model: gemini-2.5-flash
+                  messages:
+                  - role: user
+                    content: Write a short poem about AI
+                  stream: true
+              image_gen:
+                summary: Gemini 对话式生图
+                value:
+                  model: gemini-3-pro-image-preview
+                  messages:
+                  - role: user
+                    content: Generate a cute cat watercolor painting, output as image
+              image_gen_lite:
+                summary: 轻量级对话式生图
+                value:
+                  model: g2.5-flash-image
+                  messages:
+                  - role: user
+                    content: Draw a minimalist logo for a coffee shop
+              claude:
+                summary: Claude 对话
+                value:
+                  model: claude-sonnet-4-6
+                  messages:
+                  - role: user
+                    content: Hello, what can you help me with?
+              minimax_reasoning:
+                summary: MiniMax 推理模型
+                value:
+                  model: MiniMax-M2.5
+                  messages:
+                  - role: user
+                    content: Explain the difference between recursion and iteration
+                  max_tokens: 2000
+              function_tools:
+                summary: Function Tools（OpenAI 格式）
+                value:
+                  model: gemini-3.1-pro-preview
+                  messages:
+                  - role: user
+                    content: What's weather in Shanghai? Use tool.
+                  tools:
+                  - type: function
+                    function:
+                      name: get_weather
+                      description: Get weather by city
+                      parameters:
+                        type: object
+                        properties:
+                          city:
+                            type: string
+                        required:
+                        - city
+                  tool_choice: auto
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+      x-apifox-folder: Chat
+      x-apifox-status: released
+  /v1/responses:
+    post:
+      tags:
+      - Chat
+      summary: 创建 Responses 响应
+      description: '兼容 OpenAI Responses API 格式。
+
+
+        仅支持启用了 `openai-response` 端点能力的模型。
+
+        **当前已验证模型（2026-03-04）：** `gpt-5.2`、`gpt-5.3-codex`
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsesRequest'
+            examples:
+              basic:
+                summary: 基础 Responses 调用
+                value:
+                  model: gpt-5.3-codex
+                  input: ping
+                  max_output_tokens: 64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsesResponse'
+        '400':
+          description: 参数错误或模型不支持该端点
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Chat
+      x-apifox-status: released
+  /v1/messages:
+    post:
+      tags:
+      - Chat
+      summary: 创建 Anthropic Messages 响应
+      parameters:
+      - name: anthropic-version
+        in: header
+        required: true
+        description: Anthropic API 版本号
+        schema:
+          type: string
+          default: '2023-06-01'
+      description: '兼容 Anthropic Messages API 格式。
+
+
+        仅支持启用了 `anthropic` 端点能力的模型。
+
+        **当前已验证模型（2026-03-19）：** `claude-sonnet-4-6`、`claude-opus-4-6`
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnthropicMessagesRequest'
+            examples:
+              basic:
+                summary: 基础 Messages 调用
+                value:
+                  model: claude-sonnet-4-6
+                  max_tokens: 128
+                  messages:
+                  - role: user
+                    content: ping
+              opus:
+                summary: Opus Messages 调用
+                value:
+                  model: claude-opus-4-6
+                  max_tokens: 128
+                  messages:
+                  - role: user
+                    content: ping
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicMessagesResponse'
+        '400':
+          description: 参数错误或模型不支持该端点
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: Chat
+      x-apifox-status: released
+  /v1/video/generations:
+    post:
+      tags:
+      - MiniMax 视频
+      summary: 提交视频生成任务
+      description: 'MiniMax 视频生成端点（异步任务制）。提交后返回 `task_id`，通过 `/v1/videos/{task_id}` 轮询结果。
+
+        支持模型：
+        - `MiniMax-Hailuo-02`
+        - `MiniMax-Hailuo-2.3`
+        - `MiniMax-Hailuo-2.3-Fast`
+
+        约束：
+        - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`
+        - `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`（不支持 `720p`）
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MiniMaxVideoGenerationRequest'
+            examples:
+              hailuo_02_text2video:
+                summary: MiniMax-Hailuo-02 文生视频
+                value:
+                  model: MiniMax-Hailuo-02
+                  prompt: A cat playing with a ball of yarn
+              text2video:
+                summary: MiniMax 文生视频
+                value:
+                  model: MiniMax-Hailuo-2.3
+                  prompt: A cat playing with a ball of yarn
+              hailuo_img2video:
+                summary: 图生视频（Hailuo） ⚠️ metadata 传参
+                value:
+                  model: MiniMax-Hailuo-2.3
+                  prompt: A person slowly walking forward
+                  metadata:
+                    first_frame_image: https://example.com/photo.jpeg
+              hailuo_fast_img2video:
+                summary: 图生视频（Hailuo-2.3-Fast） ⚠️ 仅图生视频
+                value:
+                  model: MiniMax-Hailuo-2.3-Fast
+                  prompt: A person slowly walking forward
+                  size: 1080p
+                  metadata:
+                    first_frame_image: https://example.com/photo.jpeg
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+              examples:
+                submitted:
+                  value:
+                    id: task_abc123
+                    task_id: task_abc123
+                    object: video
+                    model: MiniMax-Hailuo-2.3
+                    status: ''
+                    progress: 0
+                    created_at: 1772037755
+        '400':
+          description: 参数错误（例如模型能力或分辨率不匹配）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                hailuo_fast_invalid_resolution:
+                  summary: Hailuo-2.3-Fast 使用 720p 被拒绝
+                  value:
+                    code: '2013'
+                    message: 'hailuo api error: invalid params, model MiniMax-Hailuo-2.3-Fast does not support resolution 720P, supported resolutions: 768P, 1080P'
+                    data: null
+      x-apifox-folder: MiniMax 视频
+      x-apifox-status: released
+components:
+  parameters:
+    AuthorizationHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      example: Bearer sk-xxxxxxxxxxxxxxxx
+      description: 访问令牌，格式固定为 `Bearer sk-...`。
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: sk-xxxx
+      description: '将 SK 放在请求头：
+
+        `Authorization: Bearer sk-xxxx`
+
+        '
+  schemas:
+    AssetGroupCreateRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          description: 分组名称（用户侧展示名）。
+          example: marketing-assets
+        description:
+          type: string
+          maxLength: 300
+          description: 分组描述（可选）。
+          example: 素材分组-市场投放
+        group_type:
+          type: string
+          default: AIGC
+          description: 分组类型。当前默认使用 `AIGC`。
+          example: AIGC
+        project_name:
+          type: string
+          default: default
+          description: 项目命名空间。未传时默认 `default`。
+          example: default
+        model:
+          type: string
+          enum:
+          - ima-pro-upload
+          - ima-pro-upload-cn
+          - seedance-upload
+          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+
+            - `ima-pro-upload`：国内人像（默认）
+
+            - `ima-pro-upload-cn`：国内人像
+
+            - `seedance-upload`：海外人像
+
+            '
+          example: ima-pro-upload-cn
+    AssetGroupListRequest:
+      type: object
+      properties:
+        filters:
+          type: object
+          properties:
+            name:
+              type: string
+            group_ids:
+              type: array
+              items:
+                type: string
+            group_type:
+              type: string
+              default: AIGC
+              description: 分组类型过滤，通常为 `AIGC`。
+        page_number:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 页码（从 1 开始）。
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          description: 每页数量（1-100）。
+        sort_by:
+          type: string
+          enum:
+          - CreateTime
+          - UpdateTime
+          description: 排序字段（严格区分大小写）。
+        sort_order:
+          type: string
+          enum:
+          - Asc
+          - Desc
+          description: 排序方向（严格区分大小写）。
+        project_name:
+          type: string
+          default: default
+          description: 项目命名空间。未传按默认项目处理。
+        model:
+          type: string
+          enum:
+          - ima-pro-upload
+          - ima-pro-upload-cn
+          - seedance-upload
+          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+
+            - `ima-pro-upload`：国内人像（默认）
+
+            - `ima-pro-upload-cn`：国内人像
+
+            - `seedance-upload`：海外人像
+
+            '
+          example: ima-pro-upload-cn
+    AssetCreateRequest:
+      type: object
+      required:
+      - group_id
+      - url
+      properties:
+        group_id:
+          type: string
+          description: 分组 ID（可用 `/v1/assets/group/list` 获取）。
+          example: grp_123456
+        url:
+          type: string
+          format: uri
+          description: 公开可访问的素材 URL。
+          example: https://example.com/image.png
+        name:
+          type: string
+          maxLength: 64
+          description: 素材名称（可选）。
+          example: cover-image
+        asset_type:
+          type: string
+          default: Image
+          enum:
+          - Image
+          - Video
+          - Audio
+          description: '素材类型，默认 `Image`。
+
+            当 `asset_type=Audio` 时，音频时长必须在 `1.8s` 到 `15.2s` 之间（闭区间），否则返回 `InvalidParameter.DurationTooLong`。'
+          example: Image
+        project_name:
+          type: string
+          default: default
+          description: 项目命名空间。未传时默认 `default`。
+          example: default
+        billing_token_id:
+          type: integer
+          description: '可选，指定本次上传扣费使用的 token id。
+
+            不传时：默认使用当前请求头 `Authorization` 对应 SK 的 token。
+
+            约束：必须属于当前用户、状态为启用、并且余额足够。
+
+            '
+          example: 3
+        model:
+          type: string
+          enum:
+          - ima-pro-upload
+          - ima-pro-upload-cn
+          - seedance-upload
+          description: '可选，资产模型名。
+
+            计费时优先使用该模型价格；未传时默认 `ima-pro-upload`。
+
+            - `ima-pro-upload`：国内人像（默认）
+
+            - `ima-pro-upload-cn`：国内人像
+
+            - `seedance-upload`：海外人像
+
+            '
+          example: ima-pro-upload-cn
+    AssetListRequest:
+      type: object
+      properties:
+        filters:
+          type: object
+          properties:
+            group_ids:
+              type: array
+              items:
+                type: string
+            group_type:
+              type: string
+              default: AIGC
+              description: 分组类型过滤，通常为 `AIGC`。
+            statuses:
+              type: array
+              items:
+                type: string
+                enum:
+                - Active
+                - Failed
+                - Processing
+            name:
+              type: string
+        page_number:
+          type: integer
+          minimum: 1
+          default: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        sort_by:
+          type: string
+          enum:
+          - CreateTime
+          - UpdateTime
+          - GroupId
+          description: 排序字段（严格区分大小写）。
+        model:
+          type: string
+          enum:
+          - ima-pro-upload
+          - ima-pro-upload-cn
+          - seedance-upload
+          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+
+            - `ima-pro-upload`：国内人像（默认）
+
+            - `ima-pro-upload-cn`：国内人像
+
+            - `seedance-upload`：海外人像
+
+            '
+          example: ima-pro-upload-cn
+        sort_order:
+          type: string
+          enum:
+          - Asc
+          - Desc
+          description: 排序方向（严格区分大小写）。
+        project_name:
+          type: string
+          default: default
+          description: 项目命名空间。未传时默认 `default`。
+    AssetItem:
+      type: object
+      properties:
+        Id:
+          type: string
+        Name:
+          type: string
+        URL:
+          type: string
+        GroupId:
+          type: string
+        AssetType:
+          type: string
+        Status:
+          type: string
+        ProjectName:
+          type: string
+        CreateTime:
+          type: string
+        UpdateTime:
+          type: string
+    AssetGroupItem:
+      type: object
+      properties:
+        Id:
+          type: string
+        Name:
+          type: string
+        Title:
+          type: string
+        Description:
+          type: string
+        GroupType:
+          type: string
+        ProjectName:
+          type: string
+        CreateTime:
+          type: string
+        UpdateTime:
+          type: string
+    AssetIdResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            Id:
+              type: string
+    AssetGroupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AssetGroupItem'
+    AssetGetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AssetItem'
+    AssetGroupListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            Items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssetGroupItem'
+            TotalCount:
+              type: integer
+            PageNumber:
+              type: integer
+            PageSize:
+              type: integer
+    AssetListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            Items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssetItem'
+            TotalCount:
+              type: integer
+            PageNumber:
+              type: integer
+            PageSize:
+              type: integer
+    AssetQuotaResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            max_count_per_user:
+              type: integer
+            current_count:
+              type: integer
+    ImaProVideoCreateRequest:
+      type: object
+      required:
+      - model
+      additionalProperties: false
+      description: '7 种输入组合（与服务端行为一致）：
+
+        1. 文本（`prompt` 必填）
+
+        2. 文本 + 图片（`images`，`prompt` 可选）
+
+        3. 文本 + 视频（`metadata.reference_video_urls`，`prompt` 可选）
+
+        4. 文本 + 图片 + 音频（`images` + `metadata.reference_audio_urls`，`prompt` 可选）
+
+        5. 文本 + 图片 + 视频（`images` + `metadata.reference_video_urls`，`prompt` 可选）
+
+        6. 文本 + 视频 + 音频（`metadata.reference_video_urls` + `metadata.reference_audio_urls`，`prompt` 可选）
+
+        7. 文本 + 图片 + 视频 + 音频（`images` + `metadata.reference_video_urls` + `metadata.reference_audio_urls`，`prompt` 可选）
+
+        图片语义补充：
+
+        - 单图与多图均按 `reference_image` 语义处理，不自动推断 `first_frame` / `last_frame`。
+
+        '
+      properties:
+        model:
+          type: string
+          enum:
+          - seedance-2.0
+          - seedance-2.0-fast
+          - seedance-2.0-cn
+          - seedance-2.0-fast-cn
+          - ima-pro
+          - ima-pro-fast
+          description: '目标模型。
+
+            - `seedance-2.0`：Seedance 标准版（海外）
+
+            - `seedance-2.0-fast`：Seedance 极速版（海外）
+
+            - `seedance-2.0-cn`：Seedance 标准版（国内）
+
+            - `seedance-2.0-fast-cn`：Seedance 极速版（国内）
+
+            - ~~`ima-pro`~~（海外渠道历史别名，已过期；向后兼容，请改用 seedance-2.0 / seedance-2.0-cn）
+
+            - ~~`ima-pro-fast`~~（海外渠道历史别名，已过期；向后兼容，请改用 seedance-2.0-fast / seedance-2.0-fast-cn）
+
+            '
+        prompt:
+          type: string
+          minLength: 1
+          description: '主提示词。仅“文本”组合必填；其余 6 种组合可选。
+
+            支持中英文；建议中文不超过 500 字，英文不超过 1000 词。
+
+            '
+        images:
+          type: array
+          description: '图片 URL 数组（支持多图）。
+
+            支持两类 URL：
+
+            - 公网可访问 URL（`https://...`）
+
+            - 素材库协议 URL（`asset://asset-...`）
+
+            传入单张图片要求：
+
+            - 格式：`jpeg`、`png`、`webp`、`bmp`、`tiff`、`gif`
+
+            - 宽高比（宽/高）：`(0.4,2.5)`
+
+            - 宽高长度（px）：`(300,6000)`
+
+            - 单张图片大小：`<30MB`
+
+            - 请求体总大小：`<=64MB`
+
+            - 大文件请勿使用 Base64 编码，建议使用可访问 URL。
+
+            '
+          items:
+            type: string
+            format: uri
+        input_reference:
+          type: string
+          format: uri
+          description: '兜底图片 URL（仅在未传 `images` 时生效）。
+
+            支持 `https://...` 与 `asset://asset-...`。
+
+            图片输入约束与 `images` 单张图片要求一致。
+
+            '
+        duration:
+          type: integer
+          minimum: 4
+          maximum: 15
+          default: 5
+          description: '期望时长（秒）。
+
+            允许范围：`4-15` 秒（含边界）。
+
+            推荐值：`5`、`10`、`15`。
+
+            '
+        seconds:
+          type: string
+          pattern: ^(?:[4-9]|1[0-5])$
+          description: 字符串形式时长（秒），允许范围：`"4"` ~ `"15"`。
+        size:
+          type: string
+          description: 尺寸（如 `1280x720`），用于推导比例与分辨率。
+        metadata:
+          type: object
+          additionalProperties: true
+          description: 高级参数（可选）。
+          properties:
+            aspect_ratio:
+              type: string
+              enum:
+              - '16:9'
+              - '4:3'
+              - '1:1'
+              - '3:4'
+              - '9:16'
+              - '21:9'
+              - adaptive
+              description: '宽高比。
+
+                支持：`16:9`、`4:3`、`1:1`、`3:4`、`9:16`、`21:9`、`adaptive`。
+
+                - `adaptive`：根据输入自动选择最合适的宽高比。
+
+                '
+              example: '16:9'
+            resolution:
+              type: string
+              enum:
+              - 480p
+              - 720p
+              - 1080p
+              description: 分辨率档位（支持 `480p`、`720p`、`1080p`）。
+              example: 1080p
+            audio:
+              oneOf:
+              - type: boolean
+              - type: string
+              description: '是否生成音频。
+
+                版权风险规避建议：
+
+                - 若担心背景音乐版权，先设置 `audio=false`（无背景音乐）
+
+                - 可在提示词中明确：无字幕、无背景音乐，仅保留剧情人声/环境音效/动作音效
+
+                '
+            role_mode:
+              type: string
+              enum:
+              - reference
+              - frame
+              default: reference
+              description: '图片角色模式。
+
+                - `reference`（默认）：图片统一映射 `reference_image`
+
+                - `frame`：启用首尾帧语义（单图=first_frame；双图=first_frame+last_frame）
+
+                约束：
+
+                - `frame` 模式仅支持 1~2 张图片
+
+                - `frame` 模式不能与 `reference_video_urls`/`reference_audio_urls` 混用
+
+                '
+            reference_video_urls:
+              type: array
+              minItems: 1
+              maxItems: 3
+              description: "参考视频 URL 数组（最多 3 条）。\n传入单个参考视频要求：\n- 格式：`mp4`、`mov`\n- 分辨率：`480p`、`720p`\n- 单个视频时长：`[2,15]s`\n- 所有参考视频总时长：`<=15s`\n- 宽高比（宽/高）：`(0.4,2.5)`\n- 宽高像素（宽、高）：`(300,6000)`\n- 画面像素（宽×高）：`[409600,927408]`\n\
+                \  - 例如：`640x640=409600`（最小值）\n  - 例如：`834x1112=927408`（最大值）\n- 单个视频大小：`<=50MB`\n- 帧率（FPS）：`[24,60]`\n"
+              items:
+                type: string
+                format: uri
+            reference_audio_urls:
+              type: array
+              minItems: 1
+              maxItems: 3
+              description: '参考音频 URL 数组（最多 3 条）。
+
+                传入单个参考音频要求：
+
+                - 格式：`wav`、`mp3`
+
+                - 单个音频时长：`[2,15]s`
+
+                - 所有参考音频总时长：`<=15s`
+
+                - 单个音频大小：`<=15MB`
+
+                - 请求体总大小：`<=64MB`
+
+                - 大文件请勿使用 Base64 编码，建议使用可访问 URL。
+
+                '
+              items:
+                type: string
+                format: uri
+            mcp_list:
+              type: array
+              description: 可选 MCP 工具列表。
+              items:
+                type: object
+                properties:
+                  tool_name:
+                    type: string
+                    example: web_search
+      anyOf:
+      - description: 组合1_文本
+        required:
+        - prompt
+      - description: 组合2_文本_图片
+        required:
+        - images
+        properties:
+          images:
+            type: array
+            minItems: 1
+      - description: 组合3_文本_视频
+        required:
+        - metadata
+        properties:
+          metadata:
+            type: object
+            required:
+            - reference_video_urls
+            properties:
+              reference_video_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+      - description: 组合4_文本_图片_音频
+        required:
+        - images
+        - metadata
+        properties:
+          images:
+            type: array
+            minItems: 1
+          metadata:
+            type: object
+            required:
+            - reference_audio_urls
+            properties:
+              reference_audio_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+      - description: 组合5_文本_图片_视频
+        required:
+        - images
+        - metadata
+        properties:
+          images:
+            type: array
+            minItems: 1
+          metadata:
+            type: object
+            required:
+            - reference_video_urls
+            properties:
+              reference_video_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+      - description: 组合6_文本_视频_音频
+        required:
+        - metadata
+        properties:
+          metadata:
+            type: object
+            required:
+            - reference_video_urls
+            - reference_audio_urls
+            properties:
+              reference_video_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+              reference_audio_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+      - description: 组合7_文本_图片_视频_音频
+        required:
+        - images
+        - metadata
+        properties:
+          images:
+            type: array
+            minItems: 1
+          metadata:
+            type: object
+            required:
+            - reference_video_urls
+            - reference_audio_urls
+            properties:
+              reference_video_urls:
+                type: array
+                minItems: 1
+                maxItems: 3
+                items:
+                  type: string
+                  format: uri
+              reference_audio_urls:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+                  format: uri
+    ImaImageGenerationRequest:
+      type: object
+      description: "图片生成请求（按模型严格约束）。\n- `gemini-3-pro-image-preview` 与 `gemini-3.1-flash-image-preview` 的参数枚举不同\n- 二者均支持：\n  - text_to_image（仅 `prompt`）\n  - image_to_image（`image` 或 `images`）\n- image_to_image\
+        \ 输入约束（上游）：\n  - 数量：`1~14`\n  - 文件类型：`jpg/png`\n- 上游参数映射约束：\n  - 请求体参数名与上游保持一致（`aspect_ratio`、`size`）\n  - 不执行 `size -> resolution` 自动转换\n  - 不注入 `duration` / `resolution`\n"
+      oneOf:
+      - $ref: '#/components/schemas/ImaImageGenerationRequestGemini3Pro'
+      - $ref: '#/components/schemas/ImaImageGenerationRequestGemini31Flash'
+      discriminator:
+        propertyName: model
+        mapping:
+          gemini-3-pro-image-preview: '#/components/schemas/ImaImageGenerationRequestGemini3Pro'
+          gemini-3.1-flash-image-preview: '#/components/schemas/ImaImageGenerationRequestGemini31Flash'
+    ImaImageGenerationRequestGemini3Pro:
+      type: object
+      additionalProperties: false
+      required:
+      - model
+      - prompt
+      properties:
+        model:
+          type: string
+          enum:
+          - gemini-3-pro-image-preview
+          description: 图片模型名称（pro）。
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 提示词（必填）。
+        aspect_ratio:
+          type: string
+          description: 图片宽高比（可选）。
+          enum:
+          - '1:1'
+          - '3:2'
+          - '2:3'
+          - '3:4'
+          - '4:3'
+          - '4:5'
+          - '5:4'
+          - '9:16'
+          - '16:9'
+          - '21:9'
+        size:
+          type: string
+          description: 输出尺寸（可选，默认 `1K`）。
+          default: 1K
+          enum:
+          - 1K
+          - 2K
+          - 4K
+        image:
+          type: string
+          format: uri
+          description: '单图输入（可选，image-to-image）。
+
+            文件类型要求：`jpg/png`（上游约束）。
+
+            '
+        images:
+          type: array
+          description: '多图输入（可选，image-to-image）。
+
+            文件类型要求：`jpg/png`（上游约束）。
+
+            '
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 14
+    ImaImageGenerationRequestGemini31Flash:
+      type: object
+      additionalProperties: false
+      required:
+      - model
+      - prompt
+      properties:
+        model:
+          type: string
+          enum:
+          - gemini-3.1-flash-image-preview
+          description: 图片模型名称（flash）。
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 提示词（必填）。
+        aspect_ratio:
+          type: string
+          description: 图片宽高比（可选）。
+          enum:
+          - '1:1'
+          - '1:4'
+          - '1:8'
+          - '2:3'
+          - '3:2'
+          - '3:4'
+          - '4:1'
+          - '4:3'
+          - '4:5'
+          - '5:4'
+          - '8:1'
+          - '9:16'
+          - '16:9'
+          - '21:9'
+        size:
+          type: string
+          description: 输出尺寸（可选，默认 `1K`）。
+          default: 1K
+          enum:
+          - 512px
+          - 1K
+          - 2K
+          - 4K
+        image:
+          type: string
+          format: uri
+          description: '单图输入（可选，image-to-image）。
+
+            文件类型要求：`jpg/png`（上游约束）。
+
+            '
+        images:
+          type: array
+          description: '多图输入（可选，image-to-image）。
+
+            文件类型要求：`jpg/png`（上游约束）。
+
+            '
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 14
+    ImaImageGenerationResponse:
+      type: object
+      additionalProperties: true
+      description: OpenAI Images 兼容响应（不同上游可能返回 url 或 b64_json）。
+      properties:
+        created:
+          type: integer
+          format: int64
+          description: 响应创建时间（Unix 秒）。
+        data:
+          type: array
+          description: 生成结果列表。
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              url:
+                type: string
+                format: uri
+                description: 图片 URL（当上游返回链接时）。
+              b64_json:
+                type: string
+                description: Base64 编码图片（当上游返回二进制时）。
+              revised_prompt:
+                type: string
+                description: 上游修订后的提示词（若有）。
+    ImaImageCreateTaskResponse:
+      type: object
+      additionalProperties: true
+      description: 图片异步任务提交响应。
+      properties:
+        id:
+          type: string
+          description: 公开任务 ID。
+        task_id:
+          type: string
+          description: 与 `id` 相同。
+        object:
+          type: string
+          example: image
+        model:
+          type: string
+        status:
+          type: string
+          description: 初始状态（如 `queued` / `in_progress`）。
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: integer
+          format: int64
+    ImaImageTaskFetchResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: string
+          example: success
+        data:
+          type: object
+          additionalProperties: true
+          properties:
+            task_id:
+              type: string
+            status:
+              type: string
+              description: 任务状态（如 queued/processing/succeeded/failed）。
+            format:
+              type: string
+              description: 输出格式（若可识别）。
+            url:
+              type: string
+              description: 成功后返回结果链接。
+            error:
+              nullable: true
+              oneOf:
+              - type: object
+                additionalProperties: true
+              - type: string
+            metadata:
+              nullable: true
+              oneOf:
+              - type: object
+                additionalProperties: true
+              - type: string
+              - type: 'null'
+            usage:
+              type: object
+              additionalProperties: true
+              description: token 用量（与日志结算口径一致）
+              properties:
+                input_tokens:
+                  type: integer
+                  minimum: 0
+                  description: 输入 token
+                output_tokens:
+                  type: integer
+                  minimum: 0
+                  description: 输出 token
+                total_tokens:
+                  type: integer
+                  minimum: 0
+                  description: 总 token
+    ImaProCreateResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          description: 公开任务 ID。
+        task_id:
+          type: string
+          description: 与 `id` 相同。
+        object:
+          type: string
+          example: video
+        model:
+          type: string
+        status:
+          type: string
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: integer
+          format: int64
+    ImaProQueryResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          description: 公开任务 ID。
+        task_id:
+          type: string
+          description: 与 `id` 相同。
+        object:
+          type: string
+          example: video
+        model:
+          type: string
+          description: 模型名称。
+        status:
+          type: string
+          description: OpenAI 风格状态（如 `queued` / `in_progress` / `completed` / `failed`）。
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: integer
+          format: int64
+        completed_at:
+          type: integer
+          format: int64
+        metadata:
+          type: object
+          additionalProperties: true
+          description: 元数据（通常包含 `url`）。
+        results:
+          type: array
+          description: 结果列表（成功时通常包含视频 URL）。
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              url:
+                type: string
+                format: uri
+              size:
+                type: integer
+              content_type:
+                type: string
+        usage:
+          type: object
+          additionalProperties: true
+          description: 上游用量信息（透传）。
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+        error:
+          type: object
+          nullable: true
+          description: 任务失败时的错误对象。
+          properties:
+            code:
+              type: string
+              example: task_failed
+            message:
+              type: string
+              example: 'video generation failed: internal error: 601300'
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          oneOf:
+          - type: string
+          - type: object
+            additionalProperties: true
+    TaskErrorResponse:
+      type: object
+      additionalProperties: true
+      description: '任务接口（创建/查询）错误返回。
+
+        常见字段：
+
+        - `code`：错误码（可能是业务码或 HTTP 字符串码）
+
+        - `message`：错误说明
+
+        - `data`：通常为 `null`
+
+        常见错误示例：
+
+        - `text_to_video requires one text content item`
+
+        - `status_code=500, task_id is empty`
+
+        - `the parameter video pixel count specified in the request must be less than or equal to 927408`
+
+        - `暂不支持人像`
+
+        '
+      required:
+      - code
+      - message
+      properties:
+        code:
+          oneOf:
+          - type: string
+          - type: integer
+          description: 错误码（如 `invalid_request`、`missing_model`、`task_not_exist`、`500`）。
+        message:
+          type: string
+          description: 错误描述。
+        data:
+          nullable: true
+          description: 扩展数据；当前实现多为 `null`。
+    MjSubmitResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        code:
+          type: integer
+          description: 1=成功，其他=失败。
+        result:
+          type: string
+          description: 任务 ID。
+        description:
+          type: string
+          description: 描述信息。
+    MjTaskFetchResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        mj_id:
+          type: string
+          description: MJ 任务 ID。
+        status:
+          type: string
+          enum:
+          - ''
+          - SUCCESS
+          - FAILURE
+          description: 任务状态。
+        progress:
+          type: string
+          example: 100%
+        imageUrl:
+          type: string
+          format: uri
+          description: 首图地址（兼容字段）。
+        urls:
+          type: array
+          description: 完整图片列表（推荐优先使用）。
+          items:
+            type: string
+            format: uri
+        action:
+          type: string
+          description: 任务动作类型（如 `IMAGINE`、`UPSCALE`）。
+        failReason:
+          type: string
+          description: 失败原因（失败时可能出现）。
+        buttons:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ModelItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 模型标识
+        object:
+          type: string
+          example: model
+        created:
+          type: integer
+          description: 模型创建时间（Unix 秒，兼容字段）
+        owned_by:
+          type: string
+          description: 上游供应商标识
+        supported_endpoint_types:
+          type: array
+          description: 模型支持的端点类型
+          items:
+            type: string
+        reasoning:
+          type: boolean
+          description: 模型是否支持 reasoning（仅根据网关配置返回）
+    ModelsListResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: list
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelItem'
+    ChatCompletionRequest:
+      type: object
+      required:
+      - model
+      - messages
+      properties:
+        model:
+          type: string
+          description: 模型名称
+          enum:
+          - gpt-4.1
+          - gpt-4.1-mini
+          - gpt-4.1-nano
+          - gpt-4o
+          - gpt-4o-mini
+          - gpt-5
+          - gpt-5-mini
+          - gpt-5.1
+          - gpt-5.2
+          - gpt-5.3-codex
+          - gemini-3.1-pro-preview
+          - gemini-3-pro-preview
+          - gemini-3-flash-preview
+          - gemini-3-pro-image-preview
+          - gemini-2.5-pro
+          - gemini-2.5-flash
+          - gemini-2.5-flash-lite
+          - gemini-2.5-flash-image
+          - gemini-2.0-flash
+          - g3-pro-image-preview
+          - g2.5-flash-image
+          - seed-1-8-251228
+          - seed-2-0-mini-260215
+          - seed-1-6-flash-250715
+          - seed-1-6-250915
+          - gpt-oss-120b-250805
+          - MiniMax-Text-01
+          - MiniMax-M1
+          - MiniMax-M2
+          - MiniMax-M2.1
+          - MiniMax-M2.1-highspeed
+          - MiniMax-M2.5
+          - MiniMax-M2.5-highspeed
+          - claude-3-haiku-20240307
+          - claude-3-5-haiku-20241022
+          - claude-sonnet-4-20250514
+          - claude-sonnet-4-5-20250929
+          - claude-sonnet-4-6
+          - claude-haiku-4-5-20251001
+          - claude-opus-4-1-20250805
+          - claude-opus-4-5-20251101
+          - claude-opus-4-6
+          - kimi-for-coding
+        messages:
+          type: array
+          items:
+            type: object
+            required:
+            - role
+            - content
+            properties:
+              role:
+                type: string
+                enum:
+                - system
+                - user
+                - assistant
+              content:
+                type: string
+        stream:
+          type: boolean
+          default: false
+          description: 是否启用流式响应
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+        max_tokens:
+          type: integer
+          description: 最大生成 token 数
+        tools:
+          type: array
+          description: 函数工具定义（OpenAI 兼容）
+          items:
+            type: object
+            required:
+            - type
+            - function
+            properties:
+              type:
+                type: string
+                enum:
+                - function
+              function:
+                type: object
+                required:
+                - name
+                - parameters
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  parameters:
+                    type: object
+        tool_choice:
+          description: 工具选择策略
+          oneOf:
+          - type: string
+            enum:
+            - none
+            - auto
+            - required
+          - type: object
+            properties:
+              type:
+                type: string
+                enum:
+                - function
+              function:
+                type: object
+                properties:
+                  name:
+                    type: string
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: chat.completion
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+                  tool_calls:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                          - function
+                        function:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            arguments:
+                              type: string
+              finish_reason:
+                type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+    ResponsesRequest:
+      type: object
+      required:
+      - model
+      - input
+      properties:
+        model:
+          type: string
+          enum:
+          - gpt-5.2
+          - gpt-5.3-codex
+        input:
+          type: string
+          description: 输入文本
+        max_output_tokens:
+          type: integer
+          description: 最大输出 token 数
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        stream:
+          type: boolean
+          default: false
+    ResponsesResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: response
+        model:
+          type: string
+        status:
+          type: string
+          example: completed
+        output:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              role:
+                type: string
+              content:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    text:
+                      type: string
+        usage:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+    AnthropicMessagesRequest:
+      type: object
+      required:
+      - model
+      - max_tokens
+      - messages
+      properties:
+        model:
+          type: string
+          enum:
+          - claude-sonnet-4-6
+        max_tokens:
+          type: integer
+          description: 最大输出 token 数
+        messages:
+          type: array
+          items:
+            type: object
+            required:
+            - role
+            - content
+            properties:
+              role:
+                type: string
+                enum:
+                - user
+                - assistant
+              content:
+                type: string
+        system:
+          type: string
+          description: 系统提示词
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+    AnthropicMessagesResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          example: message
+        role:
+          type: string
+          example: assistant
+        model:
+          type: string
+        content:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              text:
+                type: string
+        stop_reason:
+          type: string
+        usage:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+    ImageGenerationRequest:
+      type: object
+      required:
+      - model
+      - prompt
+      properties:
+        model:
+          type: string
+          enum:
+          - seedream-5-0-260128
+        prompt:
+          type: string
+          description: 图像描述
+        size:
+          type: string
+          description: 图像尺寸（seedream 需 ≥ 3686400 像素，如 1920x1920）
+          default: 1920x1920
+        n:
+          type: integer
+          default: 1
+          description: 生成数量
+    ImageGenerationResponse:
+      type: object
+      properties:
+        created:
+          type: integer
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              b64_json:
+                type: string
+    VideoGenerationRequest:
+      type: object
+      required:
+      - model
+      properties:
+        model:
+          type: string
+          description: '视频模型名称。
+
+
+            **仅图生视频模型（不支持纯文本）：** `viduq2-pro`、`viduq2-turbo`、`MiniMax-Hailuo-2.3-Fast`
+
+            **Hailuo-2.3-Fast 限制：** 仅图生视频，且 `size` 仅支持 `768p`、`1080p`（不支持 `720p`）。
+
+
+            **仅文生视频模型（不支持图片输入）：** `pixverse-v3.5` ~ `pixverse-v5.6`
+
+            '
+          enum:
+          - kling-v1
+          - kling-v1-6
+          - kling-v2-master
+          - kling-v2-1-master
+          - kling-v2-6
+          - kling-v2-5-turbo
+          - kling-video-o1
+          - viduq1
+          - viduq2
+          - viduq3-pro
+          - viduq3-turbo
+          - viduq2-pro
+          - viduq2-turbo
+          - seedance-1-5-pro-251215
+          - seedance-1-0-pro-fast-251015
+          - seedance-1-0-pro-250528
+          - MiniMax-Hailuo-02
+          - MiniMax-Hailuo-2.3
+          - MiniMax-Hailuo-2.3-Fast
+          - pixverse-v3.5
+          - pixverse-v4
+          - pixverse-v4.5
+          - pixverse-v5
+          - pixverse-v5.5
+          - pixverse-v5.6
+        prompt:
+          type: string
+          description: 视频描述
+        images:
+          type: array
+          items:
+            type: string
+          description: 图生视频：图片 URL 数组（Vidu 模型使用此字段）
+        image:
+          type: string
+          description: 图生视频：单张图片 URL
+        duration:
+          type: integer
+          description: 视频时长（秒）
+        size:
+          type: string
+          description: 分辨率（如 720p、1080p）。`MiniMax-Hailuo-2.3-Fast` 仅支持 `768p`、`1080p`。
+        metadata:
+          type: object
+          description: '供应商特定参数。
+
+            - Hailuo 图生视频：`{"first_frame_image": "URL"}`
+
+            - PixVerse 图生视频：`{"img_id": "上传后的图片ID"}`
+
+            - 回调通知（可选）：`{"callback_url": "https://your.domain/callback"}`
+
+            '
+          properties:
+            first_frame_image:
+              type: string
+              description: 图生视频首帧图片 URL。
+            img_id:
+              type: string
+              description: PixVerse 已上传的图片 ID
+            callback_url:
+              type: string
+              format: uri
+              description: '可选回调地址。提交任务后，供应商会将任务状态推送到该 URL。
+
+                建议使用可公网访问的 https 地址。
+
+                '
+    MiniMaxVideoGenerationRequest:
+      type: object
+      required:
+      - model
+      properties:
+        model:
+          type: string
+          enum:
+          - MiniMax-Hailuo-02
+          - MiniMax-Hailuo-2.3
+          - MiniMax-Hailuo-2.3-Fast
+          description: MiniMax 视频模型（仅限 MiniMax）。
+        prompt:
+          type: string
+          description: 视频描述
+        duration:
+          type: integer
+          description: 视频时长（秒）
+        size:
+          type: string
+          description: 分辨率（`MiniMax-Hailuo-2.3-Fast` 仅支持 `768p`、`1080p`）。
+        metadata:
+          type: object
+          description: 'MiniMax 供应商参数。
+
+            - 图生视频：`{"first_frame_image":"URL"}`
+
+            - 回调通知（可选）：`{"callback_url":"https://your.domain/callback"}`
+
+            '
+          properties:
+            first_frame_image:
+              type: string
+              description: Hailuo 图生视频首帧图片 URL（`MiniMax-Hailuo-2.3-Fast` 必填）。
+            callback_url:
+              type: string
+              format: uri
+              description: 可选回调地址。
+    VideoTaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        task_id:
+          type: string
+        object:
+          type: string
+          example: video
+        model:
+          type: string
+        status:
+          type: string
+          enum:
+          - ''
+          - in_progress
+          - completed
+          - failed
+          description: 空字符串表示已提交待处理
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: integer
+        completed_at:
+          type: integer
+        metadata:
+          type: object
+          properties:
+            url:
+              type: string
+              description: 视频下载链接（completed 时有值）
+    ConsumeCallbackEvent:
+      type: object
+      required:
+      - request_id
+      - user_id
+      - username
+      - token_id
+      - token_name
+      - sk
+      - model_name
+      - channel_id
+      - billing_source
+      - prompt_tokens
+      - completion_tokens
+      - total_tokens
+      - quota
+      - amount_usd
+      - timestamp
+      - event_phase
+      properties:
+        request_id:
+          type: string
+          description: '网关请求 ID（可用于与使用日志对账）。
+
+            当调用方请求头携带 `X-Trace-Id` 时，此字段与 `X-Trace-Id` 保持一致。
+
+            '
+        user_id:
+          type: integer
+          description: 用户 ID（兼容字段，建议优先使用 username）
+          deprecated: true
+        username:
+          type: string
+          description: 用户名（推荐使用）
+        token_id:
+          type: integer
+          description: Token ID（兼容字段，建议优先使用 sk）
+          deprecated: true
+        token_name:
+          type: string
+          description: Token 名称
+        sk:
+          type: string
+          description: 调用本次请求的 SK（带 sk- 前缀）
+        model_name:
+          type: string
+          description: 实际请求模型名
+        channel_id:
+          type: integer
+          description: 实际命中的渠道 ID
+        billing_source:
+          type: string
+          enum:
+          - wallet
+          - subscription
+          description: 扣费来源（钱包/订阅）
+        prompt_tokens:
+          type: integer
+          minimum: 0
+        completion_tokens:
+          type: integer
+          minimum: 0
+        total_tokens:
+          type: integer
+          minimum: 0
+        quota:
+          type: integer
+          minimum: 0
+          description: 本次扣减 quota（new-api 内部计费单位）
+        amount_usd:
+          type: number
+          format: double
+          minimum: 0
+          description: 本次扣费折算美元金额
+        timestamp:
+          type: integer
+          format: int64
+          description: 事件生成时间（Unix 秒）
+        event_phase:
+          type: string
+          enum:
+          - settle
+          description: '事件阶段，当前仅发送 `settle`。
+
+            '
+    ConsumeCallbackAck:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: accepted
+    MjSubmitRequest:
+      type: object
+      required:
+      - prompt
+      properties:
+        prompt:
+          type: string
+          description: MJ 提示词（支持 --ar、--v 等参数）
+    MjChangeRequest:
+      type: object
+      required:
+      - action
+      - taskId
+      - index
+      properties:
+        action:
+          type: string
+          enum:
+          - UPSCALE
+          - VARIATION
+          - REROLL
+        taskId:
+          type: string
+          description: 原始任务 ID
+        index:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: 图片序号（1-4）
+    MjTaskResponse:
+      type: object
+      properties:
+        mj_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - ''
+          - SUCCESS
+          - FAILURE
+        progress:
+          type: string
+          example: 100%
+        imageUrl:
+          type: string
+          description: 首图地址（兼容字段）
+        urls:
+          type: array
+          description: 完整图片列表（推荐读取）
+          items:
+            type: string
+        action:
+          type: string
+        failReason:
+          type: string
+        buttons:
+          type: array
+          items:
+            type: object
+    MiniMaxVideosCreateRequest:
+      type: object
+      required:
+      - model
+      additionalProperties: false
+      properties:
+        model:
+          type: string
+          enum:
+          - MiniMax-Hailuo-02
+          - MiniMax-Hailuo-2.3
+          - MiniMax-Hailuo-2.3-Fast
+          description: MiniMax 视频模型（openai-videos 端点）。
+        prompt:
+          type: string
+          minLength: 1
+          description: 视频提示词。
+        duration:
+          type: integer
+          minimum: 4
+          maximum: 15
+          default: 6
+          description: 视频时长（秒）。
+        size:
+          type: string
+          enum:
+          - 768p
+          - 1080p
+          description: 分辨率（MiniMax-Hailuo-2.3-Fast 仅支持 `768p`、`1080p`）。
+        metadata:
+          type: object
+          additionalProperties: true
+          properties:
+            first_frame_image:
+              type: string
+              format: uri
+              description: 图生视频首帧图 URL（必填）。
+      allOf:
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3-Fast
+        then:
+          required:
+          - metadata
+          properties:
+            size:
+              type: string
+              enum:
+              - 768p
+              - 1080p
+            metadata:
+              type: object
+              required:
+              - first_frame_image
