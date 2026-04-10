@@ -1940,6 +1940,40 @@ paths:
                     data: null
       x-apifox-folder: MiniMax 视频
       x-apifox-status: released
+  /v1/video/generations/{task_id}:
+    get:
+      tags:
+      - MiniMax 视频
+      summary: 查询 MiniMax 视频任务状态
+      description: '使用 `/v1/video/generations` 提交后返回的 `task_id` 轮询任务结果。
+
+        鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
+
+        当任务完成时，响应中 `status` 为 `succeeded`，`results` 数组包含视频 URL。
+        '
+      operationId: getMiniMaxVideoTaskStatus
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 创建任务时返回的任务 ID。
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImaProGetResponse'
+        '401':
+          description: 鉴权失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: MiniMax 视频
+      x-apifox-status: released
 components:
   parameters:
     AuthorizationHeader:
