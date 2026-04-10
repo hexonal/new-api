@@ -214,7 +214,7 @@ func inferAsync(capabilityKey string, providerStyle string) bool {
 	case "text_to_video", "image_to_video":
 		return true
 	}
-	return strings.TrimSpace(providerStyle) == "jimeng"
+	return false
 }
 
 func inferProviderStyle(capabilityKey string, path string, providerStyle string) string {
@@ -224,8 +224,18 @@ func inferProviderStyle(capabilityKey string, path string, providerStyle string)
 	}
 
 	switch capabilityKey {
-	case "chat", "speech_to_text", "text_to_speech", "audio_translation", "moderation", "embeddings":
-		return "openai"
+	case "chat":
+		return "openai-chat"
+	case "speech_to_text":
+		return "openai-stt"
+	case "text_to_speech":
+		return "openai-tts"
+	case "audio_translation":
+		return "openai-audio-translation"
+	case "moderation":
+		return "openai-moderation"
+	case "embeddings":
+		return "openai-embeddings"
 	case "text_to_image", "image_to_image":
 		return "openai-image"
 	case "text_to_video", "image_to_video":
@@ -299,7 +309,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/chat/completions",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-chat",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.chatCompletions",
 				Parameters:    map[string]CapabilityParameter{},
@@ -311,7 +321,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/transcriptions",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-stt",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.audioTranscriptions",
 				Parameters:    map[string]CapabilityParameter{},
@@ -323,7 +333,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/speech",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-tts",
 				RequestFormat: "blob_response",
 				SDKMethod:     "aiApi.audioSpeech",
 				Parameters:    map[string]CapabilityParameter{},
@@ -335,7 +345,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/translations",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-audio-translation",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.audioTranslations",
 				Parameters:    map[string]CapabilityParameter{},
@@ -347,7 +357,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/moderations",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-moderation",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.moderations",
 				Parameters:    map[string]CapabilityParameter{},
@@ -392,7 +402,8 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/images/generations",
 				Method:        "POST",
-				ProviderStyle: "jimeng",
+				ProviderStyle: "openai-image",
+				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.imageGenerations",
 				Parameters:    map[string]CapabilityParameter{},
@@ -430,7 +441,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
-				ProviderStyle: "kling",
+				ProviderStyle: "openai-video",
 				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
@@ -440,7 +451,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
-				ProviderStyle: "kling",
+				ProviderStyle: "openai-video",
 				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
@@ -477,7 +488,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/embeddings",
 				Method:        "POST",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-embeddings",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.embeddings",
 				Parameters:    map[string]CapabilityParameter{},
@@ -501,7 +512,7 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/realtime",
 				Method:        "GET",
-				ProviderStyle: "openai",
+				ProviderStyle: "openai-realtime",
 				RequestFormat: "websocket",
 				SDKMethod:     "N/A",
 				Parameters:    map[string]CapabilityParameter{},

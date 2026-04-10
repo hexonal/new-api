@@ -46,7 +46,7 @@ const ENDPOINT_TEMPLATE = {
   chat: {
     path: '/v1/chat/completions',
     method: 'POST',
-    provider_style: 'openai',
+    provider_style: 'openai-chat',
     async: false,
     parameters: {},
   },
