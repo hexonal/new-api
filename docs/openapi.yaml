@@ -696,10 +696,6 @@ components:
             - Hailuo 图生视频：`{"first_frame_image": "URL"}`
             - PixVerse 图生视频：`{"img_id": "上传后的图片ID"}`
           properties:
-            resolution:
-              type: string
-              enum: ["480p", "720p", "1080p"]
-              description: 分辨率档位（支持 `480p`、`720p`、`1080p`）。
             first_frame_image:
               type: string
               description: Hailuo 图生视频首帧图片 URL
