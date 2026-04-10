@@ -111,6 +111,8 @@ const buildDeferredTokenFormula = (
   cacheRatio,
   groupRatio,
   t,
+  totalTokens,
+  thoughtRatio,
 ) => {
   const p = Number(promptTokens);
   const c = Number(completionTokens);
@@ -135,6 +137,13 @@ const buildDeferredTokenFormula = (
   const completionPrice = inputPrice * cr;
   const cachePrice = inputPrice * kr;
   const nonCachePrompt = Math.max(p - k, 0);
+
+  // Derive thought tokens from total - prompt - completion
+  const total = Number(totalTokens || 0);
+  const thoughtTokens = total > 0 ? Math.max(total - p - c, 0) : 0;
+  const tr = Number(thoughtRatio || cr);
+  const thoughtPrice = inputPrice * tr;
+
   const terms = [];
   if (nonCachePrompt > 0) {
     terms.push(
@@ -149,6 +158,11 @@ const buildDeferredTokenFormula = (
   terms.push(
     `${t('输出')} ${renderNumber(c)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
   );
+  if (thoughtTokens > 0) {
+    terms.push(
+      `${t('思考')} ${renderNumber(thoughtTokens)} tokens / 1M tokens * $${thoughtPrice.toFixed(6)}`,
+    );
+  }
   return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${gr.toFixed(4)}`;
 };
 
@@ -823,6 +837,12 @@ export const useLogsData = () => {
               billingDisplayMode,
               other?.group_ratio_source,
             );
+            // Gemini image-preview models bill thought tokens at text-output
+            // rate (6.0) instead of image-output rate (60.0).
+            const modelName = logs[i]?.model_name || '';
+            const isGeminiImagePreview =
+              modelName.includes('image-preview') || modelName.includes('image_preview');
+            const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
             const forcedFormula = buildDeferredTokenFormula(
               deferredPromptTokens,
               deferredCompletionTokens,
@@ -832,6 +852,8 @@ export const useLogsData = () => {
               other?.cache_ratio || 1.0,
               other?.group_ratio,
               t,
+              totalTokens,
+              thoughtRatio,
             );
             content = (
               <article>
