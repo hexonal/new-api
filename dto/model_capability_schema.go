@@ -95,7 +95,14 @@ func parseCapabilitySpec(capabilityKey string, raw json.RawMessage) (CapabilityS
 	if spec.Path == "" {
 		spec.Path = inferPath(capabilityKey, "")
 	}
+	spec.ProviderStyle = inferProviderStyle(capabilityKey, spec.Path, spec.ProviderStyle)
 	spec.Method = inferMethod(spec.Method)
+	spec.RequestFormat = inferRequestFormat(capabilityKey, spec.Path, spec.Method, spec.ProviderStyle)
+	spec.SDKMethod = inferSDKMethod(capabilityKey, spec.Path, spec.ProviderStyle)
+	if spec.Parameters == nil {
+		spec.Parameters = map[string]CapabilityParameter{}
+	}
+	spec.Async = spec.Async || inferAsync(capabilityKey, spec.ProviderStyle)
 	return spec, true
 }
 
@@ -210,6 +217,39 @@ func inferAsync(capabilityKey string, providerStyle string) bool {
 	return strings.TrimSpace(providerStyle) == "jimeng"
 }
 
+func inferProviderStyle(capabilityKey string, path string, providerStyle string) string {
+	trimmedProviderStyle := strings.TrimSpace(providerStyle)
+	if trimmedProviderStyle != "" {
+		return trimmedProviderStyle
+	}
+
+	switch capabilityKey {
+	case "chat", "speech_to_text", "text_to_speech", "audio_translation", "moderation", "embeddings":
+		return "openai"
+	case "text_to_image", "image_to_image":
+		return "openai-image"
+	case "text_to_video", "image_to_video":
+		return "openai-video"
+	case "music_generation":
+		return "suno"
+	case "midjourney_generation":
+		return "midjourney"
+	case "rerank":
+		return "jina"
+	case "realtime":
+		return "openai"
+	}
+
+	switch {
+	case strings.Contains(path, "/images/generations"), strings.Contains(path, "/images/edits"):
+		return "openai-image"
+	case strings.Contains(path, "/videos"):
+		return "openai-video"
+	default:
+		return "openai"
+	}
+}
+
 func inferSDKMethod(capabilityKey string, path string, providerStyle string) string {
 	switch capabilityKey {
 	case "text_to_image":
@@ -259,8 +299,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/chat/completions",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.chatCompletions",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "speech_to_text", string(constant.EndpointTypeOpenAISTT):
@@ -269,8 +311,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/transcriptions",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.audioTranscriptions",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "text_to_speech", string(constant.EndpointTypeOpenAITTS):
@@ -279,8 +323,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/speech",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "blob_response",
 				SDKMethod:     "aiApi.audioSpeech",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "audio_translation", string(constant.EndpointTypeOpenAIAudioTranslation):
@@ -289,8 +335,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/audio/translations",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.audioTranslations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "moderation", string(constant.EndpointTypeOpenAIModeration):
@@ -299,8 +347,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/moderations",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.moderations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "text_to_image", string(constant.EndpointTypeImageGeneration):
@@ -309,15 +359,19 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/images/generations",
 				Method:        "POST",
+				ProviderStyle: "openai-image",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.imageGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 			"image_to_image": {
 				Supported:     true,
 				Path:          "/v1/images/edits",
 				Method:        "POST",
+				ProviderStyle: "openai-image",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.imageEdits",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "image_to_image":
@@ -326,8 +380,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/images/edits",
 				Method:        "POST",
+				ProviderStyle: "openai-image",
 				RequestFormat: "multipart",
 				SDKMethod:     "aiApi.imageEdits",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case string(constant.EndpointTypeJimeng):
@@ -336,8 +392,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/images/generations",
 				Method:        "POST",
+				ProviderStyle: "jimeng",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.imageGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "text_to_video", string(constant.EndpointTypeVideoGeneration), string(constant.EndpointTypeOpenAIVideo):
@@ -346,8 +404,11 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
+				ProviderStyle: "openai-video",
+				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "image_to_video":
@@ -356,8 +417,11 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
+				ProviderStyle: "openai-video",
+				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case string(constant.EndpointTypeKling):
@@ -366,15 +430,21 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
+				ProviderStyle: "kling",
+				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 			"image_to_video": {
 				Supported:     true,
 				Path:          "/v1/videos",
 				Method:        "POST",
+				ProviderStyle: "kling",
+				Async:         true,
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.videoGenerations",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "music_generation", string(constant.EndpointTypeSuno):
@@ -383,8 +453,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/suno/submit/{action}",
 				Method:        "POST",
+				ProviderStyle: "suno",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.submitTask",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "midjourney_generation", string(constant.EndpointTypeMidjourney):
@@ -393,8 +465,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/mj/submit/imagine",
 				Method:        "POST",
+				ProviderStyle: "midjourney",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.submitTask",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case string(constant.EndpointTypeEmbeddings):
@@ -403,8 +477,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/embeddings",
 				Method:        "POST",
+				ProviderStyle: "openai",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.embeddings",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "rerank", string(constant.EndpointTypeJinaRerank):
@@ -413,8 +489,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/rerank",
 				Method:        "POST",
+				ProviderStyle: "jina",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.rerank",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	case "realtime":
@@ -423,8 +501,10 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				Supported:     true,
 				Path:          "/v1/realtime",
 				Method:        "GET",
+				ProviderStyle: "openai",
 				RequestFormat: "websocket",
 				SDKMethod:     "N/A",
+				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
 	default:

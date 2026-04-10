@@ -43,20 +43,48 @@ const { Text, Title } = Typography;
 
 // Example endpoint template for quick fill
 const ENDPOINT_TEMPLATE = {
-  chat: { path: '/v1/chat/completions', method: 'POST', parameters: {} },
+  chat: {
+    path: '/v1/chat/completions',
+    method: 'POST',
+    provider_style: 'openai',
+    async: false,
+    parameters: {},
+  },
   text_to_image: {
     path: '/v1/images/generations',
     method: 'POST',
+    provider_style: 'openai-image',
+    async: false,
     parameters: {},
   },
   image_to_image: {
     path: '/v1/images/edits',
     method: 'POST',
+    provider_style: 'openai-image',
+    async: false,
     parameters: {},
   },
-  text_to_video: { path: '/v1/videos', method: 'POST', parameters: {} },
-  image_to_video: { path: '/v1/videos', method: 'POST', parameters: {} },
-  embeddings: { path: '/v1/embeddings', method: 'POST', parameters: {} },
+  text_to_video: {
+    path: '/v1/videos',
+    method: 'POST',
+    provider_style: 'openai-video',
+    async: true,
+    parameters: {},
+  },
+  image_to_video: {
+    path: '/v1/videos',
+    method: 'POST',
+    provider_style: 'openai-video',
+    async: true,
+    parameters: {},
+  },
+  embeddings: {
+    path: '/v1/embeddings',
+    method: 'POST',
+    provider_style: 'openai',
+    async: false,
+    parameters: {},
+  },
 };
 
 const CAPABILITY_ENDPOINT_TEMPLATE = {

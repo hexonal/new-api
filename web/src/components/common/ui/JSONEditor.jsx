@@ -674,14 +674,14 @@ const JSONEditor = ({
           return (
             <div key={pair.id} className='border rounded-xl p-3'>
               <Row gutter={8} align='middle'>
-                <Col span={5}>
+                <Col span={4}>
                   <Input
                     placeholder={t('端点类型')}
                     value={pair.key}
                     onChange={(newKey) => updateKey(pair.id, newKey)}
                   />
                 </Col>
-                <Col span={9}>
+                <Col span={6}>
                   <Input
                     placeholder={t('路径，如 /v1/videos')}
                     value={endpointValue.path || ''}
@@ -690,7 +690,7 @@ const JSONEditor = ({
                     }
                   />
                 </Col>
-                <Col span={4}>
+                <Col span={3}>
                   <Input
                     placeholder='POST'
                     value={endpointValue.method || 'POST'}
@@ -703,7 +703,29 @@ const JSONEditor = ({
                     }
                   />
                 </Col>
-                <Col span={4}>
+                <Col span={5}>
+                  <Input
+                    placeholder={t('协议风格，如 openai-video')}
+                    value={endpointValue.provider_style || ''}
+                    onChange={(newValue) =>
+                      updateEndpointField(pair.id, 'provider_style', newValue)
+                    }
+                  />
+                </Col>
+                <Col span={3}>
+                  <div className='flex items-center gap-2 h-8'>
+                    <Text type='secondary' size='small'>
+                      {t('异步')}
+                    </Text>
+                    <Switch
+                      checked={endpointValue.async === true}
+                      onChange={(checked) =>
+                        updateEndpointField(pair.id, 'async', checked)
+                      }
+                    />
+                  </div>
+                </Col>
+                <Col span={3}>
                   <Button
                     icon={<IconDelete />}
                     type='danger'
@@ -772,7 +794,13 @@ const JSONEditor = ({
                 {
                   id: generateUniqueId(),
                   key: `endpoint_${keyValuePairs.length + 1}`,
-                  value: { path: '', method: 'POST', parameters: {} },
+                  value: {
+                    path: '',
+                    method: 'POST',
+                    provider_style: '',
+                    async: false,
+                    parameters: {},
+                  },
                 },
               ];
               handleVisualChange(newPairs);
