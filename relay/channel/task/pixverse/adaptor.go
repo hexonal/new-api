@@ -40,6 +40,8 @@ var ModelList = []string{
 	"pixverse-v5",
 	"pixverse-v5.5",
 	"pixverse-v5.6",
+	"pixverse-c1",
+	"pixverse-v6",
 }
 
 type TaskAdaptor struct {
