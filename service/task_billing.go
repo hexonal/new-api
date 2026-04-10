@@ -23,6 +23,18 @@ const (
 	TaskTerminalChargeStateSkipped = "skipped"
 )
 
+func requestPathForLog(c *gin.Context) string {
+	if v, ok := c.Get("original_request_path"); ok {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	if c != nil && c.Request != nil && c.Request.URL != nil {
+		return c.Request.URL.Path
+	}
+	return ""
+}
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
 func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
@@ -32,10 +44,33 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if info.TaskRelayInfo != nil {
 		perCallBilling = info.TaskRelayInfo.PerCallBilling
 	}
-	// 按次计费任务仅记录模式，不展开倍率参数。
+	// 按次计费任务记录模式与 OtherRatios（如 duration/quality 乘数）。
 	if perCallBilling {
-		logContent = fmt.Sprintf("%s，按次计费", logContent)
+		logContent = fmt.Sprintf(
+			"%s，按次计费：model_price=%.6f, group_ratio=%.2f",
+			logContent,
+			info.PriceData.ModelPrice,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+		)
+		if len(info.PriceData.OtherRatios) > 0 {
+			var contents []string
+			for key, ra := range info.PriceData.OtherRatios {
+				if ra != 1.0 {
+					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+				}
+			}
+			if len(contents) > 0 {
+				logContent = fmt.Sprintf("%s, 计算参数：%s", logContent, strings.Join(contents, ", "))
+			}
+		}
 	} else {
+		logContent = fmt.Sprintf(
+			"%s，按量计费：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
+			logContent,
+			info.PriceData.ModelRatio,
+			info.PriceData.CompletionRatio,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+		)
 		if len(info.PriceData.OtherRatios) > 0 {
 			var contents []string
 			for key, ra := range info.PriceData.OtherRatios {
@@ -49,14 +84,21 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		}
 	}
 	other := make(map[string]interface{})
-	other["request_path"] = c.Request.URL.Path
+	other["request_path"] = requestPathForLog(c)
 	other["model_price"] = info.PriceData.ModelPrice
+	other["model_ratio"] = info.PriceData.ModelRatio
+	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	}
+	if len(info.PriceData.OtherRatios) > 0 {
+		for key, value := range info.PriceData.OtherRatios {
+			other[key] = value
+		}
 	}
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
@@ -82,16 +124,40 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 // to terminal success settlement.
 func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, estimatedQuota int, taskID string) {
 	tokenName := c.GetString("token_name")
-	logContent := fmt.Sprintf("操作 %s，延迟结算(提交阶段)", info.Action)
+	logContent := fmt.Sprintf(
+		"操作 %s，延迟结算(提交阶段)：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
+		info.Action,
+		info.PriceData.ModelRatio,
+		info.PriceData.CompletionRatio,
+		info.PriceData.GroupRatioInfo.GroupRatio,
+	)
+	if len(info.PriceData.OtherRatios) > 0 {
+		var contents []string
+		for key, ra := range info.PriceData.OtherRatios {
+			if 1.0 != ra {
+				contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+			}
+		}
+		if len(contents) > 0 {
+			logContent = fmt.Sprintf("%s, 计算参数：%s", logContent, strings.Join(contents, ", "))
+		}
+	}
 	other := make(map[string]interface{})
-	other["request_path"] = c.Request.URL.Path
+	other["request_path"] = requestPathForLog(c)
 	other["model_price"] = info.PriceData.ModelPrice
+	other["model_ratio"] = info.PriceData.ModelRatio
+	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	}
+	if len(info.PriceData.OtherRatios) > 0 {
+		for key, value := range info.PriceData.OtherRatios {
+			other[key] = value
+		}
 	}
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
@@ -179,6 +245,12 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
 		other["group_ratio"] = bc.GroupRatio
+		other["model_ratio"] = bc.ModelRatio
+		if bc.CompletionRatio > 0 {
+			other["completion_ratio"] = bc.CompletionRatio
+		} else {
+			other["completion_ratio"] = ratio_setting.GetCompletionRatio(taskModelName(task))
+		}
 		if strings.TrimSpace(bc.GroupRatioSource) != "" {
 			other["group_ratio_source"] = bc.GroupRatioSource
 		}
@@ -417,8 +489,8 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	other["estimated_quota"] = bc.EstimatedQuota
 	other["terminal_charge_state"] = bc.TerminalChargeState
 	other["terminal_charge_reason"] = reason
-	// When terminal charge is token-based recalculation, override the submit-time
-	// per-call model_price with token-based ratios so the frontend renders correctly.
+	// Clear submit-time model_price for terminal charge logs so frontend
+	// renders deferred-settle format instead of per-call format.
 	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
 		modelName := taskModelName(task)
 		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
@@ -426,6 +498,27 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 		other["model_price"] = float64(-1) // clear per-call pricing flag
 		other["model_ratio"] = modelRatio
 		other["completion_ratio"] = completionRatio
+	} else if strings.Contains(reason, "adaptor_adjust") {
+		// Adaptor-based settlement (e.g. Vidu credits): clear model_price
+		// to prevent frontend from showing misleading per-call format.
+		other["model_price"] = float64(-1)
+		other["settlement_type"] = "adaptor"
+		// Try to extract upstream credits from task data for billing display.
+		// Only for known credits-based channels (Vidu = type 52).
+		if len(task.Data) > 0 && task.ChannelId > 0 {
+			ch, chErr := model.GetChannelById(task.ChannelId, false)
+			if chErr == nil && ch != nil && ch.Type == constant.ChannelTypeVidu {
+				var dataMap map[string]any
+				if err := common.Unmarshal(task.Data, &dataMap); err == nil {
+					if credits, ok := dataMap["credits"]; ok {
+						if c, isNum := credits.(float64); isNum && c > 0 {
+							other["upstream_credits"] = int(c)
+							other["settlement_type"] = "credits"
+						}
+					}
+				}
+			}
+		}
 	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {

@@ -16,6 +16,10 @@ func KlingRequestConvert() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		isImageGen := strings.HasPrefix(path, "/kling/v1/images/")
+		// Preserve original native path for logging/audit before rewrite.
+		if _, exists := c.Get("original_request_path"); !exists {
+			c.Set("original_request_path", path)
+		}
 
 		var originalReq map[string]interface{}
 		if err := common.UnmarshalBodyReusable(c, &originalReq); err != nil {

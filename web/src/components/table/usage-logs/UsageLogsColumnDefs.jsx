@@ -302,6 +302,36 @@ function toTokenNumber(value) {
   return parsed;
 }
 
+function parseTokenRecalculateTotal(...candidates) {
+  for (const candidate of candidates) {
+    const text = String(candidate || '');
+    const matched = text.match(/token(?:_recalculate|重算)\s*[:=]\s*(\d+)/i);
+    if (!matched) {
+      continue;
+    }
+    const total = Number(matched[1]);
+    if (Number.isFinite(total) && total > 0) {
+      return total;
+    }
+  }
+  return 0;
+}
+
+function resolveDeferredTotalTokens(record, other, promptTokens, completionTokens) {
+  const directTotal = toTokenNumber(other?.task_total_tokens);
+  if (directTotal > 0) {
+    return directTotal;
+  }
+  const recalculatedTotal = parseTokenRecalculateTotal(
+    other?.terminal_charge_reason,
+    record?.content,
+  );
+  if (recalculatedTotal > 0) {
+    return recalculatedTotal;
+  }
+  return toTokenNumber(promptTokens) + toTokenNumber(completionTokens);
+}
+
 function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
@@ -319,8 +349,10 @@ function isDeferredTokenRecalculateLog(record, other) {
   return (
     reason.startsWith('token_recalculate') ||
     reason.startsWith('token重算') ||
+    reason.startsWith('adaptor_adjust') ||
     content.startsWith('token_recalculate') ||
     content.startsWith('token重算') ||
+    content.startsWith('adaptor_adjust') ||
     hasTokenUsage
   );
 }
@@ -360,6 +392,93 @@ function formatDisplayPrice(usdAmount) {
   }
   const { symbol, rate } = getCurrencyConfig();
   return `${symbol}${(usdAmount * rate).toFixed(6)}`;
+}
+
+function buildDeferredTokenFormulaPreview(record, other, t) {
+  const promptTokens =
+    toTokenNumber(record?.prompt_tokens) || toTokenNumber(other?.task_prompt_tokens);
+  const completionTokens =
+    toTokenNumber(record?.completion_tokens) ||
+    toTokenNumber(other?.task_completion_tokens);
+  const totalTokens = resolveDeferredTotalTokens(
+    record,
+    other,
+    promptTokens,
+    completionTokens,
+  );
+  const cacheTokens = toTokenNumber(other?.cache_tokens);
+  const modelRatio = Number(other?.model_ratio);
+  const completionRatio = Number(other?.completion_ratio || 1);
+  const cacheRatio = Number(other?.cache_ratio || 1);
+  const groupRatio = Number(other?.group_ratio);
+
+  if (
+    !Number.isFinite(modelRatio) ||
+    modelRatio <= 0 ||
+    !Number.isFinite(completionRatio) ||
+    completionRatio <= 0 ||
+    !Number.isFinite(groupRatio) ||
+    groupRatio <= 0
+  ) {
+    return null;
+  }
+
+  const inputPrice = modelRatio * 2;
+  const completionPrice = inputPrice * completionRatio;
+  const modelName = String(record?.model_name || '');
+  const isGeminiImagePreview =
+    modelName.includes('image-preview') || modelName.includes('image_preview');
+  const thoughtRatio = isGeminiImagePreview ? 6 : completionRatio;
+  const thoughtPrice = inputPrice * thoughtRatio;
+  const cachePrice = inputPrice * cacheRatio;
+  const nonCacheInputTokens = Math.max(promptTokens - cacheTokens, 0);
+  const thoughtTokens = Math.max(totalTokens - promptTokens - completionTokens, 0);
+
+  const terms = [];
+  if (nonCacheInputTokens > 0) {
+    terms.push(
+      `${t('输入')} ${formatTokenCount(nonCacheInputTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}`,
+    );
+  }
+  if (cacheTokens > 0) {
+    terms.push(
+      `${t('缓存')} ${formatTokenCount(cacheTokens)} tokens / 1M tokens * $${cachePrice.toFixed(6)}`,
+    );
+  }
+  if (completionTokens > 0) {
+    terms.push(
+      `${t('输出')} ${formatTokenCount(completionTokens)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
+    );
+  }
+  if (thoughtTokens > 0) {
+    terms.push(
+      `${t('思考')} ${formatTokenCount(thoughtTokens)} tokens / 1M tokens * $${thoughtPrice.toFixed(6)}`,
+    );
+  }
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${groupRatio}`;
+}
+
+function buildDeferredPendingFormulaPreview(other, t) {
+  const quota = Number(other?.estimated_quota);
+  const modelRatio = Number(other?.model_ratio);
+  const groupRatio = Number(other?.group_ratio);
+  if (
+    !Number.isFinite(quota) ||
+    quota <= 0 ||
+    !Number.isFinite(modelRatio) ||
+    modelRatio <= 0 ||
+    !Number.isFinite(groupRatio) ||
+    groupRatio <= 0
+  ) {
+    return null;
+  }
+  const estimatedTokens = Math.round(quota / (modelRatio * groupRatio));
+  const inputPrice = modelRatio * 2;
+  return `(${t('预扣')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
 }
 
 function getPromptCacheSummary(other) {
@@ -777,6 +896,21 @@ export const getLogsColumns = ({
             </Tooltip>
           );
         }
+        // Deferred settle pending: clearly show not yet charged
+        if (other?.deferred_settle && other?.terminal_charge_state === 'pending') {
+          const est = toTokenNumber(other?.estimated_quota);
+          const tip = est > 0
+            ? t('预估 {{cost}}，以任务完成后结算为准', { cost: renderQuota(est, 6) })
+            : t('等待任务完成后结算');
+          return (
+            <Tooltip content={tip}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Tag color='orange' size='small'>{t('待结算')}</Tag>
+                <span style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}>{t('未扣费')}</span>
+              </span>
+            </Tooltip>
+          );
+        }
         return <>{renderQuota(text, 6)}</>;
       },
     },
@@ -924,20 +1058,34 @@ export const getLogsColumns = ({
           isDeferredTokenRecalculateLog(record, other) &&
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
-          const billedQuota = Number(record?.quota || 0);
-          const tokenTotal =
-            toTokenNumber(other?.task_total_tokens) ||
-            toTokenNumber(record?.prompt_tokens) +
-              toTokenNumber(record?.completion_tokens);
-          const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
-            other?.actual_quota || billedQuota,
-            tokenTotal,
+          const billedQuota = Number(other?.actual_quota || record?.quota || 0);
+          const tokenTotal = resolveDeferredTotalTokens(
+            record,
+            other,
+            record?.prompt_tokens,
+            record?.completion_tokens,
           );
+          const billingSummary = renderLogContent(
+            other?.model_ratio,
+            other?.completion_ratio,
+            other?.model_price,
+            other?.group_ratio,
+            other?.user_group_ratio,
+            other?.cache_ratio || 1.0,
+            false,
+            1.0,
+            false,
+            0,
+            false,
+            0,
+            billingDisplayMode,
+            other?.group_ratio_source,
+          );
+          const formulaPreview = buildDeferredTokenFormulaPreview(record, other, t);
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
-            Number.isFinite(effectiveTokenPricePer1M)
-              ? `${t('模型价格（按 token）')}：${formatDisplayPrice(effectiveTokenPricePer1M)} / 1M tokens`
-              : null,
+            billingSummary,
+            formulaPreview,
             `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
@@ -963,11 +1111,13 @@ export const getLogsColumns = ({
         }
 
         if (isDeferredSettlePendingLog(record, other)) {
+          const pendingFormula = buildDeferredPendingFormulaPreview(other, t);
           const summary = [
             t('延迟结算（提交阶段）'),
             toTokenNumber(other?.estimated_quota) > 0
               ? `${t('预估扣费')}：${renderQuota(other.estimated_quota, 6)}`
               : null,
+            pendingFormula,
             `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
             t('仅供参考，以实际扣费为准'),
           ]
@@ -980,6 +1130,132 @@ export const getLogsColumns = ({
                 showTooltip: {
                   type: 'popover',
                   opts: { style: { width: 240 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
+
+        const requestPath = String(other?.request_path || '');
+        const isNonTextTaskEndpoint =
+          requestPath.startsWith('/v1/videos') ||
+          requestPath.startsWith('/v1/video/generations') ||
+          requestPath.startsWith('/v1/images/generations') ||
+          requestPath.startsWith('/kling/v1/videos') ||
+          requestPath.startsWith('/jimeng') ||
+          requestPath.startsWith('/mj/');
+        const hasNoTokenUsage =
+          toTokenNumber(record?.prompt_tokens) <= 0 &&
+          toTokenNumber(record?.completion_tokens) <= 0 &&
+          toTokenNumber(other?.task_prompt_tokens) <= 0 &&
+          toTokenNumber(other?.task_completion_tokens) <= 0 &&
+          toTokenNumber(other?.task_total_tokens) <= 0;
+
+        // Deferred settle tasks: show actual settled amount instead of
+        // misleading $0 token-based estimate.
+        if (other?.deferred_settle) {
+          const billedQuota = toTokenNumber(record?.quota);
+          const groupRatio = Number(other?.group_ratio);
+          const chargeState = other?.terminal_charge_state || 'pending';
+          const estimatedQuota = toTokenNumber(other?.estimated_quota);
+          const summaryLines = [
+            t('延迟结算'),
+            chargeState === 'applied'
+              ? `${t('终态重算扣费')}：${renderQuota(billedQuota, 6)}`
+              : chargeState === 'skipped'
+                ? t('终态未扣费')
+                : `${t('等待任务完成结算')}`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            estimatedQuota > 0
+              ? `${t('预估额度')}：${renderQuota(estimatedQuota, 6)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summaryLines}
+            </Typography.Paragraph>
+          );
+        }
+
+        const modelPrice = Number(other?.model_price);
+        const billedQuota = toTokenNumber(record?.quota);
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          !(Number.isFinite(modelPrice) && modelPrice > 0) &&
+          billedQuota > 0
+        ) {
+          const groupRatio = Number(other?.group_ratio);
+          const safeRatio = Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
+          const derivedModelPrice = billedQuota / safeRatio;
+          const summary = [
+            t('按次计费（根据实际扣费反推）'),
+            `${t('模型单价')}：${renderQuota(derivedModelPrice, 6)} / ${t('次')}`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            `(${t('模型单价')} ${renderQuota(derivedModelPrice, 6)} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
+            t('仅供参考，以实际扣费为准'),
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
+                },
+              }}
+              style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+            >
+              {summary}
+            </Typography.Paragraph>
+          );
+        }
+        if (isNonTextTaskEndpoint && hasNoTokenUsage && !(Number.isFinite(modelPrice) && modelPrice > 0)) {
+          const modelRatio = Number(other?.model_ratio);
+          const groupRatio = Number(other?.group_ratio);
+          const estimatedPreconsumeTokens =
+            Number.isFinite(modelRatio) &&
+            modelRatio > 0 &&
+            Number.isFinite(groupRatio) &&
+            groupRatio > 0 &&
+            billedQuota > 0
+              ? Math.round(billedQuota / (modelRatio * groupRatio))
+              : 0;
+          const summary = [
+            t('按量计费（预扣阶段）'),
+            `${t('输入价格')}：$${Number(modelRatio * 2 || 0).toFixed(6)} / 1M tokens`,
+            `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
+            `${t('本次未回传 Token，用预扣额度计费')}：${renderQuota(billedQuota, 6)}`,
+            estimatedPreconsumeTokens > 0
+              ? `${t('预扣 Token 基数（估算）')}：${formatTokenCount(estimatedPreconsumeTokens)}`
+              : null,
+            t('仅供参考，以实际扣费为准'),
+          ]
+            .filter(Boolean)
+            .join('\n');
+          return (
+            <Typography.Paragraph
+              ellipsis={{
+                rows: 2,
+                showTooltip: {
+                  type: 'popover',
+                  opts: { style: { width: 300 } },
                 },
               }}
               style={{ maxWidth: 240, whiteSpace: 'pre-line' }}

@@ -142,6 +142,117 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	// apiKey format: "access_key|secret_key"
 }
 
+// PerCallRatiosEnabled opts Kling into per-call OtherRatios application,
+// so duration/quality multipliers adjust the fixed ModelPrice.
+func (a *TaskAdaptor) PerCallRatiosEnabled() bool { return true }
+
+// EstimateBilling returns OtherRatios based on duration and quality mode.
+// ModelPrice is set to std/5s base price; this multiplier adjusts for pro and 10s.
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	v, ok := c.Get("task_request")
+	if !ok {
+		return nil
+	}
+	req, ok := v.(relaycommon.TaskSubmitReq)
+	if !ok {
+		return nil
+	}
+
+	// Build the effective payload (applies defaults + metadata overrides)
+	// so billing matches exactly what will be sent upstream.
+	payload, err := a.convertToRequestPayload(&req, info)
+	if err != nil {
+		return nil
+	}
+
+	// If channel has param_override, apply it so billing sees the final
+	// duration/mode/model that will actually be sent upstream.
+	// On any error, fall back to the pre-override payload with a warning
+	// (override will still be applied later in RelayTaskSubmit, but for
+	// Kling channels param_override rarely touches duration/mode).
+	if len(info.ParamOverride) > 0 {
+		if data, err := common.Marshal(payload); err == nil {
+			// Use pure ApplyParamOverride (no RelayInfo mutation) to avoid
+			// double side-effects — the real ApplyParamOverrideWithRelayInfo
+			// runs later in RelayTaskSubmit for the actual request.
+			if patched, err := relaycommon.ApplyParamOverride(data, info.ParamOverride, nil); err == nil {
+				// Use map[string]any for tolerant parsing — override may set
+				// fields with types different from requestPayload (e.g. int duration).
+				var tolerant map[string]any
+				if err := common.Unmarshal(patched, &tolerant); err == nil {
+					if v, ok := tolerant["duration"]; ok {
+						payload.Duration = fmt.Sprintf("%v", v)
+					}
+					if v, ok := tolerant["mode"]; ok {
+						payload.Mode = fmt.Sprintf("%v", v)
+					}
+					// Don't override model_name/model for billing —
+					// preserve UpstreamModelName for correct substring matching.
+				}
+			}
+		}
+	}
+
+	// Use UpstreamModelName for billing — it's the post-mapping model name
+	// and contains correct substrings for multiplier matching.
+	effectiveModel := info.UpstreamModelName
+	if effectiveModel == "" {
+		effectiveModel = payload.ModelName
+	}
+	if effectiveModel == "" {
+		effectiveModel = payload.Model
+	}
+	if effectiveModel == "" {
+		effectiveModel = info.OriginModelName
+	}
+
+	// Image generation has no duration/mode multiplier.
+	if info.Action == constant.TaskActionImageGenerate ||
+		strings.Contains(strings.ToLower(effectiveModel), "image") {
+		return nil
+	}
+
+	ratios := map[string]float64{}
+
+	// Duration multiplier: base is 5s
+	dur, _ := strconv.Atoi(payload.Duration)
+	if dur == 0 {
+		dur = 5
+	}
+	if dur > 5 {
+		ratios["duration"] = float64(dur) / 5.0 // 10s → 2.0
+	}
+
+	// Quality multiplier: base is std
+	if strings.EqualFold(strings.TrimSpace(payload.Mode), "pro") {
+		ratios["quality"] = klingProRatio(effectiveModel)
+	}
+
+	return ratios
+}
+
+// klingProRatio returns the pro/std price ratio per model.
+// Based on Kling official pricing: https://klingai.com/document-api/productBilling/prePaidResourcePackage
+func klingProRatio(model string) float64 {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "v2-master") || strings.Contains(m, "v2-1-master"):
+		return 1.0 // Master models have no std/pro distinction
+	case strings.Contains(m, "v1-6"):
+		return 1.75 // V1.6: ¥3.5/¥2
+	case strings.Contains(m, "v1"):
+		return 3.5 // V1: ¥3.5/¥1
+	case strings.Contains(m, "v2-5-turbo"):
+		return 1.67 // V2.5 turbo: ¥2.5/¥1.5
+	case strings.Contains(m, "v2-6"):
+		return 1.67 // V2.6: ¥2.5/¥1.5
+	case strings.Contains(m, "video-o1"):
+		return 1.33 // Video-O1: ¥0.8/¥0.6
+	default:
+		return 1.0 // Unknown model: charge at base rate to avoid overcharge
+	}
+}
+
 // ValidateRequestAndSetAction parses body, validates fields and sets default action.
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
 	// Use the standard validation method for TaskSubmitReq

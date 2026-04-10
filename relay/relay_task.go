@@ -20,6 +20,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +41,21 @@ var taskDeferredSettleModels = map[string]struct{}{
 	"ima-pro-fast":                   {},
 	"gemini-3-pro-image-preview":     {},
 	"gemini-3.1-flash-image-preview": {},
+	"viduq1":                         {},
+	"viduq2":                         {},
+	"viduq2-pro":                     {},
+	"viduq2-turbo":                   {},
+	"viduq3-pro":                     {},
+	"viduq3-turbo":                   {},
+	"vidu1.5":                        {},
+	"vidu2.0":                        {},
+}
+
+var taskForcedTokenBillingModels = map[string]struct{}{
+	"ima-pro":                        {},
+	"ima-pro-fast":                   {},
+	"gemini-3-pro-image-preview":     {},
+	"gemini-3.1-flash-image-preview": {},
 }
 
 func isDeferredSettleTaskModel(modelName string) bool {
@@ -48,7 +64,8 @@ func isDeferredSettleTaskModel(modelName string) bool {
 }
 
 func shouldUseTokenBillingForTaskModel(modelName string) bool {
-	return isDeferredSettleTaskModel(modelName)
+	_, ok := taskForcedTokenBillingModels[strings.ToLower(strings.TrimSpace(modelName))]
+	return ok
 }
 
 func shouldUseDeferredSettleForTaskModel(modelName string) bool {
@@ -59,7 +76,21 @@ func shouldUsePerCallBillingForTaskModel(modelName string) bool {
 	if shouldUseTokenBillingForTaskModel(modelName) {
 		return false
 	}
-	return common.StringsContains(constant.TaskPricePatches, modelName)
+	normalizedModel := strings.TrimSpace(modelName)
+	if normalizedModel == "" {
+		return false
+	}
+	// Keep runtime billing mode aligned with pricing display:
+	// - model has fixed price => per-call billing
+	// - model has ratio pricing => token billing
+	// - otherwise fallback to TASK_PRICE_PATCH legacy list
+	if _, hasPrice := ratio_setting.GetModelPrice(normalizedModel, false); hasPrice {
+		return true
+	}
+	if _, hasRatio, _ := ratio_setting.GetModelRatio(normalizedModel); hasRatio {
+		return false
+	}
+	return common.StringsContains(constant.TaskPricePatches, normalizedModel)
 }
 
 func estimateTaskPromptTokens(c *gin.Context, info *relaycommon.RelayInfo, modelName string) int {
@@ -238,14 +269,18 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	deferredSettle := shouldUseDeferredSettleForTaskModel(modelName)
 	var priceData types.PriceData
 	var err error
-	if shouldUseTokenBillingForTaskModel(modelName) {
-		promptTokens := estimateTaskPromptTokens(c, info, modelName)
-		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
+	// Pricing mode selection:
+	// - per-call models: fixed price via ModelPriceHelperPerCall
+	// - all others: ratio-based via ModelPriceHelperTokenOnly
+	// This keeps runtime billing aligned with model marketplace ratio settings.
+	if perCallBilling {
+		priceData, err = helper.ModelPriceHelperPerCall(c, info)
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 		}
 	} else {
-		priceData, err = helper.ModelPriceHelperPerCall(c, info)
+		promptTokens := estimateTaskPromptTokens(c, info, modelName)
+		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 		}
@@ -266,11 +301,22 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 6. 将 OtherRatios 应用到基础额度
-	if !perCallBilling {
+	// Per-call 模式默认跳过 OtherRatios（固定价格不应被乘数修改）。
+	// 需要 per-call 也应用乘数的 adaptor（如 Kling 按时长/品质调价）
+	// 须实现 PerCallRatiosEnabled() bool 接口显式 opt-in。
+	applyRatios := !perCallBilling
+	if perCallBilling {
+		if opt, ok := adaptor.(interface{ PerCallRatiosEnabled() bool }); ok {
+			applyRatios = opt.PerCallRatiosEnabled()
+		}
+	}
+	if applyRatios && len(info.PriceData.OtherRatios) > 0 {
+		combined := 1.0
 		for _, ra := range info.PriceData.OtherRatios {
-			if ra != 1.0 {
-				info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
-			}
+			combined *= ra
+		}
+		if combined != 1.0 {
+			info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
 		}
 	}
 

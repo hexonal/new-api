@@ -639,6 +639,7 @@ func RelayTask(c *gin.Context) {
 			PerCallBilling:   result.PerCallBilling,
 			DeferredSettle:   result.DeferredSettle,
 			EstimatedQuota:   result.EstimatedQuota,
+			CompletionRatio:  relayInfo.PriceData.CompletionRatio,
 		}
 		if result.DeferredSettle {
 			task.PrivateData.BillingContext.TerminalChargeState = "pending"

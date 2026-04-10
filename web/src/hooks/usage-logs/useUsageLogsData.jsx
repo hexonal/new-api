@@ -36,8 +36,6 @@ import {
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
-  getQuotaPerUnit,
-  getCurrencyConfig,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -45,6 +43,41 @@ import { useTableCompactMode } from '../common/useTableCompactMode';
 const toPositiveNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const parseTokenRecalculateTotal = (...candidates) => {
+  for (const candidate of candidates) {
+    const text = String(candidate || '');
+    const matched = text.match(/token(?:_recalculate|重算)\s*[:=]\s*(\d+)/i);
+    if (!matched) {
+      continue;
+    }
+    const total = Number(matched[1]);
+    if (Number.isFinite(total) && total > 0) {
+      return total;
+    }
+  }
+  return 0;
+};
+
+const resolveDeferredTotalTokens = (
+  log,
+  other,
+  promptTokens,
+  completionTokens,
+) => {
+  const directTotal = toPositiveNumber(other?.task_total_tokens);
+  if (directTotal > 0) {
+    return directTotal;
+  }
+  const recalculatedTotal = parseTokenRecalculateTotal(
+    other?.terminal_charge_reason,
+    log?.content,
+  );
+  if (recalculatedTotal > 0) {
+    return recalculatedTotal;
+  }
+  return toPositiveNumber(promptTokens) + toPositiveNumber(completionTokens);
 };
 
 const isDeferredTokenRecalculateLog = (log, other) => {
@@ -60,8 +93,10 @@ const isDeferredTokenRecalculateLog = (log, other) => {
   return (
     reason.startsWith('token_recalculate') ||
     reason.startsWith('token重算') ||
+    reason.startsWith('adaptor_adjust') ||
     content.startsWith('token_recalculate') ||
     content.startsWith('token重算') ||
+    content.startsWith('adaptor_adjust') ||
     hasTokenUsage
   );
 };
@@ -77,30 +112,95 @@ const isDeferredSettlePendingLog = (log, other) => {
   return state === 'pending';
 };
 
-const deriveEffectiveTokenPricePer1M = (quota, totalTokens) => {
+const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   const quotaValue = Number(quota);
-  const tokensValue = Number(totalTokens);
-  const quotaPerUnit = Number(getQuotaPerUnit());
+  const modelRatioValue = Number(modelRatio);
+  const groupRatioValue = Number(groupRatio);
   if (
     !Number.isFinite(quotaValue) ||
     quotaValue <= 0 ||
-    !Number.isFinite(tokensValue) ||
-    tokensValue <= 0 ||
-    !Number.isFinite(quotaPerUnit) ||
-    quotaPerUnit <= 0
+    !Number.isFinite(modelRatioValue) ||
+    modelRatioValue <= 0 ||
+    !Number.isFinite(groupRatioValue) ||
+    groupRatioValue <= 0
   ) {
     return null;
   }
-  const totalUsd = quotaValue / quotaPerUnit;
-  return (totalUsd * 1000000) / tokensValue;
+  const estimatedTokens = Math.round(quotaValue / (modelRatioValue * groupRatioValue));
+  const inputPrice = modelRatioValue * 2;
+  return t(
+    '(预扣 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
+    {
+      tokens: renderNumber(estimatedTokens),
+      inputPrice: Number(inputPrice).toFixed(6),
+      groupRatio: Number(groupRatioValue).toFixed(4),
+      cost: renderQuota(quotaValue, 6),
+    },
+  );
 };
 
-const formatDisplayPrice = (usdAmount) => {
-  if (!Number.isFinite(usdAmount)) {
-    return '-';
+const buildDeferredTokenFormula = (
+  promptTokens,
+  completionTokens,
+  cacheTokens,
+  modelRatio,
+  completionRatio,
+  cacheRatio,
+  groupRatio,
+  t,
+  totalTokens,
+  thoughtRatio,
+) => {
+  const p = Number(promptTokens);
+  const c = Number(completionTokens);
+  const k = Number(cacheTokens || 0);
+  const mr = Number(modelRatio);
+  const cr = Number(completionRatio || 1);
+  const kr = Number(cacheRatio || 1);
+  const gr = Number(groupRatio);
+  if (
+    !Number.isFinite(p) ||
+    !Number.isFinite(c) ||
+    !Number.isFinite(mr) ||
+    mr <= 0 ||
+    !Number.isFinite(cr) ||
+    cr <= 0 ||
+    !Number.isFinite(gr) ||
+    gr <= 0
+  ) {
+    return null;
   }
-  const { symbol, rate } = getCurrencyConfig();
-  return `${symbol}${(usdAmount * rate).toFixed(6)}`;
+  const inputPrice = mr * 2;
+  const completionPrice = inputPrice * cr;
+  const cachePrice = inputPrice * kr;
+  const nonCachePrompt = Math.max(p - k, 0);
+
+  // Derive thought tokens from total - prompt - completion
+  const total = Number(totalTokens || 0);
+  const thoughtTokens = total > 0 ? Math.max(total - p - c, 0) : 0;
+  const tr = Number(thoughtRatio || cr);
+  const thoughtPrice = inputPrice * tr;
+
+  const terms = [];
+  if (nonCachePrompt > 0) {
+    terms.push(
+      `${t('输入')} ${renderNumber(nonCachePrompt)} tokens / 1M tokens * $${inputPrice.toFixed(6)}`,
+    );
+  }
+  if (k > 0) {
+    terms.push(
+      `${t('缓存')} ${renderNumber(k)} tokens / 1M tokens * $${cachePrice.toFixed(6)}`,
+    );
+  }
+  terms.push(
+    `${t('输出')} ${renderNumber(c)} tokens / 1M tokens * $${completionPrice.toFixed(6)}`,
+  );
+  if (thoughtTokens > 0) {
+    terms.push(
+      `${t('思考')} ${renderNumber(thoughtTokens)} tokens / 1M tokens * $${thoughtPrice.toFixed(6)}`,
+    );
+  }
+  return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${gr.toFixed(4)}`;
 };
 
 export const useLogsData = () => {
@@ -532,16 +632,50 @@ export const useLogsData = () => {
         const completionTokens = toPositiveNumber(
           logs[i]?.completion_tokens || other?.task_completion_tokens,
         );
-        const totalTokens =
-          promptTokens + completionTokens > 0
-            ? promptTokens + completionTokens
-            : toPositiveNumber(other?.task_total_tokens);
-        const effectiveTokenPricePer1M = deferredTokenRecalculate
-          ? deriveEffectiveTokenPricePer1M(
-              other?.actual_quota || logs[i]?.quota,
-              totalTokens,
-            )
+        const totalTokens = resolveDeferredTotalTokens(
+          logs[i],
+          other,
+          promptTokens,
+          completionTokens,
+        );
+        const isAdaptorAdjustLog = String(other?.terminal_charge_reason || '').includes('adaptor_adjust');
+        const isCreditSettlement = other?.settlement_type === 'credits';
+        const upstreamCredits = toPositiveNumber(other?.upstream_credits);
+        const deferredBillingSummary = deferredTokenRecalculate
+          ? isAdaptorAdjustLog
+            ? isCreditSettlement && upstreamCredits > 0
+              ? t('上游消耗 {{credits}} credits × 分组倍率 {{ratio}}', {
+                  credits: upstreamCredits,
+                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                })
+              : t('上游实际消耗结算，分组倍率(模型覆盖) {{ratio}}', {
+                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                })
+            : renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+              )
           : null;
+        const deferredPromptTokens =
+          toPositiveNumber(logs[i]?.prompt_tokens) > 0
+            ? toPositiveNumber(logs[i]?.prompt_tokens)
+            : toPositiveNumber(other?.task_prompt_tokens);
+        const deferredCompletionTokens =
+          toPositiveNumber(logs[i]?.completion_tokens) > 0
+            ? toPositiveNumber(logs[i]?.completion_tokens)
+            : toPositiveNumber(other?.task_completion_tokens);
         expandDataLocal.push({
           key: t('日志详情'),
           value: deferredTokenRecalculate
@@ -554,11 +688,7 @@ export const useLogsData = () => {
                 t('终态重算扣费：{{cost}}', {
                   cost: renderQuota(logs[i].quota || 0, 6),
                 }),
-                Number.isFinite(effectiveTokenPricePer1M)
-                  ? t('模型价格（按 token）：{{price}} / 1M tokens', {
-                      price: formatDisplayPrice(effectiveTokenPricePer1M),
-                    })
-                  : null,
+                deferredBillingSummary,
                 t('结算原因：{{reason}}', {
                   reason: other?.terminal_charge_reason || logs[i].content || '-',
                 }),
@@ -573,6 +703,12 @@ export const useLogsData = () => {
                         cost: renderQuota(other.estimated_quota, 6),
                       })
                     : null,
+                  buildDeferredPendingFormula(
+                    other?.estimated_quota,
+                    other?.model_ratio,
+                    other?.group_ratio,
+                    t,
+                  ),
                   t('结算状态：{{state}}', {
                     state: other?.terminal_charge_state || 'pending',
                   }),
@@ -652,6 +788,19 @@ export const useLogsData = () => {
 
         let content = '';
         if (!isViolationFeeLog) {
+          const requestPath = String(other?.request_path || '');
+          const isNonTextTaskEndpoint =
+            requestPath.includes('/v1/videos') ||
+            requestPath.includes('/v1/video/generations') ||
+            requestPath.includes('/v1/images/generations') ||
+            requestPath.includes('/kling/v1/videos') ||
+            requestPath.includes('/jimeng') ||
+            requestPath.includes('/mj/');
+          const hasNoTokenUsage =
+            toPositiveNumber(logs[i]?.prompt_tokens) +
+              toPositiveNumber(logs[i]?.completion_tokens) ===
+            0;
+
           if (other?.ws || other?.audio) {
             content = renderAudioModelPrice(
               other?.text_input,
@@ -698,48 +847,129 @@ export const useLogsData = () => {
             isDeferredTokenRecalculateLog(logs[i], other) &&
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
-            const billedQuota = Number(logs[i].quota || 0);
-            const totalTokens =
-              toPositiveNumber(logs[i]?.prompt_tokens) +
-                toPositiveNumber(logs[i]?.completion_tokens) >
-              0
-                ? toPositiveNumber(logs[i]?.prompt_tokens) +
-                  toPositiveNumber(logs[i]?.completion_tokens)
-                : toPositiveNumber(other?.task_total_tokens);
-            const effectiveTokenPricePer1M = deriveEffectiveTokenPricePer1M(
-              other?.actual_quota || billedQuota,
-              totalTokens,
-            );
-            content = (
-              <article>
-                <p>
-                  {t('终态重算扣费：{{cost}}', {
-                    cost: renderQuota(billedQuota, 6),
-                  })}
-                </p>
-                {Number.isFinite(effectiveTokenPricePer1M) && (
+            const billedQuota = Number(other?.actual_quota || logs[i]?.quota || 0);
+            const reason = other?.terminal_charge_reason || logs[i].content || '-';
+            const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
+
+            if (isAdaptorAdjust) {
+              // Adaptor-based settlement: show actual charge as authoritative amount.
+              const groupRatio = Number(other?.group_ratio);
+              const credits = toPositiveNumber(other?.upstream_credits);
+              const isCreditSettle = other?.settlement_type === 'credits';
+              content = (
+                <article>
                   <p>
-                    {t('模型价格（按 token）：{{price}} / 1M tokens', {
-                      price: formatDisplayPrice(effectiveTokenPricePer1M),
+                    {t('终态重算扣费：{{cost}}', {
+                      cost: renderQuota(billedQuota, 6),
                     })}
                   </p>
-                )}
-                <p>
-                  {t('结算原因：{{reason}}', {
-                    reason: other?.terminal_charge_reason || logs[i].content || '-',
-                  })}
-                </p>
-                {totalTokens > 0 && (
                   <p>
-                    {t('任务总 Tokens：{{tokens}}', {
-                      tokens: renderNumber(totalTokens),
+                    {isCreditSettle
+                      ? t('结算方式：上游实际消耗结算（按 credits）')
+                      : t('结算方式：上游实际消耗结算')}
+                  </p>
+                  {isCreditSettle && credits > 0 && (
+                    <p>
+                      {t('上游消耗：{{credits}} credits', { credits })}
+                    </p>
+                  )}
+                  {Number.isFinite(groupRatio) && groupRatio !== 1 && (
+                    <p>
+                      {t('分组倍率（模型覆盖）：{{ratio}}', {
+                        ratio: groupRatio.toFixed(4),
+                      })}
+                    </p>
+                  )}
+                  <p>
+                    {t('结算原因：{{reason}}', { reason })}
+                  </p>
+                </article>
+              );
+            } else {
+              // Token-based recalculation: show full token formula
+              const deferredPromptTokens =
+                toPositiveNumber(logs[i]?.prompt_tokens) > 0
+                  ? toPositiveNumber(logs[i]?.prompt_tokens)
+                  : toPositiveNumber(other?.task_prompt_tokens);
+              const deferredCompletionTokens =
+                toPositiveNumber(logs[i]?.completion_tokens) > 0
+                  ? toPositiveNumber(logs[i]?.completion_tokens)
+                  : toPositiveNumber(other?.task_completion_tokens);
+              const totalTokens = resolveDeferredTotalTokens(
+                logs[i],
+                other,
+                deferredPromptTokens,
+                deferredCompletionTokens,
+              );
+              const billingProcess = renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+              );
+              const modelName = logs[i]?.model_name || '';
+              const isGeminiImagePreview =
+                modelName.includes('image-preview') || modelName.includes('image_preview');
+              const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
+              const forcedFormula = buildDeferredTokenFormula(
+                deferredPromptTokens,
+                deferredCompletionTokens,
+                other?.cache_tokens || 0,
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.cache_ratio || 1.0,
+                other?.group_ratio,
+                t,
+                totalTokens,
+                thoughtRatio,
+              );
+              content = (
+                <article>
+                  <p>
+                    {t('终态重算扣费：{{cost}}', {
+                      cost: renderQuota(billedQuota, 6),
                     })}
                   </p>
-                )}
-                <p>{t('仅供参考，以实际扣费为准')}</p>
-              </article>
-            );
+                  {billingProcess}
+                  {forcedFormula && <p>{forcedFormula}</p>}
+                  <p>
+                    {t('结算原因：{{reason}}', { reason })}
+                  </p>
+                  {totalTokens > 0 && (
+                    <p>
+                      {t('任务总 Tokens：{{tokens}}', {
+                        tokens: renderNumber(totalTokens),
+                      })}
+                    </p>
+                  )}
+                  <p>{t('仅供参考，以实际扣费为准')}</p>
+                </article>
+              );
+            }
           } else if (isDeferredSettlePendingLog(logs[i], other)) {
+            const pendingFormula = buildDeferredPendingFormula(
+              other?.estimated_quota,
+              other?.model_ratio,
+              other?.group_ratio,
+              t,
+            );
+            // Extract OtherRatios from log data (e.g. seconds, duration, quality, resolution)
+            const otherRatioKeys = Object.keys(other || {}).filter(
+              (k) =>
+                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
+                Number(other[k]) !== 1 &&
+                Number.isFinite(Number(other[k])),
+            );
             content = (
               <article>
                 <p>{t('延迟结算（提交阶段）')}</p>
@@ -750,6 +980,15 @@ export const useLogsData = () => {
                     })}
                   </p>
                 )}
+                {pendingFormula && <p>{pendingFormula}</p>}
+                {otherRatioKeys.length > 0 && (
+                  <p>
+                    {t('计算参数')}：
+                    {otherRatioKeys
+                      .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
+                      .join(', ')}
+                  </p>
+                )}
                 <p>
                   {t('结算状态：{{state}}', {
                     state: other?.terminal_charge_state || 'pending',
@@ -758,6 +997,132 @@ export const useLogsData = () => {
                 <p>{t('仅供参考，以实际扣费为准')}</p>
               </article>
             );
+          } else if (
+            isNonTextTaskEndpoint &&
+            hasNoTokenUsage &&
+            Number.isFinite(Number(other?.model_price)) &&
+            Number(other?.model_price) > 0
+          ) {
+            // Per-call billing for task models (e.g. Kling video)
+            const billedQuota = toPositiveNumber(logs[i]?.quota);
+            const perCallPrice = Number(other?.model_price);
+            const groupRatio = Number(other?.group_ratio);
+            const otherRatioKeys = Object.keys(other || {}).filter(
+              (k) =>
+                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
+                Number(other[k]) !== 1,
+            );
+            content = (
+              <article>
+                <p>{t('按次计费')}</p>
+                <p>
+                  {t('模型单价：{{price}} / 次', {
+                    price: `$${perCallPrice.toFixed(6)}`,
+                  })}
+                </p>
+                <p>
+                  {t('分组倍率（模型覆盖）：{{ratio}}', {
+                    ratio: Number.isFinite(groupRatio)
+                      ? Number(groupRatio).toFixed(4)
+                      : '-',
+                  })}
+                </p>
+                {otherRatioKeys.length > 0 && (
+                  <p>
+                    {t('计算参数')}：
+                    {otherRatioKeys
+                      .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
+                      .join(', ')}
+                  </p>
+                )}
+                <p>
+                  {t('实际扣费：{{cost}}', {
+                    cost: renderQuota(billedQuota, 6),
+                  })}
+                </p>
+              </article>
+            );
+          } else if (isNonTextTaskEndpoint && hasNoTokenUsage) {
+            const billedQuota = toPositiveNumber(logs[i]?.quota);
+            if (billedQuota > 0) {
+              const groupRatio = Number(other?.group_ratio);
+              const safeGroupRatio =
+                Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
+              const derivedModelPrice = billedQuota / safeGroupRatio;
+              content = (
+                <article>
+                  <p>{t('按次计费（根据实际扣费反推）')}</p>
+                  <p>
+                    {t('模型单价：{{price}} / 次', {
+                      price: `$${derivedModelPrice.toFixed(6)}`,
+                    })}
+                  </p>
+                  <p>
+                    {t('分组倍率（模型覆盖）：{{ratio}}', {
+                      ratio: Number.isFinite(groupRatio)
+                        ? Number(groupRatio).toFixed(4)
+                        : '-',
+                    })}
+                  </p>
+                  <p>
+                    {t(
+                      '(模型单价 {{price}} / 次) * 分组倍率（模型覆盖） {{ratio}} = {{cost}}',
+                      {
+                        price: `$${derivedModelPrice.toFixed(6)}`,
+                        ratio: safeGroupRatio.toFixed(4),
+                        cost: renderQuota(billedQuota, 6),
+                      },
+                    )}
+                  </p>
+                  <p>{t('仅供参考，以实际扣费为准')}</p>
+                </article>
+              );
+            } else {
+            const modelRatio = Number(other?.model_ratio);
+            const groupRatio = Number(other?.group_ratio);
+            const estimatedPreconsumeTokens =
+              Number.isFinite(modelRatio) &&
+              modelRatio > 0 &&
+              Number.isFinite(groupRatio) &&
+              groupRatio > 0 &&
+              billedQuota > 0
+                ? Math.round(billedQuota / (modelRatio * groupRatio))
+                : 0;
+
+            content = (
+              <article>
+                <p>{t('按量计费（预扣阶段）')}</p>
+                <p>
+                  {t('输入价格：{{price}} / 1M tokens', {
+                    price: `${Number(modelRatio * 2 || 0).toFixed(6)}`,
+                  })}
+                </p>
+                <p>
+                  {t('分组倍率（模型覆盖）：{{ratio}}', {
+                    ratio: Number.isFinite(groupRatio)
+                      ? Number(groupRatio).toFixed(4)
+                      : '-',
+                  })}
+                </p>
+                <p>
+                  {t('本次未回传 Token，用预扣额度计费：{{cost}}', {
+                    cost: renderQuota(billedQuota, 6),
+                  })}
+                </p>
+                {estimatedPreconsumeTokens > 0 && (
+                  <p>
+                    {t(
+                      '预扣 Token 基数（估算）：{{tokens}}（公式：quota / model_ratio / group_ratio）',
+                      {
+                        tokens: renderNumber(estimatedPreconsumeTokens),
+                      },
+                    )}
+                  </p>
+                )}
+                <p>{t('仅供参考，以实际扣费为准')}</p>
+              </article>
+            );
+            }
           } else {
             content = renderModelPrice(
               logs[i].prompt_tokens,

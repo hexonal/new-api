@@ -30,6 +30,76 @@ type TaskAdaptor struct {
 	baseURL     string
 }
 
+// PerCallRatiosEnabled opts Hailuo into per-call OtherRatios application,
+// so duration/resolution multipliers adjust the fixed ModelPrice.
+func (a *TaskAdaptor) PerCallRatiosEnabled() bool { return true }
+
+// EstimateBilling returns OtherRatios based on duration and resolution.
+// ModelPrice is set to 768P/6s base price; multipliers adjust for other combinations.
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	v, ok := c.Get("task_request")
+	if !ok {
+		return nil
+	}
+	req, ok := v.(relaycommon.TaskSubmitReq)
+	if !ok {
+		return nil
+	}
+
+	payload, err := a.convertToRequestPayload(&req, info)
+	if err != nil {
+		return nil
+	}
+
+	// Apply param_override if present (side-effect-free).
+	// Only extract duration/resolution — model is not overridden for billing
+	// to preserve correct substring matching after model mapping.
+	if len(info.ParamOverride) > 0 {
+		if data, marshalErr := common.Marshal(payload); marshalErr == nil {
+			if patched, overrideErr := relaycommon.ApplyParamOverride(data, info.ParamOverride, nil); overrideErr == nil {
+				var tolerant map[string]any
+				if unmarshalErr := common.Unmarshal(patched, &tolerant); unmarshalErr == nil {
+					if v, ok := tolerant["duration"]; ok {
+						if di, err := ParseDurationFromOverride(v); err == nil {
+							payload.Duration = &di
+						}
+					}
+					if v, ok := tolerant["resolution"]; ok {
+						res := NormalizeResolution(fmt.Sprintf("%v", v))
+						if IsValidResolution(res) {
+							payload.Resolution = res
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Use UpstreamModelName for billing — it's the post-mapping model name
+	// and contains correct substrings for multiplier matching.
+	effectiveModel := info.UpstreamModelName
+	if effectiveModel == "" {
+		effectiveModel = payload.Model
+	}
+	if effectiveModel == "" {
+		effectiveModel = info.OriginModelName
+	}
+
+	ratios := map[string]float64{}
+
+	if payload.Duration != nil && *payload.Duration > 0 {
+		if r := DurationMultiplier(effectiveModel, *payload.Duration); r != 1.0 {
+			ratios["duration"] = r
+		}
+	}
+
+	if r := ResolutionMultiplier(effectiveModel, payload.Resolution); r != 1.0 {
+		ratios["resolution"] = r
+	}
+
+	return ratios
+}
+
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
 	a.baseURL = info.ChannelBaseUrl
