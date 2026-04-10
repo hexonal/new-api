@@ -195,3 +195,22 @@ func TestBuildModelCapabilitiesByCustomEndpointsUsesTextToImageOnlyForImageGener
 		t.Fatalf("expected custom image-generation endpoint to hide image_to_image")
 	}
 }
+
+func TestBuildModelCapabilitiesByCustomEndpointsUsesOpenAIVideoDefinition(t *testing.T) {
+	caps := BuildModelCapabilitiesByCustomEndpoints(
+		[]string{"openai-video"},
+		[]constant.EndpointType{constant.EndpointTypeOpenAIVideo},
+	)
+	if caps == nil || caps.VideoGeneration == nil {
+		t.Fatalf("expected custom openai-video endpoint to expose video_generation")
+	}
+	if caps.VideoGeneration.Endpoint != "/v1/chat/completions" {
+		t.Fatalf("unexpected video_generation endpoint: %q", caps.VideoGeneration.Endpoint)
+	}
+	if caps.VideoGeneration.SDKMethod != "aiApi.submitTask" {
+		t.Fatalf("unexpected video_generation sdk method: %q", caps.VideoGeneration.SDKMethod)
+	}
+	if !caps.VideoGeneration.Async {
+		t.Fatalf("expected custom openai-video capability to be async")
+	}
+}

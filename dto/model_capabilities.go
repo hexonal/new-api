@@ -114,6 +114,16 @@ func customEndpointKeyToCapabilities(key string) []string {
 	}
 }
 
+func getCapabilityDefForEndpointType(key string, endpointType constant.EndpointType) (ModelCapability, bool) {
+	if endpointDefs, ok := endpointCapabilityDefs[endpointType]; ok {
+		if endpointDef, found := endpointDefs[key]; found {
+			return endpointDef, true
+		}
+	}
+	def, ok := capabilityDefs[key]
+	return def, ok
+}
+
 // BuildModelCapabilities converts a list of EndpointTypes into a structured ModelCapabilities object.
 func BuildModelCapabilities(endpointTypes []constant.EndpointType) *ModelCapabilities {
 	if len(endpointTypes) == 0 {
@@ -248,7 +258,13 @@ func BuildModelCapabilitiesByCustomEndpoints(customEndpointKeys []string, fallba
 		if !capKeys[key] {
 			continue
 		}
-		def, ok := capabilityDefs[key]
+		def, ok := ModelCapability{}, false
+		for _, endpointKey := range customEndpointKeys {
+			def, ok = getCapabilityDefForEndpointType(key, constant.EndpointType(endpointKey))
+			if ok {
+				break
+			}
+		}
 		if !ok {
 			continue
 		}
