@@ -93,8 +93,10 @@ const isDeferredTokenRecalculateLog = (log, other) => {
   return (
     reason.startsWith('token_recalculate') ||
     reason.startsWith('token重算') ||
+    reason.startsWith('adaptor_adjust') ||
     content.startsWith('token_recalculate') ||
     content.startsWith('token重算') ||
+    content.startsWith('adaptor_adjust') ||
     hasTokenUsage
   );
 };
