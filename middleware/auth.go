@@ -167,8 +167,85 @@ func RootAuth() func(c *gin.Context) {
 	}
 }
 
+func RootAuthOrRootSK() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		authed, handled := tryRootSKAuth(c)
+		if handled {
+			if authed {
+				c.Next()
+			}
+			return
+		}
+		authHelper(c, common.RoleRootUser)
+	}
+}
+
 func WssAuth(c *gin.Context) {
 
+}
+
+func tryRootSKAuth(c *gin.Context) (bool, bool) {
+	key := normalizeAuthorizationHeader(c.GetHeader("Authorization"))
+	prefix := detectTokenAuthPrefix(key)
+	if prefix == "" {
+		return false, false
+	}
+	key, _ = extractTokenKeyAndParts(key)
+	if key == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无权进行此操作，sk 格式错误"})
+		c.Abort()
+		return false, true
+	}
+	token, err := model.ValidateUserToken(key)
+	if err != nil || token == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无权进行此操作，sk 无效"})
+		c.Abort()
+		return false, true
+	}
+	user, err := model.GetUserById(token.UserId, false)
+	if err != nil || user == nil || !validUserInfo(user.Username, user.Role) {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无权进行此操作，用户信息无效"})
+		c.Abort()
+		return false, true
+	}
+	if user.Status == common.UserStatusDisabled || user.Role < common.RoleRootUser {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无权进行此操作，权限不足"})
+		c.Abort()
+		return false, true
+	}
+	if !validateOptionalAPIUserHeader(c, user.Id) {
+		return false, true
+	}
+	c.Header("Auth-Version", "864b7076dbcd0a3c01b5520316720ebf")
+	c.Set("username", user.Username)
+	c.Set("role", user.Role)
+	c.Set("id", user.Id)
+	c.Set("group", user.Group)
+	c.Set("user_group", user.Group)
+	c.Set("use_access_token", false)
+	return true, true
+}
+
+func normalizeAuthorizationHeader(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "Bearer ") {
+		raw = strings.TrimSpace(strings.TrimPrefix(raw, "Bearer "))
+	}
+	return raw
+}
+
+func validateOptionalAPIUserHeader(c *gin.Context, userID int) bool {
+	apiUserIDStr := strings.TrimSpace(c.GetHeader("New-Api-User"))
+	if apiUserIDStr == "" {
+		return true
+	}
+	apiUserID, err := strconv.Atoi(apiUserIDStr)
+	if err != nil || apiUserID != userID {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无权进行此操作，New-Api-User 与登录用户不匹配"})
+		c.Abort()
+		return false
+	}
+	return true
 }
 
 func detectTokenAuthPrefix(key string) string {

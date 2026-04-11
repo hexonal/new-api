@@ -1,0 +1,4 @@
+interface:
+  display_name: "模型接入编排"
+  short_description: "统一新增渠道、模型、能力参数、价格和验收的标准接入流程"
+  default_prompt: "Use $newapi-model-onboarding to 接入一个新渠道模型并完成能力、参数、价格与验收。"

@@ -21,7 +21,16 @@ tiktoken_cache
 .cache
 web/bun.lock
 plans
-.claude
+.codex/*
+!.codex/
+!.codex/config.toml
+!.codex/skills
+.codex/skills/.system/
+
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+.claude/skills/.system/
 
 electron/node_modules
 electron/dist

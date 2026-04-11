@@ -226,6 +226,12 @@ func inferProviderStyle(capabilityKey string, path string, providerStyle string)
 	switch capabilityKey {
 	case "chat":
 		return "openai-chat"
+	case "text_completion":
+		return "openai-completion"
+	case "openai_response":
+		return "openai-response"
+	case "claude_messages":
+		return "anthropic"
 	case "speech_to_text":
 		return "openai-stt"
 	case "text_to_speech":
@@ -268,6 +274,23 @@ func inferSDKMethod(capabilityKey string, path string, providerStyle string) str
 		return "aiApi.imageEdits"
 	case "text_to_video", "image_to_video":
 		return "aiApi.videoGenerations"
+	case "text_completion":
+		return "aiApi.completions"
+	case "openai_response":
+		return "aiApi.responses"
+	case "claude_messages":
+		return "aiApi.messages"
+	}
+
+	trimmedPath := strings.TrimSpace(path)
+	// 精确匹配需优先于 Contains 判断，避免把 /v1/chat/completions 误识别为 /v1/completions
+	switch trimmedPath {
+	case "/v1/completions":
+		return "aiApi.completions"
+	case "/v1/responses":
+		return "aiApi.responses"
+	case "/v1/messages":
+		return "aiApi.messages"
 	}
 
 	switch {
@@ -301,9 +324,7 @@ func inferSDKMethod(capabilityKey string, path string, providerStyle string) str
 
 func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[string]CapabilitySpec {
 	switch string(endpointType) {
-	case "chat", string(constant.EndpointTypeOpenAIChat), string(constant.EndpointTypeAnthropic),
-		string(constant.EndpointTypeGemini), string(constant.EndpointTypeOpenAIResponse),
-		string(constant.EndpointTypeOpenAIResponseCompact):
+	case "chat", string(constant.EndpointTypeOpenAIChat), string(constant.EndpointTypeGemini):
 		return map[string]CapabilitySpec{
 			"chat": {
 				Supported:     true,
@@ -312,6 +333,66 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 				ProviderStyle: "openai-chat",
 				RequestFormat: "json",
 				SDKMethod:     "aiApi.chatCompletions",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+		}
+	case "claude_messages", string(constant.EndpointTypeAnthropic):
+		// Anthropic 渠道同时暴露 OpenAI 兼容 chat 和原生 claude_messages 两个 capability
+		// chat 保留向后兼容，claude_messages 让 SDK 的 invokeModelCapability 走 Anthropic 协议
+		return map[string]CapabilitySpec{
+			"chat": {
+				Supported:     true,
+				Path:          "/v1/chat/completions",
+				Method:        "POST",
+				ProviderStyle: "openai-chat",
+				RequestFormat: "json",
+				SDKMethod:     "aiApi.chatCompletions",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+			"claude_messages": {
+				Supported:     true,
+				Path:          "/v1/messages",
+				Method:        "POST",
+				ProviderStyle: "anthropic",
+				RequestFormat: "json",
+				SDKMethod:     "aiApi.messages",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+		}
+	case "openai_response", string(constant.EndpointTypeOpenAIResponse), string(constant.EndpointTypeOpenAIResponseCompact):
+		// OpenAI Responses API 渠道同时暴露 chat 和 openai_response 两个 capability
+		// chat 保留向后兼容，openai_response 让 SDK 走新一代 Responses 协议
+		return map[string]CapabilitySpec{
+			"chat": {
+				Supported:     true,
+				Path:          "/v1/chat/completions",
+				Method:        "POST",
+				ProviderStyle: "openai-chat",
+				RequestFormat: "json",
+				SDKMethod:     "aiApi.chatCompletions",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+			"openai_response": {
+				Supported:     true,
+				Path:          "/v1/responses",
+				Method:        "POST",
+				ProviderStyle: "openai-response",
+				RequestFormat: "json",
+				SDKMethod:     "aiApi.responses",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+		}
+	case "text_completion":
+		// 传统 /v1/completions 端点，无独立 EndpointType 常量
+		// 只在前端/Properties 显式指定 text_completion 时返回该 capability
+		return map[string]CapabilitySpec{
+			"text_completion": {
+				Supported:     true,
+				Path:          "/v1/completions",
+				Method:        "POST",
+				ProviderStyle: "openai-completion",
+				RequestFormat: "json",
+				SDKMethod:     "aiApi.completions",
 				Parameters:    map[string]CapabilityParameter{},
 			},
 		}
