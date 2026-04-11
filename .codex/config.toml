@@ -1,0 +1,6 @@
+project_doc_fallback_filenames = ["AGENTS.md", "CLAUDE.md"]
+model = "gpt-5.3-codex"
+model_reasoning_effort = "xhigh"
+
+[features]
+js_repl = true
