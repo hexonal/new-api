@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -91,6 +92,15 @@ func RelayYouchuanNotify(c *gin.Context) {
 		task.StartTime = now
 	}
 
+	// 终态保护：已完成的任务不可被中间态回调覆盖
+	isCurrentTerminal := snap.Status == model.TaskStatusSuccess || snap.Status == model.TaskStatusFailure
+	isNewTerminal := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
+	if isCurrentTerminal && !isNewTerminal {
+		logger.LogWarn(c, "youchuan notify: terminal state preserved for task "+task.TaskID)
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "note": "terminal state preserved"})
+		return
+	}
+
 	// CAS 更新：防止与超时清理或重复回调竞争
 	won, err := task.UpdateWithStatus(snap.Status)
 	if err != nil {
@@ -102,6 +112,14 @@ func RelayYouchuanNotify(c *gin.Context) {
 		logger.LogWarn(c, "youchuan notify: task "+task.TaskID+" already transitioned, skip")
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "note": "already processed"})
 		return
+	}
+	switch task.Status {
+	case model.TaskStatusSuccess:
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess, service.BuildTaskOutputJSON(task))
+	case model.TaskStatusFailure:
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed, "")
+	case model.TaskStatusInProgress:
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusRunning, "")
 	}
 
 	// 计费结算
@@ -152,6 +170,15 @@ func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) b
 		mjTask.Progress = "0%"
 	}
 
+	// 终态保护：已完成的任务不可被中间态回调覆盖
+	isCurrentTerminal := preStatus == "SUCCESS" || preStatus == "FAILURE"
+	isNewTerminal := mjTask.Status == "SUCCESS" || mjTask.Status == "FAILURE"
+	if isCurrentTerminal && !isNewTerminal {
+		logger.LogWarn(c, "youchuan notify(mj): terminal state preserved, rejecting stale callback for "+mjTask.MjId)
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "note": "terminal state preserved"})
+		return true
+	}
+
 	won, err := mjTask.UpdateWithStatus(preStatus)
 	if err != nil {
 		logger.LogError(c, "youchuan notify(mj): update failed: "+err.Error())
@@ -162,6 +189,11 @@ func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) b
 		logger.LogWarn(c, "youchuan notify(mj): task "+mjTask.MjId+" already transitioned, skip")
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "note": "already processed"})
 		return true
+	}
+	if mjTask.Status == "SUCCESS" {
+		service.WriteMjStatusAdvance(c, mjTask, model.GenerationStatusSuccess)
+	} else if mjTask.Status == "FAILURE" {
+		service.WriteMjStatusAdvance(c, mjTask, model.GenerationStatusFailed)
 	}
 
 	// 失败退款
@@ -182,6 +214,7 @@ func handleYouchuanMjNotify(c *gin.Context, ycResp *youchuan.YouchuanResponse) b
 				"reason":  mjTask.FailReason,
 			},
 		})
+		service.WriteMjRefund(c, mjTask, mjTask.Quota)
 	}
 
 	logger.LogInfo(c, "youchuan notify(mj): task "+mjTask.MjId+" updated to "+mjTask.Status)

@@ -187,6 +187,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 		Group:     task.Group,
 		Other:     other,
 	})
+	WriteAsyncRefund(ctx, task, model.RefundStatusFullRefund, quota)
 }
 
 // RecalculateTaskQuota 通用的异步差额结算。
@@ -251,6 +252,10 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Group:     task.Group,
 		Other:     other,
 	})
+	WriteAsyncBillingPatch(ctx, task, actualQuota)
+	if preConsumedQuota > actualQuota {
+		WriteAsyncRefund(ctx, task, model.RefundStatusDeltaRefund, preConsumedQuota-actualQuota)
+	}
 }
 
 // RecalculateTaskQuotaByTokens 根据实际 token 消耗重新计费（异步差额结算）。

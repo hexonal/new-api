@@ -77,6 +77,7 @@ func sweepTimedOutTasks(ctx context.Context) {
 			logger.LogInfo(ctx, fmt.Sprintf("sweepTimedOutTasks: task %s already transitioned, skip", task.TaskID))
 			continue
 		}
+		WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusFailed, "")
 		timedOutCount++
 		if !isLegacy && task.Quota != 0 {
 			RefundTaskQuota(ctx, task, reason)
@@ -247,6 +248,12 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		err = task.Update()
 		if err != nil {
 			common.SysLog("UpdateSunoTask task error: " + err.Error())
+			continue
+		}
+		if task.Status == model.TaskStatusSuccess {
+			WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusSuccess, BuildTaskOutputJSON(task))
+		} else if task.Status == model.TaskStatusFailure {
+			WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusFailed, "")
 		}
 	}
 	return nil
@@ -490,6 +497,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			logger.LogWarn(ctx, fmt.Sprintf("Task %s already transitioned by another process, skip billing", task.TaskID))
 			shouldRefund = false
 			shouldSettle = false
+		} else if task.Status == model.TaskStatusSuccess {
+			WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusSuccess, BuildTaskOutputJSON(task))
+		} else if task.Status == model.TaskStatusFailure {
+			WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusFailed, "")
 		}
 	} else if !snap.Equal(task.Snapshot()) {
 		if _, err := task.UpdateWithStatus(snap.Status); err != nil {

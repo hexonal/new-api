@@ -199,23 +199,31 @@ func UpdateMidjourneyTaskBulk() {
 				won, err := task.UpdateWithStatus(preStatus)
 				if err != nil {
 					logger.LogError(ctx, "UpdateMidjourneyTask task error: "+err.Error())
-				} else if won && shouldReturnQuota {
-					err = model.IncreaseUserQuota(task.UserId, task.Quota, false)
-					if err != nil {
-						logger.LogError(ctx, "fail to increase user quota: "+err.Error())
+				} else if won {
+					if task.Status == "SUCCESS" {
+						service.WriteMjStatusAdvance(ctx, task, model.GenerationStatusSuccess)
+					} else if task.Status == "FAILURE" {
+						service.WriteMjStatusAdvance(ctx, task, model.GenerationStatusFailed)
 					}
-					model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-						UserId:    task.UserId,
-						LogType:   model.LogTypeRefund,
-						Content:   "",
-						ChannelId: task.ChannelId,
-						ModelName: service.CovertMjpActionToModelName(task.Action),
-						Quota:     task.Quota,
-						Other: map[string]interface{}{
-							"task_id": task.MjId,
-							"reason":  "构图失败",
-						},
-					})
+					if shouldReturnQuota {
+						err = model.IncreaseUserQuota(task.UserId, task.Quota, false)
+						if err != nil {
+							logger.LogError(ctx, "fail to increase user quota: "+err.Error())
+						}
+						model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+							UserId:    task.UserId,
+							LogType:   model.LogTypeRefund,
+							Content:   "",
+							ChannelId: task.ChannelId,
+							ModelName: service.CovertMjpActionToModelName(task.Action),
+							Quota:     task.Quota,
+							Other: map[string]interface{}{
+								"task_id": task.MjId,
+								"reason":  "构图失败",
+							},
+						})
+						service.WriteMjRefund(ctx, task, task.Quota)
+					}
 				}
 			}
 		}
@@ -455,6 +463,13 @@ func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []strin
 			logger.LogError(ctx, fmt.Sprintf("youchuan poll: update error for %s: %v", mjId, err))
 			continue
 		}
+		if won {
+			if task.Status == "SUCCESS" {
+				service.WriteMjStatusAdvance(ctx, task, model.GenerationStatusSuccess)
+			} else if task.Status == "FAILURE" {
+				service.WriteMjStatusAdvance(ctx, task, model.GenerationStatusFailed)
+			}
+		}
 		if won && task.Status == "FAILURE" && task.Quota != 0 {
 			err = model.IncreaseUserQuota(task.UserId, task.Quota, false)
 			if err != nil {
@@ -472,6 +487,7 @@ func pollYouchuanMjTasks(ctx context.Context, ch *model.Channel, taskIds []strin
 					"reason":  "构图失败",
 				},
 			})
+			service.WriteMjRefund(ctx, task, task.Quota)
 		}
 	}
 }

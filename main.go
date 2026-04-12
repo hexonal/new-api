@@ -90,6 +90,9 @@ func main() {
 		go model.SyncChannelCache(common.SyncFrequency)
 	}
 
+	service.StartGenerationRecordCompensation()
+	service.StartGenerationRecordReconciler()
+
 	// 热更新配置
 	go model.SyncOptions(common.SyncFrequency)
 

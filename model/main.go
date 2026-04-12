@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -254,6 +255,9 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	if err := checkSQLiteVersionForGenerationRecords(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -282,6 +286,7 @@ func migrateDB() error {
 		&CallbackEventAttempt{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
+		&GenerationRecord{},
 	)
 	if err != nil {
 		return err
@@ -294,6 +299,26 @@ func migrateDB() error {
 		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func checkSQLiteVersionForGenerationRecords() error {
+	if !common.UsingSQLite {
+		return nil
+	}
+	var version string
+	if err := DB.Raw("SELECT sqlite_version()").Scan(&version).Error; err != nil {
+		return err
+	}
+	parts := strings.Split(version, ".")
+	if len(parts) < 2 {
+		return nil
+	}
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	if major < 3 || (major == 3 && minor < 24) {
+		return fmt.Errorf("SQLite %s too old for generation_records (requires 3.24+)", version)
 	}
 	return nil
 }
@@ -332,6 +357,7 @@ func migrateDBFast() error {
 		{&CallbackEventAttempt{}, "CallbackEventAttempt"},
 		{&CustomOAuthProvider{}, "CustomOAuthProvider"},
 		{&UserOAuthBinding{}, "UserOAuthBinding"},
+		{&GenerationRecord{}, "GenerationRecord"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))

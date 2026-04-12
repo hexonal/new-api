@@ -100,6 +100,7 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 			Result:      "",
 		}
 	}
+	preStatus := midjourneyTask.Status
 	midjourneyTask.Progress = midjRequest.Progress
 	midjourneyTask.PromptEn = midjRequest.PromptEn
 	midjourneyTask.State = midjRequest.State
@@ -130,6 +131,13 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 		return &dto.MidjourneyResponse{
 			Code:        4,
 			Description: "update_midjourney_task_failed",
+		}
+	}
+	if midjourneyTask.Status != preStatus {
+		if midjourneyTask.Status == "SUCCESS" {
+			service.WriteMjStatusAdvance(c, midjourneyTask, model.GenerationStatusSuccess)
+		} else if midjourneyTask.Status == "FAILURE" {
+			service.WriteMjStatusAdvance(c, midjourneyTask, model.GenerationStatusFailed)
 		}
 	}
 
@@ -264,6 +272,7 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	midjResponse := &mjResp.Response
 	midjourneyTask := &model.Midjourney{
 		UserId:      info.UserId,
+		TokenId:     info.TokenId,
 		Code:        midjResponse.Code,
 		Action:      constant.MjActionSwapFace,
 		MjId:        midjResponse.Result,
@@ -285,6 +294,7 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	if err != nil {
 		return service.MidjourneyErrorWrapper(constant.MjRequestError, "insert_midjourney_task_failed")
 	}
+	service.WriteMjSubmitted(c, info, midjourneyTask)
 	c.Writer.WriteHeader(mjResp.StatusCode)
 	respBody, err := json.Marshal(midjResponse)
 	if err != nil {
@@ -584,6 +594,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 	// other: 提交错误，description为错误描述
 	midjourneyTask := &model.Midjourney{
 		UserId:      relayInfo.UserId,
+		TokenId:     relayInfo.TokenId,
 		Code:        midjResponse.Code,
 		Action:      midjRequest.Action,
 		MjId:        midjResponse.Result,
@@ -651,6 +662,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			Description: "insert_midjourney_task_failed",
 		}
 	}
+	service.WriteMjSubmitted(c, relayInfo, midjourneyTask)
 
 	if midjResponse.Code == 22 { //22-排队中，说明任务已存在
 		//修改返回值

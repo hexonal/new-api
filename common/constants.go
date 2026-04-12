@@ -5,6 +5,7 @@ import (
 	//"os"
 	//"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,10 @@ var DisplayTokenStatEnabled = true
 var DrawingEnabled = true
 var TaskEnabled = true
 var DataExportEnabled = true
+
+// GenerationRecordEnabled 控制 generation_records 双写是否启用
+// 使用 atomic.Bool 保证并发安全
+var GenerationRecordEnabled atomic.Bool
 var DataExportInterval = 5         // unit: minute
 var DataExportDefaultTime = "hour" // unit: minute
 var DefaultCollapseSidebar = false // default value of collapse sidebar

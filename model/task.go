@@ -371,6 +371,19 @@ func GetByTaskId(userId int, taskId string) (*Task, bool, error) {
 	return task, exist, err
 }
 
+// GetTaskByTaskID 仅按 taskId 查询（不限 userId），用于 reconciler 对账
+func GetTaskByTaskID(taskID string) *Task {
+	if taskID == "" {
+		return nil
+	}
+	var task Task
+	err := DB.Where("task_id = ?", taskID).First(&task).Error
+	if err != nil {
+		return nil
+	}
+	return &task
+}
+
 func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {
 	if len(taskIds) == 0 {
 		return nil, nil

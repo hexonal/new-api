@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -142,5 +143,13 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	postConsumeQuota(c, info, usage.(*dto.Usage), logContent...)
+	service.WriteSyncSuccess(c, info, service.SyncGenerationReq{
+		Kind:             model.GenerationKindImage,
+		Model:            info.OriginModelName,
+		Quota:            info.FinalPreConsumedQuota,
+		PromptTokens:     usage.(*dto.Usage).PromptTokens,
+		CompletionTokens: usage.(*dto.Usage).CompletionTokens,
+		TotalTokens:      usage.(*dto.Usage).TotalTokens,
+	})
 	return nil
 }

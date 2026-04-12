@@ -512,7 +512,14 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	}
 
 	if !snap.Equal(task.Snapshot()) {
-		_, _ = task.UpdateWithStatus(snap.Status)
+		won, _ := task.UpdateWithStatus(snap.Status)
+		if won {
+			if task.Status == model.TaskStatusSuccess {
+				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess, service.BuildTaskOutputJSON(task))
+			} else if task.Status == model.TaskStatusFailure {
+				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed, "")
+			}
+		}
 	}
 
 	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理

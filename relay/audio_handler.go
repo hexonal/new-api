@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -72,6 +73,14 @@ func AudioHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	} else {
 		postConsumeQuota(c, info, usage.(*dto.Usage))
 	}
+	service.WriteSyncSuccess(c, info, service.SyncGenerationReq{
+		Kind:             model.GenerationKindAudio,
+		Model:            info.OriginModelName,
+		Quota:            info.FinalPreConsumedQuota,
+		PromptTokens:     usage.(*dto.Usage).PromptTokens,
+		CompletionTokens: usage.(*dto.Usage).CompletionTokens,
+		TotalTokens:      usage.(*dto.Usage).TotalTokens,
+	})
 
 	return nil
 }

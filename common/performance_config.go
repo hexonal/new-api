@@ -14,6 +14,7 @@ var performanceMonitorConfig atomic.Value
 
 func init() {
 	// 初始化默认配置
+	GenerationRecordEnabled.Store(true)
 	performanceMonitorConfig.Store(PerformanceMonitorConfig{
 		Enabled:         true,
 		CPUThreshold:    90,
