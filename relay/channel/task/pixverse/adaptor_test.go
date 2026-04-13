@@ -3,7 +3,9 @@ package pixverse
 import (
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -18,9 +20,20 @@ func newPixVerseTestContext(req relaycommon.TaskSubmitReq) *gin.Context {
 	return ctx
 }
 
+func newPixVerseJSONContext(body string) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req, _ := http.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	return ctx
+}
+
 func newPixVerseRelayInfo(modelName, baseURL string, channelType int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		OriginModelName: modelName,
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:       channelType,
 			ChannelBaseUrl:    baseURL,
@@ -129,5 +142,31 @@ func TestBuildRequestBody_MapsAudioAliasToOfficialGenerateAudioSwitch(t *testing
 	got, ok := payload["generate_audio_switch"].(bool)
 	if !ok || !got {
 		t.Fatalf("generate_audio_switch = %#v, want true", payload["generate_audio_switch"])
+	}
+}
+
+func TestBuildRequestBody_UsesTopLevelQualityFromJSONRequest(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	ctx := newPixVerseJSONContext(`{"model":"pixverse-c1","prompt":"make a video","duration":5,"quality":"540p","metadata":{"audio":true}}`)
+	info := newPixVerseRelayInfo("pixverse-c1", "https://app-api.pixverse.ai", constant.ChannelTypePixVerse)
+
+	if taskErr := adaptor.ValidateRequestAndSetAction(ctx, info); taskErr != nil {
+		t.Fatalf("ValidateRequestAndSetAction returned error: %v", taskErr)
+	}
+	body, err := adaptor.BuildRequestBody(ctx, info)
+	if err != nil {
+		t.Fatalf("BuildRequestBody returned error: %v", err)
+	}
+	data, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("ReadAll returned error: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+	if payload["quality"] != "540p" {
+		t.Fatalf("quality = %#v, want 540p", payload["quality"])
 	}
 }

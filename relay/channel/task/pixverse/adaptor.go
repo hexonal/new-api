@@ -347,7 +347,7 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 		Model:       modelName,
 		AspectRatio: aspectRatio,
 		Duration:    taskcommon.DefaultInt(req.Duration, DefaultDuration),
-		Quality:     DefaultQuality,
+		Quality:     taskcommon.DefaultString(req.Quality, DefaultQuality),
 	}
 	// metadata 可覆盖所有字段（包括 img_id 走图生视频、quality、aspect_ratio 等）
 	if err := taskcommon.UnmarshalMetadata(req.Metadata, t2v); err != nil {

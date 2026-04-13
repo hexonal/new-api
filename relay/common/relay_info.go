@@ -459,13 +459,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request: request,
 
-		RequestId:  reqId,
-		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		RequestId:        reqId,
+		UserId:           common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup:       common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserGroup:        common.GetContextKeyString(c, constant.ContextKeyUserGroup),
 		UserPricingGroup: common.GetContextKeyString(c, constant.ContextKeyUserPricingGroup),
-		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
-		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
+		UserQuota:        common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
+		UserEmail:        common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
@@ -692,6 +692,7 @@ type TaskSubmitReq struct {
 	Images         []string               `json:"images,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	AspectRatio    string                 `json:"aspect_ratio,omitempty"`
+	Quality        string                 `json:"quality,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
 	Seconds        string                 `json:"seconds,omitempty"`
 	InputReference string                 `json:"input_reference,omitempty"`
