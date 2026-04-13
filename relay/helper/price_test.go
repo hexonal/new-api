@@ -9,6 +9,42 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestHandleGroupRatio_PrefersUserGroupOverLegacyPricingGroup(t *testing.T) {
+	originalGroupRatios := ratio_setting.GroupRatio2JSONString()
+	originalGroupModelRatios := ratio_setting.GroupModelRatio2JSONString()
+	defer func() {
+		if err := ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatios); err != nil {
+			t.Fatalf("restore group ratios: %v", err)
+		}
+		if err := ratio_setting.UpdateGroupModelRatioByJSONString(originalGroupModelRatios); err != nil {
+			t.Fatalf("restore group model ratios: %v", err)
+		}
+	}()
+
+	if err := ratio_setting.UpdateGroupRatioByJSONString(`{"shizeying2":1,"shizeing3":3}`); err != nil {
+		t.Fatalf("update group ratios: %v", err)
+	}
+	if err := ratio_setting.UpdateGroupModelRatioByJSONString(`{"shizeying2":{"gpt-5.1":1},"shizeing3":{"gpt-5.1":1.2}}`); err != nil {
+		t.Fatalf("update group model ratios: %v", err)
+	}
+
+	ctx, _ := gin.CreateTestContext(nil)
+	info := &relaycommon.RelayInfo{
+		OriginModelName:  "gpt-5.1",
+		UsingGroup:       "shizeing3",
+		UserGroup:        "shizeing3",
+		UserPricingGroup: "shizeying2",
+	}
+
+	groupRatio := HandleGroupRatio(ctx, info)
+	if groupRatio.GroupRatio != 1.2 {
+		t.Fatalf("group ratio = %v, want 1.2", groupRatio.GroupRatio)
+	}
+	if groupRatio.GroupRatioSource != "group_model" {
+		t.Fatalf("group ratio source = %q, want group_model", groupRatio.GroupRatioSource)
+	}
+}
+
 func TestCalculateFixedPerCallQuota_RoundsHalfUp(t *testing.T) {
 	quota := CalculateFixedPerCallQuota(0.198529, 1)
 	if quota != 99265 {

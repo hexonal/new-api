@@ -34,13 +34,9 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	// Determine the group used for pricing/ratio lookups.
-	// UserPricingGroup (from user.pricing_group) takes priority;
-	// falls back to UsingGroup for backward compatibility.
-	pricingGroup := relayInfo.UserPricingGroup
-	if pricingGroup == "" {
-		pricingGroup = relayInfo.UsingGroup
-	}
+	// Runtime pricing always uses the user group.
+	// pricing_group is a compatibility mirror and must not override user group.
+	pricingGroup := relayInfo.EffectivePricingGroup()
 
 	// Warn if pricingGroup is set but not found in any ratio config
 	if pricingGroup != "" {

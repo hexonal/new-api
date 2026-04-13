@@ -53,16 +53,23 @@ type User struct {
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
 }
 
+func (user *User) mirrorPricingGroupToGroup() {
+	if user.Group == "" && user.PricingGroup != "" {
+		user.Group = user.PricingGroup
+	}
+	user.PricingGroup = user.Group
+}
+
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
 		Id:           user.Id,
 		Group:        user.Group,
 		PricingGroup: user.PricingGroup,
 		Quota:        user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Status:       user.Status,
+		Username:     user.Username,
+		Setting:      user.Setting,
+		Email:        user.Email,
 	}
 	return cache
 }
@@ -380,6 +387,7 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 
 func (user *User) Insert(inviterId int) error {
 	var err error
+	user.mirrorPricingGroupToGroup()
 	if user.Password != "" {
 		user.Password, err = common.Password2Hash(user.Password)
 		if err != nil {
@@ -439,6 +447,7 @@ func (user *User) Insert(inviterId int) error {
 // Post-creation tasks (sidebar config, logs, inviter rewards) are handled after the transaction commits.
 func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 	var err error
+	user.mirrorPricingGroupToGroup()
 	if user.Password != "" {
 		user.Password, err = common.Password2Hash(user.Password)
 		if err != nil {
@@ -495,6 +504,7 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 
 func (user *User) Update(updatePassword bool) error {
 	var err error
+	user.mirrorPricingGroupToGroup()
 	if updatePassword {
 		user.Password, err = common.Password2Hash(user.Password)
 		if err != nil {
@@ -502,13 +512,19 @@ func (user *User) Update(updatePassword bool) error {
 		}
 	}
 	newUser := *user
-	DB.First(&user, user.Id)
-	if err = DB.Model(user).Updates(newUser).Error; err != nil {
+	current := User{}
+	if err = DB.First(&current, user.Id).Error; err != nil {
+		return err
+	}
+	if err = DB.Model(&current).Updates(newUser).Error; err != nil {
 		return err
 	}
 
 	// Update cache
-	return updateUserCache(*user)
+	if err = DB.First(&current, user.Id).Error; err != nil {
+		return err
+	}
+	return updateUserCache(current)
 }
 
 func (user *User) Edit(updatePassword bool) error {
@@ -519,6 +535,7 @@ func (user *User) Edit(updatePassword bool) error {
 // Cache update is skipped when using a transaction — caller must update cache after commit.
 func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 	var err error
+	user.mirrorPricingGroupToGroup()
 	if updatePassword {
 		user.Password, err = common.Password2Hash(user.Password)
 		if err != nil {
@@ -528,34 +545,42 @@ func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 
 	newUser := *user
 	updates := map[string]interface{}{
-		"username":     newUser.Username,
-		"display_name": newUser.DisplayName,
-		"group":        newUser.Group,
-		"quota":        newUser.Quota,
-		"remark":       newUser.Remark,
+		"username":      newUser.Username,
+		"display_name":  newUser.DisplayName,
+		"group":         newUser.Group,
+		"pricing_group": newUser.PricingGroup,
+		"quota":         newUser.Quota,
+		"remark":        newUser.Remark,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
 	}
 
-	tx.First(&user, user.Id)
-	if err = tx.Model(user).Updates(updates).Error; err != nil {
+	current := User{}
+	if err = tx.First(&current, user.Id).Error; err != nil {
+		return err
+	}
+	if err = tx.Model(&current).Updates(updates).Error; err != nil {
 		return err
 	}
 
 	// Update cache only when using global DB (non-transactional).
 	// Transactional callers must call updateUserCache after commit.
 	if tx == DB {
-		return updateUserCache(*user)
+		if err = DB.First(&current, user.Id).Error; err != nil {
+			return err
+		}
+		return updateUserCache(current)
 	}
 	return nil
 }
 
-// EditPricingGroup updates the pricing_group field explicitly.
-// This is separated from Edit() because pricing_group should only be updated
-// when the client explicitly provides it in the request body.
+// EditPricingGroup keeps pricing_group and group mirrored.
 func (user *User) EditPricingGroup(pricingGroup string) error {
-	if err := DB.Model(&User{}).Where("id = ?", user.Id).Update("pricing_group", pricingGroup).Error; err != nil {
+	if err := DB.Model(&User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{
+		"group":         pricingGroup,
+		"pricing_group": pricingGroup,
+	}).Error; err != nil {
 		return err
 	}
 	// Re-read the full user from DB to avoid caching incomplete data

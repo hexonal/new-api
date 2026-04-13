@@ -372,6 +372,55 @@ func TestLogTaskConsumption_StoresBillingSKUWhenConsumedModelPresent(t *testing.
 	assert.Equal(t, "MiniMax-Hailuo-2.3-Fast-6s-1080p", other["billing_sku"])
 }
 
+func TestLogTaskConsumption_UsesUserGroupAsPricingGroup(t *testing.T) {
+	truncate(t)
+
+	user := &model.User{
+		Id:           1,
+		Username:     "test_user",
+		Quota:        1000000,
+		Status:       common.UserStatusEnabled,
+		Group:        "shizeing3",
+		PricingGroup: "shizeying2",
+	}
+	require.NoError(t, model.DB.Create(user).Error)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/chat/completions")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "gpt-5.1",
+		UsingGroup:       "shizeing3",
+		UserGroup:        "shizeing3",
+		UserPricingGroup: "shizeying2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId: 1,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action: "chat",
+		},
+		PriceData: types.PriceData{
+			ModelRatio:      0.625,
+			CompletionRatio: 8,
+			Quota:           121,
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 1.2, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, "shizeing3", log.PricingGroup)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, float64(1.2), other["group_ratio"])
+	assert.Equal(t, "group_model", other["group_ratio_source"])
+}
+
 func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T) {
 	truncate(t)
 

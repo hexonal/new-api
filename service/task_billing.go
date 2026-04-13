@@ -815,11 +815,7 @@ func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
 	if err == nil {
 		userGroup = user.Group
 		if pricingGroup == "" {
-			if user.PricingGroup != "" {
-				pricingGroup = user.PricingGroup
-			} else {
-				pricingGroup = user.Group
-			}
+			pricingGroup = user.Group
 		}
 	}
 	if pricingGroup == "" {

@@ -90,7 +90,7 @@ type RelayInfo struct {
 	UserId            int
 	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
 	UserGroup         string // 用户所在分组
-	UserPricingGroup  string // 计费专用分组，优先于 UsingGroup 查询倍率
+	UserPricingGroup  string // 兼容字段；运行时定价以 UserGroup 为准
 	TokenUnlimited    bool
 	StartTime         time.Time
 	FirstResponseTime time.Time
@@ -225,8 +225,16 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 }
 
-// EffectivePricingGroup returns UserPricingGroup if set, otherwise falls back to UsingGroup.
+// EffectivePricingGroup returns the user group for runtime pricing decisions.
+// pricing_group is kept as a compatibility mirror and must not override user group.
 func (info *RelayInfo) EffectivePricingGroup() string {
+	if info.UserGroup != "" {
+		return info.UserGroup
+	}
+	if info.UsingGroup != "" {
+		return info.UsingGroup
+	}
+	// Keep a final fallback for legacy/internal callers that may still pass only UserPricingGroup.
 	if info.UserPricingGroup != "" {
 		return info.UserPricingGroup
 	}

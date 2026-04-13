@@ -26,8 +26,12 @@ type UserBase struct {
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
+	pricingGroup := user.Group
+	if pricingGroup == "" {
+		pricingGroup = user.PricingGroup
+	}
 	common.SetContextKey(c, constant.ContextKeyUserGroup, user.Group)
-	common.SetContextKey(c, constant.ContextKeyUserPricingGroup, user.PricingGroup)
+	common.SetContextKey(c, constant.ContextKeyUserPricingGroup, pricingGroup)
 	common.SetContextKey(c, constant.ContextKeyUserQuota, user.Quota)
 	common.SetContextKey(c, constant.ContextKeyUserStatus, user.Status)
 	common.SetContextKey(c, constant.ContextKeyUserEmail, user.Email)
@@ -111,12 +115,12 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 	userCache = &UserBase{
 		Id:           user.Id,
 		Group:        user.Group,
-		PricingGroup: user.PricingGroup,
+		PricingGroup: user.Group,
 		Quota:        user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Status:       user.Status,
+		Username:     user.Username,
+		Setting:      user.Setting,
+		Email:        user.Email,
 	}
 
 	return userCache, nil
@@ -211,7 +215,10 @@ func updateUserGroupCache(userId int, group string) error {
 	if !common.RedisEnabled {
 		return nil
 	}
-	return common.RedisHSetField(getUserCacheKey(userId), "Group", group)
+	if err := common.RedisHSetField(getUserCacheKey(userId), "Group", group); err != nil {
+		return err
+	}
+	return common.RedisHSetField(getUserCacheKey(userId), "PricingGroup", group)
 }
 
 func UpdateUserGroupCache(userId int, group string) error {
