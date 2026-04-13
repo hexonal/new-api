@@ -13,6 +13,21 @@ const toFiniteNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const formatRatioValue = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return String(value);
+  }
+  if (Number.isInteger(numeric)) {
+    return numeric.toFixed(2);
+  }
+  const twoDecimal = numeric.toFixed(2);
+  if (Math.abs(numeric - Number(twoDecimal)) < 1e-9) {
+    return twoDecimal;
+  }
+  return numeric.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+};
+
 export const extractDynamicPerCallRatios = (otherRatios = {}) => {
   const extracted = {};
   for (const key of DYNAMIC_PER_CALL_RATIO_KEYS) {
@@ -86,10 +101,10 @@ export const buildDynamicPerCallFormula = ({
   const formatPrice = (value) =>
     `${symbol}${(Number(value) * rate).toFixed(6)}`;
   const ratioText = ratioEntries
-    .map(([key, value]) => `${labels[key] || key} ${Number(value).toFixed(2)}`)
+    .map(([key, value]) => `${labels[key] || key} ${formatRatioValue(value)}`)
     .join(' * ');
 
-  return `${baseLabel} ${formatPrice(basePrice)} / ${perCallLabel} * ${ratioText} * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
+  return `${baseLabel} ${formatPrice(basePrice)} / ${perCallLabel} * (${ratioText}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
 };
 
 export const buildDynamicPerCallParameterText = (otherRatios = {}) => {
@@ -98,6 +113,6 @@ export const buildDynamicPerCallParameterText = (otherRatios = {}) => {
     return '';
   }
   return ratioEntries
-    .map(([key, value]) => `${key}=${Number(value).toFixed(2)}`)
+    .map(([key, value]) => `${key}=${formatRatioValue(value)}`)
     .join(', ');
 };

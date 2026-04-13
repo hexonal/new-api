@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   calculateDynamicPerCallPrice,
   buildDynamicPerCallFormula,
+  buildDynamicPerCallParameterText,
 } from './dynamicPerCall.js';
 
 test('calculateDynamicPerCallPrice returns final price for PixVerse-style ratios', () => {
@@ -35,7 +36,7 @@ test('buildDynamicPerCallFormula includes dynamic factors and final price', () =
 
   assert.equal(
     formula,
-    '基础单价 $0.025000 / 次 * duration 5.00 * resolution 1.40 * audio 1.29 * 分组倍率 1.0000 = $0.225000',
+    '基础单价 $0.025000 / 次 * (duration 5.00 * resolution 1.40 * audio 1.285714) * 分组倍率 1.0000 = $0.225000',
   );
 });
 
@@ -79,6 +80,16 @@ test('zero group ratio keeps dynamic per-call preview free', () => {
 
   assert.equal(
     formula,
-    '基础单价 $0.025000 / 次 * duration 5.00 * resolution 1.40 * audio 1.29 * 分组倍率 0.0000 = $0.000000',
+    '基础单价 $0.025000 / 次 * (duration 5.00 * resolution 1.40 * audio 1.285714) * 分组倍率 0.0000 = $0.000000',
   );
+});
+
+test('buildDynamicPerCallParameterText keeps higher precision for repeating ratios', () => {
+  const text = buildDynamicPerCallParameterText({
+    duration: 5,
+    resolution: 1.4,
+    audio: 9 / 7,
+  });
+
+  assert.equal(text, 'duration=5.00, resolution=1.40, audio=1.285714');
 });
