@@ -17,6 +17,17 @@ import (
 
 const defaultAssetModel = "ima-pro-upload"
 
+func buildAssetBillingLogOther(quota int, modelPrice float64, requestMeta RequestLogMetadata) map[string]interface{} {
+	other := map[string]interface{}{
+		"model_price":   modelPrice,
+		"group_ratio":   1.0,
+		"actual_quota":  quota,
+		"billing_stage": "asset_upload",
+	}
+	appendRequestLogMetadata(other, requestMeta)
+	return other
+}
+
 func resolveAssetBillingGroups(token *model.Token, userGroup string) (string, string) {
 	group := strings.TrimSpace(userGroup)
 	if group == "" && token != nil {
@@ -377,7 +388,7 @@ func HandleUpdateAssetGroup(ctx context.Context, userID int, userName string, re
 	return result, nil
 }
 
-func HandleCreateAsset(ctx context.Context, userID int, userName string, userGroup string, tokenID int, tokenName string, req dto.AssetCreateRequest) (*dto.DoubaoIDResult, error) {
+func HandleCreateAsset(ctx context.Context, userID int, userName string, userGroup string, tokenID int, tokenName string, req dto.AssetCreateRequest, requestMeta RequestLogMetadata) (*dto.DoubaoIDResult, error) {
 	_ = tokenName
 	setting := asset_setting.GetAssetSetting()
 	if !setting.Enabled {
@@ -487,21 +498,16 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, userGro
 		modelPrice := float64(quota) / float64(common.QuotaPerUnit)
 		billingGroup, pricingGroup := resolveAssetBillingGroups(token, userGroup)
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-			UserId:    userID,
-			LogType:   model.LogTypeConsume,
-			Content:   fmt.Sprintf("asset upload charged, model=%s", assetModel),
-			ChannelId: channel.Id,
-			ModelName: assetModel,
-			Quota:     quota,
-			TokenId:   billedTokenID,
-			Group:     billingGroup,
+			UserId:       userID,
+			LogType:      model.LogTypeConsume,
+			Content:      fmt.Sprintf("asset upload charged, model=%s", assetModel),
+			ChannelId:    channel.Id,
+			ModelName:    assetModel,
+			Quota:        quota,
+			TokenId:      billedTokenID,
+			Group:        billingGroup,
 			PricingGroup: pricingGroup,
-			Other: map[string]interface{}{
-				"model_price":   modelPrice,
-				"group_ratio":   1.0,
-				"actual_quota":  quota,
-				"billing_stage": "asset_upload",
-			},
+			Other:        buildAssetBillingLogOther(quota, modelPrice, requestMeta),
 		})
 	} else {
 		common.SysLog(fmt.Sprintf("asset billing warning: upstream asset created without successful billing, user_id=%d channel_id=%d upstream_asset_id=%s", userID, channel.Id, upstreamAssetID))

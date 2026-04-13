@@ -1407,6 +1407,40 @@ func TestSettle_DeferredSettle_UsesEstimatedFallback(t *testing.T) {
 	assert.Contains(t, log.Content, "estimated_quota_fallback")
 }
 
+func TestSettle_DeferredSettle_TerminalLogKeepsRequestMetadata(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 35, 35, 35
+	const initQuota, tokenRemain = 12000, 12000
+	const actualQuota = 3300
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-deferred-request-meta", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.EstimatedQuota = 2000
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+	task.PrivateData.BillingContext.RequestPath = "/v1/video/generations"
+	task.PrivateData.BillingContext.RequestConversion = []string{"OpenAI Compatible", "Google Gemini"}
+
+	adaptor := &mockAdaptor{adjustReturn: actualQuota}
+	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "/v1/video/generations", other["request_path"])
+	assert.Equal(t, []interface{}{"OpenAI Compatible", "Google Gemini"}, other["request_conversion"])
+}
+
 func withTempRatios(t *testing.T, model string, modelRatio float64, completionRatio float64) {
 	t.Helper()
 	backupModel := ratio_setting.GetModelRatioCopy()

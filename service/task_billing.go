@@ -265,6 +265,10 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 				other[k] = v
 			}
 		}
+		appendRequestLogMetadata(other, RequestLogMetadata{
+			RequestPath:       bc.RequestPath,
+			RequestConversion: bc.RequestConversion,
+		})
 	}
 	props := task.Properties
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
