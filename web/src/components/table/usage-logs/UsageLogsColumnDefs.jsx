@@ -1139,6 +1139,7 @@ export const getLogsColumns = ({
           const isCreditSettle = other?.settlement_type === 'credits';
           const groupRatio = Number(other?.group_ratio);
           if (isAdaptorAdjust) {
+            const quotaPerUnit = Number(getQuotaPerUnit());
             const creditsFormula =
               isCreditSettle && credits > 0
                 ? buildCreditsSettlementFormula({
