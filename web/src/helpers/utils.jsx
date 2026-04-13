@@ -620,10 +620,11 @@ export const calculateModelPrice = ({
   precision = 4,
 }) => {
   const recordModelName =
-    record?.model ||
-    record?.model_name ||
-    record?.name ||
-    '';
+    record?.model || record?.model_name || record?.name || '';
+  const isHailuoPerCallModel =
+    record?.quota_type === 1 &&
+    typeof recordModelName === 'string' &&
+    recordModelName.toLowerCase().includes('hailuo');
   const GEMINI_THOUGHT_RATIO_MAP = {
     'gemini-3-pro-image-preview': 6,
     'gemini-3.1-flash-image-preview': 6,
@@ -637,7 +638,8 @@ export const calculateModelPrice = ({
       usedGroupRatio: 1,
     };
   }
-  const safeGroupRatio = groupRatio && typeof groupRatio === 'object' ? groupRatio : {};
+  const safeGroupRatio =
+    groupRatio && typeof groupRatio === 'object' ? groupRatio : {};
   const safeGroupModelRatio =
     groupModelRatio && typeof groupModelRatio === 'object'
       ? groupModelRatio
@@ -763,7 +765,9 @@ export const calculateModelPrice = ({
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.cache_ratio))
         : null,
       createCachePrice: hasRatioValue(record.create_cache_ratio)
-        ? formatTokenPrice(inputRatioPriceUSD * Number(record.create_cache_ratio))
+        ? formatTokenPrice(
+            inputRatioPriceUSD * Number(record.create_cache_ratio),
+          )
         : null,
       imagePrice: hasRatioValue(record.image_ratio)
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.image_ratio))
@@ -792,6 +796,7 @@ export const calculateModelPrice = ({
 
     return {
       price: displayVal,
+      isVariablePerCall: isHailuoPerCallModel,
       isPerToken: false,
       isTokensDisplay: false,
       usedGroup,
@@ -809,11 +814,7 @@ export const calculateModelPrice = ({
   };
 };
 
-export const getModelPriceItems = (
-  priceData,
-  t,
-  quotaDisplayType = 'USD',
-) => {
+export const getModelPriceItems = (priceData, t, quotaDisplayType = 'USD') => {
   if (priceData.isPerToken) {
     if (quotaDisplayType === 'TOKENS' || priceData.isTokensDisplay) {
       return [
@@ -921,17 +922,43 @@ export const getModelPriceItems = (
         value: priceData.audioOutputPrice,
         suffix: unitSuffix,
       },
-    ].filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
+    ].filter(
+      (item) =>
+        item.value !== null && item.value !== undefined && item.value !== '',
+    );
   }
 
   return [
-    {
-      key: 'fixed',
-      label: t('模型价格'),
-      value: priceData.price,
-      suffix: ` / ${t('次')}`,
-    },
-  ].filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
+    ...(priceData.isVariablePerCall
+      ? [
+          {
+            key: 'starting',
+            label: t('起价'),
+            value: priceData.price,
+            suffix: ` / ${t('次')}`,
+          },
+          {
+            key: 'pricing-note',
+            label: t('计费说明'),
+            value: t('按规格计费'),
+            suffix: '',
+          },
+        ]
+      : []),
+    ...(!priceData.isVariablePerCall
+      ? [
+          {
+            key: 'fixed',
+            label: t('模型价格'),
+            value: priceData.price,
+            suffix: ` / ${t('次')}`,
+          },
+        ]
+      : []),
+  ].filter(
+    (item) =>
+      item.value !== null && item.value !== undefined && item.value !== '',
+  );
 };
 
 // 格式化价格信息（用于卡片视图）
