@@ -51,6 +51,17 @@ const toPositiveNumber = (value) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
+const hasAudioTokenBreakdown = (other) =>
+  Boolean(other?.ws) ||
+  [
+    other?.audio_input,
+    other?.audio_output,
+    other?.text_input,
+    other?.text_output,
+    other?.audio_ratio,
+    other?.audio_completion_ratio,
+  ].some((value) => toPositiveNumber(value) > 0);
+
 const parseTokenRecalculateTotal = (...candidates) => {
   for (const candidate of candidates) {
     const text = String(candidate || '');
@@ -610,7 +621,7 @@ export const useLogsData = () => {
         key: t('输出 Tokens'),
         value: renderNumber(logs[i].completion_tokens || 0),
       });
-      if (other?.ws || other?.audio) {
+      if (hasAudioTokenBreakdown(other)) {
         expandDataLocal.push({
           key: t('语音输入'),
           value: other.audio_input,
@@ -828,7 +839,7 @@ export const useLogsData = () => {
               toPositiveNumber(logs[i]?.completion_tokens) ===
             0;
 
-          if (other?.ws || other?.audio) {
+          if (hasAudioTokenBreakdown(other)) {
             content = renderAudioModelPrice(
               other?.text_input,
               other?.text_output,
