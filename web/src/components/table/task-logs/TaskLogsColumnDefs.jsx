@@ -388,15 +388,25 @@ export const getTaskLogsColumns = ({
       key: COLUMN_KEYS.MODEL,
       title: t('模型'),
       dataIndex: 'properties',
-      render: (properties) => {
+      render: (properties, record) => {
         const modelName =
           properties?.origin_model_name || properties?.upstream_model_name || '-';
+        const consumedModel = record?.consumed_model;
         return (
-          <Tooltip content={modelName}>
-            <Tag color='green' shape='circle'>
-              {modelName}
-            </Tag>
-          </Tooltip>
+          <Space vertical align='start' spacing={4}>
+            <Tooltip content={modelName}>
+              <Tag color='green' shape='circle'>
+                {modelName}
+              </Tag>
+            </Tooltip>
+            {consumedModel ? (
+              <Tooltip content={consumedModel}>
+                <Tag color='cyan' shape='circle'>
+                  {`${t('消耗模型')}: ${consumedModel}`}
+                </Tag>
+              </Tooltip>
+            ) : null}
+          </Space>
         );
       },
     },

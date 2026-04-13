@@ -615,6 +615,7 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		task.PrivateData.ConsumedModel = result.ConsumedModel
 		// Submit to upstream already succeeded, so persisted state should not stay NOT_START.
 		// Keep terminal transition handled by polling/callback loop as before.
 		task.Status = model.TaskStatusSubmitted

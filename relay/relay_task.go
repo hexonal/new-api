@@ -27,6 +27,7 @@ import (
 
 type TaskSubmitResult struct {
 	UpstreamTaskID string
+	ConsumedModel  string
 	TaskData       []byte
 	Platform       constant.TaskPlatform
 	Quota          int
@@ -351,21 +352,22 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
 	}
+	bodyBytes, readErr := io.ReadAll(requestBody)
+	if readErr != nil {
+		return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
+	}
 
 	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
 	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
 	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
 	if len(info.ParamOverride) > 0 {
-		bodyBytes, readErr := io.ReadAll(requestBody)
-		if readErr != nil {
-			return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
-		}
 		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
 		if err != nil {
 			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
 		}
-		requestBody = bytes.NewReader(bodyBytes)
 	}
+	requestBody = bytes.NewReader(bodyBytes)
+	consumedModel := extractConsumedModelFromTaskRequest(bodyBytes, info)
 
 	// 9. 发送请求
 	resp, err := adaptor.DoRequest(c, info, requestBody)
@@ -402,6 +404,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	return &TaskSubmitResult{
 		UpstreamTaskID: upstreamTaskID,
+		ConsumedModel:  consumedModel,
 		TaskData:       taskData,
 		Platform:       platform,
 		Quota:          finalQuota,
@@ -409,6 +412,27 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		PerCallBilling: perCallBilling,
 		DeferredSettle: deferredSettle,
 	}, nil
+}
+
+func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInfo) string {
+	if info == nil || info.ChannelType != constant.ChannelTypeMiniMax {
+		return ""
+	}
+	if len(body) > 0 {
+		var req map[string]any
+		if err := common.Unmarshal(body, &req); err == nil {
+			if modelName, ok := req["model"].(string); ok {
+				modelName = strings.TrimSpace(modelName)
+				if modelName != "" {
+					return modelName
+				}
+			}
+		}
+	}
+	if modelName := strings.TrimSpace(info.UpstreamModelName); modelName != "" {
+		return modelName
+	}
+	return strings.TrimSpace(info.OriginModelName)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
@@ -588,11 +612,11 @@ func buildImageFetchResponse(task *model.Task) ([]byte, error) {
 		}
 	}
 	out := map[string]any{
-		"task_id":  task.TaskID,
-		"status":   mapTaskStatusToSimple(task.Status),
-		"format":   detectImageFormat(task.GetResultURL()),
-		"url":      task.GetResultURL(),
-		"error":    errPayload,
+		"task_id": task.TaskID,
+		"status":  mapTaskStatusToSimple(task.Status),
+		"format":  detectImageFormat(task.GetResultURL()),
+		"url":     task.GetResultURL(),
+		"error":   errPayload,
 		"usage": map[string]any{
 			"input_tokens":  promptTokens,
 			"output_tokens": completionTokens,
@@ -807,26 +831,27 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 	return &dto.TaskDto{
-		ID:          task.ID,
-		CreatedAt:   task.CreatedAt,
-		UpdatedAt:   task.UpdatedAt,
-		TaskID:      task.TaskID,
-		Platform:    string(task.Platform),
-		UserId:      task.UserId,
-		Group:       task.Group,
-		ChannelId:   task.ChannelId,
-		ChannelName: task.ChannelName,
-		Quota:       task.Quota,
-		Action:      task.Action,
-		Status:      string(task.Status),
-		FailReason:  task.FailReason,
-		ResultURL:   task.GetResultURL(),
-		SubmitTime:  task.SubmitTime,
-		StartTime:   task.StartTime,
-		FinishTime:  task.FinishTime,
-		Progress:    task.Progress,
-		Properties:  task.Properties,
-		Username:    task.Username,
-		Data:        task.Data,
+		ID:            task.ID,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		TaskID:        task.TaskID,
+		Platform:      string(task.Platform),
+		UserId:        task.UserId,
+		Group:         task.Group,
+		ChannelId:     task.ChannelId,
+		ChannelName:   task.ChannelName,
+		Quota:         task.Quota,
+		Action:        task.Action,
+		Status:        string(task.Status),
+		FailReason:    task.FailReason,
+		ResultURL:     task.GetResultURL(),
+		ConsumedModel: task.PrivateData.ConsumedModel,
+		SubmitTime:    task.SubmitTime,
+		StartTime:     task.StartTime,
+		FinishTime:    task.FinishTime,
+		Progress:      task.Progress,
+		Properties:    task.Properties,
+		Username:      task.Username,
+		Data:          task.Data,
 	}
 }

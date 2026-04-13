@@ -101,6 +101,7 @@ func (m Properties) Value() (driver.Value, error) {
 type TaskPrivateData struct {
 	Key            string `json:"key,omitempty"`
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
+	ConsumedModel  string `json:"consumed_model,omitempty"`   // 实际请求上游时消耗的模型
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// CallbackURL is an optional client-provided webhook endpoint for task terminal updates.
 	// It is validated at submit-time and dispatched asynchronously by callback dispatcher.
