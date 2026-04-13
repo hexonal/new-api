@@ -168,7 +168,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 // ModelPriceHelperPerCall 按次计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
 	pricingModelName := resolvePerCallPricingModelName(info)
-	groupRatioInfo := handleGroupRatioForModel(c, info, pricingModelName)
+	groupRatioInfo := handleGroupRatioForModel(c, info, resolvePerCallGroupRatioModelNames(info, pricingModelName)...)
 	modelPrice, success := ratio_setting.GetModelPrice(pricingModelName, true)
 	// 如果没有配置价格，检查模型倍率配置
 	if !success {
@@ -228,15 +228,46 @@ func resolvePerCallPricingModelName(info *relaycommon.RelayInfo) string {
 	return info.OriginModelName
 }
 
-func handleGroupRatioForModel(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelName string) types.GroupRatioInfo {
-	if relayInfo == nil || strings.TrimSpace(modelName) == "" || modelName == relayInfo.OriginModelName {
+func resolvePerCallGroupRatioModelNames(info *relaycommon.RelayInfo, pricingModelName string) []string {
+	if info == nil {
+		return nil
+	}
+	candidates := make([]string, 0, 2)
+	if strings.TrimSpace(pricingModelName) != "" {
+		candidates = append(candidates, pricingModelName)
+	}
+	if originModel := strings.TrimSpace(info.OriginModelName); originModel != "" && originModel != pricingModelName {
+		candidates = append(candidates, originModel)
+	}
+	return candidates
+}
+
+func handleGroupRatioForModel(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelNames ...string) types.GroupRatioInfo {
+	if relayInfo == nil {
+		return types.GroupRatioInfo{
+			GroupRatio:        1.0,
+			GroupSpecialRatio: -1,
+			GroupRatioSource:  types.GroupRatioSourceDefault,
+		}
+	}
+	if len(modelNames) == 0 {
 		return HandleGroupRatio(ctx, relayInfo)
 	}
-
-	originalModelName := relayInfo.OriginModelName
-	relayInfo.OriginModelName = modelName
 	groupRatioInfo := HandleGroupRatio(ctx, relayInfo)
-	relayInfo.OriginModelName = originalModelName
+	pricingGroup := relayInfo.EffectivePricingGroup()
+	for _, modelName := range modelNames {
+		modelName = strings.TrimSpace(modelName)
+		if modelName == "" {
+			continue
+		}
+		if modelRatio, ok := ratio_setting.GetGroupModelRatio(pricingGroup, modelName); ok {
+			groupRatioInfo.GroupRatio = modelRatio
+			groupRatioInfo.GroupRatioSource = types.GroupRatioSourceModel
+			groupRatioInfo.HasSpecialRatio = false
+			groupRatioInfo.GroupSpecialRatio = -1
+			return groupRatioInfo
+		}
+	}
 	return groupRatioInfo
 }
 
