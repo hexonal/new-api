@@ -135,7 +135,22 @@ curl -sS --location --request GET 'https://<domain>/v1/models' \
 - `request_format` 非空
 - `sdk_method` 非空
 
-## 8.6 最终输出
+## 8.6 模型级特性标记验收
+
+验证 `reasoning` 和 `function_calling` 字段与系统设置 Option 一致：
+
+```bash
+curl -sS --location --request GET 'https://<domain>/v1/models' \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Accept: application/json' \
+| jq -r '.data[] | select(.reasoning==true or .function_calling==true)
+  | [.id,.reasoning,.function_calling]
+  | @tsv'
+```
+
+输出应与 `ModelReasoningMap` / `ModelFunctionCallingMap` Option 中配置的模型一致。
+
+## 8.7 最终输出
 
 - 上游配置摘要
 - 上游模型清单

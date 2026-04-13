@@ -114,8 +114,9 @@
   - `default` 落在 `options` 内
 - `capability_key` 只能从 SKILL.md §6.3 的白名单选取
 - 对齐 SDK（见 SKILL.md §6.4）：任何新增 capability key 同 PR 改 api-sdk 两端
+- 确认模型级特性标记：若模型支持 function calling，需在系统设置的 `ModelFunctionCallingMap` Option 中配置；若为推理模型，需在 `ModelReasoningMap` 中配置
 
-**产出**：`models` 表的 `endpoints` JSON（参考 `model-json-template.md` 的模板）
+**产出**：`models` 表的 `endpoints` JSON（参考 `model-json-template.md` 的模板）+ 特性标记 Option 配置
 
 **常见错误**：
 

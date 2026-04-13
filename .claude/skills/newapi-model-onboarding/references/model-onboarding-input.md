@@ -50,8 +50,20 @@
 - `output_price`:
 - `extra_ratios`（可选）:
 
-## E. 验收目标
+## E. 模型级特性标记
+
+逐项确认，**必须有上游文档或实测依据**，不能随意标记：
+
+- `reasoning`（是否推理模型）:
+  - 判定依据（文档链接/实测结果）:
+- `function_calling`（是否支持 tool/function calling）:
+  - 判定依据（文档链接/实测结果）:
+
+> 详细配置规范见 SKILL.md §6.5。配置方式：系统设置 Option `ModelReasoningMap` / `ModelFunctionCallingMap`，值为 JSON `{"model-name-lowercase": true}`。未经验证不得标记为 `true`。
+
+## F. 验收目标
 
 - `/v1/models` 期望 `supported_endpoint_types`:
+- `/v1/models` 期望特性标记（`reasoning` / `function_calling`）:
 - 期望枚举参数列表:
 - 最少功能验收用例:

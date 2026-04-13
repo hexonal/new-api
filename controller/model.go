@@ -150,6 +150,7 @@ func ListModels(c *gin.Context, modelType int) {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
+				oaiModel.FunctionCalling = isModelFunctionCallingEnabled(allowModel)
 				oaiModel.Capabilities = capabilities
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
@@ -161,6 +162,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
+					FunctionCalling:        isModelFunctionCallingEnabled(allowModel),
 					Capabilities:           capabilities,
 				})
 			}
@@ -204,6 +206,7 @@ func ListModels(c *gin.Context, modelType int) {
 				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
+				oaiModel.FunctionCalling = isModelFunctionCallingEnabled(modelName)
 				oaiModel.Capabilities = capabilities
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
@@ -215,6 +218,7 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
+					FunctionCalling:        isModelFunctionCallingEnabled(modelName),
 					Capabilities:           capabilities,
 				})
 			}
@@ -261,6 +265,11 @@ func ListModels(c *gin.Context, modelType int) {
 
 func isModelReasoningEnabled(modelName string) bool {
 	v, ok := model_capability.GetModelReasoning(modelName)
+	return ok && v
+}
+
+func isModelFunctionCallingEnabled(modelName string) bool {
+	v, ok := model_capability.GetModelFunctionCalling(modelName)
 	return ok && v
 }
 
@@ -313,6 +322,7 @@ func RetrieveModel(c *gin.Context, modelType int) {
 		aiModel.SupportedEndpointTypes = supportedEndpointTypes
 		aiModel.Capabilities = capabilities
 		aiModel.Reasoning = isModelReasoningEnabled(modelId)
+		aiModel.FunctionCalling = isModelFunctionCallingEnabled(modelId)
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{
@@ -337,6 +347,7 @@ func RetrieveModel(c *gin.Context, modelType int) {
 			OwnedBy:                "custom",
 			SupportedEndpointTypes: supportedEndpointTypes,
 			Reasoning:              isModelReasoningEnabled(modelId),
+			FunctionCalling:        isModelFunctionCallingEnabled(modelId),
 			Capabilities:           capabilities,
 		})
 	} else {

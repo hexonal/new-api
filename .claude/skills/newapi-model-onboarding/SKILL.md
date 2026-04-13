@@ -154,6 +154,64 @@ description: |
 3. `hexonal-project/api-sdk/src/ai-gateway/capability-dispatch.ts` 的 `SyncCapabilityTransport` 字段 + `CapabilityDispatchKey` 联合类型 + `DISPATCH_HANDLERS` / `SDK_METHOD_TO_DISPATCH` / `PATH_TO_DISPATCH` 条目
 4. 前两项改完后跑 `go build ./...` 和 `npx tsc --noEmit` 两边都通过，才算完成
 
+### 6.5 模型级特性标记配置（强制）
+
+模型级特性标记（`reasoning`、`function_calling`）**不是自动推导的**，必须由管理员在系统设置中显式配置对应的 Option，否则 `/v1/models` 返回的特性值始终为 `false`。
+
+#### 配置位置
+
+系统设置 → Option 配置（`options` 表），通过管理后台或 API 写入。
+
+#### Option 定义
+
+| Option Key | 用途 | 值格式 |
+|------------|------|--------|
+| `ModelReasoningMap` | 标记哪些模型支持推理/思考链 | JSON `map[string]bool` |
+| `ModelFunctionCallingMap` | 标记哪些模型支持 function/tool calling | JSON `map[string]bool` |
+
+#### 值格式规范
+
+```json
+{
+  "model-name-lowercase": true,
+  "another-model": true
+}
+```
+
+- **key 必须是模型名的小写形式**（查询时会自动 `ToLower` 匹配）
+- **value 只接受 `bool` 类型**，非 bool 值会被静默跳过
+- **只需要写 `true` 的模型**，不支持的模型不需要写 `false`（不在 map 中 = 不支持）
+- **空字符串或 `{}`** = 没有模型支持该特性
+
+#### 判定标准
+
+配置前必须确认模型**确实支持**对应特性，不能随意标记：
+
+| 特性 | 判定依据 |
+|------|---------|
+| `reasoning` | 模型支持 CoT/思考链输出（如 `o1`、`o3`、`claude-3.5-sonnet` 的 extended thinking、`deepseek-r1`） |
+| `function_calling` | 模型支持在请求中传入 `tools`/`functions` 参数并在响应中返回 `tool_calls`（需上游文档明确支持或实测验证） |
+
+**禁止**：
+- 未经验证就标记 `true`
+- 把纯文本模型标记为支持 `function_calling`
+- 把不支持推理的模型标记为 `reasoning`
+
+#### 配置示例
+
+```json
+// ModelReasoningMap
+{"o1": true, "o1-mini": true, "o3": true, "o3-mini": true, "deepseek-r1": true}
+
+// ModelFunctionCallingMap
+{"gpt-4o": true, "gpt-4o-mini": true, "gpt-4.1": true, "claude-sonnet-4-20250514": true, "claude-3.5-sonnet": true}
+```
+
+#### 生效机制
+
+- Option 写入后，调用 `POST /api/option/refresh_pricing_cache` 即可热生效（无需重启）
+- `/v1/models` 响应中的 `reasoning` 和 `function_calling` 字段会立即反映新配置
+
 ## 7) 配置价格 SQL
 
 - 在 `prices` 写入 `model + type + channel_type + input + output`
@@ -177,6 +235,7 @@ description: |
 - DB 与 `/v1/models` 一致
 - 文本模型若声明多端点，`/v1/models` 必须看到全部能力 key（包括扩展端点如 `claude_messages` / `openai_response`）
 - `models_id_seq`、`channels_id_seq` 与表内 `MAX(id)` 无漂移
+- 模型级特性标记正确：`reasoning`、`function_calling` 与 `ModelReasoningMap`、`ModelFunctionCallingMap` Option 一致
 
 ### 8.3 功能验收
 
