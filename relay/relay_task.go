@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 type TaskSubmitResult struct {
@@ -312,12 +313,20 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 	if applyRatios && len(info.PriceData.OtherRatios) > 0 {
-		combined := 1.0
-		for _, ra := range info.PriceData.OtherRatios {
-			combined *= ra
-		}
-		if combined != 1.0 {
-			info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
+		if perCallBilling {
+			info.PriceData.Quota = calculatePerCallQuotaWithRatios(
+				info.PriceData.ModelPrice,
+				info.PriceData.GroupRatioInfo.GroupRatio,
+				info.PriceData.OtherRatios,
+			)
+		} else {
+			combined := 1.0
+			for _, ra := range info.PriceData.OtherRatios {
+				combined *= ra
+			}
+			if combined != 1.0 {
+				info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
+			}
 		}
 	}
 
@@ -438,6 +447,13 @@ func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInf
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
 // 公式: baseQuota × ∏(ratio) — 其中 baseQuota 是不含 OtherRatios 的基础额度。
 func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) int {
+	if info != nil && info.PriceData.UsePrice && info.PriceData.ModelPrice > 0 {
+		return calculatePerCallQuotaWithRatios(
+			info.PriceData.ModelPrice,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+			ratios,
+		)
+	}
 	// 从 PriceData 获取不含 OtherRatios 的基础价格
 	baseQuota := info.PriceData.Quota
 	// 先除掉原有的 OtherRatios 恢复基础额度
@@ -454,6 +470,31 @@ func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float6
 		}
 	}
 	return int(result)
+}
+
+func calculatePerCallQuotaWithRatios(modelPrice, groupRatio float64, ratios map[string]float64) int {
+	if modelPrice <= 0 {
+		return 0
+	}
+	if groupRatio == 0 {
+		return 0
+	}
+
+	total := decimal.NewFromFloat(modelPrice).
+		Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+
+	if groupRatio > 0 {
+		total = total.Mul(decimal.NewFromFloat(groupRatio))
+	}
+
+	for _, ratio := range ratios {
+		if ratio <= 0 || ratio == 1 {
+			continue
+		}
+		total = total.Mul(decimal.NewFromFloat(ratio))
+	}
+
+	return int(total.Round(0).IntPart())
 }
 
 var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp *dto.TaskError){

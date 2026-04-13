@@ -1,0 +1,103 @@
+const DYNAMIC_PER_CALL_RATIO_KEYS = [
+  'duration',
+  'quality',
+  'resolution',
+  'audio',
+  'seconds',
+  'size',
+  'speed_ratio',
+];
+
+const toFiniteNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const extractDynamicPerCallRatios = (otherRatios = {}) => {
+  const extracted = {};
+  for (const key of DYNAMIC_PER_CALL_RATIO_KEYS) {
+    const value = toFiniteNumber(otherRatios?.[key]);
+    if (value === null || value <= 0 || value === 1) {
+      continue;
+    }
+    extracted[key] = value;
+  }
+  return extracted;
+};
+
+export const hasDynamicPerCallRatios = (otherRatios = {}) =>
+  Object.keys(extractDynamicPerCallRatios(otherRatios)).length > 0;
+
+export const calculateDynamicPerCallPrice = ({
+  modelPrice,
+  groupRatio = 1,
+  otherRatios = {},
+}) => {
+  const basePrice = toFiniteNumber(modelPrice);
+  if (basePrice === null || basePrice <= 0) {
+    return null;
+  }
+
+  const normalizedGroupRatio = toFiniteNumber(groupRatio);
+  const effectiveGroupRatio =
+    normalizedGroupRatio !== null && normalizedGroupRatio >= 0
+      ? normalizedGroupRatio
+      : 1;
+  const dynamicRatios = extractDynamicPerCallRatios(otherRatios);
+  const ratioEntries = Object.entries(dynamicRatios);
+  const ratioMultiplier = ratioEntries.reduce(
+    (product, [, value]) => product * value,
+    1,
+  );
+  const finalPrice = basePrice * ratioMultiplier * effectiveGroupRatio;
+
+  return {
+    basePrice,
+    finalPrice,
+    groupRatio: effectiveGroupRatio,
+    ratioEntries,
+  };
+};
+
+export const buildDynamicPerCallFormula = ({
+  basePrice,
+  finalPrice,
+  groupRatio = 1,
+  otherRatios = {},
+  symbol = '$',
+  rate = 1,
+  labels = {},
+}) => {
+  const dynamicRatios = extractDynamicPerCallRatios(otherRatios);
+  const ratioEntries = Object.entries(dynamicRatios);
+  if (ratioEntries.length === 0) {
+    return '';
+  }
+
+  const baseLabel = labels.basePrice || '基础单价';
+  const groupLabel = labels.groupRatio || '分组倍率';
+  const perCallLabel = labels.perCall || '次';
+  const effectiveGroupRatio = toFiniteNumber(groupRatio);
+  const safeGroupRatio =
+    effectiveGroupRatio !== null && effectiveGroupRatio >= 0
+      ? effectiveGroupRatio
+      : 1;
+
+  const formatPrice = (value) =>
+    `${symbol}${(Number(value) * rate).toFixed(6)}`;
+  const ratioText = ratioEntries
+    .map(([key, value]) => `${labels[key] || key} ${Number(value).toFixed(2)}`)
+    .join(' * ');
+
+  return `${baseLabel} ${formatPrice(basePrice)} / ${perCallLabel} * ${ratioText} * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
+};
+
+export const buildDynamicPerCallParameterText = (otherRatios = {}) => {
+  const ratioEntries = Object.entries(extractDynamicPerCallRatios(otherRatios));
+  if (ratioEntries.length === 0) {
+    return '';
+  }
+  return ratioEntries
+    .map(([key, value]) => `${key}=${Number(value).toFixed(2)}`)
+    .join(', ');
+};

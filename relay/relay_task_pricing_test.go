@@ -8,6 +8,37 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
+func TestCalculatePerCallQuotaWithRatios_UsesExactDecimalMath(t *testing.T) {
+	quota := calculatePerCallQuotaWithRatios(0.03, 1.0, map[string]float64{
+		"duration":   5,
+		"resolution": 8.0 / 6.0,
+		"audio":      10.0 / 8.0,
+	})
+	if quota != 125000 {
+		t.Fatalf("quota = %d, want 125000", quota)
+	}
+
+	quota = calculatePerCallQuotaWithRatios(0.025, 1.0, map[string]float64{
+		"duration":   5,
+		"resolution": 7.0 / 5.0,
+		"audio":      9.0 / 7.0,
+	})
+	if quota != 112500 {
+		t.Fatalf("quota = %d, want 112500", quota)
+	}
+}
+
+func TestCalculatePerCallQuotaWithRatios_ZeroGroupRatioKeepsFreeModelFree(t *testing.T) {
+	quota := calculatePerCallQuotaWithRatios(0.03, 0, map[string]float64{
+		"duration":   5,
+		"resolution": 8.0 / 6.0,
+		"audio":      10.0 / 8.0,
+	})
+	if quota != 0 {
+		t.Fatalf("quota = %d, want 0", quota)
+	}
+}
+
 func TestShouldUsePerCallBillingForTaskModel_ImaProAlwaysToken(t *testing.T) {
 	originalModelPrice := ratio_setting.ModelPrice2JSONString()
 	originalModelRatio := ratio_setting.ModelRatio2JSONString()
