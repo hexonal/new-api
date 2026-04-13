@@ -197,10 +197,36 @@ export const buildFixedPerCallFormula = ({
   return `(${modelLabel} ${formatPrice(unitPrice)} / ${perCallLabel}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
 };
 
+export const deriveCreditsUnitPrice = ({
+  credits,
+  groupRatio = 1,
+  finalPrice,
+}) => {
+  const creditsValue = toFiniteNumber(credits);
+  const settledPrice = toFiniteNumber(finalPrice);
+  const effectiveGroupRatio = toFiniteNumber(groupRatio);
+  const safeGroupRatio =
+    effectiveGroupRatio !== null && effectiveGroupRatio > 0
+      ? effectiveGroupRatio
+      : 1;
+
+  if (
+    creditsValue === null ||
+    creditsValue <= 0 ||
+    settledPrice === null ||
+    settledPrice < 0
+  ) {
+    return null;
+  }
+
+  return settledPrice / safeGroupRatio / creditsValue;
+};
+
 export const buildCreditsSettlementFormula = ({
   credits,
   groupRatio = 1,
   finalPrice,
+  unitPrice,
   symbol = '$',
   rate = 1,
   labels = {},
@@ -214,13 +240,25 @@ export const buildCreditsSettlementFormula = ({
   const creditsLabel = labels.credits || '上游消耗';
   const groupLabel = labels.groupRatio || '分组倍率';
   const creditsUnit = labels.creditsUnit || 'credits';
+  const unitLabel = labels.unitPrice || 'credit';
   const effectiveGroupRatio = toFiniteNumber(groupRatio);
   const safeGroupRatio =
     effectiveGroupRatio !== null && effectiveGroupRatio >= 0
       ? effectiveGroupRatio
       : 1;
+  const effectiveUnitPrice =
+    toFiniteNumber(unitPrice) ??
+    deriveCreditsUnitPrice({
+      credits: creditsValue,
+      groupRatio: safeGroupRatio,
+      finalPrice: settledPrice,
+    });
   const formatPrice = (value) =>
     `${symbol}${(Number(value) * rate).toFixed(6)}`;
 
-  return `(${creditsLabel} ${creditsValue} ${creditsUnit}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(settledPrice)}`;
+  if (effectiveUnitPrice === null) {
+    return '';
+  }
+
+  return `((${creditsLabel} ${creditsValue} ${creditsUnit}) * ${formatPrice(effectiveUnitPrice)} / ${unitLabel}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(settledPrice)}`;
 };

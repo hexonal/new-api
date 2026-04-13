@@ -7,6 +7,7 @@ import {
   buildDynamicPerCallParameterText,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  deriveCreditsUnitPrice,
   buildCreditsSettlementFormula,
   getBillingSKU,
   formatDirectPerCallPrice,
@@ -135,6 +136,7 @@ test('buildCreditsSettlementFormula renders bracketed credits settlement formula
     credits: 75,
     groupRatio: 1.1,
     finalPrice: 0.4125,
+    unitPrice: 0.005,
     labels: {
       groupRatio: '分组倍率（模型覆盖）',
     },
@@ -142,8 +144,18 @@ test('buildCreditsSettlementFormula renders bracketed credits settlement formula
 
   assert.equal(
     formula,
-    '(上游消耗 75 credits) * 分组倍率（模型覆盖） 1.1000 = $0.412500',
+    '((上游消耗 75 credits) * $0.005000 / credit) * 分组倍率（模型覆盖） 1.1000 = $0.412500',
   );
+});
+
+test('deriveCreditsUnitPrice calculates usd price per credit from final settlement', () => {
+  const unitPrice = deriveCreditsUnitPrice({
+    credits: 60,
+    groupRatio: 1.1,
+    finalPrice: 0.33,
+  });
+
+  assert.equal(unitPrice, 0.005);
 });
 
 test('formatDirectPerCallPrice formats direct usd amounts without quota conversion', () => {

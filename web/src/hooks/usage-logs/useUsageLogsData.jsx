@@ -46,6 +46,7 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  deriveCreditsUnitPrice,
   buildCreditsSettlementFormula,
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
@@ -912,6 +913,14 @@ export const useLogsData = () => {
               const credits = toPositiveNumber(other?.upstream_credits);
               const isCreditSettle = other?.settlement_type === 'credits';
               const quotaPerUnit = Number(getQuotaPerUnit());
+              const creditsUnitPrice =
+                isCreditSettle && credits > 0
+                  ? deriveCreditsUnitPrice({
+                      credits,
+                      groupRatio,
+                      finalPrice: billedQuota / quotaPerUnit,
+                    })
+                  : null;
               const creditsFormula =
                 isCreditSettle && credits > 0
                   ? buildCreditsSettlementFormula({
@@ -938,6 +947,15 @@ export const useLogsData = () => {
                   {isCreditSettle && credits > 0 && (
                     <p>{t('上游消耗：{{credits}} credits', { credits })}</p>
                   )}
+                  {isCreditSettle &&
+                    credits > 0 &&
+                    Number.isFinite(creditsUnitPrice) && (
+                      <p>
+                        {t('credits 单价：{{price}} / credit', {
+                          price: formatDirectPerCallPrice(creditsUnitPrice),
+                        })}
+                      </p>
+                    )}
                   {Number.isFinite(groupRatio) && groupRatio !== 1 && (
                     <p>
                       {t('分组倍率（模型覆盖）：{{ratio}}', {

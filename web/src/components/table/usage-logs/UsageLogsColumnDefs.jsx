@@ -51,6 +51,7 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  deriveCreditsUnitPrice,
   buildCreditsSettlementFormula,
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
@@ -1140,6 +1141,14 @@ export const getLogsColumns = ({
           const groupRatio = Number(other?.group_ratio);
           if (isAdaptorAdjust) {
             const quotaPerUnit = Number(getQuotaPerUnit());
+            const creditsUnitPrice =
+              isCreditSettle && credits > 0
+                ? deriveCreditsUnitPrice({
+                    credits,
+                    groupRatio,
+                    finalPrice: billedQuota / quotaPerUnit,
+                  })
+                : null;
             const creditsFormula =
               isCreditSettle && credits > 0
                 ? buildCreditsSettlementFormula({
@@ -1156,6 +1165,13 @@ export const getLogsColumns = ({
               isCreditSettle
                 ? t('结算方式：上游实际消耗结算（按 credits）')
                 : t('结算方式：上游实际消耗结算'),
+              isCreditSettle &&
+              credits > 0 &&
+              Number.isFinite(creditsUnitPrice)
+                ? t('credits 单价：{{price}} / credit', {
+                    price: formatDirectPerCallPrice(creditsUnitPrice),
+                  })
+                : null,
               creditsFormula,
               `${t('结算原因')}：${reason}`,
               t('仅供参考，以实际扣费为准'),
