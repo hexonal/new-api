@@ -2039,8 +2039,12 @@ paths:
         - `duration`：时长（秒），默认 5。\n\
         - `quality`：分辨率，`720p`（默认）。C1/V6 支持 `360p`、`540p`、`720p`、`1080p`。\n\
         - `size`：宽高比，如 `16:9`（默认）、`9:16`、`1:1`。\n\
+        - `metadata.audio`：是否启用音频；对外字段，服务端会映射到 PixVerse 官方音频参数。\n\
         - `metadata.img_id`：图生视频时传已上传的图片 ID。\n\
-        - `metadata.negative_prompt`：反向提示词（可选）。\n"
+        - `metadata.negative_prompt`：反向提示词（可选）。\n\n\
+        **计费说明：**\n\
+        - `pixverse-c1` / `pixverse-v6` 在官方 PixVerse 渠道按 `duration + quality + audio` 动态计费。\n\
+        - 非官方/代理 PixVerse 渠道仍可能按固定价结算，具体以渠道配置为准。\n"
       requestBody:
         required: true
         content:
@@ -2071,6 +2075,15 @@ paths:
                   quality: 720p
                   metadata:
                     img_id: 12345
+              c1_text2video_with_audio:
+                summary: C1 文生视频 540p/8s/带音频
+                value:
+                  model: pixverse-c1
+                  prompt: A jazz singer performs on a rainy neon street with ambient crowd noise
+                  duration: 8
+                  quality: 540p
+                  metadata:
+                    audio: true
       responses:
         '200':
           description: 任务提交成功
@@ -4196,8 +4209,11 @@ components:
           description: 反向提示词（可选）。
         metadata:
           type: object
-          description: 扩展参数。
+          description: "扩展参数。\n- `audio` 为对外音频开关；服务端会映射到 PixVerse 官方音频参数。"
           properties:
+            audio:
+              type: boolean
+              description: 是否启用音频。
             img_id:
               type: integer
               description: 图生视频时传已上传的图片 ID。
