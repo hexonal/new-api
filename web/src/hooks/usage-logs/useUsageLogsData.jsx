@@ -31,6 +31,7 @@ import {
   renderNumber,
   getLogOther,
   copy,
+  getQuotaPerUnit,
   renderClaudeLogContent,
   renderLogContent,
   renderAudioModelPrice,
@@ -42,6 +43,9 @@ import {
   calculateDynamicPerCallPrice,
   buildDynamicPerCallFormula,
   buildDynamicPerCallParameterText,
+  getBillingSKU,
+  calculateFixedPerCallPrice,
+  buildFixedPerCallFormula,
 } from '../../helpers/dynamicPerCall';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -1049,8 +1053,10 @@ export const useLogsData = () => {
           ) {
             // Per-call billing for task models (e.g. Kling video)
             const billedQuota = toPositiveNumber(logs[i]?.quota);
+            const quotaPerUnit = Number(getQuotaPerUnit());
             const perCallPrice = Number(other?.model_price);
             const groupRatio = Number(other?.group_ratio);
+            const billingSKU = getBillingSKU(other);
             const dynamicPrice = hasDynamicPerCallRatios(other)
               ? calculateDynamicPerCallPrice({
                   modelPrice: perCallPrice,
@@ -1058,6 +1064,13 @@ export const useLogsData = () => {
                   otherRatios: other,
                 })
               : null;
+            const fixedPerCallPrice =
+              !dynamicPrice && billingSKU
+                ? calculateFixedPerCallPrice({
+                    modelPrice: perCallPrice,
+                    groupRatio,
+                  })
+                : null;
             const parameterText = buildDynamicPerCallParameterText(other);
             const otherRatioKeys = Object.keys(other || {}).filter(
               (k) =>
@@ -1077,12 +1090,17 @@ export const useLogsData = () => {
                   {t(
                     dynamicPrice
                       ? '基础单价：{{price}} / 次'
-                      : '模型单价：{{price}} / 次',
+                      : fixedPerCallPrice
+                        ? 'SKU单价：{{price}} / 次'
+                        : '模型单价：{{price}} / 次',
                     {
                       price: `$${perCallPrice.toFixed(6)}`,
                     },
                   )}
                 </p>
+                {billingSKU && (
+                  <p>{t('计费SKU：{{sku}}', { sku: billingSKU })}</p>
+                )}
                 <p>
                   {t('分组倍率（模型覆盖）：{{ratio}}', {
                     ratio: Number.isFinite(groupRatio)
@@ -1106,6 +1124,18 @@ export const useLogsData = () => {
                       finalPrice: dynamicPrice.finalPrice,
                       groupRatio: dynamicPrice.groupRatio,
                       otherRatios: other,
+                    })}
+                  </p>
+                )}
+                {fixedPerCallPrice && (
+                  <p>
+                    {buildFixedPerCallFormula({
+                      unitPrice: fixedPerCallPrice.unitPrice,
+                      finalPrice:
+                        billedQuota > 0
+                          ? billedQuota / quotaPerUnit
+                          : fixedPerCallPrice.finalPrice,
+                      groupRatio: fixedPerCallPrice.groupRatio,
                     })}
                   </p>
                 )}

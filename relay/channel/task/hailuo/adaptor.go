@@ -20,6 +20,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
 // https://platform.minimaxi.com/docs/api-reference/video-generation-intro
@@ -37,6 +38,10 @@ func (a *TaskAdaptor) PerCallRatiosEnabled() bool { return true }
 // EstimateBilling returns OtherRatios based on duration and resolution.
 // ModelPrice is set to 768P/6s base price; multipliers adjust for other combinations.
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	if a.shouldUseSKUPricing(info) {
+		return nil
+	}
+
 	v, ok := c.Get("task_request")
 	if !ok {
 		return nil
@@ -98,6 +103,20 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	}
 
 	return ratios
+}
+
+func (a *TaskAdaptor) shouldUseSKUPricing(info *relaycommon.RelayInfo) bool {
+	if info == nil || info.TaskRelayInfo == nil {
+		return false
+	}
+
+	consumedModel := strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+	if consumedModel == "" || !strings.Contains(strings.ToLower(consumedModel), "hailuo") {
+		return false
+	}
+
+	_, ok := ratio_setting.GetModelPrice(consumedModel, true)
+	return ok
 }
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {

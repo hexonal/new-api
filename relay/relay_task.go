@@ -265,26 +265,53 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		info.PublicTaskID = model.GenerateTaskID()
 	}
 
-	// 4. 价格计算：基础模型价格
+	// 4. 构建请求体并提取 consumed_model。
+	// Hailuo 的严谨计费依赖最终 SKU（duration + resolution），
+	// 必须在按次定价前拿到。
+	requestBody, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
+	}
+	bodyBytes, readErr := io.ReadAll(requestBody)
+	if readErr != nil {
+		return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
+	}
+
+	// 4.5 应用渠道参数覆盖（与同步 relay 路径对齐）
+	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
+	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
+	if len(info.ParamOverride) > 0 {
+		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
+		}
+	}
+	requestBody = bytes.NewReader(bodyBytes)
+	consumedModel := extractConsumedModelFromTaskRequest(bodyBytes, info)
+	if info.TaskRelayInfo != nil {
+		info.TaskRelayInfo.ConsumedModel = consumedModel
+	}
+
+	// 5. 价格计算：基础模型价格
 	info.OriginModelName = modelName
 	perCallBilling := shouldUsePerCallBillingForTaskModel(modelName)
 	deferredSettle := shouldUseDeferredSettleForTaskModel(modelName)
 	var priceData types.PriceData
-	var err error
+	var priceErr error
 	// Pricing mode selection:
 	// - per-call models: fixed price via ModelPriceHelperPerCall
 	// - all others: ratio-based via ModelPriceHelperTokenOnly
 	// This keeps runtime billing aligned with model marketplace ratio settings.
 	if perCallBilling {
-		priceData, err = helper.ModelPriceHelperPerCall(c, info)
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		priceData, priceErr = helper.ModelPriceHelperPerCall(c, info)
+		if priceErr != nil {
+			return nil, service.TaskErrorWrapper(priceErr, "model_price_error", http.StatusBadRequest)
 		}
 	} else {
 		promptTokens := estimateTaskPromptTokens(c, info, modelName)
-		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		priceData, priceErr = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
+		if priceErr != nil {
+			return nil, service.TaskErrorWrapper(priceErr, "model_price_error", http.StatusBadRequest)
 		}
 	}
 	if info.TaskRelayInfo != nil {
@@ -293,7 +320,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	info.PriceData = priceData
 
-	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
+	// 6. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
 	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。
 	//    ResolveOriginTask 可能已在 remix 路径中预设了 OtherRatios，此处合并。
 	if estimatedRatios := adaptor.EstimateBilling(c, info); len(estimatedRatios) > 0 {
@@ -302,7 +329,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
-	// 6. 将 OtherRatios 应用到基础额度
+	// 7. 将 OtherRatios 应用到基础额度
 	// Per-call 模式默认跳过 OtherRatios（固定价格不应被乘数修改）。
 	// 需要 per-call 也应用乘数的 adaptor（如 Kling 按时长/品质调价）
 	// 须实现 PerCallRatiosEnabled() bool 接口显式 opt-in。
@@ -330,7 +357,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
-	// 7. 提交阶段计费处理
+	// 8. 提交阶段计费处理
 	// - strict_preconsume: 维持原逻辑（预扣费）
 	// - deferred_settle: 仅做额度校验，不预扣
 	if !info.PriceData.FreeModel {
@@ -355,28 +382,6 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 			}
 		}
 	}
-
-	// 8. 构建请求体
-	requestBody, err := adaptor.BuildRequestBody(c, info)
-	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
-	}
-	bodyBytes, readErr := io.ReadAll(requestBody)
-	if readErr != nil {
-		return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
-	}
-
-	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
-	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
-	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
-	if len(info.ParamOverride) > 0 {
-		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
-		}
-	}
-	requestBody = bytes.NewReader(bodyBytes)
-	consumedModel := extractConsumedModelFromTaskRequest(bodyBytes, info)
 
 	// 9. 发送请求
 	resp, err := adaptor.DoRequest(c, info, requestBody)

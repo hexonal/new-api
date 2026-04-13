@@ -116,3 +116,49 @@ export const buildDynamicPerCallParameterText = (otherRatios = {}) => {
     .map(([key, value]) => `${key}=${formatRatioValue(value)}`)
     .join(', ');
 };
+
+export const getBillingSKU = (other = {}) => {
+  const sku = other?.billing_sku;
+  return typeof sku === 'string' ? sku.trim() : '';
+};
+
+export const calculateFixedPerCallPrice = ({ modelPrice, groupRatio = 1 }) => {
+  const unitPrice = toFiniteNumber(modelPrice);
+  if (unitPrice === null || unitPrice <= 0) {
+    return null;
+  }
+
+  const normalizedGroupRatio = toFiniteNumber(groupRatio);
+  const effectiveGroupRatio =
+    normalizedGroupRatio !== null && normalizedGroupRatio >= 0
+      ? normalizedGroupRatio
+      : 1;
+
+  return {
+    unitPrice,
+    finalPrice: unitPrice * effectiveGroupRatio,
+    groupRatio: effectiveGroupRatio,
+  };
+};
+
+export const buildFixedPerCallFormula = ({
+  unitPrice,
+  finalPrice,
+  groupRatio = 1,
+  symbol = '$',
+  rate = 1,
+  labels = {},
+}) => {
+  const modelLabel = labels.modelPrice || '模型单价';
+  const groupLabel = labels.groupRatio || '分组倍率';
+  const perCallLabel = labels.perCall || '次';
+  const effectiveGroupRatio = toFiniteNumber(groupRatio);
+  const safeGroupRatio =
+    effectiveGroupRatio !== null && effectiveGroupRatio >= 0
+      ? effectiveGroupRatio
+      : 1;
+  const formatPrice = (value) =>
+    `${symbol}${(Number(value) * rate).toFixed(6)}`;
+
+  return `(${modelLabel} ${formatPrice(unitPrice)} / ${perCallLabel}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
+};

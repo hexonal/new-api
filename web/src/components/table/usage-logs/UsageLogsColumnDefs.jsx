@@ -48,6 +48,9 @@ import {
   calculateDynamicPerCallPrice,
   buildDynamicPerCallFormula,
   buildDynamicPerCallParameterText,
+  getBillingSKU,
+  calculateFixedPerCallPrice,
+  buildFixedPerCallFormula,
 } from '../../../helpers/dynamicPerCall';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
@@ -1266,6 +1269,7 @@ export const getLogsColumns = ({
 
         const modelPrice = Number(other?.model_price);
         const billedQuota = toTokenNumber(record?.quota);
+        const billingSKU = getBillingSKU(other);
         if (
           isNonTextTaskEndpoint &&
           hasNoTokenUsage &&
@@ -1290,6 +1294,56 @@ export const getLogsColumns = ({
                   finalPrice: dynamicPrice.finalPrice,
                   groupRatio: dynamicPrice.groupRatio,
                   otherRatios: other,
+                }),
+                `${t('实际扣费')}：${renderQuota(billedQuota, 6)}`,
+                t('仅供参考，以实际扣费为准'),
+              ]
+                .filter(Boolean)
+                .join('\n')
+            : '';
+          if (summary) {
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 320 } },
+                  },
+                }}
+                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+              >
+                {summary}
+              </Typography.Paragraph>
+            );
+          }
+        }
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          Number.isFinite(modelPrice) &&
+          modelPrice > 0 &&
+          !hasDynamicPerCallRatios(other) &&
+          billingSKU
+        ) {
+          const groupRatio = Number(other?.group_ratio);
+          const fixedPrice = calculateFixedPerCallPrice({
+            modelPrice,
+            groupRatio,
+          });
+          const summary = fixedPrice
+            ? [
+                t('按次计费'),
+                `${t('计费SKU')}：${billingSKU}`,
+                `${t('SKU单价')}：$${fixedPrice.unitPrice.toFixed(6)} / ${t('次')}`,
+                `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio.toFixed(4) : '-'}`,
+                buildFixedPerCallFormula({
+                  unitPrice: fixedPrice.unitPrice,
+                  finalPrice:
+                    billedQuota > 0
+                      ? billedQuota / quotaPerUnit
+                      : fixedPrice.finalPrice,
+                  groupRatio: fixedPrice.groupRatio,
                 }),
                 `${t('实际扣费')}：${renderQuota(billedQuota, 6)}`,
                 t('仅供参考，以实际扣费为准'),

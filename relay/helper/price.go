@@ -2,13 +2,16 @@ package helper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -168,14 +171,14 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 // ModelPriceHelperPerCall 按次计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
-	groupRatioInfo := HandleGroupRatio(c, info)
-
-	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
+	pricingModelName := resolvePerCallPricingModelName(info)
+	groupRatioInfo := handleGroupRatioForModel(c, info, pricingModelName)
+	modelPrice, success := ratio_setting.GetModelPrice(pricingModelName, true)
 	// 如果没有配置价格，检查模型倍率配置
 	if !success {
 
 		// 没有配置费用，也要使用默认费用,否则按费率计费模型无法使用
-		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[info.OriginModelName]
+		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[pricingModelName]
 		if ok {
 			modelPrice = defaultPrice
 		} else {
@@ -191,9 +194,8 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 			// 未配置价格但配置了倍率，使用默认预扣价格
 			modelPrice = float64(common.PreConsumedQuota) / common.QuotaPerUnit
 		}
-
 	}
-	quota := int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+	quota := CalculateFixedPerCallQuota(modelPrice, groupRatioInfo.GroupRatio)
 
 	// 免费模型检测（与 ModelPriceHelper 对齐）
 	freeModel := false
@@ -211,6 +213,50 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		GroupRatioInfo: groupRatioInfo,
 	}
 	return priceData, nil
+}
+
+func resolvePerCallPricingModelName(info *relaycommon.RelayInfo) string {
+	if info == nil {
+		return ""
+	}
+
+	if info.ChannelType == constant.ChannelTypeMiniMax && info.TaskRelayInfo != nil {
+		consumedModel := strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+		if strings.Contains(strings.ToLower(consumedModel), "hailuo") {
+			if _, ok := ratio_setting.GetModelPrice(consumedModel, false); ok {
+				return consumedModel
+			}
+		}
+	}
+
+	return info.OriginModelName
+}
+
+func handleGroupRatioForModel(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelName string) types.GroupRatioInfo {
+	if relayInfo == nil || strings.TrimSpace(modelName) == "" || modelName == relayInfo.OriginModelName {
+		return HandleGroupRatio(ctx, relayInfo)
+	}
+
+	originalModelName := relayInfo.OriginModelName
+	relayInfo.OriginModelName = modelName
+	groupRatioInfo := HandleGroupRatio(ctx, relayInfo)
+	relayInfo.OriginModelName = originalModelName
+	return groupRatioInfo
+}
+
+func CalculateFixedPerCallQuota(modelPrice, groupRatio float64) int {
+	if modelPrice <= 0 || groupRatio == 0 {
+		return 0
+	}
+
+	total := decimal.NewFromFloat(modelPrice).
+		Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+
+	if groupRatio > 0 {
+		total = total.Mul(decimal.NewFromFloat(groupRatio))
+	}
+
+	return int(total.Round(0).IntPart())
 }
 
 // ModelPriceHelperTokenOnly forces token-based pricing by model ratio.

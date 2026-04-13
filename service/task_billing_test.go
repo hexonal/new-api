@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -329,6 +330,46 @@ func TestLogTaskConsumption_UsesOriginalRequestPathWhenPresent(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, other)
 	assert.Equal(t, "/kling/v1/videos/text2video", other["request_path"])
+}
+
+func TestLogTaskConsumption_StoresBillingSKUWhenConsumedModelPresent(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/videos")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "MiniMax-Hailuo-2.3-Fast",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:   1,
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: true,
+			ConsumedModel:  "MiniMax-Hailuo-2.3-Fast-6s-1080p",
+		},
+		PriceData: types.PriceData{
+			ModelPrice:     0.3397058824,
+			Quota:          169853,
+			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1.0, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "MiniMax-Hailuo-2.3-Fast-6s-1080p", other["billing_sku"])
 }
 
 func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T) {
