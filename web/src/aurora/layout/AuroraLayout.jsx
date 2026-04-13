@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
@@ -27,16 +28,19 @@ import { useSidebarStore } from '../store/sidebar-store';
 import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
 import { API, setStatusData } from '../../helpers';
+import { getPreferredLanguage } from '../../i18n/preference';
+import { isPublicRoute, shouldShowMobileMenu } from './navigation-config';
 
 const getCompactMode = () => {
   if (typeof window === 'undefined') return false;
-  return window.innerWidth < 1024;
+  return window.innerWidth < 1180;
 };
 
 const AuroraLayout = ({ children }) => {
   const location = useLocation();
+  const { i18n } = useTranslation();
   const [, statusDispatch] = useContext(StatusContext);
-  const [, userDispatch] = useContext(UserContext);
+  const [userState, userDispatch] = useContext(UserContext);
 
   // Mirror PageLayout's loadStatus + loadUser — writes quota_per_unit etc. to localStorage
   const initialized = useRef(false);
@@ -63,6 +67,24 @@ const AuroraLayout = ({ children }) => {
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const preferredLanguage = getPreferredLanguage({
+      userSettingRaw: userState?.user?.setting,
+      localStorageLanguage:
+        typeof window !== 'undefined' ? localStorage.getItem('i18nextLng') : '',
+    });
+
+    if (!preferredLanguage) {
+      return;
+    }
+
+    localStorage.setItem('i18nextLng', preferredLanguage);
+    if (preferredLanguage !== i18n.language) {
+      i18n.changeLanguage(preferredLanguage);
+    }
+  }, [i18n, userState?.user?.setting]);
+
   const isCompact = getCompactMode();
   const collapsed = useSidebarStore((state) => state.collapsed);
   const setCollapsed = useSidebarStore((state) => state.setCollapsed);
@@ -70,20 +92,9 @@ const AuroraLayout = ({ children }) => {
   const setMobileOpen = useSidebarStore((state) => state.setMobileOpen);
   const pathname = location.pathname || '';
 
-  const isPublicRoute =
-    pathname === '/' ||
-    pathname === '/login' ||
-    pathname === '/register' ||
-    pathname === '/reset' ||
-    pathname === '/user/reset' ||
-    pathname === '/pricing' ||
-    pathname === '/forbidden' ||
-    pathname === '/about' ||
-    pathname === '/privacy-policy' ||
-    pathname === '/user-agreement' ||
-    pathname.startsWith('/oauth');
-
-  const showNavigationShell = !isPublicRoute;
+  const publicRoute = isPublicRoute(pathname);
+  const showNavigationShell = !publicRoute;
+  const showMobileMenu = shouldShowMobileMenu({ isCompact, pathname });
 
   useEffect(() => {
     const onResize = () => {
@@ -108,7 +119,7 @@ const AuroraLayout = ({ children }) => {
         onMobileMenu={() => {
           setMobileOpen(true);
         }}
-        showMobileMenu={showNavigationShell}
+        showMobileMenu={showMobileMenu}
       />
 
       <div className='aurora-body-shell'>
@@ -131,9 +142,10 @@ const AuroraLayout = ({ children }) => {
         </main>
       </div>
 
-      {showNavigationShell && (
+      {showMobileMenu && (
         <MobileNav
           open={mobileOpen}
+          showConsoleLinks={showNavigationShell}
           onOpenChange={(open) => {
             setMobileOpen(open);
           }}

@@ -34,7 +34,19 @@ import {
   getModelPriceItems,
   stringToColor,
 } from '../../../helpers';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../../primitives/accordion';
+import {
+  buildModelBadges,
+  getDefaultSelectedModalities,
+  getUniqueModelValues,
+} from './models-explorer-utils';
+import { getModelModalities, getModelSeries } from './models-explorer-data';
+import { getModelsExplorerLayoutClasses } from './models-explorer-layout';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '../../primitives/accordion';
 import { Badge } from '../../primitives/badge';
 import { Button } from '../../primitives/button';
 import { Card, CardContent } from '../../primitives/card';
@@ -49,10 +61,9 @@ import {
   SelectValue,
 } from '../../primitives/select';
 import ModelDetailModal from './components/ModelDetailModal';
+import { useIsMobile } from '../../../hooks/common/useIsMobile';
 
 const TOP_TABS = ['text', 'image', 'video', 'audio', 'embeddings', 'rerank'];
-
-const SERIES_OPTIONS = ['GPT', 'Claude', 'Gemini', 'Seed', 'Kling', 'Vidu'];
 const PROVIDER_ORDER = [
   'OpenAI',
   'Google',
@@ -103,74 +114,6 @@ const formatDate = (ts) => {
   return d.toISOString().slice(0, 10);
 };
 
-const detectModalities = (model) => {
-  const haystack = [
-    model?.model_name || '',
-    model?.description || '',
-    model?.tags || '',
-    ...(Array.isArray(model?.supported_endpoint_types)
-      ? model.supported_endpoint_types
-      : []),
-  ]
-    .join(' ')
-    .toLowerCase();
-  const set = new Set();
-  if (
-    haystack.includes('embedding') ||
-    haystack.includes('embed') ||
-    haystack.includes('text-embedding')
-  ) {
-    set.add('embeddings');
-  }
-  if (haystack.includes('rerank') || haystack.includes('re-rank')) {
-    set.add('rerank');
-  }
-  if (
-    haystack.includes('image') ||
-    haystack.includes('vision') ||
-    haystack.includes('midjourney') ||
-    haystack.includes('dall') ||
-    haystack.includes('flux') ||
-    haystack.includes('seedream')
-  ) {
-    set.add('image');
-  }
-  if (
-    haystack.includes('video') ||
-    haystack.includes('sora') ||
-    haystack.includes('kling') ||
-    haystack.includes('vidu') ||
-    haystack.includes('pixverse') ||
-    haystack.includes('cogvideo')
-  ) {
-    set.add('video');
-  }
-  if (
-    haystack.includes('audio') ||
-    haystack.includes('speech') ||
-    haystack.includes('voice') ||
-    haystack.includes('whisper') ||
-    haystack.includes('tts')
-  ) {
-    set.add('audio');
-  }
-  if (set.size === 0 || haystack.includes('chat') || haystack.includes('text')) {
-    set.add('text');
-  }
-  return set;
-};
-
-const detectSeries = (model) => {
-  const text = `${model?.model_name || ''} ${model?.description || ''}`.toLowerCase();
-  if (text.includes('gpt')) return 'GPT';
-  if (text.includes('claude')) return 'Claude';
-  if (text.includes('gemini')) return 'Gemini';
-  if (text.includes('seed')) return 'Seed';
-  if (text.includes('kling')) return 'Kling';
-  if (text.includes('vidu')) return 'Vidu';
-  return null;
-};
-
 const extractContextLength = (model) => {
   const direct =
     Number(model?.context_length) ||
@@ -181,7 +124,8 @@ const extractContextLength = (model) => {
   if (direct > 0) {
     return direct;
   }
-  const text = `${model?.model_name || ''} ${model?.description || ''}`.toLowerCase();
+  const text =
+    `${model?.model_name || ''} ${model?.description || ''}`.toLowerCase();
   const matched = text.match(/(\d+)\s*(k|m)\s*context/);
   if (!matched) {
     return 0;
@@ -257,7 +201,9 @@ const getModelLogoNode = (model) => {
 };
 
 const getTagBadgeClass = (rawTag) => {
-  const tag = String(rawTag || '').toLowerCase().trim();
+  const tag = String(rawTag || '')
+    .toLowerCase()
+    .trim();
   if (tag === '按量计费' || tag === 'pay as you go') {
     return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   }
@@ -275,10 +221,13 @@ const getTagBadgeClass = (rawTag) => {
 
 const ModelsExplorerPage = () => {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState('list');
   const [activeTopTab, setActiveTopTab] = useState('text');
   const [sortBy, setSortBy] = useState('newest');
-  const [selectedModalities, setSelectedModalities] = useState(['text']);
+  const [selectedModalities, setSelectedModalities] = useState(() =>
+    getDefaultSelectedModalities(),
+  );
   const [selectedContextFilters, setSelectedContextFilters] = useState([]);
   const [selectedPricingFilters, setSelectedPricingFilters] = useState([]);
   const [selectedSeries, setSelectedSeries] = useState([]);
@@ -305,6 +254,7 @@ const ModelsExplorerPage = () => {
     openModelDetail,
     closeModelDetail,
     autoGroups,
+    endpointMap,
   } = useModelPricingData();
 
   useEffect(() => {
@@ -341,7 +291,9 @@ const ModelsExplorerPage = () => {
       a[0].localeCompare(b[0]),
     );
     const prioritized = [
-      ...PROVIDER_ORDER.map((name) => sorted.find((item) => item[0] === name)).filter(Boolean),
+      ...PROVIDER_ORDER.map((name) =>
+        sorted.find((item) => item[0] === name),
+      ).filter(Boolean),
       ...sorted.filter((item) => !PROVIDER_ORDER.includes(item[0])),
     ];
     return prioritized.map(([name, count]) => ({ name, count }));
@@ -361,26 +313,29 @@ const ModelsExplorerPage = () => {
 
   const seriesWithCount = useMemo(() => {
     const counter = new Map();
-    SERIES_OPTIONS.forEach((series) => counter.set(series, 0));
     searchableModels.forEach((model) => {
-      const series = detectSeries(model);
+      const series = getModelSeries(model);
       if (series) {
         counter.set(series, (counter.get(series) || 0) + 1);
       }
     });
-    return [...counter.entries()].map(([name, count]) => ({ name, count }));
+    return [...counter.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
   }, [searchableModels]);
 
   const sideFilteredModels = useMemo(() => {
     return searchableModels.filter((model) => {
-      const modalities = detectModalities(model);
+      const modalities = getModelModalities(model);
       if (selectedModalities.length > 0) {
-        const modalityMatched = selectedModalities.some((m) => modalities.has(m));
+        const modalityMatched = selectedModalities.some((m) =>
+          modalities.has(m),
+        );
         if (!modalityMatched) return false;
       }
 
       if (selectedSeries.length > 0) {
-        const series = detectSeries(model);
+        const series = getModelSeries(model);
         if (!series || !selectedSeries.includes(series)) return false;
       }
 
@@ -399,7 +354,8 @@ const ModelsExplorerPage = () => {
       const contextLength = extractContextLength(model);
       if (selectedContextFilters.length > 0) {
         const contextMatched = selectedContextFilters.some((filterKey) => {
-          if (filterKey === 'short') return contextLength > 0 && contextLength < 128000;
+          if (filterKey === 'short')
+            return contextLength > 0 && contextLength < 128000;
           if (filterKey === 'medium')
             return contextLength >= 128000 && contextLength < 512000;
           if (filterKey === 'long') return contextLength >= 512000;
@@ -419,7 +375,9 @@ const ModelsExplorerPage = () => {
           currency: 'USD',
           quotaDisplayType: 'USD',
         });
-        const input = parseNumericPrice(priceData?.inputPrice || model?.model_price);
+        const input = parseNumericPrice(
+          priceData?.inputPrice || model?.model_price,
+        );
         const matched = selectedPricingFilters.some((filterKey) => {
           if (filterKey === 'low') return input < 1;
           if (filterKey === 'mid') return input >= 1 && input < 10;
@@ -456,7 +414,7 @@ const ModelsExplorerPage = () => {
       rerank: 0,
     };
     sideFilteredModels.forEach((model) => {
-      const modalities = detectModalities(model);
+      const modalities = getModelModalities(model);
       TOP_TABS.forEach((tab) => {
         if (modalities.has(tab)) {
           counter[tab] += 1;
@@ -469,7 +427,7 @@ const ModelsExplorerPage = () => {
   const modalityFilteredModels = useMemo(
     () =>
       sideFilteredModels.filter((model) =>
-        detectModalities(model).has(activeTopTab),
+        getModelModalities(model).has(activeTopTab),
       ),
     [sideFilteredModels, activeTopTab],
   );
@@ -521,6 +479,11 @@ const ModelsExplorerPage = () => {
     return pages;
   }, [safePage, totalPages]);
 
+  const layoutClassNames = useMemo(
+    () => getModelsExplorerLayoutClasses(isMobile),
+    [isMobile],
+  );
+
   const toggleArrayValue = (setFn, value) => {
     setFn((prev) => {
       if (prev.includes(value)) {
@@ -541,12 +504,13 @@ const ModelsExplorerPage = () => {
         tokenUnit={tokenUnit}
         displayPrice={displayPrice}
         autoGroups={autoGroups}
+        endpointMap={endpointMap}
         copyText={copyText}
         t={t}
       />
 
-      <div className='flex w-full gap-6 px-8 py-6 2xl:px-12'>
-        <aside className='sticky top-20 h-[calc(100vh-6rem)] w-60 shrink-0 overflow-y-auto rounded-xl border border-border bg-[#f9fafb] p-3'>
+      <div className={layoutClassNames.wrapperClassName}>
+        <aside className={layoutClassNames.asideClassName}>
           <Accordion
             type='multiple'
             defaultValue={[
@@ -572,7 +536,9 @@ const ModelsExplorerPage = () => {
                     label={t(label)}
                     count={topTabCounts[key] || 0}
                     checked={selectedModalities.includes(key)}
-                    onCheckedChange={() => toggleArrayValue(setSelectedModalities, key)}
+                    onCheckedChange={() =>
+                      toggleArrayValue(setSelectedModalities, key)
+                    }
                   />
                 ))}
               </AccordionContent>
@@ -589,7 +555,9 @@ const ModelsExplorerPage = () => {
                     label={t(item.name)}
                     count={item.count}
                     checked={selectedSeries.includes(item.name)}
-                    onCheckedChange={() => toggleArrayValue(setSelectedSeries, item.name)}
+                    onCheckedChange={() =>
+                      toggleArrayValue(setSelectedSeries, item.name)
+                    }
                   />
                 ))}
               </AccordionContent>
@@ -604,7 +572,9 @@ const ModelsExplorerPage = () => {
                     label={item.name}
                     count={item.count}
                     checked={selectedCategories.includes(item.name)}
-                    onCheckedChange={() => toggleArrayValue(setSelectedCategories, item.name)}
+                    onCheckedChange={() =>
+                      toggleArrayValue(setSelectedCategories, item.name)
+                    }
                   />
                 ))}
               </AccordionContent>
@@ -619,7 +589,9 @@ const ModelsExplorerPage = () => {
                     label={t(item.name)}
                     count={item.count}
                     checked={selectedProviders.includes(item.name)}
-                    onCheckedChange={() => toggleArrayValue(setSelectedProviders, item.name)}
+                    onCheckedChange={() =>
+                      toggleArrayValue(setSelectedProviders, item.name)
+                    }
                   />
                 ))}
               </AccordionContent>
@@ -627,9 +599,11 @@ const ModelsExplorerPage = () => {
           </Accordion>
         </aside>
 
-        <main className='flex-1 min-w-0'>
+        <main className={layoutClassNames.mainClassName}>
           <div className='mb-4 border-b border-border pb-4'>
-            <h1 className='text-2xl font-extrabold tracking-tight'>{t('模型广场')}</h1>
+            <h1 className='text-2xl font-extrabold tracking-tight'>
+              {t('模型广场')}
+            </h1>
 
             <div className='mt-3 flex flex-wrap items-center gap-2'>
               {TOP_TABS.map((tab) => (
@@ -678,7 +652,9 @@ const ModelsExplorerPage = () => {
                 <Button
                   type='button'
                   size='sm'
-                  variant={normalizedViewMode === 'grid' ? 'default' : 'outline'}
+                  variant={
+                    normalizedViewMode === 'grid' ? 'default' : 'outline'
+                  }
                   onClick={() => setViewMode('grid')}
                   aria-pressed={normalizedViewMode === 'grid'}
                 >
@@ -687,7 +663,9 @@ const ModelsExplorerPage = () => {
                 <Button
                   type='button'
                   size='sm'
-                  variant={normalizedViewMode === 'list' ? 'default' : 'outline'}
+                  variant={
+                    normalizedViewMode === 'list' ? 'default' : 'outline'
+                  }
                   onClick={() => setViewMode('list')}
                   aria-pressed={normalizedViewMode === 'list'}
                 >
@@ -709,7 +687,9 @@ const ModelsExplorerPage = () => {
             </div>
           ) : null}
 
-          {!loading && pagedModels.length > 0 && normalizedViewMode === 'list' ? (
+          {!loading &&
+          pagedModels.length > 0 &&
+          normalizedViewMode === 'list' ? (
             <div className='rounded-xl border border-border bg-white'>
               {pagedModels.map((model, index) => {
                 const priceData = calculateModelPrice({
@@ -753,7 +733,10 @@ const ModelsExplorerPage = () => {
                             <Copy className='h-3.5 w-3.5' />
                           </Button>
                           {formatContextBadge(extractContextLength(model)) && (
-                            <Badge variant='outline' className='rounded-full text-xs'>
+                            <Badge
+                              variant='outline'
+                              className='rounded-full text-xs'
+                            >
                               {formatContextBadge(extractContextLength(model))}
                             </Badge>
                           )}
@@ -769,7 +752,9 @@ const ModelsExplorerPage = () => {
                               key={`${model.model_name}-${item.key}`}
                               className='rounded-lg border border-border bg-muted/20 px-3 py-2'
                             >
-                              <p className='text-xs text-muted-foreground'>{item.label}</p>
+                              <p className='text-xs text-muted-foreground'>
+                                {item.label}
+                              </p>
                               <p className='font-mono text-sm font-semibold'>
                                 {item.value}
                                 {item.suffix || ''}
@@ -779,20 +764,31 @@ const ModelsExplorerPage = () => {
                         </div>
 
                         <p className='mt-2 text-xs text-muted-foreground'>
-                          {t('来自 ')}{getProviderName(model) || t('未知供应商')}
-                          {formatDate(getModelTimestamp(model)) ? ` | ${formatDate(getModelTimestamp(model))}` : ''}
+                          {t('来自 ')}
+                          {getProviderName(model) || t('未知供应商')}
+                          {formatDate(getModelTimestamp(model))
+                            ? ` | ${formatDate(getModelTimestamp(model))}`
+                            : ''}
                         </p>
 
                         {(() => {
                           const tags = parseTags(model.tags);
-                          const endpoints = Array.isArray(model.supported_endpoint_types) ? model.supported_endpoint_types : [];
+                          const endpoints = Array.isArray(
+                            model.supported_endpoint_types,
+                          )
+                            ? model.supported_endpoint_types
+                            : [];
                           const billingLabel =
                             model.quota_type === 0
                               ? t('按量计费')
                               : model.quota_type === 1
                                 ? t('按次计费')
                                 : '';
-                          const allBadges = [billingLabel, ...tags, ...endpoints].filter(Boolean);
+                          const allBadges = buildModelBadges({
+                            billingLabel,
+                            tags,
+                            endpointTypes: endpoints,
+                          });
                           return allBadges.length > 0 ? (
                             <div className='mt-2 flex flex-wrap gap-1.5'>
                               {allBadges.map((badge) => (
@@ -817,7 +813,9 @@ const ModelsExplorerPage = () => {
             </div>
           ) : null}
 
-          {!loading && pagedModels.length > 0 && normalizedViewMode === 'grid' ? (
+          {!loading &&
+          pagedModels.length > 0 &&
+          normalizedViewMode === 'grid' ? (
             <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
               {pagedModels.map((model, index) => {
                 const priceData = calculateModelPrice({
@@ -831,7 +829,7 @@ const ModelsExplorerPage = () => {
                   quotaDisplayType: 'USD',
                 });
                 const priceItems = getModelPriceItems(priceData, t, 'USD');
-                const tags = parseTags(model.tags);
+                const tags = getUniqueModelValues(parseTags(model.tags));
                 return (
                   <Card
                     key={model.key || model.model_name || index}
@@ -879,7 +877,9 @@ const ModelsExplorerPage = () => {
                             key={`${model.model_name}-grid-${item.key}`}
                             className='rounded-md border border-border p-2'
                           >
-                            <div className='text-xs text-muted-foreground'>{item.label}</div>
+                            <div className='text-xs text-muted-foreground'>
+                              {item.label}
+                            </div>
                             <div className='font-mono font-semibold'>
                               {item.value}
                               {item.suffix || ''}

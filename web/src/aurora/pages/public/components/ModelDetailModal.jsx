@@ -24,6 +24,7 @@ import {
   getLobeHubIcon,
   getModelPriceItems,
 } from '../../../../helpers';
+import { getModelEndpointDetails } from '../models-explorer-data';
 import { Badge } from '../../../primitives/badge';
 import { Button } from '../../../primitives/button';
 import {
@@ -34,18 +35,6 @@ import {
   SheetTitle,
 } from '../../../primitives/sheet';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../../primitives/table';
-
-const ENDPOINT_PATH_MAP = {
-  openai: { path: '/v1/chat/completions', method: 'POST' },
-  anthropic: { path: '/v1/messages', method: 'POST' },
-  'openai-videos': { path: '/v1/video/generations', method: 'POST' },
-  'openai-images': { path: '/v1/images/generations', method: 'POST' },
-  midjourney: { path: '/mj/submit/imagine', method: 'POST' },
-  gemini: { path: '/v1beta/models/*:generateContent', method: 'POST' },
-};
-
-const resolveEndpointInfo = (endpoint) =>
-  ENDPOINT_PATH_MAP[endpoint] || { path: '/v1/chat/completions', method: 'POST' };
 
 const getLogoNode = (model) => {
   const iconName = model?.vendor_icon || model?.icon || '';
@@ -75,14 +64,11 @@ export default function ModelDetailModal({
   autoGroups,
   copyText,
   t,
+  endpointMap,
 }) {
-  const endpointTypes = useMemo(
-    () =>
-      (Array.isArray(model?.supported_endpoint_types)
-        ? model.supported_endpoint_types
-        : []
-      ).filter(Boolean),
-    [model],
+  const endpointDetails = useMemo(
+    () => getModelEndpointDetails(model, endpointMap),
+    [model, endpointMap],
   );
 
   const priceRows = useMemo(() => {
@@ -109,7 +95,10 @@ export default function ModelDetailModal({
   }, [model, groupRatio, groupModelRatio, tokenUnit, displayPrice, t]);
 
   return (
-    <Sheet open={open} onOpenChange={(nextOpen) => (!nextOpen ? onClose() : null)}>
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => (!nextOpen ? onClose() : null)}
+    >
       <SheetContent
         side='right'
         className='max-w-none overflow-y-auto p-0'
@@ -145,7 +134,9 @@ export default function ModelDetailModal({
 
         <div className='space-y-6 px-6 py-5'>
           <section className='space-y-3'>
-            <h3 className='text-base font-semibold'>{t('模型支持的接口端点信息')}</h3>
+            <h3 className='text-base font-semibold'>
+              {t('模型支持的接口端点信息')}
+            </h3>
             <div className='rounded-lg border border-border'>
               <Table>
                 <Thead>
@@ -156,26 +147,36 @@ export default function ModelDetailModal({
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {endpointTypes.map((endpoint) => {
-                    const info = resolveEndpointInfo(endpoint);
+                  {endpointDetails.map((endpointDetail) => {
                     return (
-                      <Tr key={`${model?.model_name}-${endpoint}`}>
+                      <Tr
+                        key={`${model?.model_name}-${endpointDetail.endpoint}`}
+                      >
                         <Td>
                           <div className='flex items-center gap-2'>
                             <span className='inline-block h-2 w-2 rounded-full bg-emerald-500' />
-                            <span className='font-medium'>{endpoint}</span>
+                            <span className='font-medium'>
+                              {endpointDetail.endpoint}
+                            </span>
                           </div>
                         </Td>
-                        <Td className='font-mono text-xs'>{info.path}</Td>
+                        <Td className='font-mono text-xs'>
+                          {endpointDetail.path || '-'}
+                        </Td>
                         <Td>
-                          <Badge variant='secondary'>{info.method}</Badge>
+                          <Badge variant='secondary'>
+                            {endpointDetail.method}
+                          </Badge>
                         </Td>
                       </Tr>
                     );
                   })}
-                  {endpointTypes.length === 0 ? (
+                  {endpointDetails.length === 0 ? (
                     <Tr>
-                      <Td colSpan={3} className='py-5 text-center text-sm text-muted-foreground'>
+                      <Td
+                        colSpan={3}
+                        className='py-5 text-center text-sm text-muted-foreground'
+                      >
                         {t('暂无端点信息')}
                       </Td>
                     </Tr>
@@ -188,12 +189,15 @@ export default function ModelDetailModal({
           <section className='space-y-3'>
             <div>
               <h3 className='text-base font-semibold'>{t('分组价格')}</h3>
-              <p className='text-sm text-muted-foreground'>{t('不同用户分组的价格信息')}</p>
+              <p className='text-sm text-muted-foreground'>
+                {t('不同用户分组的价格信息')}
+              </p>
             </div>
 
             {Array.isArray(autoGroups) && autoGroups.length > 0 ? (
               <div className='rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-700'>
-                {t('auto分组调用链路')} {'->'} {autoGroups.join(', ') || t('默认分组')}
+                {t('auto分组调用链路')} {'->'}{' '}
+                {autoGroups.join(', ') || t('默认分组')}
               </div>
             ) : null}
 
@@ -213,7 +217,9 @@ export default function ModelDetailModal({
                         <Badge variant='outline'>{row.group}</Badge>
                       </Td>
                       <Td>
-                        <Badge variant='secondary'>{getBillingText(model, t)}</Badge>
+                        <Badge variant='secondary'>
+                          {getBillingText(model, t)}
+                        </Badge>
                       </Td>
                       <Td>
                         <div className='space-y-1'>
@@ -235,7 +241,10 @@ export default function ModelDetailModal({
                   ))}
                   {priceRows.length === 0 ? (
                     <Tr>
-                      <Td colSpan={3} className='py-5 text-center text-sm text-muted-foreground'>
+                      <Td
+                        colSpan={3}
+                        className='py-5 text-center text-sm text-muted-foreground'
+                      >
                         {t('暂无分组价格')}
                       </Td>
                     </Tr>

@@ -1,11 +1,6 @@
 import React from 'react';
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { PieChart, Pie, Tooltip, Cell } from 'recharts';
+import MeasuredChartFrame from './MeasuredChartFrame';
 
 const DEFAULT_COLORS = [
   '#3b82f6',
@@ -19,9 +14,9 @@ const DEFAULT_COLORS = [
 const DistributionDonut = ({ data = [], title = '' }) => (
   <div className='rounded-xl border border-border bg-card p-4'>
     <h2 className='text-sm font-medium mb-2'>{title}</h2>
-    <div className='h-56'>
-      <ResponsiveContainer width='100%' height='100%'>
-        <PieChart>
+    <MeasuredChartFrame className='h-56' minHeight={224}>
+      {({ width, height }) => (
+        <PieChart width={width} height={height}>
           <Pie
             data={data}
             dataKey={(item) => item.value}
@@ -31,13 +26,16 @@ const DistributionDonut = ({ data = [], title = '' }) => (
             label
           >
             {data.map((entry, index) => (
-              <Cell key={entry.name || index} fill={DEFAULT_COLORS[index % DEFAULT_COLORS.length]} />
+              <Cell
+                key={entry.name || index}
+                fill={DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+              />
             ))}
           </Pie>
           <Tooltip />
         </PieChart>
-      </ResponsiveContainer>
-    </div>
+      )}
+    </MeasuredChartFrame>
   </div>
 );
 

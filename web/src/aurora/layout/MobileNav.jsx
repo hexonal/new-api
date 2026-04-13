@@ -30,8 +30,9 @@ import {
 import { X } from 'lucide-react';
 import { Button } from '../primitives/button';
 import Sidebar from './Sidebar';
+import { QUICK_LINKS } from './navigation-config';
 
-const MobileNav = ({ open, onOpenChange }) => {
+const MobileNav = ({ open, onOpenChange, showConsoleLinks = true }) => {
   const { t } = useTranslation();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -52,19 +53,23 @@ const MobileNav = ({ open, onOpenChange }) => {
         </SheetHeader>
 
         <div className='aurora-mobile-nav-content'>
-          <Sidebar
-            onNavigate={() => {
-              onOpenChange(false);
-            }}
-          />
-
           <div className='aurora-mobile-nav-actions'>
-            <Link to='/' onClick={() => onOpenChange(false)}>
-              <Button size='sm' variant='outline' className='w-full'>
-                {t('Home')}
-              </Button>
-            </Link>
+            {QUICK_LINKS.map((link) => (
+              <Link key={link.href} to={link.href} onClick={() => onOpenChange(false)}>
+                <Button size='sm' variant='outline' className='w-full justify-start'>
+                  {t(link.label)}
+                </Button>
+              </Link>
+            ))}
           </div>
+
+          {showConsoleLinks ? (
+            <Sidebar
+              onNavigate={() => {
+                onOpenChange(false);
+              }}
+            />
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>

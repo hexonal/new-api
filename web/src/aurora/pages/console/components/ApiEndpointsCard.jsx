@@ -2,6 +2,7 @@ import React from 'react';
 import { Copy, Zap, ExternalLink } from 'lucide-react';
 import { Button } from '../../../primitives/button';
 import { showSuccess } from '../../../../helpers';
+import { normalizeApiEndpoint } from './api-endpoint-utils';
 
 const ApiEndpointsCard = ({ endpoints = [], t = (value) => value }) => (
   <div className='rounded-xl border border-border bg-card p-4'>
@@ -22,13 +23,14 @@ const ApiEndpointsCard = ({ endpoints = [], t = (value) => value }) => (
     </div>
     <div className='space-y-2'>
       {endpoints.map((item, idx) => {
-        const url = item?.url || item?.api_url || item?.endpoint || item;
-        const route = item?.route || `Endpoint ${idx + 1}`;
-        const desc = item?.description || '';
-        if (!url) return null;
+        const endpoint = normalizeApiEndpoint(item, idx);
+        if (!endpoint) return null;
+
+        const { key, url, route, description } = endpoint;
+
         return (
           <div
-            key={url}
+            key={key}
             className='rounded-lg border border-border p-3 flex items-start justify-between gap-2'
           >
             <div className='flex-1 min-w-0'>
@@ -46,8 +48,8 @@ const ApiEndpointsCard = ({ endpoints = [], t = (value) => value }) => (
               >
                 {url}
               </a>
-              {desc ? (
-                <p className='text-xs text-muted-foreground mt-1'>{desc}</p>
+              {description ? (
+                <p className='text-xs text-muted-foreground mt-1'>{description}</p>
               ) : null}
             </div>
             <div className='flex gap-1 flex-shrink-0'>

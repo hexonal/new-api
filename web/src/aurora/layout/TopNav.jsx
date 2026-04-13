@@ -19,10 +19,17 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useContext, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Search as SearchIcon, LayoutDashboard, Globe } from 'lucide-react';
+import {
+  Menu,
+  Search as SearchIcon,
+  LayoutDashboard,
+  Globe,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
+import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { API, getLogo, getSystemName, showSuccess } from '../../helpers';
+import { normalizeLanguageSelection } from '../../i18n/preference';
 import { Input } from '../primitives/input';
 import { Avatar } from '../primitives/avatar';
 import { Button } from '../primitives/button';
@@ -34,15 +41,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../primitives/dropdown-menu';
+import {
+  getLanguageSwitcherLabel,
+  getTopNavDisplayState,
+  getTopNavLinks,
+} from './top-nav-utils';
 
-const quickLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/console', label: 'Console' },
-  { href: '/pricing', label: 'Models' },
-  { href: '/about', label: 'Docs' },
-];
 const languageOptions = [
-  { code: 'zh', label: '简体中文' },
+  { code: 'zh-CN', label: '简体中文' },
+  { code: 'zh-TW', label: '繁體中文' },
   { code: 'en', label: 'English' },
   { code: 'fr', label: 'Français' },
   { code: 'ja', label: '日本語' },
@@ -62,6 +69,8 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
   const { t, i18n } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const displayState = getTopNavDisplayState(isMobile);
 
   const currentUser = useMemo(() => {
     if (userState?.user) return userState.user;
@@ -75,6 +84,7 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
       return null;
     }
   }, [userState?.user]);
+  const quickLinks = useMemo(() => getTopNavLinks(t), [t]);
 
   const logout = async () => {
     try {
@@ -89,6 +99,12 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
     navigate('/login');
   };
 
+  const changeLanguage = (languageCode) => {
+    const nextLanguage = normalizeLanguageSelection(languageCode);
+    localStorage.setItem('i18nextLng', nextLanguage);
+    i18n.changeLanguage(nextLanguage);
+  };
+
   return (
     <header className='aurora-top-nav'>
       <div className='aurora-top-nav-inner'>
@@ -98,34 +114,50 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
               type='button'
               className='aurora-top-nav-menu-btn'
               onClick={onMobileMenu}
-              aria-label={t('Open navigation')}
+              aria-label={t('打开导航')}
             >
               <Menu size={20} />
             </button>
           ) : null}
 
-          <Link to='/' className='aurora-brand' aria-label={getSystemName() || 'Home'}>
+          <Link
+            to='/'
+            className='aurora-brand'
+            aria-label={getSystemName() || 'Home'}
+          >
             {getLogo() ? (
-              <img src={getLogo()} alt={getSystemName() || 'Logo'} style={{ height: 28, width: 'auto' }} />
+              <img
+                src={getLogo()}
+                alt={getSystemName() || 'Logo'}
+                style={{ height: 28, width: 'auto' }}
+              />
             ) : (
               <LayoutDashboard size={20} />
             )}
-            <span>{getSystemName() || 'ima-router'}</span>
+            {displayState.showBrandLabel ? (
+              <span>{getSystemName() || 'ima-router'}</span>
+            ) : null}
           </Link>
         </div>
 
-        <div className='aurora-top-nav-search'>
-          <SearchIcon size={16} />
-          <Input
-            placeholder={t('Search models, projects, resources...')}
-            disabled
-            className='aurora-top-nav-input'
-          />
-        </div>
+        {displayState.showSearch ? (
+          <div className='aurora-top-nav-search'>
+            <SearchIcon size={16} />
+            <Input
+              placeholder={t('搜索模型、项目、资源...')}
+              disabled
+              className='aurora-top-nav-input'
+            />
+          </div>
+        ) : null}
 
-        <nav className='aurora-top-nav-links' aria-label='Main navigation'>
+        <nav className='aurora-top-nav-links' aria-label={t('主导航')}>
           {quickLinks.map((link) => (
-            <Link key={link.href} to={link.href} className='aurora-top-nav-link'>
+            <Link
+              key={link.href}
+              to={link.href}
+              className='aurora-top-nav-link'
+            >
               {link.label}
             </Link>
           ))}
@@ -136,7 +168,7 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
             <button
               type='button'
               className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-accent'
-              aria-label={t('切换语言')}
+              aria-label={getLanguageSwitcherLabel(t)}
             >
               <Globe size={16} />
             </button>
@@ -145,11 +177,13 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
             <DropdownMenuLabel>{t('语言')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {languageOptions.map((option) => {
-              const active = i18n.language === option.code || i18n.language.startsWith(`${option.code}-`);
+              const active =
+                i18n.language === option.code ||
+                i18n.language.startsWith(`${option.code}-`);
               return (
                 <DropdownMenuItem
                   key={option.code}
-                  onSelect={() => i18n.changeLanguage(option.code)}
+                  onSelect={() => changeLanguage(option.code)}
                   className={active ? 'bg-accent font-medium' : ''}
                 >
                   {option.label}
@@ -169,32 +203,38 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
                       {(currentUser.username || 'U').slice(0, 1).toUpperCase()}
                     </span>
                   </Avatar>
-                  <span className='aurora-user-label'>{buildDisplayName(currentUser)}</span>
+                  {displayState.showUserLabel ? (
+                    <span className='aurora-user-label'>
+                      {buildDisplayName(currentUser)}
+                    </span>
+                  ) : null}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side='bottom' align='end'>
-                <DropdownMenuLabel>{t('Account')}</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('账户')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <Link to='/console/personal'>{t('Profile')}</Link>
+                  <Link to='/console/personal'>{t('个人设置')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Link to='/console/token'>{t('API Keys')}</Link>
+                  <Link to='/console/token'>{t('API 密钥')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={logout}>{t('Sign out')}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={logout}>
+                  {t('退出')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <div className='aurora-top-nav-auth'>
               <Link to='/login'>
                 <Button variant='ghost' size='sm'>
-                  {t('Login')}
+                  {t('登录')}
                 </Button>
               </Link>
               <Link to='/register'>
                 <Button variant='outline' size='sm'>
-                  {t('Register')}
+                  {t('注册')}
                 </Button>
               </Link>
             </div>

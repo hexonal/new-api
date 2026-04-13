@@ -21,12 +21,18 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, transformWithEsbuild } from 'vite';
 import pkg from '@douyinfe/vite-plugin-semi';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { resolveSemiThemePath } from './vite/semi-theme-path.js';
+import { MANUAL_CHUNKS } from './vite/manual-chunks.js';
 const { vitePluginSemi } = pkg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiProxyTarget = (env.VITE_API_PROXY_TARGET || '').trim() || 'http://localhost:3000';
+  const serverPort = Number((env.VITE_PORT || '').trim()) || 4000;
+  const semiThemePath = resolveSemiThemePath(__dirname);
 
   return {
     resolve: {
@@ -53,6 +59,7 @@ export default defineConfig(({ mode }) => {
       react(),
       vitePluginSemi({
         cssLayer: false,
+        theme: semiThemePath,
       }),
     ],
     optimizeDeps: {
@@ -67,29 +74,30 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            'react-core': ['react', 'react-dom', 'react-router-dom'],
-            'semi-ui': ['@douyinfe/semi-icons', '@douyinfe/semi-ui'],
-            'antd': ['antd', '@lobehub/icons', '@lobehub/ui', 'antd-style'],
-            tools: ['axios', 'history', 'marked'],
-            'react-components': [
-              'react-dropzone',
-              'react-fireworks',
-              'react-telegram-login',
-              'react-toastify',
-              'react-turnstile',
-            ],
-            i18n: [
-              'i18next',
-              'react-i18next',
-              'i18next-browser-languagedetector',
-            ],
-          },
+          manualChunks: MANUAL_CHUNKS,
+        },
+      },
+    },
+    css: {
+      preprocessorOptions: {
+        scss: {
+          api: 'legacy',
+          importer: [
+            function(url) {
+              if (url.startsWith('~')) {
+                return { file: url.substring(1) };
+              }
+              return null;
+            },
+          ],
+          loadPaths: [path.resolve(__dirname, 'node_modules')],
         },
       },
     },
     server: {
       host: '0.0.0.0',
+      port: serverPort,
+      strictPort: true,
       proxy: {
         '/api': {
           target: apiProxyTarget,

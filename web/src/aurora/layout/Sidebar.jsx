@@ -40,12 +40,11 @@ import SidebarItem from './SidebarItem';
 import SidebarSection from './SidebarSection';
 import { useSidebarStore } from '../store/sidebar-store';
 import { useLocation } from 'react-router-dom';
-
-const SECTION_LABELS = {
-  WORKSPACE: 'WORKSPACE',
-  ACCOUNT: 'ACCOUNT',
-  ADMIN: 'ADMIN',
-};
+import { useTranslation } from 'react-i18next';
+import {
+  getConsoleSectionLabels,
+  getConsoleSidebarGroups,
+} from './console-navigation';
 
 const isPathActive = (targetPath, currentPath) => {
   if (targetPath === '/console') {
@@ -59,202 +58,136 @@ const isPathActive = (targetPath, currentPath) => {
   return currentPath === targetPath;
 };
 
-const workspaceItems = [
-  {
-    key: 'dashboard',
-    label: 'Workspace',
-    href: '/console',
-    icon: <LayoutDashboard size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'api-keys',
-    label: 'API Keys',
-    href: '/console/token',
-    icon: <KeyRound size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'usage-logs',
-    label: 'Usage Logs',
-    href: '/console/log',
-    icon: <ListTodo size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'key-cost',
-    label: 'Key Cost Analysis',
-    href: '/console/key-cost',
-    icon: <BarChart3 size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'callback-logs',
-    label: 'Callback Logs',
-    href: '/console/callback',
-    icon: <ShieldCheck size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'midjourney',
-    label: 'MJ Logs',
-    href: '/console/midjourney',
-    icon: <Paintbrush size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'task-logs',
-    label: 'Task Logs',
-    href: '/console/task',
-    icon: <Package size={17} strokeWidth={2} />,
-  },
-];
-
-const accountItems = [
-  {
-    key: 'wallet',
-    label: 'Wallet',
-    href: '/console/topup',
-    icon: <Wallet size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'personal',
-    label: 'Personal Settings',
-    href: '/console/personal',
-    icon: <Settings size={17} strokeWidth={2} />,
-  },
-];
-
-const adminItems = [
-  {
-    key: 'channel',
-    label: 'Channel Mgmt',
-    href: '/console/channel',
-    icon: <Building2 size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'subscription',
-    label: 'Subscription',
-    href: '/console/subscription',
-    icon: <Gem size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'models',
-    label: 'Models',
-    href: '/console/models',
-    icon: <Boxes size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'deployment',
-    label: 'Model Deployment',
-    href: '/console/deployment',
-    icon: <Package size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'redemption',
-    label: 'Redemption',
-    href: '/console/redemption',
-    icon: <CreditCard size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'users',
-    label: 'Users',
-    href: '/console/user',
-    icon: <Users size={17} strokeWidth={2} />,
-  },
-  {
-    key: 'groups',
-    label: 'Group Mgmt',
-    href: '/console/setting/group-management',
-    icon: <UserCog size={17} strokeWidth={2} />,
-  },
-];
-
-const isAdminSectionPath = (pathname) => {
-  return adminItems.some((item) => isPathActive(item.href, pathname));
+const SECTION_NAMES = {
+  WORKSPACE: 'WORKSPACE',
+  ACCOUNT: 'ACCOUNT',
+  ADMIN: 'ADMIN',
 };
 
-const isAccountSectionPath = (pathname) => {
-  return accountItems.some((item) => isPathActive(item.href, pathname));
+const getNavIcon = (key) => {
+  switch (key) {
+    case 'dashboard':
+      return <LayoutDashboard size={17} strokeWidth={2} />;
+    case 'api-keys':
+      return <KeyRound size={17} strokeWidth={2} />;
+    case 'usage-logs':
+      return <ListTodo size={17} strokeWidth={2} />;
+    case 'key-cost':
+      return <BarChart3 size={17} strokeWidth={2} />;
+    case 'callback-logs':
+      return <ShieldCheck size={17} strokeWidth={2} />;
+    case 'midjourney':
+      return <Paintbrush size={17} strokeWidth={2} />;
+    case 'task-logs':
+      return <Package size={17} strokeWidth={2} />;
+    case 'wallet':
+      return <Wallet size={17} strokeWidth={2} />;
+    case 'personal':
+      return <Settings size={17} strokeWidth={2} />;
+    case 'channel':
+      return <Building2 size={17} strokeWidth={2} />;
+    case 'subscription':
+      return <Gem size={17} strokeWidth={2} />;
+    case 'models':
+      return <Boxes size={17} strokeWidth={2} />;
+    case 'deployment':
+      return <Package size={17} strokeWidth={2} />;
+    case 'redemption':
+      return <CreditCard size={17} strokeWidth={2} />;
+    case 'users':
+      return <Users size={17} strokeWidth={2} />;
+    case 'groups':
+      return <UserCog size={17} strokeWidth={2} />;
+    default:
+      return null;
+  }
 };
 
-const isWorkspaceSectionPath = (pathname) => {
-  return workspaceItems.some((item) => isPathActive(item.href, pathname));
-};
+const isSectionPath = (items, pathname) =>
+  items.some((item) => isPathActive(item.href, pathname));
 
 const Sidebar = ({ onNavigate = () => {} }) => {
   const collapsed = useSidebarStore((state) => state.collapsed);
   const setActiveSection = useSidebarStore((state) => state.setActiveSection);
   const location = useLocation();
   const isAdminUser = isAdmin();
+  const { t } = useTranslation();
+  const sectionLabels = useMemo(() => getConsoleSectionLabels(t), [t]);
+  const sidebarGroups = useMemo(() => getConsoleSidebarGroups(t), [t]);
 
   useEffect(() => {
-    if (isWorkspaceSectionPath(location.pathname)) {
-      setActiveSection(SECTION_LABELS.WORKSPACE);
+    if (isSectionPath(sidebarGroups.workspace, location.pathname)) {
+      setActiveSection(SECTION_NAMES.WORKSPACE);
       return;
     }
 
-    if (isAccountSectionPath(location.pathname)) {
-      setActiveSection(SECTION_LABELS.ACCOUNT);
+    if (isSectionPath(sidebarGroups.account, location.pathname)) {
+      setActiveSection(SECTION_NAMES.ACCOUNT);
       return;
     }
 
-    if (isAdminSectionPath(location.pathname)) {
-      setActiveSection(SECTION_LABELS.ADMIN);
+    if (isSectionPath(sidebarGroups.admin, location.pathname)) {
+      setActiveSection(SECTION_NAMES.ADMIN);
     }
-  }, [location.pathname, setActiveSection]);
+  }, [location.pathname, setActiveSection, sidebarGroups]);
 
   const workspaceNodes = useMemo(
     () =>
-      workspaceItems.map((item) => (
+      sidebarGroups.workspace.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
           href={item.href}
           label={item.label}
-          icon={item.icon}
+          icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate],
+    [collapsed, onNavigate, sidebarGroups],
   );
 
   const accountNodes = useMemo(
     () =>
-      accountItems.map((item) => (
+      sidebarGroups.account.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
           href={item.href}
           label={item.label}
-          icon={item.icon}
+          icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate],
+    [collapsed, onNavigate, sidebarGroups],
   );
 
   const adminNodes = useMemo(
     () =>
-      adminItems.map((item) => (
+      sidebarGroups.admin.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
           href={item.href}
           label={item.label}
-          icon={item.icon}
+          icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate],
+    [collapsed, onNavigate, sidebarGroups],
   );
 
   return (
-    <nav className='aurora-sidebar' aria-label='Console navigation'>
-      <SidebarSection title={SECTION_LABELS.WORKSPACE} collapsed={collapsed}>
+    <nav className='aurora-sidebar' aria-label={t('控制台导航')}>
+      <SidebarSection title={sectionLabels.WORKSPACE} collapsed={collapsed}>
         {workspaceNodes}
       </SidebarSection>
 
-      <SidebarSection title={SECTION_LABELS.ACCOUNT} collapsed={collapsed}>
+      <SidebarSection title={sectionLabels.ACCOUNT} collapsed={collapsed}>
         {accountNodes}
       </SidebarSection>
 
       {isAdminUser && (
-        <SidebarSection title={SECTION_LABELS.ADMIN} collapsed={collapsed}>
+        <SidebarSection title={sectionLabels.ADMIN} collapsed={collapsed}>
           {adminNodes}
         </SidebarSection>
       )}

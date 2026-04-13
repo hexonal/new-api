@@ -21,64 +21,23 @@ import React, { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Home } from 'lucide-react';
-
-const titleMap = {
-  '/': 'Home',
-  '/console': 'Console',
-  '/console/token': 'API Keys',
-  '/console/log': 'Usage Logs',
-  '/console/key-cost': 'Key Cost Analysis',
-  '/console/callback': 'Callback Logs',
-  '/console/midjourney': 'Drawing Logs',
-  '/console/task': 'Task Logs',
-  '/console/topup': 'Wallet',
-  '/console/personal': 'Personal Settings',
-  '/console/channel': 'Channel Management',
-  '/console/subscription': 'Subscription',
-  '/console/models': 'Model Management',
-  '/console/deployment': 'Model Deployment',
-  '/console/redemption': 'Redemption',
-  '/console/user': 'User Management',
-  '/console/setting/group-management': 'Group Management',
-  '/console/setting': 'System Settings',
-  '/pricing': 'Pricing',
-  '/about': 'About',
-  '/privacy-policy': 'Privacy Policy',
-  '/user-agreement': 'User Agreement',
-};
-
-const buildBreadcrumb = (path) => {
-  if (path.startsWith('/console/chat/')) {
-    const chatId = path.replace('/console/chat/', '');
-    const detailLabel = chatId ? `Chat ${decodeURIComponent(chatId)}` : 'Chat';
-    return [
-      { label: 'Home', href: '/' },
-      { label: 'Console', href: '/console' },
-      { label: detailLabel },
-    ];
-  }
-
-  const pageTitle = titleMap[path] || 'IMA Router';
-  const root = path === '/' ? null : path.startsWith('/console') ? '/console' : '/';
-
-  return [
-    { label: 'Home', href: '/' },
-    ...(root ? [{ label: root === '/console' ? 'Console' : 'Home', href: root }] : []),
-    ...(pageTitle === 'Console' ? [] : [{ label: pageTitle, href: path }]),
-  ];
-};
+import { useTranslation } from 'react-i18next';
+import {
+  getPageShellBreadcrumb,
+  getPageShellTitle,
+} from './console-navigation';
 
 const PageShell = ({ children, showChrome = true }) => {
   const location = useLocation();
+  const { t } = useTranslation();
   const breadcrumb = useMemo(
-    () => buildBreadcrumb(location.pathname),
-    [location.pathname],
+    () => getPageShellBreadcrumb(location.pathname, t),
+    [location.pathname, t],
   );
 
   const title = useMemo(() => {
-    if (location.pathname.startsWith('/console/chat/')) return 'Chat';
-    return titleMap[location.pathname] || 'IMA Router';
-  }, [location.pathname]);
+    return getPageShellTitle(location.pathname, t);
+  }, [location.pathname, t]);
 
   if (!showChrome) {
     return <div className='aurora-page-shell-plain'>{children}</div>;
@@ -112,9 +71,7 @@ const PageShell = ({ children, showChrome = true }) => {
         <h1 className='aurora-page-title'>{title}</h1>
       </div>
 
-      <div className='aurora-page-content'>
-        {children}
-      </div>
+      <div className='aurora-page-content'>{children}</div>
     </div>
   );
 };
