@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
@@ -135,5 +136,35 @@ func TestShouldUseDeferredSettleForTaskModel_AsyncImageTaskModels(t *testing.T) 
 	}
 	if shouldUseDeferredSettleForTaskModel("sora-2") {
 		t.Fatalf("non async-image model should not use deferred settle strategy")
+	}
+}
+
+func TestExtractConsumedModelFromTaskRequest_HailuoIncludesDurationAndResolution(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+	body := []byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"resolution":"768P"}`)
+
+	got := extractConsumedModelFromTaskRequest(body, info)
+
+	if got != "MiniMax-Hailuo-2.3-Fast-6s-768p" {
+		t.Fatalf("consumed model = %q, want %q", got, "MiniMax-Hailuo-2.3-Fast-6s-768p")
+	}
+}
+
+func TestExtractConsumedModelFromTaskRequest_NonHailuoKeepsModelName(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+	body := []byte(`{"model":"speech-02-hd"}`)
+
+	got := extractConsumedModelFromTaskRequest(body, info)
+
+	if got != "speech-02-hd" {
+		t.Fatalf("consumed model = %q, want %q", got, "speech-02-hd")
 	}
 }

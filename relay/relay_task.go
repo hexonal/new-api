@@ -433,6 +433,29 @@ func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInf
 			if modelName, ok := req["model"].(string); ok {
 				modelName = strings.TrimSpace(modelName)
 				if modelName != "" {
+					if strings.Contains(strings.ToLower(modelName), "hailuo") {
+						durationSuffix := ""
+						if duration, ok := req["duration"]; ok {
+							switch v := duration.(type) {
+							case float64:
+								if v > 0 {
+									durationSuffix = fmt.Sprintf("-%ds", int(v))
+								}
+							case int:
+								if v > 0 {
+									durationSuffix = fmt.Sprintf("-%ds", v)
+								}
+							}
+						}
+						resolutionSuffix := ""
+						if resolution, ok := req["resolution"].(string); ok {
+							resolution = strings.TrimSpace(strings.ToLower(resolution))
+							if resolution != "" {
+								resolutionSuffix = "-" + resolution
+							}
+						}
+						return modelName + durationSuffix + resolutionSuffix
+					}
 					return modelName
 				}
 			}
