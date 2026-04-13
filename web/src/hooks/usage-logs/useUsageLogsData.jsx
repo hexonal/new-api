@@ -911,6 +911,7 @@ export const useLogsData = () => {
               const groupRatio = Number(other?.group_ratio);
               const credits = toPositiveNumber(other?.upstream_credits);
               const isCreditSettle = other?.settlement_type === 'credits';
+              const quotaPerUnit = Number(getQuotaPerUnit());
               const creditsFormula =
                 isCreditSettle && credits > 0
                   ? buildCreditsSettlementFormula({
