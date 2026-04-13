@@ -8,6 +8,8 @@ import {
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
   getBillingSKU,
+  formatDirectPerCallPrice,
+  derivePerCallUnitPriceFromQuota,
 } from './dynamicPerCall.js';
 
 test('calculateDynamicPerCallPrice returns final price for PixVerse-style ratios', () => {
@@ -125,4 +127,18 @@ test('buildFixedPerCallFormula renders fixed sku billing formula', () => {
     formula,
     '(模型单价 $0.339706 / 次) * 分组倍率 1.0000 = $0.339706',
   );
+});
+
+test('formatDirectPerCallPrice formats direct usd amounts without quota conversion', () => {
+  assert.equal(formatDirectPerCallPrice(0.025), '$0.025000');
+});
+
+test('derivePerCallUnitPriceFromQuota converts quota back to usd before dividing group ratio', () => {
+  const unitPrice = derivePerCallUnitPriceFromQuota({
+    billedQuota: 170000,
+    groupRatio: 1,
+    quotaPerUnit: 500000,
+  });
+
+  assert.equal(unitPrice, 0.34);
 });

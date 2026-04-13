@@ -46,6 +46,8 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  formatDirectPerCallPrice,
+  derivePerCallUnitPriceFromQuota,
 } from '../../helpers/dynamicPerCall';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -1094,7 +1096,7 @@ export const useLogsData = () => {
                         ? 'SKU单价：{{price}} / 次'
                         : '模型单价：{{price}} / 次',
                     {
-                      price: `$${perCallPrice.toFixed(6)}`,
+                      price: formatDirectPerCallPrice(perCallPrice),
                     },
                   )}
                 </p>
@@ -1152,13 +1154,21 @@ export const useLogsData = () => {
               const groupRatio = Number(other?.group_ratio);
               const safeGroupRatio =
                 Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
-              const derivedModelPrice = billedQuota / safeGroupRatio;
+              const quotaPerUnit = Number(getQuotaPerUnit());
+              const derivedModelPrice = derivePerCallUnitPriceFromQuota({
+                billedQuota,
+                groupRatio: safeGroupRatio,
+                quotaPerUnit,
+              });
+              const derivedModelPriceText = formatDirectPerCallPrice(
+                derivedModelPrice,
+              );
               content = (
                 <article>
                   <p>{t('按次计费（根据实际扣费反推）')}</p>
                   <p>
                     {t('模型单价：{{price}} / 次', {
-                      price: `$${derivedModelPrice.toFixed(6)}`,
+                      price: derivedModelPriceText,
                     })}
                   </p>
                   <p>
@@ -1172,7 +1182,7 @@ export const useLogsData = () => {
                     {t(
                       '(模型单价 {{price}} / 次) * 分组倍率（模型覆盖） {{ratio}} = {{cost}}',
                       {
-                        price: `$${derivedModelPrice.toFixed(6)}`,
+                        price: derivedModelPriceText,
                         ratio: safeGroupRatio.toFixed(4),
                         cost: renderQuota(billedQuota, 6),
                       },

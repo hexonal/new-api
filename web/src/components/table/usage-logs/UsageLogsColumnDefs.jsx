@@ -51,6 +51,8 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  formatDirectPerCallPrice,
+  derivePerCallUnitPriceFromQuota,
 } from '../../../helpers/dynamicPerCall';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
@@ -1269,6 +1271,7 @@ export const getLogsColumns = ({
 
         const modelPrice = Number(other?.model_price);
         const billedQuota = toTokenNumber(record?.quota);
+        const quotaPerUnit = Number(getQuotaPerUnit());
         const billingSKU = getBillingSKU(other);
         if (
           isNonTextTaskEndpoint &&
@@ -1287,7 +1290,7 @@ export const getLogsColumns = ({
           const summary = dynamicPrice
             ? [
                 t('按次计费'),
-                `${t('基础单价')}：${renderQuota(dynamicPrice.basePrice, 6)} / ${t('次')}`,
+                `${t('基础单价')}：${formatDirectPerCallPrice(dynamicPrice.basePrice)} / ${t('次')}`,
                 parameterText ? `${t('计算参数')}：${parameterText}` : null,
                 buildDynamicPerCallFormula({
                   basePrice: dynamicPrice.basePrice,
@@ -1377,12 +1380,19 @@ export const getLogsColumns = ({
           const groupRatio = Number(other?.group_ratio);
           const safeRatio =
             Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
-          const derivedModelPrice = billedQuota / safeRatio;
+          const derivedModelPrice = derivePerCallUnitPriceFromQuota({
+            billedQuota,
+            groupRatio: safeRatio,
+            quotaPerUnit,
+          });
+          const derivedModelPriceText = formatDirectPerCallPrice(
+            derivedModelPrice,
+          );
           const summary = [
             t('按次计费（根据实际扣费反推）'),
-            `${t('模型单价')}：${renderQuota(derivedModelPrice, 6)} / ${t('次')}`,
+            `${t('模型单价')}：${derivedModelPriceText} / ${t('次')}`,
             `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
-            `(${t('模型单价')} ${renderQuota(derivedModelPrice, 6)} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
+            `(${t('模型单价')} ${derivedModelPriceText} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
             t('仅供参考，以实际扣费为准'),
           ]
             .filter(Boolean)

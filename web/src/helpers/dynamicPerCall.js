@@ -122,6 +122,40 @@ export const getBillingSKU = (other = {}) => {
   return typeof sku === 'string' ? sku.trim() : '';
 };
 
+export const formatDirectPerCallPrice = (
+  value,
+  { symbol = '$', digits = 6 } = {},
+) => {
+  const numeric = toFiniteNumber(value);
+  if (numeric === null) {
+    return `${symbol}0.000000`;
+  }
+  return `${symbol}${numeric.toFixed(digits)}`;
+};
+
+export const derivePerCallUnitPriceFromQuota = ({
+  billedQuota,
+  groupRatio = 1,
+  quotaPerUnit,
+}) => {
+  const numericQuota = toFiniteNumber(billedQuota);
+  const numericGroupRatio = toFiniteNumber(groupRatio);
+  const numericQuotaPerUnit = toFiniteNumber(quotaPerUnit);
+
+  if (
+    numericQuota === null ||
+    numericQuota <= 0 ||
+    numericGroupRatio === null ||
+    numericGroupRatio <= 0 ||
+    numericQuotaPerUnit === null ||
+    numericQuotaPerUnit <= 0
+  ) {
+    return 0;
+  }
+
+  return numericQuota / numericQuotaPerUnit / numericGroupRatio;
+};
+
 export const calculateFixedPerCallPrice = ({ modelPrice, groupRatio = 1 }) => {
   const unitPrice = toFiniteNumber(modelPrice);
   if (unitPrice === null || unitPrice <= 0) {
