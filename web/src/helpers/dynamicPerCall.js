@@ -196,3 +196,31 @@ export const buildFixedPerCallFormula = ({
 
   return `(${modelLabel} ${formatPrice(unitPrice)} / ${perCallLabel}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(finalPrice)}`;
 };
+
+export const buildCreditsSettlementFormula = ({
+  credits,
+  groupRatio = 1,
+  finalPrice,
+  symbol = '$',
+  rate = 1,
+  labels = {},
+}) => {
+  const creditsValue = toFiniteNumber(credits);
+  const settledPrice = toFiniteNumber(finalPrice);
+  if (creditsValue === null || creditsValue <= 0 || settledPrice === null) {
+    return '';
+  }
+
+  const creditsLabel = labels.credits || '上游消耗';
+  const groupLabel = labels.groupRatio || '分组倍率';
+  const creditsUnit = labels.creditsUnit || 'credits';
+  const effectiveGroupRatio = toFiniteNumber(groupRatio);
+  const safeGroupRatio =
+    effectiveGroupRatio !== null && effectiveGroupRatio >= 0
+      ? effectiveGroupRatio
+      : 1;
+  const formatPrice = (value) =>
+    `${symbol}${(Number(value) * rate).toFixed(6)}`;
+
+  return `(${creditsLabel} ${creditsValue} ${creditsUnit}) * ${groupLabel} ${safeGroupRatio.toFixed(4)} = ${formatPrice(settledPrice)}`;
+};

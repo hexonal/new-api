@@ -51,6 +51,7 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  buildCreditsSettlementFormula,
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
 } from '../../../helpers/dynamicPerCall';
@@ -1132,6 +1133,49 @@ export const getLogsColumns = ({
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
           const billedQuota = Number(other?.actual_quota || record?.quota || 0);
+          const reason = other?.terminal_charge_reason || record?.content || '-';
+          const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
+          const credits = toTokenNumber(other?.upstream_credits);
+          const isCreditSettle = other?.settlement_type === 'credits';
+          const groupRatio = Number(other?.group_ratio);
+          if (isAdaptorAdjust) {
+            const creditsFormula =
+              isCreditSettle && credits > 0
+                ? buildCreditsSettlementFormula({
+                    credits,
+                    groupRatio,
+                    finalPrice: billedQuota / quotaPerUnit,
+                    labels: {
+                      groupRatio: t('分组倍率（模型覆盖）'),
+                    },
+                  })
+                : null;
+            const summary = [
+              `${t('终态重算扣费')}：${renderQuota(billedQuota, 6)}`,
+              isCreditSettle
+                ? t('结算方式：上游实际消耗结算（按 credits）')
+                : t('结算方式：上游实际消耗结算'),
+              creditsFormula,
+              `${t('结算原因')}：${reason}`,
+              t('仅供参考，以实际扣费为准'),
+            ]
+              .filter(Boolean)
+              .join('\n');
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 260 } },
+                  },
+                }}
+                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+              >
+                {summary}
+              </Typography.Paragraph>
+            );
+          }
           const tokenTotal = resolveDeferredTotalTokens(
             record,
             other,
@@ -1164,7 +1208,7 @@ export const getLogsColumns = ({
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
             billingSummary,
             formulaPreview,
-            `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
+            `${t('结算原因')}：${reason}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
               : null,

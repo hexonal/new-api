@@ -46,6 +46,7 @@ import {
   getBillingSKU,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  buildCreditsSettlementFormula,
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
 } from '../../helpers/dynamicPerCall';
@@ -682,12 +683,19 @@ export const useLogsData = () => {
         ).includes('adaptor_adjust');
         const isCreditSettlement = other?.settlement_type === 'credits';
         const upstreamCredits = toPositiveNumber(other?.upstream_credits);
+        const billedQuota = toPositiveNumber(
+          other?.actual_quota || logs[i]?.quota || 0,
+        );
         const deferredBillingSummary = deferredTokenRecalculate
           ? isAdaptorAdjustLog
             ? isCreditSettlement && upstreamCredits > 0
-              ? t('上游消耗 {{credits}} credits × 分组倍率 {{ratio}}', {
+              ? buildCreditsSettlementFormula({
                   credits: upstreamCredits,
-                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                  groupRatio: Number(other?.group_ratio || 1),
+                  finalPrice: billedQuota / getQuotaPerUnit(),
+                  labels: {
+                    groupRatio: t('分组倍率（模型覆盖）'),
+                  },
                 })
               : t('上游实际消耗结算，分组倍率(模型覆盖) {{ratio}}', {
                   ratio: Number(other?.group_ratio || 1).toFixed(1),
@@ -903,6 +911,17 @@ export const useLogsData = () => {
               const groupRatio = Number(other?.group_ratio);
               const credits = toPositiveNumber(other?.upstream_credits);
               const isCreditSettle = other?.settlement_type === 'credits';
+              const creditsFormula =
+                isCreditSettle && credits > 0
+                  ? buildCreditsSettlementFormula({
+                      credits,
+                      groupRatio,
+                      finalPrice: billedQuota / quotaPerUnit,
+                      labels: {
+                        groupRatio: t('分组倍率（模型覆盖）'),
+                      },
+                    })
+                  : '';
               content = (
                 <article>
                   <p>
@@ -925,6 +944,7 @@ export const useLogsData = () => {
                       })}
                     </p>
                   )}
+                  {creditsFormula && <p>{creditsFormula}</p>}
                   <p>{t('结算原因：{{reason}}', { reason })}</p>
                 </article>
               );

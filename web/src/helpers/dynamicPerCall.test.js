@@ -7,6 +7,7 @@ import {
   buildDynamicPerCallParameterText,
   calculateFixedPerCallPrice,
   buildFixedPerCallFormula,
+  buildCreditsSettlementFormula,
   getBillingSKU,
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
@@ -126,6 +127,22 @@ test('buildFixedPerCallFormula renders fixed sku billing formula', () => {
   assert.equal(
     formula,
     '(模型单价 $0.339706 / 次) * 分组倍率 1.0000 = $0.339706',
+  );
+});
+
+test('buildCreditsSettlementFormula renders bracketed credits settlement formula', () => {
+  const formula = buildCreditsSettlementFormula({
+    credits: 75,
+    groupRatio: 1.1,
+    finalPrice: 0.4125,
+    labels: {
+      groupRatio: '分组倍率（模型覆盖）',
+    },
+  });
+
+  assert.equal(
+    formula,
+    '(上游消耗 75 credits) * 分组倍率（模型覆盖） 1.1000 = $0.412500',
   );
 });
 
