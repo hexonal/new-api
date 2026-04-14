@@ -49,11 +49,19 @@ type operatorProvisionRequest struct {
 	Remark             string   `json:"remark"`
 }
 
-var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_]{1,48}$`)
+var operatorProvisionTokenPattern = regexp.MustCompile(`^[0-9a-zA-Z_-]{1,48}$`)
 var operatorProvisionIMASuffixPattern = regexp.MustCompile(`^(ima_[0-9]+)_[0-9A-Za-z]+$`)
 
 func validateOperatorProvisionToken(token string) bool {
-	return operatorProvisionTokenPattern.MatchString(strings.TrimSpace(token))
+	return operatorProvisionTokenValidationError(token) == nil
+}
+
+func operatorProvisionTokenValidationError(token string) error {
+	normalized := strings.TrimSpace(token)
+	if operatorProvisionTokenPattern.MatchString(normalized) {
+		return nil
+	}
+	return errors.New("token must contain only letters, numbers, underscore or hyphen, and be 1-48 characters")
 }
 
 func getOperatorProvisionUsernameCandidates(username string) []string {
@@ -135,10 +143,10 @@ func buildProvisionToken(userId int, tokenKey string, req operatorProvisionReque
 
 func buildOperatorCreateTokenKey(name string) (string, error) {
 	tokenKey := strings.TrimSpace(name)
-	if validateOperatorProvisionToken(tokenKey) {
+	if err := operatorProvisionTokenValidationError(tokenKey); err == nil {
 		return tokenKey, nil
 	}
-	return "", errors.New("token must contain only letters, numbers, or underscore, and be 1-48 characters")
+	return "", operatorProvisionTokenValidationError(tokenKey)
 }
 
 func isOperatorNameBackedTokenKey(name string, key string) bool {
@@ -222,8 +230,8 @@ func OperatorProvision(c *gin.Context) {
 	responseSK := ""
 	if strings.TrimSpace(req.Token) != "" {
 		req.Token = strings.TrimSpace(req.Token)
-		if !validateOperatorProvisionToken(req.Token) {
-			common.ApiErrorMsg(c, "token must contain only letters, numbers, or underscore, and be 1-48 characters")
+		if err := operatorProvisionTokenValidationError(req.Token); err != nil {
+			common.ApiError(c, err)
 			return
 		}
 		tokenKey = req.Token

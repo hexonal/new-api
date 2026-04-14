@@ -486,6 +486,47 @@ func TestOperatorCreateTokenUsesTrimmedNameAsTokenKey(t *testing.T) {
 	}
 }
 
+func TestOperatorCreateTokenAcceptsHyphenatedName(t *testing.T) {
+	db := setupOperatorProvisionTestDB(t)
+	operatorUser := seedProvisionUser(t, db, "operator_root")
+	operatorUser.Role = common.RoleRootUser
+	if err := db.Save(&operatorUser).Error; err != nil {
+		t.Fatalf("failed to update operator role: %v", err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"name":            "dev_vid-craft_30",
+		"unlimited_quota": true,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal create token body: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/operator/token/create", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("id", operatorUser.Id)
+
+	OperatorCreateToken(ctx)
+
+	var resp provisionAPIResponse
+	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got message: %s", resp.Message)
+	}
+
+	var token model.Token
+	if err = db.Where("name = ?", "dev_vid-craft_30").First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
+	}
+	if token.Key != "dev_vid-craft_30" {
+		t.Fatalf("expected token key=%q, got=%q", "dev_vid-craft_30", token.Key)
+	}
+}
+
 func TestOperatorCreateTokenRejectsNameLongerThan48Chars(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	operatorUser := seedProvisionUser(t, db, "operator_root")
@@ -517,12 +558,12 @@ func TestOperatorCreateTokenRejectsNameLongerThan48Chars(t *testing.T) {
 	if resp.Success {
 		t.Fatalf("expected create token response to fail, body=%s", recorder.Body.String())
 	}
-	if !strings.Contains(resp.Message, "token must contain only letters, numbers, or underscore, and be 1-48 characters") {
+	if !strings.Contains(resp.Message, "token must contain only letters, numbers, underscore or hyphen, and be 1-48 characters") {
 		t.Fatalf("unexpected error message: %s", resp.Message)
 	}
 }
 
-func TestOperatorCreateTokenRejectsNameWithInvalidCharacters(t *testing.T) {
+func TestOperatorCreateTokenAcceptsSKPrefix(t *testing.T) {
 	db := setupOperatorProvisionTestDB(t)
 	operatorUser := seedProvisionUser(t, db, "operator_root")
 	operatorUser.Role = common.RoleRootUser
@@ -550,10 +591,15 @@ func TestOperatorCreateTokenRejectsNameWithInvalidCharacters(t *testing.T) {
 	if err = common.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode create token response: %v, raw=%s", err, recorder.Body.String())
 	}
-	if resp.Success {
-		t.Fatalf("expected create token response to fail, body=%s", recorder.Body.String())
+	if !resp.Success {
+		t.Fatalf("expected create token response to succeed, body=%s", recorder.Body.String())
 	}
-	if !strings.Contains(resp.Message, "token must contain only letters, numbers, or underscore, and be 1-48 characters") {
-		t.Fatalf("unexpected error message: %s", resp.Message)
+
+	var token model.Token
+	if err = db.Where("name = ?", "sk-custom_token_123").First(&token).Error; err != nil {
+		t.Fatalf("expected token to be created: %v", err)
+	}
+	if token.Key != "sk-custom_token_123" {
+		t.Fatalf("expected token key=%q, got=%q", "sk-custom_token_123", token.Key)
 	}
 }

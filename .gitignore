@@ -38,3 +38,4 @@ data/
 .gomodcache/
 .gocache-temp
 .gopath
+.agents/skills/.system
