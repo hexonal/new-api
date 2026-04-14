@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -288,6 +289,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	requestBody = bytes.NewReader(bodyBytes)
 	consumedModel := extractConsumedModelFromTaskRequest(bodyBytes, info)
+	if taskErr := validateHailuoPricingRequest(bodyBytes, info); taskErr != nil {
+		return nil, taskErr
+	}
 	if info.TaskRelayInfo != nil {
 		info.TaskRelayInfo.ConsumedModel = consumedModel
 	}
@@ -470,6 +474,78 @@ func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInf
 		return modelName
 	}
 	return strings.TrimSpace(info.OriginModelName)
+}
+
+// validateHailuoPricingRequest validates that the requested duration/resolution
+// combination is priced when SKU-level pricing is active for the model.
+// Fully DB-driven: any SKU key present in ModelPrice is accepted; no hardcoded
+// duration/resolution allowlists are applied.
+// Only applies to MiniMax channels — other channel types that happen to serve
+// Hailuo-named models do not use MiniMax's SKU pricing system.
+func validateHailuoPricingRequest(body []byte, info *relaycommon.RelayInfo) *dto.TaskError {
+	if info == nil || info.ChannelType != constant.ChannelTypeMiniMax || len(body) == 0 {
+		return nil
+	}
+
+	var req struct {
+		Model      string `json:"model"`
+		Duration   int    `json:"duration"`
+		Resolution string `json:"resolution"`
+	}
+	if err := common.Unmarshal(body, &req); err != nil {
+		return nil
+	}
+
+	modelName := strings.TrimSpace(req.Model)
+	if modelName == "" || !strings.Contains(strings.ToLower(modelName), "hailuo") {
+		return nil
+	}
+
+	// No SKU pricing configured: only require a base model price.
+	if !model.HasHailuoSKUPricingConfigured(modelName) {
+		if _, baseOK := ratio_setting.GetModelPrice(modelName, false); !baseOK {
+			return service.TaskErrorWrapperLocal(
+				fmt.Errorf("hailuo api error: pricing not configured for model %s", modelName),
+				"invalid_request",
+				http.StatusBadRequest,
+			)
+		}
+		return nil
+	}
+
+	// SKU pricing is active: resolve effective duration and resolution (apply
+	// model defaults when the request omits them, matching adaptor behavior).
+	config := hailuo.GetModelConfig(modelName)
+	duration := req.Duration
+	if duration <= 0 {
+		if len(config.SupportedDurations) > 0 {
+			duration = config.SupportedDurations[0]
+		} else {
+			duration = hailuo.DefaultDuration
+		}
+	}
+	resolution := hailuo.NormalizeResolution(req.Resolution)
+	if resolution == "" {
+		resolution = hailuo.NormalizeResolution(config.DefaultResolution)
+	}
+
+	// Canonical SKU key: lowercase resolution matches the DB key format.
+	skuKey := fmt.Sprintf("%s-%ds-%s", modelName, duration, strings.ToLower(resolution))
+
+	if _, ok := ratio_setting.GetModelPrice(skuKey, false); ok {
+		return nil
+	}
+
+	return service.TaskErrorWrapperLocal(
+		fmt.Errorf(
+			"hailuo api error: the requested combination is not priced: %s (duration %ds, resolution %s). Configure this SKU in model pricing settings.",
+			skuKey,
+			duration,
+			resolution,
+		),
+		"invalid_request",
+		http.StatusBadRequest,
+	)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。

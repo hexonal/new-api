@@ -74,6 +74,23 @@ func (m *RWMap[K, V]) Len() int {
 	return len(m.data)
 }
 
+// AnyKey reports whether any key in the map satisfies the predicate.
+// The read lock is held for the duration of the scan — no map copy is made.
+//
+// WARNING: the predicate must not call any method on this RWMap (Get, Set,
+// AnyKey, ReadAll, etc.). Doing so will deadlock because sync.RWMutex is not
+// reentrant.
+func (m *RWMap[K, V]) AnyKey(predicate func(K) bool) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	for k := range m.data {
+		if predicate(k) {
+			return true
+		}
+	}
+	return false
+}
+
 func LoadFromJsonString[K comparable, V any](m *RWMap[K, V], jsonStr string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()

@@ -2,6 +2,7 @@ package relay
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -167,4 +168,124 @@ func TestExtractConsumedModelFromTaskRequest_NonHailuoKeepsModelName(t *testing.
 	if got != "speech-02-hd" {
 		t.Fatalf("consumed model = %q, want %q", got, "speech-02-hd")
 	}
+}
+
+func TestValidateHailuoPricingRequestRejectsUnconfiguredSKUCombo(t *testing.T) {
+	// 768p and 1080p are priced; 720p is not — request for 720p must be rejected.
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+	})
+	if err := ratio_setting.UpdateModelPriceByJSONString(`{"MiniMax-Hailuo-2.3-Fast-6s-768p":0.198529,"MiniMax-Hailuo-2.3-Fast-6s-1080p":0.382353}`); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+
+	taskErr := validateHailuoPricingRequest([]byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"resolution":"720P"}`), info)
+
+	if taskErr == nil {
+		t.Fatal("expected validation error for unpriced combo, got nil")
+	}
+	if taskErr.Code != "invalid_request" {
+		t.Fatalf("code = %q, want %q", taskErr.Code, "invalid_request")
+	}
+	// Error must mention the unpriced SKU key so operators know what to add.
+	if got := taskErr.Message; !strings.Contains(got, "MiniMax-Hailuo-2.3-Fast-6s-720p") {
+		t.Fatalf("unexpected message: %q", got)
+	}
+}
+
+func TestValidateHailuoPricingRequestRejectsUnpricedSKU(t *testing.T) {
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+	})
+	if err := ratio_setting.UpdateModelPriceByJSONString(`{"MiniMax-Hailuo-2.3-Fast":0.198529}`); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+
+	taskErr := validateHailuoPricingRequest([]byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"resolution":"1080P"}`), info)
+
+	if taskErr != nil {
+		t.Fatalf("expected fallback to base model price, got %#v", taskErr)
+	}
+}
+
+func TestValidateHailuoPricingRequestAllowsConfiguredSKU(t *testing.T) {
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+	})
+	if err := ratio_setting.UpdateModelPriceByJSONString(`{"MiniMax-Hailuo-2.3-Fast":0.198529,"MiniMax-Hailuo-2.3-Fast-6s-1080p":0.382353}`); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+
+	taskErr := validateHailuoPricingRequest([]byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"resolution":"1080P"}`), info)
+
+	if taskErr != nil {
+		t.Fatalf("expected nil error, got %#v", taskErr)
+	}
+}
+
+func TestValidateHailuoPricingRequestRejectsWhenNoPricingConfigured(t *testing.T) {
+	// Neither SKU prices nor base model price exist.
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+	})
+	if err := ratio_setting.UpdateModelPriceByJSONString(`{}`); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+
+	taskErr := validateHailuoPricingRequest([]byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"resolution":"1080P"}`), info)
+
+	if taskErr == nil {
+		t.Fatal("expected missing price error, got nil")
+	}
+	if taskErr.Code != "invalid_request" {
+		t.Fatalf("code = %q, want %q", taskErr.Code, "invalid_request")
+	}
+	if got := taskErr.Message; got == "" || !containsAll(got, []string{"MiniMax-Hailuo-2.3-Fast", "not configured"}) {
+		t.Fatalf("unexpected message: %q", got)
+	}
+}
+
+func containsAll(text string, subs []string) bool {
+	for _, sub := range subs {
+		if !strings.Contains(text, sub) {
+			return false
+		}
+	}
+	return true
 }

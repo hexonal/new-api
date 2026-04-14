@@ -27,6 +27,7 @@ import {
 } from '../constants/playground.constants';
 import { TABLE_COMPACT_MODES_KEY } from '../constants';
 import { MOBILE_BREAKPOINT } from '../hooks/common/useIsMobile';
+import { getHailuoStartingPrice } from './hailuoSkuPricing.js';
 
 const HTMLToastContent = ({ htmlContent }) => {
   return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
@@ -623,8 +624,8 @@ export const calculateModelPrice = ({
     record?.model || record?.model_name || record?.name || '';
   const isHailuoPerCallModel =
     record?.quota_type === 1 &&
-    typeof recordModelName === 'string' &&
-    recordModelName.toLowerCase().includes('hailuo');
+    Array.isArray(record?.sku_prices) &&
+    record.sku_prices.length > 0;
   const GEMINI_THOUGHT_RATIO_MAP = {
     'gemini-3-pro-image-preview': 6,
     'gemini-3.1-flash-image-preview': 6,
@@ -791,7 +792,20 @@ export const calculateModelPrice = ({
 
   if (record.quota_type === 1) {
     // 按次计费
-    const priceUSD = parseFloat(record.model_price) * usedGroupRatio;
+    const hailuoStartingPrice = isHailuoPerCallModel
+      ? getHailuoStartingPrice({
+          record,
+          selectedGroup,
+          groupRatio: safeGroupRatio,
+          groupModelRatio: safeGroupModelRatio,
+        })
+      : null;
+    if (hailuoStartingPrice?.usedGroup) {
+      usedGroup = hailuoStartingPrice.usedGroup;
+    }
+    const priceUSD =
+      hailuoStartingPrice?.finalPrice ??
+      parseFloat(record.model_price) * usedGroupRatio;
     const displayVal = displayPrice(priceUSD);
 
     return {
@@ -800,7 +814,7 @@ export const calculateModelPrice = ({
       isPerToken: false,
       isTokensDisplay: false,
       usedGroup,
-      usedGroupRatio,
+      usedGroupRatio: hailuoStartingPrice?.groupRatio ?? usedGroupRatio,
     };
   }
 
