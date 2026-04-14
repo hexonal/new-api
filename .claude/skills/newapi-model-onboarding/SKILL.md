@@ -119,11 +119,11 @@ description: |
 
 - 绝不使用 `endpoint` 字段，统一使用 `path + method`
 - `provider_style` 必须与能力一致，且**只能从下列固定集合选取**（与 new-api/setting/model_capability 和 api-sdk 的 `ModelProviderStyle` 联合类型对齐，禁止自造）：
-  - 文本：`openai-chat` / `openai-completion` / `openai-response` / `anthropic`
-  - 图像：`openai-image`
-  - 音频：`openai-stt` / `openai-tts` / `openai-audio-translation`
-  - 视频：`openai-video`
-  - 其他：`openai-embeddings` / `openai-moderation` / `openai-realtime` / `suno` / `midjourney` / `jina`
+  - 文本（可 Provider）：`openai-chat` / `openai-completion` / `openai-response` / `anthropic` -- 属于 `TextModelProviderStyle`，可通过 `createAiGatewayProvider()` 路由
+  - 图像（仅 aiApi）：`openai-image`
+  - 音频（仅 aiApi）：`openai-stt` / `openai-tts` / `openai-audio-translation`
+  - 视频（仅 aiApi）：`openai-video`
+  - 其他（仅 aiApi）：`openai-embeddings` / `openai-moderation` / `openai-realtime` / `suno` / `midjourney` / `jina`
 - 图生视频若上游要求双参（如 `image_url + input_reference`）必须同时标记 `required`
 - 文本模型若支持多个端点（如 OpenAI Chat + Anthropic Messages + OpenAI Responses），必须全部写入 `capabilities`，不能只保留一个
 - 多文本端点模型必须显式维护”主端点”和”扩展端点”：
@@ -153,6 +153,7 @@ description: |
 2. `hexonal-project/api-sdk/src/ai-gateway/types.ts` 的 `ModelCapabilityKey` 联合类型 + `CAPABILITY_ENDPOINT_MAP` 条目
 3. `hexonal-project/api-sdk/src/ai-gateway/capability-dispatch.ts` 的 `SyncCapabilityTransport` 字段 + `CapabilityDispatchKey` 联合类型 + `DISPATCH_HANDLERS` / `SDK_METHOD_TO_DISPATCH` / `PATH_TO_DISPATCH` 条目
 4. 前两项改完后跑 `go build ./...` 和 `npx tsc --noEmit` 两边都通过，才算完成
+5. 若为文本类 capability，确认 `provider_style` 属于 `TextModelProviderStyle`（`openai-chat`/`openai-completion`/`openai-response`/`anthropic`），否则 `createAiGatewayProvider` 无法路由
 
 ### 6.5 模型级特性标记配置（强制）
 

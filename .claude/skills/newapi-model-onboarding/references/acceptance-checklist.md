@@ -150,7 +150,24 @@ curl -sS --location --request GET 'https://<domain>/v1/models' \
 
 输出应与 `ModelReasoningMap` / `ModelFunctionCallingMap` Option 中配置的模型一致。
 
-## 8.7 最终输出
+## 8.7 Provider Layer 兼容性验收
+
+验证所有文本类 capability 的 `provider_style` 属于 `TextModelProviderStyle`，否则 `createAiGatewayProvider()` 无法路由：
+
+```bash
+curl -sS --location --request GET 'https://<domain>/v1/models' \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Accept: application/json' \
+| jq -r '.data[] as $m
+  | ($m.capabilities // {}) | to_entries[]
+  | select(.key=="chat" or .key=="claude_messages" or .key=="openai_response" or .key=="text_completion")
+  | select(.value.provider_style != "openai-chat" and .value.provider_style != "openai-completion" and .value.provider_style != "openai-response" and .value.provider_style != "anthropic")
+  | [$m.id,.key,.value.provider_style] | @tsv'
+```
+
+输出应为空。若非空，说明该文本 capability 的 `provider_style` 不在 `TextModelProviderStyle` 中，需修正。
+
+## 8.8 最终输出
 
 - 上游配置摘要
 - 上游模型清单
