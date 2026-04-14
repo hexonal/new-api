@@ -124,6 +124,9 @@ const defaultInputs = {
   MonitorAlertDiskEnabled: false,
   MonitorAlertDiskThresholdPercent: '90',
   MonitorAlertCooldownMinutes: '',
+  UserLogsShowGroupForNonAdminEnabled: false,
+  UserLogsShowPricingGroupForNonAdminEnabled: false,
+  PersonalSettingShowUserGroupForNonAdminEnabled: false,
 };
 
 const SystemSetting = () => {
@@ -207,6 +210,9 @@ const SystemSetting = () => {
           case 'MonitorAlertCallErrorEnabled':
           case 'MonitorAlertCallbackErrorEnabled':
           case 'MonitorAlertDiskEnabled':
+          case 'UserLogsShowGroupForNonAdminEnabled':
+          case 'UserLogsShowPricingGroupForNonAdminEnabled':
+          case 'PersonalSettingShowUserGroupForNonAdminEnabled':
           case 'LinuxDOOAuthEnabled':
           case 'discord.enabled':
           case 'oidc.enabled':
@@ -871,6 +877,59 @@ const SystemSetting = () => {
                   <Button onClick={submitServerAddress}>
                     {t('更新服务器地址')}
                   </Button>
+                </Form.Section>
+              </Card>
+
+              <Card>
+                <Form.Section text={t('非管理员展示设置')}>
+                  <Text>
+                    {t(
+                      '控制非管理员在用户使用日志和个人设置中是否展示分组相关信息，管理员始终完整展示。',
+                    )}
+                  </Text>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                    style={{ marginTop: 16 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Checkbox
+                        field='UserLogsShowGroupForNonAdminEnabled'
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange(
+                            'UserLogsShowGroupForNonAdminEnabled',
+                            e,
+                          )
+                        }
+                      >
+                        {t('允许非管理员在用户使用日志中查看分组')}
+                      </Form.Checkbox>
+                      <Form.Checkbox
+                        field='UserLogsShowPricingGroupForNonAdminEnabled'
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange(
+                            'UserLogsShowPricingGroupForNonAdminEnabled',
+                            e,
+                          )
+                        }
+                      >
+                        {t('允许非管理员在用户使用日志中查看定价分组')}
+                      </Form.Checkbox>
+                      <Form.Checkbox
+                        field='PersonalSettingShowUserGroupForNonAdminEnabled'
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange(
+                            'PersonalSettingShowUserGroupForNonAdminEnabled',
+                            e,
+                          )
+                        }
+                      >
+                        {t('允许非管理员在个人设置中查看用户分组')}
+                      </Form.Checkbox>
+                    </Col>
+                  </Row>
                 </Form.Section>
               </Card>
 

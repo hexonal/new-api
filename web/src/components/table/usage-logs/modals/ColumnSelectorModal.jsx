@@ -105,7 +105,9 @@ const ColumnSelectorModal = ({
             (column.key === COLUMN_KEYS.CHANNEL ||
               column.key === COLUMN_KEYS.CHANNEL_ID ||
               column.key === COLUMN_KEYS.USERNAME ||
-              column.key === COLUMN_KEYS.RETRY)
+              column.key === COLUMN_KEYS.RETRY ||
+              column.key === COLUMN_KEYS.GROUP ||
+              column.key === COLUMN_KEYS.PRICING_GROUP)
           ) {
             return null;
           }

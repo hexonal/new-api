@@ -414,6 +414,12 @@ func GetSelf(c *gin.Context) {
 		"permissions":       permissions,                // 新增权限字段
 	}
 
+	if !isAdminRole(userRole) {
+		// pricing_group is an internal pricing field and should never be exposed
+		// to non-admin users through the self endpoint.
+		responseData["pricing_group"] = ""
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

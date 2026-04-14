@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -53,6 +53,7 @@ import {
 } from '../../helpers/dynamicPerCall';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { StatusContext } from '../../context/Status';
 
 const toPositiveNumber = (value) => {
   const parsed = Number(value);
@@ -232,6 +233,7 @@ const buildDeferredTokenFormula = (
 
 export const useLogsData = () => {
   const { t } = useTranslation();
+  const [statusState] = useContext(StatusContext);
 
   // Define column keys for selection
   const COLUMN_KEYS = {
@@ -254,6 +256,7 @@ export const useLogsData = () => {
   };
 
   // Basic state
+  const [rawLogs, setRawLogs] = useState([]);
   const [logs, setLogs] = useState([]);
   const [expandData, setExpandData] = useState({});
   const [showStat, setShowStat] = useState(false);
@@ -266,6 +269,12 @@ export const useLogsData = () => {
 
   // User and admin
   const isAdminUser = isAdmin();
+  const showGroupForNonAdmin =
+    isAdminUser ||
+    statusState?.status?.user_logs_show_group_for_non_admin === true;
+  const showPricingGroupForNonAdmin =
+    isAdminUser ||
+    statusState?.status?.user_logs_show_pricing_group_for_non_admin === true;
   // Role-specific storage key to prevent different roles from overwriting each other
   const STORAGE_KEY = isAdminUser
     ? 'logs-table-columns-admin'
@@ -306,8 +315,10 @@ export const useLogsData = () => {
       [COLUMN_KEYS.CHANNEL_ID]: isAdminUser,
       [COLUMN_KEYS.USERNAME]: isAdminUser,
       [COLUMN_KEYS.TOKEN]: true,
-      [COLUMN_KEYS.GROUP]: true,
-      [COLUMN_KEYS.PRICING_GROUP]: false,
+      [COLUMN_KEYS.GROUP]: isAdminUser ? true : showGroupForNonAdmin,
+      [COLUMN_KEYS.PRICING_GROUP]: isAdminUser
+        ? false
+        : showPricingGroupForNonAdmin,
       [COLUMN_KEYS.TYPE]: true,
       [COLUMN_KEYS.MODEL]: true,
       [COLUMN_KEYS.USE_TIME]: true,
@@ -337,6 +348,8 @@ export const useLogsData = () => {
         merged[COLUMN_KEYS.CHANNEL_ID] = false;
         merged[COLUMN_KEYS.USERNAME] = false;
         merged[COLUMN_KEYS.RETRY] = false;
+        merged[COLUMN_KEYS.GROUP] = showGroupForNonAdmin;
+        merged[COLUMN_KEYS.PRICING_GROUP] = showPricingGroupForNonAdmin;
       }
 
       return merged;
@@ -389,6 +402,13 @@ export const useLogsData = () => {
 
   // Handle column visibility change
   const handleColumnVisibilityChange = (columnKey, checked) => {
+    if (
+      !isAdminUser &&
+      (columnKey === COLUMN_KEYS.GROUP ||
+        columnKey === COLUMN_KEYS.PRICING_GROUP)
+    ) {
+      return;
+    }
     const updatedColumns = { ...visibleColumns, [columnKey]: checked };
     setVisibleColumns(updatedColumns);
   };
@@ -407,6 +427,10 @@ export const useLogsData = () => {
         !isAdminUser
       ) {
         updatedColumns[key] = false;
+      } else if (!isAdminUser && key === COLUMN_KEYS.GROUP) {
+        updatedColumns[key] = showGroupForNonAdmin;
+      } else if (!isAdminUser && key === COLUMN_KEYS.PRICING_GROUP) {
+        updatedColumns[key] = showPricingGroupForNonAdmin;
       } else {
         updatedColumns[key] = checked;
       }
@@ -421,6 +445,31 @@ export const useLogsData = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
     }
   }, [visibleColumns]);
+
+  useEffect(() => {
+    if (isAdminUser) {
+      return;
+    }
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [COLUMN_KEYS.CHANNEL]: false,
+      [COLUMN_KEYS.CHANNEL_ID]: false,
+      [COLUMN_KEYS.USERNAME]: false,
+      [COLUMN_KEYS.RETRY]: false,
+      [COLUMN_KEYS.GROUP]: showGroupForNonAdmin,
+      [COLUMN_KEYS.PRICING_GROUP]: showPricingGroupForNonAdmin,
+    }));
+  }, [
+    isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
+    COLUMN_KEYS.CHANNEL,
+    COLUMN_KEYS.CHANNEL_ID,
+    COLUMN_KEYS.USERNAME,
+    COLUMN_KEYS.RETRY,
+    COLUMN_KEYS.GROUP,
+    COLUMN_KEYS.PRICING_GROUP,
+  ]);
 
   useEffect(() => {
     localStorage.setItem(BILLING_DISPLAY_MODE_STORAGE_KEY, billingDisplayMode);
@@ -572,7 +621,8 @@ export const useLogsData = () => {
   };
 
   // Format logs data
-  const setLogsFormat = (logs) => {
+  const setLogsFormat = (sourceLogs) => {
+    const logs = sourceLogs.map((log) => ({ ...log }));
     const requestConversionDisplayValue = (conversionChain) => {
       const chain = Array.isArray(conversionChain)
         ? conversionChain.filter(Boolean)
@@ -599,10 +649,16 @@ export const useLogsData = () => {
           value: `${logs[i].channel} - ${logs[i].channel_name || '[未知]'}`,
         });
       }
-      if (logs[i].pricing_group) {
+      if (showPricingGroupForNonAdmin && logs[i].pricing_group) {
         expandDataLocal.push({
           key: t('定价分组'),
           value: logs[i].pricing_group,
+        });
+      }
+      if (showGroupForNonAdmin && logs[i].group) {
+        expandDataLocal.push({
+          key: t('分组'),
+          value: logs[i].group,
         });
       }
       if (logs[i].request_id) {
@@ -1484,6 +1540,20 @@ export const useLogsData = () => {
     setLogs(logs);
   };
 
+  useEffect(() => {
+    if (rawLogs.length === 0) {
+      setExpandData({});
+      setLogs([]);
+      return;
+    }
+    setLogsFormat(rawLogs);
+  }, [
+    rawLogs,
+    isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
+  ]);
+
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
     setLoading(true);
@@ -1529,8 +1599,7 @@ export const useLogsData = () => {
       setActivePage(data.page);
       setPageSize(data.page_size);
       setLogCount(data.total);
-
-      setLogsFormat(newPageData);
+      setRawLogs(newPageData);
     } else {
       showError(message);
     }
@@ -1610,6 +1679,8 @@ export const useLogsData = () => {
     logType,
     stat,
     isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
 
     // Form state
     formApi,

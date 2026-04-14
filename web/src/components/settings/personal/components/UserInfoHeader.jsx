@@ -34,7 +34,7 @@ import {
 } from '../../../../helpers';
 import { Coins, BarChart2, Users } from 'lucide-react';
 
-const UserInfoHeader = ({ t, userState }) => {
+const UserInfoHeader = ({ t, userState, showUserGroup }) => {
   const getUsername = () => {
     if (userState.user) {
       return userState.user.username;
@@ -152,16 +152,20 @@ const UserInfoHeader = ({ t, userState }) => {
                   {userState.user?.request_count || 0}
                 </Typography.Text>
               </div>
-              <Divider layout='vertical' />
-              <div className='flex items-center gap-2'>
-                <Users size={16} />
-                <Typography.Text size='small' type='tertiary'>
-                  {t('用户分组')}
-                </Typography.Text>
-                <Typography.Text size='small' type='tertiary' strong>
-                  {userState?.user?.group || t('默认')}
-                </Typography.Text>
-              </div>
+              {showUserGroup ? (
+                <>
+                  <Divider layout='vertical' />
+                  <div className='flex items-center gap-2'>
+                    <Users size={16} />
+                    <Typography.Text size='small' type='tertiary'>
+                      {t('用户分组')}
+                    </Typography.Text>
+                    <Typography.Text size='small' type='tertiary' strong>
+                      {userState?.user?.group || t('默认')}
+                    </Typography.Text>
+                  </div>
+                </>
+              ) : null}
             </div>
           </Card>
         </div>
@@ -198,18 +202,22 @@ const UserInfoHeader = ({ t, userState }) => {
                 {userState.user?.request_count || 0}
               </Typography.Text>
             </div>
-            <Divider margin='8px' />
-            <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-2'>
-                <Users size={16} />
-                <Typography.Text size='small' type='tertiary'>
-                  {t('用户分组')}
-                </Typography.Text>
-              </div>
-              <Typography.Text size='small' type='tertiary' strong>
-                {userState?.user?.group || t('默认')}
-              </Typography.Text>
-            </div>
+            {showUserGroup ? (
+              <>
+                <Divider margin='8px' />
+                <div className='flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <Users size={16} />
+                    <Typography.Text size='small' type='tertiary'>
+                      {t('用户分组')}
+                    </Typography.Text>
+                  </div>
+                  <Typography.Text size='small' type='tertiary' strong>
+                    {userState?.user?.group || t('默认')}
+                  </Typography.Text>
+                </div>
+              </>
+            ) : null}
           </div>
         </Card>
       </div>

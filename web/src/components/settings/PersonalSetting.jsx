@@ -168,6 +168,10 @@ const PersonalSetting = () => {
     }
   }, [userState?.user?.setting]);
 
+  const showUserGroupInPersonalSetting =
+    (userState?.user?.role || 0) >= 10 ||
+    status?.personal_setting_show_user_group_for_non_admin === true;
+
   const handleInputChange = (name, value) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
   };
@@ -452,7 +456,11 @@ const PersonalSetting = () => {
       <div className='flex justify-center'>
         <div className='w-full max-w-7xl mx-auto px-2'>
           {/* 顶部用户信息区域 */}
-          <UserInfoHeader t={t} userState={userState} />
+          <UserInfoHeader
+            t={t}
+            userState={userState}
+            showUserGroup={showUserGroupInPersonalSetting}
+          />
 
           {/* 签到日历 - 仅在启用时显示 */}
           {status?.checkin_enabled && (
