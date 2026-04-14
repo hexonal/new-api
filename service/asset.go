@@ -13,16 +13,26 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/asset_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
+	"github.com/shopspring/decimal"
 )
 
 const defaultAssetModel = "ima-pro-upload"
 
-func buildAssetBillingLogOther(quota int, modelPrice float64, requestMeta RequestLogMetadata) map[string]interface{} {
+type assetUploadBilling struct {
+	Quota            int
+	ModelPrice       float64
+	GroupRatio       float64
+	GroupRatioSource string
+}
+
+func buildAssetBillingLogOther(quota int, modelPrice float64, groupRatio float64, groupRatioSource string, requestMeta RequestLogMetadata) map[string]interface{} {
 	other := map[string]interface{}{
-		"model_price":   modelPrice,
-		"group_ratio":   1.0,
-		"actual_quota":  quota,
-		"billing_stage": "asset_upload",
+		"model_price":        modelPrice,
+		"group_ratio":        groupRatio,
+		"actual_quota":       quota,
+		"billing_stage":      "asset_upload",
+		"group_ratio_source": groupRatioSource,
 	}
 	appendRequestLogMetadata(other, requestMeta)
 	return other
@@ -146,7 +156,7 @@ func getAssetChannelByModel(assetModel string, modelExplicit bool) (*model.Chann
 	return nil, fmt.Errorf("no usable asset channel (all channels misconfigured)")
 }
 
-func getAssetUploadQuota(assetModel string) int {
+func getAssetUploadModelPrice(assetModel string) float64 {
 	modelPrice, ok := ratio_setting.GetModelPrice(assetModel, false)
 	if (!ok || modelPrice <= 0) && strings.TrimSpace(assetModel) != "" {
 		// Fallback to ModelRatio configuration for this special per-call model.
@@ -158,11 +168,47 @@ func getAssetUploadQuota(assetModel string) int {
 	if !ok || modelPrice <= 0 {
 		modelPrice = 0.005
 	}
-	quota := int(modelPrice * common.QuotaPerUnit)
-	if quota <= 0 {
-		quota = 2500
+	return modelPrice
+}
+
+func resolveAssetUploadGroupRatio(userGroup string, pricingGroup string, assetModel string) (float64, string) {
+	userGroup = strings.TrimSpace(userGroup)
+	pricingGroup = strings.TrimSpace(pricingGroup)
+	if pricingGroup == "" {
+		pricingGroup = userGroup
 	}
-	return quota
+	if pricingGroup == "" {
+		pricingGroup = "default"
+	}
+
+	if ratio, ok := ratio_setting.GetGroupModelRatio(pricingGroup, assetModel); ok {
+		return ratio, string(types.GroupRatioSourceModel)
+	}
+	if ratio, ok := ratio_setting.GetGroupGroupRatio(userGroup, pricingGroup); ok {
+		return ratio, string(types.GroupRatioSourceSpecial)
+	}
+	return ratio_setting.GetGroupRatio(pricingGroup), string(types.GroupRatioSourceDefault)
+}
+
+func resolveAssetUploadBilling(userGroup string, pricingGroup string, assetModel string) assetUploadBilling {
+	modelPrice := getAssetUploadModelPrice(assetModel)
+	groupRatio, groupRatioSource := resolveAssetUploadGroupRatio(userGroup, pricingGroup, assetModel)
+
+	baseQuota := decimal.NewFromFloat(modelPrice).Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+	if baseQuota.LessThanOrEqual(decimal.Zero) {
+		baseQuota = decimal.NewFromInt(2500)
+	}
+	finalQuota := baseQuota.Mul(decimal.NewFromFloat(groupRatio)).Round(0).IntPart()
+	if finalQuota < 0 {
+		finalQuota = 0
+	}
+
+	return assetUploadBilling{
+		Quota:            int(finalQuota),
+		ModelPrice:       modelPrice,
+		GroupRatio:       groupRatio,
+		GroupRatioSource: groupRatioSource,
+	}
 }
 
 func pickAssetBillingToken(userID int, preferredTokenID int, quota int) (*model.Token, error) {
@@ -424,7 +470,9 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, userGro
 	if !channelHasModel(channel, assetModel) {
 		assetModel = defaultAssetModel
 	}
-	quota := getAssetUploadQuota(assetModel)
+	billingGroup, pricingGroup := resolveAssetBillingGroups(nil, userGroup)
+	billing := resolveAssetUploadBilling(billingGroup, pricingGroup, assetModel)
+	quota := billing.Quota
 	token, err := pickAssetBillingToken(userID, tokenID, quota)
 	if err != nil {
 		return nil, err
@@ -495,7 +543,6 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, userGro
 	if billingOk {
 		model.UpdateUserUsedQuotaAndRequestCount(userID, quota)
 		model.UpdateChannelUsedQuota(channel.Id, quota)
-		modelPrice := float64(quota) / float64(common.QuotaPerUnit)
 		billingGroup, pricingGroup := resolveAssetBillingGroups(token, userGroup)
 		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 			UserId:       userID,
@@ -507,7 +554,7 @@ func HandleCreateAsset(ctx context.Context, userID int, userName string, userGro
 			TokenId:      billedTokenID,
 			Group:        billingGroup,
 			PricingGroup: pricingGroup,
-			Other:        buildAssetBillingLogOther(quota, modelPrice, requestMeta),
+			Other:        buildAssetBillingLogOther(quota, billing.ModelPrice, billing.GroupRatio, billing.GroupRatioSource, requestMeta),
 		})
 	} else {
 		common.SysLog(fmt.Sprintf("asset billing warning: upstream asset created without successful billing, user_id=%d channel_id=%d upstream_asset_id=%s", userID, channel.Id, upstreamAssetID))
