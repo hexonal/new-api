@@ -32,6 +32,7 @@ type Pricing struct {
 	AudioCompletionRatio   *float64                `json:"audio_completion_ratio,omitempty"`
 	EnableGroup            []string                `json:"enable_groups"`
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
+	SKUPrices              []PricingSKU            `json:"sku_prices,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -273,6 +274,8 @@ func updatePricing() {
 		}
 	}
 
+	hailuoPriceMap := ratio_setting.GetModelPriceMap()
+
 	pricingMap = make([]Pricing, 0)
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
@@ -339,6 +342,9 @@ func updatePricing() {
 		if ratio_setting.ContainsAudioCompletionRatio(model) {
 			audioCompletionRatio := ratio_setting.GetAudioCompletionRatio(model)
 			pricing.AudioCompletionRatio = &audioCompletionRatio
+		}
+		if skuPrices := GetModelSKUPrices(model, hailuoPriceMap); len(skuPrices) > 0 {
+			pricing.SKUPrices = skuPrices
 		}
 		pricingMap = append(pricingMap, pricing)
 	}

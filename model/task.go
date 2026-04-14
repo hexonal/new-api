@@ -101,6 +101,7 @@ func (m Properties) Value() (driver.Value, error) {
 type TaskPrivateData struct {
 	Key            string `json:"key,omitempty"`
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
+	ConsumedModel  string `json:"consumed_model,omitempty"`   // 实际请求上游时消耗的模型
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// CallbackURL is an optional client-provided webhook endpoint for task terminal updates.
 	// It is validated at submit-time and dispatched asynchronously by callback dispatcher.
@@ -114,16 +115,18 @@ type TaskPrivateData struct {
 
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
-	ModelPrice       float64            `json:"model_price,omitempty"`        // 模型单价
-	GroupRatio       float64            `json:"group_ratio,omitempty"`        // 分组倍率
-	GroupRatioSource string             `json:"group_ratio_source,omitempty"` // 分组倍率来源：group_default/group_special/group_model
-	ModelRatio       float64            `json:"model_ratio,omitempty"`        // 模型倍率
-	CompletionRatio  float64            `json:"completion_ratio,omitempty"`   // 补全倍率
-	OtherRatios      map[string]float64 `json:"other_ratios,omitempty"`       // 附加倍率（时长、分辨率等）
-	OriginModelName  string             `json:"origin_model_name,omitempty"`  // 模型名称，必须为OriginModelName
-	PerCallBilling   bool               `json:"per_call_billing,omitempty"`   // 按次计费：跳过轮询阶段的差额结算
-	DeferredSettle   bool               `json:"deferred_settle,omitempty"`    // 延迟结算：提交阶段不扣费，终态成功时再扣费
-	EstimatedQuota   int                `json:"estimated_quota,omitempty"`    // 提交阶段估算额度，终态无 usage 时作为兜底
+	ModelPrice        float64            `json:"model_price,omitempty"`        // 模型单价
+	GroupRatio        float64            `json:"group_ratio,omitempty"`        // 分组倍率
+	GroupRatioSource  string             `json:"group_ratio_source,omitempty"` // 分组倍率来源：group_default/group_special/group_model
+	ModelRatio        float64            `json:"model_ratio,omitempty"`        // 模型倍率
+	CompletionRatio   float64            `json:"completion_ratio,omitempty"`   // 补全倍率
+	OtherRatios       map[string]float64 `json:"other_ratios,omitempty"`       // 附加倍率（时长、分辨率等）
+	RequestPath       string             `json:"request_path,omitempty"`       // 请求路径快照（用于终态日志展示）
+	RequestConversion []string           `json:"request_conversion,omitempty"` // 请求转换链快照（用于终态日志展示）
+	OriginModelName   string             `json:"origin_model_name,omitempty"`  // 模型名称，必须为OriginModelName
+	PerCallBilling    bool               `json:"per_call_billing,omitempty"`   // 按次计费：跳过轮询阶段的差额结算
+	DeferredSettle    bool               `json:"deferred_settle,omitempty"`    // 延迟结算：提交阶段不扣费，终态成功时再扣费
+	EstimatedQuota    int                `json:"estimated_quota,omitempty"`    // 提交阶段估算额度，终态无 usage 时作为兜底
 	// TerminalChargeState tracks deferred terminal-charge lifecycle.
 	// pending -> applied/skipped
 	TerminalChargeState  string `json:"terminal_charge_state,omitempty"`

@@ -204,6 +204,9 @@ func InitOptionMap() {
 	common.OptionMap["MonitorAlertDiskThresholdPercent"] = "90"
 	common.OptionMap["MonitorAlertCooldownMinutes"] = "60"
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
+	common.OptionMap["UserLogsShowGroupForNonAdminEnabled"] = "false"
+	common.OptionMap["UserLogsShowPricingGroupForNonAdminEnabled"] = "false"
+	common.OptionMap["PersonalSettingShowUserGroupForNonAdminEnabled"] = "false"
 	common.OptionMap["ModelReasoningMap"] = "{}"
 
 	// 自动添加所有注册的模型配置

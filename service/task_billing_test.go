@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -329,6 +330,95 @@ func TestLogTaskConsumption_UsesOriginalRequestPathWhenPresent(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, other)
 	assert.Equal(t, "/kling/v1/videos/text2video", other["request_path"])
+}
+
+func TestLogTaskConsumption_StoresBillingSKUWhenConsumedModelPresent(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/videos")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "MiniMax-Hailuo-2.3-Fast",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:   1,
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: true,
+			ConsumedModel:  "MiniMax-Hailuo-2.3-Fast-6s-1080p",
+		},
+		PriceData: types.PriceData{
+			ModelPrice:     0.3397058824,
+			Quota:          169853,
+			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1.0, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "MiniMax-Hailuo-2.3-Fast-6s-1080p", other["billing_sku"])
+}
+
+func TestLogTaskConsumption_UsesUserGroupAsPricingGroup(t *testing.T) {
+	truncate(t)
+
+	user := &model.User{
+		Id:           1,
+		Username:     "test_user",
+		Quota:        1000000,
+		Status:       common.UserStatusEnabled,
+		Group:        "shizeing3",
+		PricingGroup: "shizeying2",
+	}
+	require.NoError(t, model.DB.Create(user).Error)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannel(t, 1)
+
+	ctx := buildTaskBillingTestContext("/v1/chat/completions")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "gpt-5.1",
+		UsingGroup:       "shizeing3",
+		UserGroup:        "shizeing3",
+		UserPricingGroup: "shizeying2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId: 1,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action: "chat",
+		},
+		PriceData: types.PriceData{
+			ModelRatio:      0.625,
+			CompletionRatio: 8,
+			Quota:           121,
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 1.2, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, "shizeing3", log.PricingGroup)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, float64(1.2), other["group_ratio"])
+	assert.Equal(t, "group_model", other["group_ratio_source"])
 }
 
 func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T) {
@@ -1315,6 +1405,40 @@ func TestSettle_DeferredSettle_UsesEstimatedFallback(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeConsume, log.Type)
 	assert.Contains(t, log.Content, "estimated_quota_fallback")
+}
+
+func TestSettle_DeferredSettle_TerminalLogKeepsRequestMetadata(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 35, 35, 35
+	const initQuota, tokenRemain = 12000, 12000
+	const actualQuota = 3300
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-deferred-request-meta", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.DeferredSettle = true
+	task.PrivateData.BillingContext.EstimatedQuota = 2000
+	task.PrivateData.BillingContext.TerminalChargeState = TaskTerminalChargeStatePending
+	task.PrivateData.BillingContext.RequestPath = "/v1/video/generations"
+	task.PrivateData.BillingContext.RequestConversion = []string{"OpenAI Compatible", "Google Gemini"}
+
+	adaptor := &mockAdaptor{adjustReturn: actualQuota}
+	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "/v1/video/generations", other["request_path"])
+	assert.Equal(t, []interface{}{"OpenAI Compatible", "Google Gemini"}, other["request_conversion"])
 }
 
 func withTempRatios(t *testing.T, model string, modelRatio float64, completionRatio float64) {

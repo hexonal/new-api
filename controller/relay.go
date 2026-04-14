@@ -615,6 +615,7 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		task.PrivateData.ConsumedModel = result.ConsumedModel
 		// Submit to upstream already succeeded, so persisted state should not stay NOT_START.
 		// Keep terminal transition handled by polling/callback loop as before.
 		task.Status = model.TaskStatusSubmitted
@@ -629,17 +630,20 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.BillingSource = relayInfo.BillingSource
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
+		requestMeta := service.BuildRequestLogMetadata(c, relayInfo)
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
-			ModelPrice:       relayInfo.PriceData.ModelPrice,
-			GroupRatio:       relayInfo.PriceData.GroupRatioInfo.GroupRatio,
-			GroupRatioSource: string(relayInfo.PriceData.GroupRatioInfo.GroupRatioSource),
-			ModelRatio:       relayInfo.PriceData.ModelRatio,
-			OtherRatios:      relayInfo.PriceData.OtherRatios,
-			OriginModelName:  relayInfo.OriginModelName,
-			PerCallBilling:   result.PerCallBilling,
-			DeferredSettle:   result.DeferredSettle,
-			EstimatedQuota:   result.EstimatedQuota,
-			CompletionRatio:  relayInfo.PriceData.CompletionRatio,
+			ModelPrice:        relayInfo.PriceData.ModelPrice,
+			GroupRatio:        relayInfo.PriceData.GroupRatioInfo.GroupRatio,
+			GroupRatioSource:  string(relayInfo.PriceData.GroupRatioInfo.GroupRatioSource),
+			ModelRatio:        relayInfo.PriceData.ModelRatio,
+			OtherRatios:       relayInfo.PriceData.OtherRatios,
+			RequestPath:       requestMeta.RequestPath,
+			RequestConversion: requestMeta.RequestConversion,
+			OriginModelName:   relayInfo.OriginModelName,
+			PerCallBilling:    result.PerCallBilling,
+			DeferredSettle:    result.DeferredSettle,
+			EstimatedQuota:    result.EstimatedQuota,
+			CompletionRatio:   relayInfo.PriceData.CompletionRatio,
 		}
 		if result.DeferredSettle {
 			task.PrivateData.BillingContext.TerminalChargeState = "pending"

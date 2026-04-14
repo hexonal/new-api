@@ -350,6 +350,13 @@ func GetModelPriceMap() map[string]float64 {
 	return modelPriceMap.ReadAll()
 }
 
+// AnyModelPrice reports whether any key in modelPriceMap satisfies the
+// given predicate. The read lock is held for the duration — no map copy is made.
+// The predicate must not call any ratio_setting or RWMap methods (deadlock risk).
+func AnyModelPrice(predicate func(string) bool) bool {
+	return modelPriceMap.AnyKey(predicate)
+}
+
 func ModelPrice2JSONString() string {
 	return modelPriceMap.MarshalJSONString()
 }

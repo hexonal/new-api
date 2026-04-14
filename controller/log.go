@@ -37,6 +37,7 @@ func GetAllLogs(c *gin.Context) {
 func GetUserLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	userId := c.GetInt("id")
+	userRole := c.GetInt("role")
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -44,12 +45,19 @@ func GetUserLogs(c *gin.Context) {
 	modelName := strings.TrimSpace(c.Query("model_name"))
 	group := strings.TrimSpace(c.Query("group"))
 	pricingGroup := strings.TrimSpace(c.Query("pricing_group"))
+	if !isAdminRole(userRole) && !userLogsShowGroupForNonAdmin() {
+		group = ""
+	}
+	if !isAdminRole(userRole) && !userLogsShowPricingGroupForNonAdmin() {
+		pricingGroup = ""
+	}
 	requestId := strings.TrimSpace(c.Query("request_id"))
 	logs, total, err := model.GetUserLogs(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, pricingGroup, requestId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	sanitizeSelfLogsForVisibility(userRole, logs)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
@@ -126,6 +134,7 @@ func GetLogsStat(c *gin.Context) {
 
 func GetLogsSelfStat(c *gin.Context) {
 	username := c.GetString("username")
+	userRole := c.GetInt("role")
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -134,6 +143,12 @@ func GetLogsSelfStat(c *gin.Context) {
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
 	pricingGroup := c.Query("pricing_group")
+	if !isAdminRole(userRole) && !userLogsShowGroupForNonAdmin() {
+		group = ""
+	}
+	if !isAdminRole(userRole) && !userLogsShowPricingGroupForNonAdmin() {
+		pricingGroup = ""
+	}
 	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, pricingGroup)
 	if err != nil {
 		common.ApiError(c, err)

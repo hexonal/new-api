@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -23,10 +24,12 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 type TaskSubmitResult struct {
 	UpstreamTaskID string
+	ConsumedModel  string
 	TaskData       []byte
 	Platform       constant.TaskPlatform
 	Quota          int
@@ -263,26 +266,56 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		info.PublicTaskID = model.GenerateTaskID()
 	}
 
-	// 4. 价格计算：基础模型价格
+	// 4. 构建请求体并提取 consumed_model。
+	// Hailuo 的严谨计费依赖最终 SKU（duration + resolution），
+	// 必须在按次定价前拿到。
+	requestBody, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
+	}
+	bodyBytes, readErr := io.ReadAll(requestBody)
+	if readErr != nil {
+		return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
+	}
+
+	// 4.5 应用渠道参数覆盖（与同步 relay 路径对齐）
+	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
+	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
+	if len(info.ParamOverride) > 0 {
+		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
+		}
+	}
+	requestBody = bytes.NewReader(bodyBytes)
+	consumedModel := extractConsumedModelFromTaskRequest(bodyBytes, info)
+	if taskErr := validateHailuoPricingRequest(bodyBytes, info); taskErr != nil {
+		return nil, taskErr
+	}
+	if info.TaskRelayInfo != nil {
+		info.TaskRelayInfo.ConsumedModel = consumedModel
+	}
+
+	// 5. 价格计算：基础模型价格
 	info.OriginModelName = modelName
 	perCallBilling := shouldUsePerCallBillingForTaskModel(modelName)
 	deferredSettle := shouldUseDeferredSettleForTaskModel(modelName)
 	var priceData types.PriceData
-	var err error
+	var priceErr error
 	// Pricing mode selection:
 	// - per-call models: fixed price via ModelPriceHelperPerCall
 	// - all others: ratio-based via ModelPriceHelperTokenOnly
 	// This keeps runtime billing aligned with model marketplace ratio settings.
 	if perCallBilling {
-		priceData, err = helper.ModelPriceHelperPerCall(c, info)
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		priceData, priceErr = helper.ModelPriceHelperPerCall(c, info)
+		if priceErr != nil {
+			return nil, service.TaskErrorWrapper(priceErr, "model_price_error", http.StatusBadRequest)
 		}
 	} else {
 		promptTokens := estimateTaskPromptTokens(c, info, modelName)
-		priceData, err = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		priceData, priceErr = helper.ModelPriceHelperTokenOnly(c, info, promptTokens, &types.TokenCountMeta{})
+		if priceErr != nil {
+			return nil, service.TaskErrorWrapper(priceErr, "model_price_error", http.StatusBadRequest)
 		}
 	}
 	if info.TaskRelayInfo != nil {
@@ -291,7 +324,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	info.PriceData = priceData
 
-	// 5. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
+	// 6. 计费估算：让适配器根据用户请求提供 OtherRatios（时长、分辨率等）
 	//    必须在 ModelPriceHelperPerCall 之后调用（它会重建 PriceData）。
 	//    ResolveOriginTask 可能已在 remix 路径中预设了 OtherRatios，此处合并。
 	if estimatedRatios := adaptor.EstimateBilling(c, info); len(estimatedRatios) > 0 {
@@ -300,7 +333,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
-	// 6. 将 OtherRatios 应用到基础额度
+	// 7. 将 OtherRatios 应用到基础额度
 	// Per-call 模式默认跳过 OtherRatios（固定价格不应被乘数修改）。
 	// 需要 per-call 也应用乘数的 adaptor（如 Kling 按时长/品质调价）
 	// 须实现 PerCallRatiosEnabled() bool 接口显式 opt-in。
@@ -311,16 +344,24 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 	if applyRatios && len(info.PriceData.OtherRatios) > 0 {
-		combined := 1.0
-		for _, ra := range info.PriceData.OtherRatios {
-			combined *= ra
-		}
-		if combined != 1.0 {
-			info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
+		if perCallBilling {
+			info.PriceData.Quota = calculatePerCallQuotaWithRatios(
+				info.PriceData.ModelPrice,
+				info.PriceData.GroupRatioInfo.GroupRatio,
+				info.PriceData.OtherRatios,
+			)
+		} else {
+			combined := 1.0
+			for _, ra := range info.PriceData.OtherRatios {
+				combined *= ra
+			}
+			if combined != 1.0 {
+				info.PriceData.Quota = int(float64(info.PriceData.Quota) * combined)
+			}
 		}
 	}
 
-	// 7. 提交阶段计费处理
+	// 8. 提交阶段计费处理
 	// - strict_preconsume: 维持原逻辑（预扣费）
 	// - deferred_settle: 仅做额度校验，不预扣
 	if !info.PriceData.FreeModel {
@@ -344,27 +385,6 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 				return nil, service.TaskErrorFromAPIError(apiErr)
 			}
 		}
-	}
-
-	// 8. 构建请求体
-	requestBody, err := adaptor.BuildRequestBody(c, info)
-	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
-	}
-
-	// 8.5 应用渠道参数覆盖（与同步 relay 路径对齐）
-	// 使用 WithRelayInfo 版本：支持将 pass_headers/set_header 等对 header_override
-	// 的动态修改同步回 RelayInfo，在 task 请求发送阶段生效。
-	if len(info.ParamOverride) > 0 {
-		bodyBytes, readErr := io.ReadAll(requestBody)
-		if readErr != nil {
-			return nil, service.TaskErrorWrapper(readErr, "read_request_body_failed", http.StatusInternalServerError)
-		}
-		bodyBytes, err = relaycommon.ApplyParamOverrideWithRelayInfo(bodyBytes, info)
-		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "apply_param_override_failed", http.StatusInternalServerError)
-		}
-		requestBody = bytes.NewReader(bodyBytes)
 	}
 
 	// 9. 发送请求
@@ -402,6 +422,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	return &TaskSubmitResult{
 		UpstreamTaskID: upstreamTaskID,
+		ConsumedModel:  consumedModel,
 		TaskData:       taskData,
 		Platform:       platform,
 		Quota:          finalQuota,
@@ -411,9 +432,152 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}, nil
 }
 
+func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInfo) string {
+	if info == nil || info.ChannelType != constant.ChannelTypeMiniMax {
+		return ""
+	}
+	if len(body) > 0 {
+		var req map[string]any
+		if err := common.Unmarshal(body, &req); err == nil {
+			if modelName, ok := req["model"].(string); ok {
+				modelName = strings.TrimSpace(modelName)
+				if modelName != "" {
+					if strings.Contains(strings.ToLower(modelName), "hailuo") {
+						durationSuffix := ""
+						if duration, ok := req["duration"]; ok {
+							switch v := duration.(type) {
+							case float64:
+								if v > 0 {
+									durationSuffix = fmt.Sprintf("-%ds", int(v))
+								}
+							case int:
+								if v > 0 {
+									durationSuffix = fmt.Sprintf("-%ds", v)
+								}
+							}
+						}
+						resolutionSuffix := ""
+						if resolution := resolveHailuoResolutionFromMap(req); resolution != "" {
+							resolutionSuffix = "-" + strings.ToLower(resolution)
+						}
+						return modelName + durationSuffix + resolutionSuffix
+					}
+					return modelName
+				}
+			}
+		}
+	}
+	if modelName := strings.TrimSpace(info.UpstreamModelName); modelName != "" {
+		return modelName
+	}
+	return strings.TrimSpace(info.OriginModelName)
+}
+
+// validateHailuoPricingRequest validates that the requested duration/resolution
+// combination is priced when SKU-level pricing is active for the model.
+// Fully DB-driven: any SKU key present in ModelPrice is accepted; no hardcoded
+// duration/resolution allowlists are applied.
+// Only applies to MiniMax channels — other channel types that happen to serve
+// Hailuo-named models do not use MiniMax's SKU pricing system.
+func validateHailuoPricingRequest(body []byte, info *relaycommon.RelayInfo) *dto.TaskError {
+	if info == nil || info.ChannelType != constant.ChannelTypeMiniMax || len(body) == 0 {
+		return nil
+	}
+
+	var req struct {
+		Model      string `json:"model"`
+		Duration   int    `json:"duration"`
+		Size       string `json:"size"`
+		Resolution string `json:"resolution"`
+	}
+	if err := common.Unmarshal(body, &req); err != nil {
+		return nil
+	}
+
+	modelName := strings.TrimSpace(req.Model)
+	if modelName == "" || !strings.Contains(strings.ToLower(modelName), "hailuo") {
+		return nil
+	}
+
+	// No SKU pricing configured: only require a base model price.
+	if !model.HasHailuoSKUPricingConfigured(modelName) {
+		if _, baseOK := ratio_setting.GetModelPrice(modelName, false); !baseOK {
+			return service.TaskErrorWrapperLocal(
+				fmt.Errorf("hailuo api error: pricing not configured for model %s", modelName),
+				"invalid_request",
+				http.StatusBadRequest,
+			)
+		}
+		return nil
+	}
+
+	// SKU pricing is active: resolve effective duration and resolution (apply
+	// model defaults when the request omits them, matching adaptor behavior).
+	config := hailuo.GetModelConfig(modelName)
+	duration := req.Duration
+	if duration <= 0 {
+		if len(config.SupportedDurations) > 0 {
+			duration = config.SupportedDurations[0]
+		} else {
+			duration = hailuo.DefaultDuration
+		}
+	}
+	resolution := hailuo.NormalizeResolution(req.Size)
+	if resolution == "" {
+		resolution = hailuo.NormalizeResolution(req.Resolution)
+	}
+	if resolution == "" {
+		resolution = hailuo.NormalizeResolution(config.DefaultResolution)
+	}
+
+	// Canonical SKU key: lowercase resolution matches the DB key format.
+	skuKey := fmt.Sprintf("%s-%ds-%s", modelName, duration, strings.ToLower(resolution))
+
+	if _, ok := ratio_setting.GetModelPrice(skuKey, false); ok {
+		return nil
+	}
+
+	return service.TaskErrorWrapperLocal(
+		fmt.Errorf(
+			"hailuo api error: the requested combination is not priced: %s (duration %ds, resolution %s). Configure this SKU in model pricing settings.",
+			skuKey,
+			duration,
+			resolution,
+		),
+		"invalid_request",
+		http.StatusBadRequest,
+	)
+}
+
+func resolveHailuoResolutionFromMap(req map[string]any) string {
+	if req == nil {
+		return ""
+	}
+	// OpenAI-compatible external API uses `size` as the public parameter.
+	if size, ok := req["size"].(string); ok {
+		if normalized := hailuo.NormalizeResolution(size); normalized != "" {
+			return normalized
+		}
+	}
+	// Backward-compatible fallback for historical/internal payloads.
+	if resolution, ok := req["resolution"].(string); ok {
+		if normalized := hailuo.NormalizeResolution(resolution); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
+}
+
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
 // 公式: baseQuota × ∏(ratio) — 其中 baseQuota 是不含 OtherRatios 的基础额度。
 func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) int {
+	if info != nil && info.PriceData.UsePrice && info.PriceData.ModelPrice > 0 {
+		return calculatePerCallQuotaWithRatios(
+			info.PriceData.ModelPrice,
+			info.PriceData.GroupRatioInfo.GroupRatio,
+			ratios,
+		)
+	}
 	// 从 PriceData 获取不含 OtherRatios 的基础价格
 	baseQuota := info.PriceData.Quota
 	// 先除掉原有的 OtherRatios 恢复基础额度
@@ -430,6 +594,31 @@ func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float6
 		}
 	}
 	return int(result)
+}
+
+func calculatePerCallQuotaWithRatios(modelPrice, groupRatio float64, ratios map[string]float64) int {
+	if modelPrice <= 0 {
+		return 0
+	}
+	if groupRatio == 0 {
+		return 0
+	}
+
+	total := decimal.NewFromFloat(modelPrice).
+		Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+
+	if groupRatio > 0 {
+		total = total.Mul(decimal.NewFromFloat(groupRatio))
+	}
+
+	for _, ratio := range ratios {
+		if ratio <= 0 || ratio == 1 {
+			continue
+		}
+		total = total.Mul(decimal.NewFromFloat(ratio))
+	}
+
+	return int(total.Round(0).IntPart())
 }
 
 var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp *dto.TaskError){
@@ -588,11 +777,11 @@ func buildImageFetchResponse(task *model.Task) ([]byte, error) {
 		}
 	}
 	out := map[string]any{
-		"task_id":  task.TaskID,
-		"status":   mapTaskStatusToSimple(task.Status),
-		"format":   detectImageFormat(task.GetResultURL()),
-		"url":      task.GetResultURL(),
-		"error":    errPayload,
+		"task_id": task.TaskID,
+		"status":  mapTaskStatusToSimple(task.Status),
+		"format":  detectImageFormat(task.GetResultURL()),
+		"url":     task.GetResultURL(),
+		"error":   errPayload,
 		"usage": map[string]any{
 			"input_tokens":  promptTokens,
 			"output_tokens": completionTokens,
@@ -807,26 +996,27 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 	return &dto.TaskDto{
-		ID:          task.ID,
-		CreatedAt:   task.CreatedAt,
-		UpdatedAt:   task.UpdatedAt,
-		TaskID:      task.TaskID,
-		Platform:    string(task.Platform),
-		UserId:      task.UserId,
-		Group:       task.Group,
-		ChannelId:   task.ChannelId,
-		ChannelName: task.ChannelName,
-		Quota:       task.Quota,
-		Action:      task.Action,
-		Status:      string(task.Status),
-		FailReason:  task.FailReason,
-		ResultURL:   task.GetResultURL(),
-		SubmitTime:  task.SubmitTime,
-		StartTime:   task.StartTime,
-		FinishTime:  task.FinishTime,
-		Progress:    task.Progress,
-		Properties:  task.Properties,
-		Username:    task.Username,
-		Data:        task.Data,
+		ID:            task.ID,
+		CreatedAt:     task.CreatedAt,
+		UpdatedAt:     task.UpdatedAt,
+		TaskID:        task.TaskID,
+		Platform:      string(task.Platform),
+		UserId:        task.UserId,
+		Group:         task.Group,
+		ChannelId:     task.ChannelId,
+		ChannelName:   task.ChannelName,
+		Quota:         task.Quota,
+		Action:        task.Action,
+		Status:        string(task.Status),
+		FailReason:    task.FailReason,
+		ResultURL:     task.GetResultURL(),
+		ConsumedModel: task.PrivateData.ConsumedModel,
+		SubmitTime:    task.SubmitTime,
+		StartTime:     task.StartTime,
+		FinishTime:    task.FinishTime,
+		Progress:      task.Progress,
+		Properties:    task.Properties,
+		Username:      task.Username,
+		Data:          task.Data,
 	}
 }

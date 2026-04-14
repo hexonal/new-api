@@ -81,7 +81,16 @@ func CreateAsset(c *gin.Context) {
 	if req.BillingTokenID > 0 {
 		preferredTokenID = req.BillingTokenID
 	}
-	data, err := service.HandleCreateAsset(c.Request.Context(), c.GetInt("id"), c.GetString("username"), getAssetUsingGroup(c), preferredTokenID, c.GetString("token_name"), req)
+	data, err := service.HandleCreateAsset(
+		c.Request.Context(),
+		c.GetInt("id"),
+		c.GetString("username"),
+		getAssetUsingGroup(c),
+		preferredTokenID,
+		c.GetString("token_name"),
+		req,
+		service.BuildRequestLogMetadata(c, nil),
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return

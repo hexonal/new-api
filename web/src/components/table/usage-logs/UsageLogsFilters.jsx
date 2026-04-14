@@ -32,6 +32,8 @@ const LogsFilters = ({
   setLogType,
   loading,
   isAdminUser,
+  showGroupForNonAdmin,
+  showPricingGroupForNonAdmin,
   t,
 }) => {
   return (
@@ -84,23 +86,27 @@ const LogsFilters = ({
             size='small'
           />
 
-          <Form.Input
-            field='group'
-            prefix={<IconSearch />}
-            placeholder={t('分组')}
-            showClear
-            pure
-            size='small'
-          />
+          {(isAdminUser || showGroupForNonAdmin) && (
+            <Form.Input
+              field='group'
+              prefix={<IconSearch />}
+              placeholder={t('分组')}
+              showClear
+              pure
+              size='small'
+            />
+          )}
 
-          <Form.Input
-            field='pricing_group'
-            prefix={<IconSearch />}
-            placeholder={t('定价分组')}
-            showClear
-            pure
-            size='small'
-          />
+          {(isAdminUser || showPricingGroupForNonAdmin) && (
+            <Form.Input
+              field='pricing_group'
+              prefix={<IconSearch />}
+              placeholder={t('定价分组')}
+              showClear
+              pure
+              size='small'
+            />
+          )}
 
           <Form.Input
             field='request_id'
