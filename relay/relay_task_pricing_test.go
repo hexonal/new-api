@@ -155,6 +155,21 @@ func TestExtractConsumedModelFromTaskRequest_HailuoIncludesDurationAndResolution
 	}
 }
 
+func TestExtractConsumedModelFromTaskRequest_HailuoUsesSizeAsResolution(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+	body := []byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"size":"1080p"}`)
+
+	got := extractConsumedModelFromTaskRequest(body, info)
+
+	if got != "MiniMax-Hailuo-2.3-Fast-6s-1080p" {
+		t.Fatalf("consumed model = %q, want %q", got, "MiniMax-Hailuo-2.3-Fast-6s-1080p")
+	}
+}
+
 func TestExtractConsumedModelFromTaskRequest_NonHailuoKeepsModelName(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{
@@ -278,6 +293,30 @@ func TestValidateHailuoPricingRequestRejectsWhenNoPricingConfigured(t *testing.T
 	}
 	if got := taskErr.Message; got == "" || !containsAll(got, []string{"MiniMax-Hailuo-2.3-Fast", "not configured"}) {
 		t.Fatalf("unexpected message: %q", got)
+	}
+}
+
+func TestValidateHailuoPricingRequestUsesSizeField(t *testing.T) {
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		if err := ratio_setting.UpdateModelPriceByJSONString(originalModelPrice); err != nil {
+			t.Fatalf("restore model price map failed: %v", err)
+		}
+	})
+	if err := ratio_setting.UpdateModelPriceByJSONString(`{"MiniMax-Hailuo-2.3-Fast-6s-1080p":0.382353}`); err != nil {
+		t.Fatalf("update model price map failed: %v", err)
+	}
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeMiniMax,
+		},
+	}
+
+	taskErr := validateHailuoPricingRequest([]byte(`{"model":"MiniMax-Hailuo-2.3-Fast","duration":6,"size":"1080P"}`), info)
+
+	if taskErr != nil {
+		t.Fatalf("expected nil error, got %#v", taskErr)
 	}
 }
 

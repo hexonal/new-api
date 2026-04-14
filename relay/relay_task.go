@@ -457,11 +457,8 @@ func extractConsumedModelFromTaskRequest(body []byte, info *relaycommon.RelayInf
 							}
 						}
 						resolutionSuffix := ""
-						if resolution, ok := req["resolution"].(string); ok {
-							resolution = strings.TrimSpace(strings.ToLower(resolution))
-							if resolution != "" {
-								resolutionSuffix = "-" + resolution
-							}
+						if resolution := resolveHailuoResolutionFromMap(req); resolution != "" {
+							resolutionSuffix = "-" + strings.ToLower(resolution)
 						}
 						return modelName + durationSuffix + resolutionSuffix
 					}
@@ -490,6 +487,7 @@ func validateHailuoPricingRequest(body []byte, info *relaycommon.RelayInfo) *dto
 	var req struct {
 		Model      string `json:"model"`
 		Duration   int    `json:"duration"`
+		Size       string `json:"size"`
 		Resolution string `json:"resolution"`
 	}
 	if err := common.Unmarshal(body, &req); err != nil {
@@ -524,7 +522,10 @@ func validateHailuoPricingRequest(body []byte, info *relaycommon.RelayInfo) *dto
 			duration = hailuo.DefaultDuration
 		}
 	}
-	resolution := hailuo.NormalizeResolution(req.Resolution)
+	resolution := hailuo.NormalizeResolution(req.Size)
+	if resolution == "" {
+		resolution = hailuo.NormalizeResolution(req.Resolution)
+	}
 	if resolution == "" {
 		resolution = hailuo.NormalizeResolution(config.DefaultResolution)
 	}
@@ -546,6 +547,25 @@ func validateHailuoPricingRequest(body []byte, info *relaycommon.RelayInfo) *dto
 		"invalid_request",
 		http.StatusBadRequest,
 	)
+}
+
+func resolveHailuoResolutionFromMap(req map[string]any) string {
+	if req == nil {
+		return ""
+	}
+	// OpenAI-compatible external API uses `size` as the public parameter.
+	if size, ok := req["size"].(string); ok {
+		if normalized := hailuo.NormalizeResolution(size); normalized != "" {
+			return normalized
+		}
+	}
+	// Backward-compatible fallback for historical/internal payloads.
+	if resolution, ok := req["resolution"].(string); ok {
+		if normalized := hailuo.NormalizeResolution(resolution); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。

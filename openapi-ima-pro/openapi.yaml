@@ -2377,7 +2377,9 @@ paths:
         - `MiniMax-Hailuo-2.3-Fast`\n\n\
         **约束：**\n\
         - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`\n\
-        - `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`（不支持 `720p`）\n\n\
+        - `duration` 仅支持 `6` 或 `10`\n\
+        - `MiniMax-Hailuo-02` 的 `size` 支持 `512p`、`768p`、`1080p`\n\
+        - `MiniMax-Hailuo-2.3` / `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`\n\n\
         **`/v1/videos` 调用示例（与本端点参数完全相同）：**\n\
         ```bash\n\
         curl -X POST https://open-route.fashionlabs.cn/v1/videos \\\n\
@@ -4292,6 +4294,7 @@ components:
       type: object
       required:
       - model
+      additionalProperties: false
       properties:
         model:
           type: string
@@ -4305,10 +4308,19 @@ components:
           description: 视频描述
         duration:
           type: integer
-          description: 视频时长（秒）
+          enum:
+          - 6
+          - 10
+          default: 6
+          description: 视频时长（秒），当前仅支持 6 或 10。
         size:
           type: string
-          description: 分辨率（`MiniMax-Hailuo-2.3-Fast` 仅支持 `768p`、`1080p`）。
+          enum:
+          - 512p
+          - 768p
+          - 1080p
+          default: 768p
+          description: 分辨率（按模型能力校验）。
         metadata:
           type: object
           description: 'MiniMax 供应商参数。
@@ -4320,6 +4332,47 @@ components:
             first_frame_image:
               type: string
               description: Hailuo 图生视频首帧图片 URL（`MiniMax-Hailuo-2.3-Fast` 必填）。
+      allOf:
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3-Fast
+        then:
+          required:
+          - metadata
+          properties:
+            size:
+              type: string
+              enum:
+              - 768p
+              - 1080p
+            metadata:
+              type: object
+              required:
+              - first_frame_image
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3
+        then:
+          properties:
+            size:
+              type: string
+              enum:
+              - 768p
+              - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-02
+        then:
+          properties:
+            size:
+              type: string
+              enum:
+              - 512p
+              - 768p
+              - 1080p
     VideoTaskResponse:
       type: object
       properties:
@@ -4526,16 +4579,18 @@ components:
           description: 视频提示词。
         duration:
           type: integer
-          minimum: 4
-          maximum: 15
+          enum:
+          - 6
+          - 10
           default: 6
-          description: 视频时长（秒）。
+          description: 视频时长（秒），当前仅支持 6 或 10。
         size:
           type: string
           enum:
+          - 512p
           - 768p
           - 1080p
-          description: 分辨率（MiniMax-Hailuo-2.3-Fast 仅支持 `768p`、`1080p`）。
+          description: 分辨率（按模型能力校验）。
         metadata:
           type: object
           additionalProperties: true
@@ -4562,3 +4617,26 @@ components:
               type: object
               required:
               - first_frame_image
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3
+        then:
+          properties:
+            size:
+              type: string
+              enum:
+              - 768p
+              - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-02
+        then:
+          properties:
+            size:
+              type: string
+              enum:
+              - 512p
+              - 768p
+              - 1080p
