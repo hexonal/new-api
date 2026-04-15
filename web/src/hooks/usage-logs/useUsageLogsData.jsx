@@ -231,6 +231,19 @@ const buildDeferredTokenFormula = (
   return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${gr.toFixed(4)}`;
 };
 
+const getRequestErrorMessage = (error, fallbackMessage) => {
+  const apiMessage = error?.response?.data?.message;
+  if (typeof apiMessage === 'string' && apiMessage.trim()) {
+    return apiMessage;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
   const [statusState] = useContext(StatusContext);
@@ -317,7 +330,7 @@ export const useLogsData = () => {
       [COLUMN_KEYS.TOKEN]: true,
       [COLUMN_KEYS.GROUP]: isAdminUser ? true : showGroupForNonAdmin,
       [COLUMN_KEYS.PRICING_GROUP]: isAdminUser
-        ? false
+        ? true
         : showPricingGroupForNonAdmin,
       [COLUMN_KEYS.TYPE]: true,
       [COLUMN_KEYS.MODEL]: true,
@@ -350,6 +363,8 @@ export const useLogsData = () => {
         merged[COLUMN_KEYS.RETRY] = false;
         merged[COLUMN_KEYS.GROUP] = showGroupForNonAdmin;
         merged[COLUMN_KEYS.PRICING_GROUP] = showPricingGroupForNonAdmin;
+      } else {
+        merged[COLUMN_KEYS.PRICING_GROUP] = true;
       }
 
       return merged;
@@ -544,8 +559,10 @@ export const useLogsData = () => {
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
@@ -575,8 +592,10 @@ export const useLogsData = () => {
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
@@ -585,13 +604,18 @@ export const useLogsData = () => {
       return;
     }
     setLoadingStat(true);
-    if (isAdminUser) {
-      await getLogStat();
-    } else {
-      await getLogSelfStat();
+    try {
+      const success = isAdminUser
+        ? await getLogStat()
+        : await getLogSelfStat();
+      if (success) {
+        setShowStat(true);
+      }
+    } catch (error) {
+      showError(getRequestErrorMessage(error, t('统计信息加载失败，请重试')));
+    } finally {
+      setLoadingStat(false);
     }
-    setShowStat(true);
-    setLoadingStat(false);
   };
 
   // User info function
@@ -1558,52 +1582,60 @@ export const useLogsData = () => {
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
     setLoading(true);
 
-    let url = '';
-    const {
-      username,
-      token_name,
-      model_name,
-      start_timestamp,
-      end_timestamp,
-      channel,
-      group,
-      pricing_group,
-      request_id,
-      logType: formLogType,
-      exactRequestSearch,
-    } = getFormValues();
+    try {
+      let url = '';
+      const {
+        username,
+        token_name,
+        model_name,
+        start_timestamp,
+        end_timestamp,
+        channel,
+        group,
+        pricing_group,
+        request_id,
+        logType: formLogType,
+        exactRequestSearch,
+      } = getFormValues();
 
-    const currentLogType =
-      customLogType !== null
-        ? customLogType
-        : formLogType !== undefined
-          ? formLogType
-          : logType;
+      const currentLogType =
+        customLogType !== null
+          ? customLogType
+          : formLogType !== undefined
+            ? formLogType
+            : logType;
 
-    let localStartTimestamp = exactRequestSearch
-      ? 0
-      : Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = exactRequestSearch
-      ? 0
-      : Date.parse(end_timestamp) / 1000;
-    if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
-    } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
-    }
-    url = encodeURI(url);
-    const res = await API.get(url);
-    const { success, message, data } = res.data;
-    if (success) {
-      const newPageData = data.items;
-      setActivePage(data.page);
-      setPageSize(data.page_size);
-      setLogCount(data.total);
-      setRawLogs(newPageData);
-    } else {
+      let localStartTimestamp = exactRequestSearch
+        ? 0
+        : Date.parse(start_timestamp) / 1000;
+      let localEndTimestamp = exactRequestSearch
+        ? 0
+        : Date.parse(end_timestamp) / 1000;
+      if (isAdminUser) {
+        url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
+      } else {
+        url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
+      }
+      url = encodeURI(url);
+      const res = await API.get(url);
+      const { success, message, data } = res.data;
+      if (success) {
+        const newPageData = data.items;
+        setActivePage(data.page);
+        setPageSize(data.page_size);
+        setLogCount(data.total);
+        setRawLogs(newPageData);
+        return true;
+      }
+
       showError(message);
+      return false;
+    } catch (error) {
+      showError(getRequestErrorMessage(error, t('日志加载失败，请重试')));
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Page handlers
@@ -1616,7 +1648,7 @@ export const useLogsData = () => {
     localStorage.setItem('page-size', size + '');
     setPageSize(size);
     setActivePage(1);
-    loadLogs(activePage, size)
+    loadLogs(1, size)
       .then()
       .catch((reason) => {
         showError(reason);

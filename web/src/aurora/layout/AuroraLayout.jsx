@@ -36,6 +36,36 @@ const getCompactMode = () => {
   return window.innerWidth < 1180;
 };
 
+const restoreStoredUser = (userDispatch) => {
+  const raw = localStorage.getItem('user');
+  if (!raw) {
+    return;
+  }
+
+  try {
+    userDispatch({ type: 'login', payload: JSON.parse(raw) });
+  } catch {
+    localStorage.removeItem('user');
+  }
+};
+
+const loadStatusData = async (statusDispatch) => {
+  try {
+    const res = await API.get('/api/status');
+    const { success, data } = res.data;
+    if (!success) {
+      return;
+    }
+
+    statusDispatch({ type: 'set', payload: data });
+
+    // Persist shared status-derived values used across the console.
+    setStatusData(data);
+  } catch {
+    // Keep layout rendering even if status bootstrap is temporarily unavailable.
+  }
+};
+
 const AuroraLayout = ({ children }) => {
   const location = useLocation();
   const { i18n } = useTranslation();
@@ -45,28 +75,14 @@ const AuroraLayout = ({ children }) => {
   // Mirror PageLayout's loadStatus + loadUser — writes quota_per_unit etc. to localStorage
   const initialized = useRef(false);
   useEffect(() => {
-    if (initialized.current) return;
+    if (initialized.current) {
+      return;
+    }
     initialized.current = true;
 
-    // Load user from localStorage
-    const raw = localStorage.getItem('user');
-    if (raw) {
-      try {
-        userDispatch({ type: 'login', payload: JSON.parse(raw) });
-      } catch {}
-    }
-
-    // Load status from API (same as PageLayout.loadStatus)
-    API.get('/api/status')
-      .then((res) => {
-        const { success, data } = res.data;
-        if (success) {
-          statusDispatch({ type: 'set', payload: data });
-          setStatusData(data); // writes quota_per_unit, quota_display_type, etc. to localStorage
-        }
-      })
-      .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    restoreStoredUser(userDispatch);
+    void loadStatusData(statusDispatch);
+  }, [statusDispatch, userDispatch]);
 
   useEffect(() => {
     const preferredLanguage = getPreferredLanguage({
@@ -94,7 +110,9 @@ const AuroraLayout = ({ children }) => {
 
   const publicRoute = isPublicRoute(pathname);
   const showNavigationShell = !publicRoute;
-  const showMobileMenu = shouldShowMobileMenu({ isCompact, pathname });
+  const showMobileMenu =
+    shouldShowMobileMenu({ isCompact, pathname }) || pathname === '/pricing';
+  const showPageChrome = showNavigationShell;
 
   useEffect(() => {
     const onResize = () => {
@@ -122,7 +140,14 @@ const AuroraLayout = ({ children }) => {
         showMobileMenu={showMobileMenu}
       />
 
-      <div className='aurora-body-shell'>
+      <div
+        className={[
+          'aurora-body-shell',
+          isCompact || !showNavigationShell ? 'compact' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         {!isCompact && showNavigationShell && (
           <aside className={`aurora-side-pane ${collapsed ? 'collapsed' : ''}`}>
             <Sidebar />
@@ -138,7 +163,7 @@ const AuroraLayout = ({ children }) => {
             .filter(Boolean)
             .join(' ')}
         >
-          <PageShell showChrome={showNavigationShell}>{children}</PageShell>
+          <PageShell showChrome={showPageChrome}>{children}</PageShell>
         </main>
       </div>
 
