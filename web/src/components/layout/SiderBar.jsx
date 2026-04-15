@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getLucideIcon } from '../../helpers/render';
 import { ChevronLeft } from 'lucide-react';
@@ -70,6 +70,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const [chatItems, setChatItems] = useState([]);
   const [openedKeys, setOpenedKeys] = useState([]);
   const location = useLocation();
+  const navigate = useNavigate();
   const [routerMapState, setRouterMapState] = useState(routerMap);
 
   const workspaceItems = useMemo(() => {
@@ -327,6 +328,20 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   // 选中高亮颜色（统一）
   const SELECTED_COLOR = 'var(--semi-color-primary)';
 
+  const handleRouteClick = (event, to) => {
+    const isModifiedClick =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    const isNonPrimaryButton = event.button !== 0;
+
+    if (isModifiedClick || isNonPrimaryButton) {
+      return;
+    }
+
+    event.preventDefault();
+    onNavigate();
+    navigate(to);
+  };
+
   // 渲染自定义菜单项
   const renderNavItem = (item) => {
     // 跳过隐藏的项目
@@ -441,7 +456,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
               <Link
                 style={{ textDecoration: 'none' }}
                 to={to}
-                onClick={onNavigate}
+                onClick={(event) => handleRouteClick(event, to)}
               >
                 {itemElement}
               </Link>

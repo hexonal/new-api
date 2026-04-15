@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/cn';
 
 const SidebarItem = ({
@@ -29,13 +29,28 @@ const SidebarItem = ({
   onNavigate = () => {},
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isActive = location.pathname === href;
+
+  const handleClick = (event) => {
+    const isModifiedClick =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    const isNonPrimaryButton = event.button !== 0;
+
+    if (isModifiedClick || isNonPrimaryButton) {
+      return;
+    }
+
+    event.preventDefault();
+    onNavigate();
+    navigate(href);
+  };
 
   return (
     <li>
       <Link
         to={href}
-        onClick={onNavigate}
+        onClick={handleClick}
         className={cn(
           'aurora-sidebar-item',
           isActive && 'aurora-sidebar-item-active',

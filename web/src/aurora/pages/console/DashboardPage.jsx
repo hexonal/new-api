@@ -1,5 +1,24 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useContext, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Wallet, BarChart3, Activity, Cpu, Gauge, RefreshCw } from 'lucide-react';
 import { UserContext } from '../../../context/User';
 import { StatusContext } from '../../../context/Status';
@@ -44,6 +63,7 @@ const iconMap = {
 export default function DashboardPage() {
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
+  const navigate = useNavigate();
 
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
 
@@ -85,14 +105,25 @@ export default function DashboardPage() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-
   const faqItems = Array.isArray(statusState?.status?.faq) ? statusState.status.faq : [];
   const apiInfo = Array.isArray(statusState?.status?.api_info) ? statusState.status.api_info : [];
   const uptimeItems = Array.isArray(dashboardData.uptimeData)
     ? dashboardData.uptimeData
     : [];
   const quickStatCards = (groupedStatsData || []).flatMap((group) => group?.items || []);
+
+  const handleQuickActionNavigate = (event, href) => {
+    const isModifiedClick =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    const isNonPrimaryButton = event.button !== 0;
+
+    if (isModifiedClick || isNonPrimaryButton) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate(href);
+  };
 
   return (
     <div className='space-y-6'>
@@ -157,14 +188,15 @@ export default function DashboardPage() {
 
       <section className='grid gap-3 md:grid-cols-2 lg:grid-cols-3'>
         {QUICK_ACTIONS.map((action) => (
-          <Link
+          <a
             key={action.title}
-            to={action.href}
+            href={action.href}
+            onClick={(event) => handleQuickActionNavigate(event, action.href)}
             className='rounded-lg border border-border bg-card/70 p-4 hover:bg-accent transition-colors'
           >
             <h3 className='font-semibold'>{action.title}</h3>
             <p className='text-sm text-muted-foreground mt-1'>{action.description}</p>
-          </Link>
+          </a>
         ))}
       </section>
     </div>
