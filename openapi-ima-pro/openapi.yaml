@@ -2378,8 +2378,17 @@ paths:
         **约束：**\n\
         - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`\n\
         - `duration` 仅支持 `6` 或 `10`\n\
-        - `MiniMax-Hailuo-02` 的 `size` 支持 `512p`、`768p`、`1080p`\n\
-        - `MiniMax-Hailuo-2.3` / `MiniMax-Hailuo-2.3-Fast` 的 `size` 仅支持 `768p`、`1080p`\n\n\
+        - `MiniMax-Hailuo-02` 支持：\n\
+          - `512p`: `6/10s`\n\
+          - `768p`: `6/10s`\n\
+          - `1080p`: `仅 6s`\n\
+        - `MiniMax-Hailuo-2.3` 支持：\n\
+          - `768p`: `6/10s`\n\
+          - `1080p`: `仅 6s`\n\
+        - `MiniMax-Hailuo-2.3-Fast` 支持：\n\
+          - `768p`: `6/10s`\n\
+          - `1080p`: `仅 6s`\n\
+          - 且必须传 `metadata.first_frame_image`\n\n\
         **`/v1/videos` 调用示例（与本端点参数完全相同）：**\n\
         ```bash\n\
         curl -X POST https://open-route.fashionlabs.cn/v1/videos \\\n\
@@ -4353,6 +4362,18 @@ components:
       - if:
           properties:
             model:
+              const: MiniMax-Hailuo-2.3-Fast
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
+      - if:
+          properties:
+            model:
               const: MiniMax-Hailuo-2.3
         then:
           properties:
@@ -4361,6 +4382,18 @@ components:
               enum:
               - 768p
               - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
       - if:
           properties:
             model:
@@ -4373,6 +4406,18 @@ components:
               - 512p
               - 768p
               - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-02
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
     VideoTaskResponse:
       type: object
       properties:
@@ -4620,6 +4665,18 @@ components:
       - if:
           properties:
             model:
+              const: MiniMax-Hailuo-2.3-Fast
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
+      - if:
+          properties:
+            model:
               const: MiniMax-Hailuo-2.3
         then:
           properties:
@@ -4628,6 +4685,18 @@ components:
               enum:
               - 768p
               - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-2.3
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
       - if:
           properties:
             model:
@@ -4640,3 +4709,15 @@ components:
               - 512p
               - 768p
               - 1080p
+      - if:
+          properties:
+            model:
+              const: MiniMax-Hailuo-02
+            size:
+              const: 1080p
+        then:
+          properties:
+            duration:
+              type: integer
+              enum:
+              - 6
