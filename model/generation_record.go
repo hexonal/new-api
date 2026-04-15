@@ -45,7 +45,7 @@ type GenerationRecord struct {
 	TokenID          int    `json:"token_id" gorm:"not null;index:idx_gr_token_record,priority:1"`
 	UserID           int    `json:"user_id" gorm:"not null;index"`
 	ChannelID        int    `json:"channel_id" gorm:"not null"`
-	TokenName        string `json:"token_name" gorm:"type:varchar(191);default:''"`
+	Token            string `json:"token" gorm:"type:varchar(191);default:''"`
 	UserGroup        string `json:"user_group" gorm:"type:varchar(50);default:''"`
 	Kind             string `json:"kind" gorm:"type:varchar(32);not null"`
 	Status           string `json:"status" gorm:"type:varchar(16);not null"`
@@ -54,7 +54,6 @@ type GenerationRecord struct {
 	Model            string `json:"model" gorm:"type:varchar(128);not null"`
 	UpstreamModel    string `json:"upstream_model" gorm:"type:varchar(128);default:''"`
 	RequestBody      string `json:"request_body" gorm:"type:text"`
-	OutputURLs       string `json:"output_urls" gorm:"type:text"`
 	ResponseBody     string `json:"response_body" gorm:"type:text"`
 	Extras           string `json:"extras" gorm:"type:text"`
 	ErrorMessage     string `json:"error_message" gorm:"type:text"`
@@ -89,7 +88,6 @@ func InsertPending(rec *GenerationRecord) error {
 // GenerationStatusUpdate 状态推进参数
 type GenerationStatusUpdate struct {
 	Status       string
-	OutputURLs   string
 	ResponseBody string
 	ErrorMessage string
 	Quota        int
@@ -169,9 +167,6 @@ func buildAdvanceUpdates(u GenerationStatusUpdate) map[string]interface{} {
 	m := map[string]interface{}{
 		"status":     u.Status,
 		"updated_at": time.Now().Unix(),
-	}
-	if u.OutputURLs != "" {
-		m["output_urls"] = u.OutputURLs
 	}
 	if u.ResponseBody != "" {
 		m["response_body"] = u.ResponseBody
@@ -314,7 +309,7 @@ func buildGenerationRecordQuery(tx *gorm.DB, q GenerationRecordQuery) *gorm.DB {
 		tx = tx.Where("token_id = ?", q.TokenID)
 	}
 	if q.Token != "" {
-		tx = tx.Where("token_name = ?", q.Token)
+		tx = tx.Where("token = ?", q.Token)
 	}
 	if q.UserID > 0 {
 		tx = tx.Where("user_id = ?", q.UserID)

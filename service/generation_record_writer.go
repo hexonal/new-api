@@ -12,7 +12,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -24,19 +23,12 @@ type SyncGenerationReq struct {
 	Platform         string
 	Model            string
 	RequestBody      string
-	OutputURLs       string
 	ResponseBody     string
 	Extras           string
 	Quota            int
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
-}
-
-type generationOutputRecord struct {
-	Type  string `json:"type"`
-	URL   string `json:"url"`
-	Index int    `json:"index"`
 }
 
 // WriteSyncSuccess 同步调用成功后写入记录
@@ -53,9 +45,8 @@ func WriteSyncSuccess(c *gin.Context, info *relaycommon.RelayInfo, req SyncGener
 		Status:           model.GenerationStatusSuccess,
 		Platform:         req.Platform,
 		Model:            req.Model,
-		TokenName:        c.GetString("token_name"),
+		Token:            generationRecordToken(c),
 		RequestBody:      req.RequestBody,
-		OutputURLs:       req.OutputURLs,
 		ResponseBody:     req.ResponseBody,
 		Extras:           req.Extras,
 		Quota:            req.Quota,
@@ -81,7 +72,7 @@ func WriteAsyncSubmitted(c *gin.Context, info *relaycommon.RelayInfo, task *mode
 }
 
 // WriteAsyncStatusAdvance 异步任务状态推进
-func WriteAsyncStatusAdvance(ctx context.Context, task *model.Task, newStatus string, outputURLsJSON string) {
+func WriteAsyncStatusAdvance(ctx context.Context, task *model.Task, newStatus string) {
 	if !common.GenerationRecordEnabled.Load() {
 		return
 	}
@@ -91,7 +82,6 @@ func WriteAsyncStatusAdvance(ctx context.Context, task *model.Task, newStatus st
 	}
 	update := model.GenerationStatusUpdate{
 		Status:       mapAsyncTaskStatusToRecordStatus(newStatus),
-		OutputURLs:   outputURLsJSON,
 		ResponseBody: rawTaskData(task),
 		ErrorMessage: errorMessageForRecordStatus(mapAsyncTaskStatusToRecordStatus(newStatus), task.FailReason),
 		StartTime:    convertMsToSec(task.StartTime),
@@ -163,7 +153,6 @@ func WriteMjStatusAdvance(ctx context.Context, mj *model.Midjourney, newStatus s
 	recordStatus := mapMjStatusToRecordStatus(newStatus)
 	err := model.AdvanceStatus(mjRecordKey(mj.UserId, mj.MjId), model.GenerationStatusUpdate{
 		Status:       recordStatus,
-		OutputURLs:   buildOutputURLsJSON(buildMjOutputURLs(mj)),
 		ErrorMessage: errorMessageForRecordStatus(recordStatus, mj.FailReason),
 		StartTime:    convertMsToSec(mj.StartTime),
 		FinishTime:   convertMsToSec(mj.FinishTime),
@@ -221,13 +210,20 @@ func insertGenerationRecord(ctx context.Context, rec *model.GenerationRecord, op
 	}
 }
 
+func generationRecordToken(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyTokenKey))
+}
+
 func buildAsyncSubmittedRecord(c *gin.Context, info *relaycommon.RelayInfo, task *model.Task) *model.GenerationRecord {
 	return &model.GenerationRecord{
 		RecordKey:      asyncRecordKey(info.TokenId, task.TaskID),
 		TokenID:        info.TokenId,
 		UserID:         info.UserId,
 		ChannelID:      info.ChannelId,
-		TokenName:      c.GetString("token_name"),
+		Token:          generationRecordToken(c),
 		UserGroup:      info.UsingGroup,
 		Kind:           mapTaskPlatformToKind(task.Platform),
 		Status:         model.GenerationStatusPending,
@@ -282,7 +278,7 @@ func buildMjSubmittedRecord(c *gin.Context, info *relaycommon.RelayInfo, mj *mod
 		TokenID:        info.TokenId,
 		UserID:         mj.UserId,
 		ChannelID:      mj.ChannelId,
-		TokenName:      c.GetString("token_name"),
+		Token:          generationRecordToken(c),
 		UserGroup:      info.UsingGroup,
 		Kind:           model.GenerationKindImage,
 		Status:         model.GenerationStatusPending,
@@ -291,7 +287,6 @@ func buildMjSubmittedRecord(c *gin.Context, info *relaycommon.RelayInfo, mj *mod
 		Model:          firstNonEmpty(info.OriginModelName, CovertMjpActionToModelName(mj.Action)),
 		UpstreamModel:  info.UpstreamModelName,
 		RequestBody:    firstNonEmpty(mj.Prompt, mj.Description),
-		OutputURLs:     buildOutputURLsJSON(buildMjOutputURLs(mj)),
 		Extras:         buildExtrasJSON(c, info),
 		Quota:          mj.Quota,
 		SubmitTime:     firstPositiveInt64(convertMsToSec(mj.SubmitTime), time.Now().Unix()),
@@ -342,72 +337,6 @@ func buildExtrasJSON(c *gin.Context, info *relaycommon.RelayInfo) string {
 		ex.RequestPath = strings.TrimSpace(info.RequestURLPath)
 	}
 	return marshalJSONString(ex)
-}
-
-func buildMjOutputURLs(mj *model.Midjourney) []generationOutputRecord {
-	if mj == nil {
-		return nil
-	}
-	outputs := make([]generationOutputRecord, 0, 4)
-	seen := make(map[string]struct{})
-	appendURL := func(kind string, url string) {
-		url = strings.TrimSpace(url)
-		if url == "" {
-			return
-		}
-		key := kind + "|" + url
-		if _, ok := seen[key]; ok {
-			return
-		}
-		seen[key] = struct{}{}
-		outputs = append(outputs, generationOutputRecord{Type: kind, URL: url, Index: len(outputs)})
-	}
-
-	var imageURLs []string
-	_ = common.UnmarshalJsonStr(mj.ImageUrls, &imageURLs)
-	for _, url := range imageURLs {
-		appendURL(model.GenerationKindImage, url)
-	}
-	if len(imageURLs) == 0 {
-		appendURL(model.GenerationKindImage, mj.ImageUrl)
-	}
-
-	var videoURLs []dto.ImgUrls
-	_ = common.UnmarshalJsonStr(mj.VideoUrls, &videoURLs)
-	for _, item := range videoURLs {
-		appendURL(model.GenerationKindVideo, item.Url)
-	}
-	if len(videoURLs) == 0 {
-		appendURL(model.GenerationKindVideo, mj.VideoUrl)
-	}
-	return outputs
-}
-
-func BuildTaskOutputJSON(task *model.Task) string {
-	if task == nil {
-		return ""
-	}
-	url := strings.TrimSpace(task.GetResultURL())
-	if url == "" {
-		return ""
-	}
-	outputType := model.GenerationKindVideo
-	if mapTaskPlatformToKind(task.Platform) == model.GenerationKindMusic {
-		outputType = model.GenerationKindAudio
-	}
-	outputs := []generationOutputRecord{{
-		Type:  outputType,
-		URL:   url,
-		Index: 0,
-	}}
-	return marshalJSONString(outputs)
-}
-
-func buildOutputURLsJSON(outputs []generationOutputRecord) string {
-	if len(outputs) == 0 {
-		return ""
-	}
-	return marshalJSONString(outputs)
 }
 
 func rawTaskData(task *model.Task) string {

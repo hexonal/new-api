@@ -515,9 +515,9 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		won, _ := task.UpdateWithStatus(snap.Status)
 		if won {
 			if task.Status == model.TaskStatusSuccess {
-				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess, service.BuildTaskOutputJSON(task))
+				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess)
 			} else if task.Status == model.TaskStatusFailure {
-				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed, "")
+				service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed)
 			}
 		}
 	}

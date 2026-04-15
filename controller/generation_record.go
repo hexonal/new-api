@@ -183,7 +183,7 @@ func toGenerationRecordDTOs(records []*model.GenerationRecord) []dto.GenerationR
 func toGenerationRecordDTO(r *model.GenerationRecord) dto.GenerationRecordDTO {
 	d := dto.GenerationRecordDTO{
 		ID:               r.RecordID,
-		Token:            r.TokenName,
+		Token:            r.Token,
 		Kind:             r.Kind,
 		Status:           r.Status,
 		Model:            r.Model,

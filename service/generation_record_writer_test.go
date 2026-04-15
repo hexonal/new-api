@@ -26,33 +26,6 @@ func TestConvertMsToSec(t *testing.T) {
 	assert.EqualValues(t, 1710000000, convertMsToSec(1710000000123))
 }
 
-func TestBuildMjOutputURLs(t *testing.T) {
-	mj := &model.Midjourney{
-		ImageUrl:  "https://example.com/fallback-image.png",
-		ImageUrls: `["https://example.com/1.png","https://example.com/2.png"]`,
-		VideoUrl:  "https://example.com/fallback-video.mp4",
-		VideoUrls: `[{"url":"https://example.com/1.mp4"},{"url":"https://example.com/2.mp4"}]`,
-	}
-
-	assert.Equal(t, []generationOutputRecord{
-		{Type: "image", URL: "https://example.com/1.png", Index: 0},
-		{Type: "image", URL: "https://example.com/2.png", Index: 1},
-		{Type: "video", URL: "https://example.com/1.mp4", Index: 2},
-		{Type: "video", URL: "https://example.com/2.mp4", Index: 3},
-	}, buildMjOutputURLs(mj))
-}
-
-func TestBuildTaskOutputJSON(t *testing.T) {
-	task := &model.Task{
-		Platform: constant.TaskPlatformSuno,
-		PrivateData: model.TaskPrivateData{
-			ResultURL: "https://example.com/result.mp3",
-		},
-	}
-
-	assert.JSONEq(t, `[{"type":"audio","url":"https://example.com/result.mp3","index":0}]`, BuildTaskOutputJSON(task))
-}
-
 func TestBuildTaskFallbackRecordStoresRawResponse(t *testing.T) {
 	task := &model.Task{
 		TaskID:    "task_raw_response",
@@ -86,7 +59,7 @@ func TestWriteSyncSuccessStoresTokenAndRawBodies(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Set("token_name", "dev_vid-craft_30")
+	c.Set("token_key", "dev_vid-craft_30")
 
 	info := &relaycommon.RelayInfo{
 		TokenId: 27,
@@ -107,7 +80,7 @@ func TestWriteSyncSuccessStoresTokenAndRawBodies(t *testing.T) {
 
 	var found model.GenerationRecord
 	require.NoError(t, model.DB.First(&found).Error)
-	assert.Equal(t, "dev_vid-craft_30", found.TokenName)
+	assert.Equal(t, "dev_vid-craft_30", found.Token)
 	assert.Equal(t, req.RequestBody, found.RequestBody)
 	assert.Equal(t, req.ResponseBody, found.ResponseBody)
 }

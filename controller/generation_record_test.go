@@ -12,7 +12,7 @@ func TestToGenerationRecordDTOIncludesTokenAndRawBodies(t *testing.T) {
 	responseBody := `{"data":[{"url":"https://example.com/cat.png","revised_prompt":"cat"}],"created":1776260350}`
 	record := &model.GenerationRecord{
 		RecordID:     28,
-		TokenName:    "dev_vid-craft_30",
+		Token:        "dev_vid-craft_30",
 		Kind:         model.GenerationKindImage,
 		Status:       model.GenerationStatusSuccess,
 		Model:        "doubao-seedream-4-5-251128",

@@ -115,11 +115,11 @@ func RelayYouchuanNotify(c *gin.Context) {
 	}
 	switch task.Status {
 	case model.TaskStatusSuccess:
-		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess, service.BuildTaskOutputJSON(task))
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusSuccess)
 	case model.TaskStatusFailure:
-		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed, "")
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusFailed)
 	case model.TaskStatusInProgress:
-		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusRunning, "")
+		service.WriteAsyncStatusAdvance(context.Background(), task, model.GenerationStatusRunning)
 	}
 
 	// 计费结算

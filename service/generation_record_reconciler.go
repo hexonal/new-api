@@ -94,10 +94,10 @@ func advanceFromSourceTask(rec *model.GenerationRecord, task *model.Task) {
 	switch task.Status {
 	case model.TaskStatusSuccess:
 		update := model.GenerationStatusUpdate{
-			Status:     model.GenerationStatusSuccess,
-			OutputURLs: BuildTaskOutputJSON(task),
-			FinishTime: task.FinishTime,
-			StartTime:  task.StartTime,
+			Status:       model.GenerationStatusSuccess,
+			ResponseBody: rawTaskData(task),
+			FinishTime:   task.FinishTime,
+			StartTime:    task.StartTime,
 		}
 		applyReconcileAdvance(rec, update)
 	case model.TaskStatusFailure:
