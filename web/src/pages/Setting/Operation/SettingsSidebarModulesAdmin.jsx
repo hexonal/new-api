@@ -45,6 +45,7 @@ const getDefaultSidebarModulesAdmin = () => ({
     token: true,
     log: true,
     callback: true,
+    generation: true,
     midjourney: true,
     task: true,
   },
@@ -209,6 +210,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           key: 'callback',
           title: t('回调日志'),
           description: t('回调事件与重试记录'),
+        },
+        {
+          key: 'generation',
+          title: t('生成记录'),
+          description: t('多模态生成任务记录'),
         },
         {
           key: 'midjourney',

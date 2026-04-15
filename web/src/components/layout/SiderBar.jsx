@@ -40,6 +40,7 @@ const routerMap = {
   subscription: '/console/subscription',
   log: '/console/log',
   callback: '/console/callback',
+  generation: '/console/generation',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
   about: '/about',
@@ -95,6 +96,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         itemKey: 'callback',
         to: '/callback',
         className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('生成记录'),
+        itemKey: 'generation',
+        to: '/generation',
       },
       {
         text: t('绘图日志'),

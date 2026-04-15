@@ -300,6 +300,12 @@ func SetApiRouter(router *gin.Engine) {
 			logRoute.POST("/token/generations", middleware.TokenAuthReadOnly(), controller.SearchTokenGenerationRecords)
 			logRoute.GET("/token/generations/:id", middleware.TokenAuthReadOnly(), controller.GetTokenGenerationRecord)
 		}
+
+		generationRoute := apiRouter.Group("/generation")
+		{
+			generationRoute.GET("/self/search", middleware.UserAuth(), controller.SearchUserGenerationRecords)
+			generationRoute.GET("/search", middleware.AdminAuth(), controller.SearchAllGenerationRecords)
+		}
 		groupRoute := apiRouter.Group("/group")
 		groupRoute.Use(middleware.AdminAuth())
 		{

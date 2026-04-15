@@ -258,6 +258,7 @@ func MarkRefund(recordKey string, mark GenerationRefundMark) error {
 // GenerationRecordQuery 查询参数
 type GenerationRecordQuery struct {
 	TokenID   int
+	UserID    int
 	Limit     int
 	Page      int
 	StartTime int64
@@ -272,14 +273,25 @@ func GetGenerationRecords(q GenerationRecordQuery) ([]*GenerationRecord, int64, 
 	if q.TokenID <= 0 {
 		return nil, 0, errors.New("invalid token_id")
 	}
-	limit := q.Limit
-	if limit <= 0 || limit > 100 {
-		limit = 20
+	return listGenerationRecords(q)
+}
+
+// GetUserGenerationRecords 查询当前登录用户的生成记录
+func GetUserGenerationRecords(userID int, q GenerationRecordQuery) ([]*GenerationRecord, int64, error) {
+	if userID <= 0 {
+		return nil, 0, errors.New("invalid user_id")
 	}
-	page := q.Page
-	if page <= 0 {
-		page = 1
-	}
+	q.UserID = userID
+	return listGenerationRecords(q)
+}
+
+// GetAllGenerationRecords 查询全局生成记录（管理员视角）
+func GetAllGenerationRecords(q GenerationRecordQuery) ([]*GenerationRecord, int64, error) {
+	return listGenerationRecords(q)
+}
+
+func listGenerationRecords(q GenerationRecordQuery) ([]*GenerationRecord, int64, error) {
+	limit, page := normalizeGenerationRecordPagination(q.Limit, q.Page)
 	tx := buildGenerationRecordQuery(DB.Model(&GenerationRecord{}), q)
 	var total int64
 	if err := tx.Count(&total).Error; err != nil {
@@ -292,7 +304,12 @@ func GetGenerationRecords(q GenerationRecordQuery) ([]*GenerationRecord, int64, 
 }
 
 func buildGenerationRecordQuery(tx *gorm.DB, q GenerationRecordQuery) *gorm.DB {
-	tx = tx.Where("token_id = ?", q.TokenID)
+	if q.TokenID > 0 {
+		tx = tx.Where("token_id = ?", q.TokenID)
+	}
+	if q.UserID > 0 {
+		tx = tx.Where("user_id = ?", q.UserID)
+	}
 	if q.StartTime > 0 {
 		tx = tx.Where("submit_time >= ?", q.StartTime)
 	}
@@ -309,6 +326,16 @@ func buildGenerationRecordQuery(tx *gorm.DB, q GenerationRecordQuery) *gorm.DB {
 		tx = tx.Where("platform = ?", q.Platform)
 	}
 	return tx
+}
+
+func normalizeGenerationRecordPagination(limit, page int) (int, int) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
+	return limit, page
 }
 
 func GetGenerationRecordByID(recordID int64, tokenID int) (*GenerationRecord, error) {

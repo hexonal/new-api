@@ -13,13 +13,14 @@ import (
 )
 
 type SearchGenerationRecordsReq struct {
-	Page      int    `json:"page"`
-	PageSize  int    `json:"page_size"`
-	StartTime int64  `json:"start_time,omitempty"`
-	EndTime   int64  `json:"end_time,omitempty"`
-	Kind      string `json:"kind,omitempty"`
-	Status    string `json:"status,omitempty"`
-	Platform  string `json:"platform,omitempty"`
+	Page      int    `json:"page" form:"page"`
+	PageSize  int    `json:"page_size" form:"page_size"`
+	StartTime int64  `json:"start_time,omitempty" form:"start_time"`
+	EndTime   int64  `json:"end_time,omitempty" form:"end_time"`
+	Kind      string `json:"kind,omitempty" form:"kind"`
+	Status    string `json:"status,omitempty" form:"status"`
+	Platform  string `json:"platform,omitempty" form:"platform"`
+	TokenID   int    `json:"token_id,omitempty" form:"token_id"`
 }
 
 func SearchTokenGenerationRecords(c *gin.Context) {
@@ -33,14 +34,40 @@ func SearchTokenGenerationRecords(c *gin.Context) {
 		return
 	}
 	pageInfo := newGenerationRecordPageInfo(req)
-	records, total, err := model.GetGenerationRecords(newGenerationRecordQuery(tokenID, req, pageInfo))
+	req.TokenID = tokenID
+	records, total, err := model.GetGenerationRecords(newGenerationRecordQuery(req, pageInfo))
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	pageInfo.SetItems(toGenerationRecordDTOs(records))
-	pageInfo.SetTotal(int(total))
-	common.ApiSuccess(c, pageInfo)
+	writeGenerationRecordPage(c, pageInfo, records, total)
+}
+
+func SearchUserGenerationRecords(c *gin.Context) {
+	userID := c.GetInt("id")
+	if userID <= 0 {
+		common.ApiErrorMsg(c, "invalid user")
+		return
+	}
+	req := newGenerationRecordReqFromQuery(c)
+	pageInfo := newGenerationRecordPageInfo(req)
+	records, total, err := model.GetUserGenerationRecords(userID, newGenerationRecordQuery(req, pageInfo))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	writeGenerationRecordPage(c, pageInfo, records, total)
+}
+
+func SearchAllGenerationRecords(c *gin.Context) {
+	req := newGenerationRecordReqFromQuery(c)
+	pageInfo := newGenerationRecordPageInfo(req)
+	records, total, err := model.GetAllGenerationRecords(newGenerationRecordQuery(req, pageInfo))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	writeGenerationRecordPage(c, pageInfo, records, total)
 }
 
 func GetTokenGenerationRecord(c *gin.Context) {
@@ -87,13 +114,29 @@ func newGenerationRecordPageInfo(req SearchGenerationRecordsReq) *common.PageInf
 	return pageInfo
 }
 
+func newGenerationRecordReqFromQuery(c *gin.Context) SearchGenerationRecordsReq {
+	pageInfo := common.GetPageQuery(c)
+	startTime, _ := strconv.ParseInt(c.Query("start_time"), 10, 64)
+	endTime, _ := strconv.ParseInt(c.Query("end_time"), 10, 64)
+	tokenID, _ := strconv.Atoi(c.Query("token_id"))
+	return SearchGenerationRecordsReq{
+		Page:      pageInfo.Page,
+		PageSize:  pageInfo.PageSize,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Kind:      c.Query("kind"),
+		Status:    c.Query("status"),
+		Platform:  c.Query("platform"),
+		TokenID:   tokenID,
+	}
+}
+
 func newGenerationRecordQuery(
-	tokenID int,
 	req SearchGenerationRecordsReq,
 	pageInfo *common.PageInfo,
 ) model.GenerationRecordQuery {
 	return model.GenerationRecordQuery{
-		TokenID:   tokenID,
+		TokenID:   req.TokenID,
 		Limit:     pageInfo.PageSize,
 		Page:      pageInfo.Page,
 		StartTime: req.StartTime,
@@ -102,6 +145,17 @@ func newGenerationRecordQuery(
 		Status:    strings.TrimSpace(req.Status),
 		Platform:  strings.TrimSpace(req.Platform),
 	}
+}
+
+func writeGenerationRecordPage(
+	c *gin.Context,
+	pageInfo *common.PageInfo,
+	records []*model.GenerationRecord,
+	total int64,
+) {
+	pageInfo.SetItems(toGenerationRecordDTOs(records))
+	pageInfo.SetTotal(int(total))
+	common.ApiSuccess(c, pageInfo)
 }
 
 func parseGenerationRecordID(raw string) (int64, error) {
