@@ -340,6 +340,7 @@ func aliImageHandler(a *Adaptor, c *gin.Context, resp *http.Response, info *rela
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
+	service.SetLogOutputBodyBytes(c, jsonResponse)
 	service.IOCopyBytesGracefully(c, resp, jsonResponse)
 
 	return nil, &dto.Usage{}

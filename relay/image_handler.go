@@ -143,13 +143,38 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	postConsumeQuota(c, info, usage.(*dto.Usage), logContent...)
-	service.WriteSyncSuccess(c, info, service.SyncGenerationReq{
+	service.WriteSyncSuccess(c, info, buildSyncImageGenerationReq(c, info, request, usage.(*dto.Usage)))
+	return nil
+}
+
+func buildSyncImageGenerationReq(
+	c *gin.Context,
+	info *relaycommon.RelayInfo,
+	request *dto.ImageRequest,
+	usage *dto.Usage,
+) service.SyncGenerationReq {
+	return service.SyncGenerationReq{
 		Kind:             model.GenerationKindImage,
 		Model:            info.OriginModelName,
+		RequestBody:      buildSyncImageRequestBody(c, info, request),
+		ResponseBody:     service.GetLogOutputBody(c),
 		Quota:            info.FinalPreConsumedQuota,
-		PromptTokens:     usage.(*dto.Usage).PromptTokens,
-		CompletionTokens: usage.(*dto.Usage).CompletionTokens,
-		TotalTokens:      usage.(*dto.Usage).TotalTokens,
-	})
-	return nil
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+		TotalTokens:      usage.TotalTokens,
+	}
+}
+
+func buildSyncImageRequestBody(
+	c *gin.Context,
+	info *relaycommon.RelayInfo,
+	request *dto.ImageRequest,
+) string {
+	if input := strings.TrimSpace(service.BuildTaskLogInputBody(c, info)); input != "" {
+		return input
+	}
+	if request == nil {
+		return ""
+	}
+	return common.GetJsonString(request)
 }

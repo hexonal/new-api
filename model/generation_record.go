@@ -53,8 +53,9 @@ type GenerationRecord struct {
 	ExternalTaskID   string `json:"external_task_id" gorm:"type:varchar(191);default:'';index:idx_gr_platform_task,priority:2"`
 	Model            string `json:"model" gorm:"type:varchar(128);not null"`
 	UpstreamModel    string `json:"upstream_model" gorm:"type:varchar(128);default:''"`
-	InputPreview     string `json:"input_preview" gorm:"type:text"`
+	RequestBody      string `json:"request_body" gorm:"type:text"`
 	OutputURLs       string `json:"output_urls" gorm:"type:text"`
+	ResponseBody     string `json:"response_body" gorm:"type:text"`
 	Extras           string `json:"extras" gorm:"type:text"`
 	ErrorMessage     string `json:"error_message" gorm:"type:text"`
 	Quota            int    `json:"quota" gorm:"default:0"`
@@ -89,6 +90,7 @@ func InsertPending(rec *GenerationRecord) error {
 type GenerationStatusUpdate struct {
 	Status       string
 	OutputURLs   string
+	ResponseBody string
 	ErrorMessage string
 	Quota        int
 	StartTime    int64
@@ -170,6 +172,9 @@ func buildAdvanceUpdates(u GenerationStatusUpdate) map[string]interface{} {
 	}
 	if u.OutputURLs != "" {
 		m["output_urls"] = u.OutputURLs
+	}
+	if u.ResponseBody != "" {
+		m["response_body"] = u.ResponseBody
 	}
 	if u.ErrorMessage != "" {
 		m["error_message"] = u.ErrorMessage
@@ -266,6 +271,7 @@ type GenerationRecordQuery struct {
 	Kind      string
 	Status    string
 	Platform  string
+	Token     string
 }
 
 // GetGenerationRecords 单表标准分页查询
@@ -306,6 +312,9 @@ func listGenerationRecords(q GenerationRecordQuery) ([]*GenerationRecord, int64,
 func buildGenerationRecordQuery(tx *gorm.DB, q GenerationRecordQuery) *gorm.DB {
 	if q.TokenID > 0 {
 		tx = tx.Where("token_id = ?", q.TokenID)
+	}
+	if q.Token != "" {
+		tx = tx.Where("token_name = ?", q.Token)
 	}
 	if q.UserID > 0 {
 		tx = tx.Where("user_id = ?", q.UserID)

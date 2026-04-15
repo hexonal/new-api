@@ -20,7 +20,8 @@ type SearchGenerationRecordsReq struct {
 	Kind      string `json:"kind,omitempty" form:"kind"`
 	Status    string `json:"status,omitempty" form:"status"`
 	Platform  string `json:"platform,omitempty" form:"platform"`
-	TokenID   int    `json:"token_id,omitempty" form:"token_id"`
+	Token     string `json:"token,omitempty" form:"token"`
+	TokenID   int    `json:"-" form:"token_id"`
 }
 
 func SearchTokenGenerationRecords(c *gin.Context) {
@@ -127,6 +128,7 @@ func newGenerationRecordReqFromQuery(c *gin.Context) SearchGenerationRecordsReq 
 		Kind:      c.Query("kind"),
 		Status:    c.Query("status"),
 		Platform:  c.Query("platform"),
+		Token:     c.Query("token"),
 		TokenID:   tokenID,
 	}
 }
@@ -144,6 +146,7 @@ func newGenerationRecordQuery(
 		Kind:      strings.TrimSpace(req.Kind),
 		Status:    strings.TrimSpace(req.Status),
 		Platform:  strings.TrimSpace(req.Platform),
+		Token:     strings.TrimSpace(req.Token),
 	}
 }
 
@@ -180,12 +183,14 @@ func toGenerationRecordDTOs(records []*model.GenerationRecord) []dto.GenerationR
 func toGenerationRecordDTO(r *model.GenerationRecord) dto.GenerationRecordDTO {
 	d := dto.GenerationRecordDTO{
 		ID:               r.RecordID,
+		Token:            r.TokenName,
 		Kind:             r.Kind,
 		Status:           r.Status,
 		Model:            r.Model,
 		Platform:         r.Platform,
 		TaskID:           r.ExternalTaskID,
-		InputPreview:     r.InputPreview,
+		RequestBody:      r.RequestBody,
+		ResponseBody:     r.ResponseBody,
 		Quota:            r.Quota,
 		PromptTokens:     r.PromptTokens,
 		CompletionTokens: r.CompletionTokens,
@@ -196,13 +201,6 @@ func toGenerationRecordDTO(r *model.GenerationRecord) dto.GenerationRecordDTO {
 		SubmitTime:       r.SubmitTime,
 		StartTime:        r.StartTime,
 		FinishTime:       r.FinishTime,
-		Outputs:          []dto.GenerationOutputDTO{},
-	}
-	if r.OutputURLs != "" {
-		var outputs []dto.GenerationOutputDTO
-		if err := common.UnmarshalJsonStr(r.OutputURLs, &outputs); err == nil && outputs != nil {
-			d.Outputs = outputs
-		}
 	}
 	if r.Extras != "" {
 		var extras struct {

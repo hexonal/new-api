@@ -52,7 +52,7 @@ const FILTER_INIT_VALUES = {
   kind: '',
   status: '',
   platform: '',
-  token_id: '',
+  token: '',
 };
 
 const normalizeTimestamp = (value) => {
@@ -80,26 +80,6 @@ const formatDuration = (startTime, finishTime) => {
   return `${end - start}s`;
 };
 
-const formatOutputs = (outputs) => {
-  if (!Array.isArray(outputs) || outputs.length === 0) {
-    return '-';
-  }
-  const first = outputs[0];
-  if (!first?.url) {
-    return `${outputs.length} ${outputs.length > 1 ? 'items' : 'item'}`;
-  }
-  return (
-    <a
-      href={first.url}
-      target='_blank'
-      rel='noreferrer'
-      className='text-[var(--semi-color-link)] hover:underline'
-    >
-      {outputs.length > 1 ? `#1 / ${outputs.length}` : '#1'}
-    </a>
-  );
-};
-
 const DetailItem = ({ label, children }) => (
   <div className='flex min-w-0 flex-col gap-1 rounded-lg border border-[var(--semi-color-border)] p-2'>
     <Text type='secondary' size='small'>
@@ -114,6 +94,9 @@ const GenerationRecordDetail = ({ record, t }) => (
     <div className='grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-4'>
       <DetailItem label={t('记录ID')}>
         {formatGenerationRecordId(record.id)}
+      </DetailItem>
+      <DetailItem label={t('令牌')}>
+        {formatNullableText(record.token)}
       </DetailItem>
       <DetailItem label={t('任务ID')}>
         {formatGenerationTaskId(record)}
@@ -143,12 +126,17 @@ const GenerationRecordDetail = ({ record, t }) => (
       <DetailItem label={t('退款')}>
         {record.refunded ? `${t('已退款')} ${record.refunded_quota || 0}` : '-'}
       </DetailItem>
-      <DetailItem label={t('产物')}>{formatOutputs(record.outputs)}</DetailItem>
     </div>
     <div className='flex flex-col gap-1'>
-      <Text type='secondary'>{t('输入摘要')}</Text>
+      <Text type='secondary'>{t('请求体')}</Text>
       <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] p-2 text-sm'>
-        {formatNullableText(record.input_preview)}
+        {formatNullableText(record.request_body)}
+      </pre>
+    </div>
+    <div className='flex flex-col gap-1'>
+      <Text type='secondary'>{t('上游返回')}</Text>
+      <pre className='max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] p-2 text-sm'>
+        {formatNullableText(record.response_body)}
       </pre>
     </div>
     <div className='flex flex-col gap-1'>
@@ -172,16 +160,11 @@ const GenerationRecord = () => {
 
   const getFilters = () => {
     const values = formApi ? formApi.getValues() : FILTER_INIT_VALUES;
-    const tokenIdRaw = String(values.token_id || '').trim();
-    const parsedTokenId = Number(tokenIdRaw);
     return {
       kind: String(values.kind || '').trim(),
       status: String(values.status || '').trim(),
       platform: String(values.platform || '').trim(),
-      token_id:
-        tokenIdRaw && Number.isInteger(parsedTokenId) && parsedTokenId > 0
-          ? parsedTokenId
-          : undefined,
+      token: String(values.token || '').trim(),
     };
   };
 
@@ -205,8 +188,8 @@ const GenerationRecord = () => {
       if (filters.platform) {
         params.platform = filters.platform;
       }
-      if (isAdmin() && filters.token_id) {
-        params.token_id = filters.token_id;
+      if (isAdmin() && filters.token) {
+        params.token = filters.token;
       }
 
       const res = await API.get(endpoint, { params });
@@ -270,6 +253,13 @@ const GenerationRecord = () => {
         key: 'id',
         width: 100,
         render: (value) => formatGenerationRecordId(value),
+      },
+      {
+        title: t('令牌'),
+        dataIndex: 'token',
+        key: 'token',
+        width: 180,
+        render: (value) => value || '-',
       },
       {
         title: t('提交时间'),
@@ -358,13 +348,6 @@ const GenerationRecord = () => {
           formatDuration(record.start_time, record.finish_time),
       },
       {
-        title: t('产物'),
-        dataIndex: 'outputs',
-        key: 'outputs',
-        width: 120,
-        render: (value) => formatOutputs(value),
-      },
-      {
         title: t('退款'),
         key: 'refunded',
         width: 90,
@@ -425,7 +408,7 @@ const GenerationRecord = () => {
               </div>
               {isAdmin() && (
                 <div className='w-40'>
-                  <Form.Input field='token_id' label={t('令牌ID')} />
+                  <Form.Input field='token' label={t('令牌')} />
                 </div>
               )}
               <div className='flex gap-2'>

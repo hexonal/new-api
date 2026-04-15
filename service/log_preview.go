@@ -64,6 +64,10 @@ func SetLogOutputBodyBytes(c *gin.Context, value []byte) {
 	SetLogOutputBody(c, string(value))
 }
 
+func GetLogOutputBody(c *gin.Context) string {
+	return strings.TrimSpace(getContextString(c, logOutputBodyKey))
+}
+
 func AppendLogOutputChunk(c *gin.Context, value string) {
 	if c == nil {
 		return

@@ -610,6 +610,7 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 			}
 		}
 	}
+	service.SetLogOutputBodyBytes(c, responseBody)
 
 	var usageResp dto.SimpleResponse
 	err = common.Unmarshal(responseBody, &usageResp)

@@ -90,14 +90,16 @@ func TestAdvanceStatus_CASForward(t *testing.T) {
 	InsertPending(rec)
 
 	err := AdvanceStatus("test:1:cas", GenerationStatusUpdate{
-		Status:    GenerationStatusRunning,
-		StartTime: 1700000010,
+		Status:       GenerationStatusRunning,
+		ResponseBody: `{"status":"processing"}`,
+		StartTime:    1700000010,
 	}, nil)
 	assert.NoError(t, err)
 
 	var found GenerationRecord
 	DB.Where("record_key = ?", "test:1:cas").First(&found)
 	assert.Equal(t, GenerationStatusRunning, found.Status)
+	assert.Equal(t, `{"status":"processing"}`, found.ResponseBody)
 	assert.Equal(t, int64(1700000010), found.StartTime)
 }
 

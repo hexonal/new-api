@@ -23,13 +23,20 @@ type SyncGenerationReq struct {
 	Kind             string
 	Platform         string
 	Model            string
-	InputPreview     string
+	RequestBody      string
 	OutputURLs       string
+	ResponseBody     string
 	Extras           string
 	Quota            int
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+}
+
+type generationOutputRecord struct {
+	Type  string `json:"type"`
+	URL   string `json:"url"`
+	Index int    `json:"index"`
 }
 
 // WriteSyncSuccess 同步调用成功后写入记录
@@ -46,8 +53,10 @@ func WriteSyncSuccess(c *gin.Context, info *relaycommon.RelayInfo, req SyncGener
 		Status:           model.GenerationStatusSuccess,
 		Platform:         req.Platform,
 		Model:            req.Model,
-		InputPreview:     truncateByRune(req.InputPreview, 1024),
+		TokenName:        c.GetString("token_name"),
+		RequestBody:      req.RequestBody,
 		OutputURLs:       req.OutputURLs,
+		ResponseBody:     req.ResponseBody,
 		Extras:           req.Extras,
 		Quota:            req.Quota,
 		PromptTokens:     req.PromptTokens,
@@ -83,6 +92,7 @@ func WriteAsyncStatusAdvance(ctx context.Context, task *model.Task, newStatus st
 	update := model.GenerationStatusUpdate{
 		Status:       mapAsyncTaskStatusToRecordStatus(newStatus),
 		OutputURLs:   outputURLsJSON,
+		ResponseBody: rawTaskData(task),
 		ErrorMessage: errorMessageForRecordStatus(mapAsyncTaskStatusToRecordStatus(newStatus), task.FailReason),
 		StartTime:    convertMsToSec(task.StartTime),
 		FinishTime:   convertMsToSec(task.FinishTime),
@@ -225,7 +235,8 @@ func buildAsyncSubmittedRecord(c *gin.Context, info *relaycommon.RelayInfo, task
 		ExternalTaskID: task.TaskID,
 		Model:          firstNonEmpty(taskModelName(task), info.OriginModelName, info.UpstreamModelName),
 		UpstreamModel:  firstNonEmpty(task.Properties.UpstreamModelName, info.UpstreamModelName),
-		InputPreview:   truncateByRune(task.Properties.Input, 1024),
+		RequestBody:    task.Properties.Input,
+		ResponseBody:   rawTaskData(task),
 		Extras:         buildExtrasJSON(c, info),
 		Quota:          task.Quota,
 		SubmitTime:     firstPositiveInt64(convertMsToSec(task.SubmitTime), time.Now().Unix()),
@@ -243,7 +254,8 @@ func buildTaskFallbackRecord(task *model.Task) *model.GenerationRecord {
 		ExternalTaskID: task.TaskID,
 		Model:          taskModelName(task),
 		UpstreamModel:  task.Properties.UpstreamModelName,
-		InputPreview:   truncateByRune(task.Properties.Input, 1024),
+		RequestBody:    task.Properties.Input,
+		ResponseBody:   rawTaskData(task),
 		Quota:          task.Quota,
 		SubmitTime:     convertMsToSec(task.SubmitTime),
 	}
@@ -258,7 +270,7 @@ func buildMjFallbackRecord(mj *model.Midjourney) *model.GenerationRecord {
 		Platform:       string(constant.TaskPlatformMidjourney),
 		ExternalTaskID: mj.MjId,
 		Model:          CovertMjpActionToModelName(mj.Action),
-		InputPreview:   truncateByRune(firstNonEmpty(mj.Prompt, mj.Description), 1024),
+		RequestBody:    firstNonEmpty(mj.Prompt, mj.Description),
 		Quota:          mj.Quota,
 		SubmitTime:     firstPositiveInt64(convertMsToSec(mj.SubmitTime), time.Now().Unix()),
 	}
@@ -278,7 +290,7 @@ func buildMjSubmittedRecord(c *gin.Context, info *relaycommon.RelayInfo, mj *mod
 		ExternalTaskID: mj.MjId,
 		Model:          firstNonEmpty(info.OriginModelName, CovertMjpActionToModelName(mj.Action)),
 		UpstreamModel:  info.UpstreamModelName,
-		InputPreview:   truncateByRune(firstNonEmpty(mj.Prompt, mj.Description), 1024),
+		RequestBody:    firstNonEmpty(mj.Prompt, mj.Description),
 		OutputURLs:     buildOutputURLsJSON(buildMjOutputURLs(mj)),
 		Extras:         buildExtrasJSON(c, info),
 		Quota:          mj.Quota,
@@ -332,11 +344,11 @@ func buildExtrasJSON(c *gin.Context, info *relaycommon.RelayInfo) string {
 	return marshalJSONString(ex)
 }
 
-func buildMjOutputURLs(mj *model.Midjourney) []dto.GenerationOutputDTO {
+func buildMjOutputURLs(mj *model.Midjourney) []generationOutputRecord {
 	if mj == nil {
 		return nil
 	}
-	outputs := make([]dto.GenerationOutputDTO, 0, 4)
+	outputs := make([]generationOutputRecord, 0, 4)
 	seen := make(map[string]struct{})
 	appendURL := func(kind string, url string) {
 		url = strings.TrimSpace(url)
@@ -348,7 +360,7 @@ func buildMjOutputURLs(mj *model.Midjourney) []dto.GenerationOutputDTO {
 			return
 		}
 		seen[key] = struct{}{}
-		outputs = append(outputs, dto.GenerationOutputDTO{Type: kind, URL: url, Index: len(outputs)})
+		outputs = append(outputs, generationOutputRecord{Type: kind, URL: url, Index: len(outputs)})
 	}
 
 	var imageURLs []string
@@ -383,7 +395,7 @@ func BuildTaskOutputJSON(task *model.Task) string {
 	if mapTaskPlatformToKind(task.Platform) == model.GenerationKindMusic {
 		outputType = model.GenerationKindAudio
 	}
-	outputs := []dto.GenerationOutputDTO{{
+	outputs := []generationOutputRecord{{
 		Type:  outputType,
 		URL:   url,
 		Index: 0,
@@ -391,11 +403,18 @@ func BuildTaskOutputJSON(task *model.Task) string {
 	return marshalJSONString(outputs)
 }
 
-func buildOutputURLsJSON(outputs []dto.GenerationOutputDTO) string {
+func buildOutputURLsJSON(outputs []generationOutputRecord) string {
 	if len(outputs) == 0 {
 		return ""
 	}
 	return marshalJSONString(outputs)
+}
+
+func rawTaskData(task *model.Task) string {
+	if task == nil || len(task.Data) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(string(task.Data))
 }
 
 func marshalJSONString(v any) string {
@@ -458,12 +477,4 @@ func firstPositiveInt64(values ...int64) int64 {
 		}
 	}
 	return 0
-}
-
-func truncateByRune(s string, maxRunes int) string {
-	runes := []rune(s)
-	if len(runes) <= maxRunes {
-		return s
-	}
-	return string(runes[:maxRunes])
 }
