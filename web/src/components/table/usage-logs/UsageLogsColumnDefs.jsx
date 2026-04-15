@@ -25,7 +25,7 @@ import {
   Tooltip,
   Popover,
   Typography,
-  Button
+  Button,
 } from '@douyinfe/semi-ui';
 import {
   timestamp2string,
@@ -43,6 +43,19 @@ import {
   getQuotaPerUnit,
   getCurrencyConfig,
 } from '../../../helpers';
+import {
+  hasDynamicPerCallRatios,
+  calculateDynamicPerCallPrice,
+  buildDynamicPerCallFormula,
+  buildDynamicPerCallParameterText,
+  getBillingSKU,
+  calculateFixedPerCallPrice,
+  buildFixedPerCallFormula,
+  deriveCreditsUnitPrice,
+  buildCreditsSettlementFormula,
+  formatDirectPerCallPrice,
+  derivePerCallUnitPriceFromQuota,
+} from '../../../helpers/dynamicPerCall';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
 
@@ -317,7 +330,12 @@ function parseTokenRecalculateTotal(...candidates) {
   return 0;
 }
 
-function resolveDeferredTotalTokens(record, other, promptTokens, completionTokens) {
+function resolveDeferredTotalTokens(
+  record,
+  other,
+  promptTokens,
+  completionTokens,
+) {
   const directTotal = toTokenNumber(other?.task_total_tokens);
   if (directTotal > 0) {
     return directTotal;
@@ -396,7 +414,8 @@ function formatDisplayPrice(usdAmount) {
 
 function buildDeferredTokenFormulaPreview(record, other, t) {
   const promptTokens =
-    toTokenNumber(record?.prompt_tokens) || toTokenNumber(other?.task_prompt_tokens);
+    toTokenNumber(record?.prompt_tokens) ||
+    toTokenNumber(other?.task_prompt_tokens);
   const completionTokens =
     toTokenNumber(record?.completion_tokens) ||
     toTokenNumber(other?.task_completion_tokens);
@@ -432,7 +451,10 @@ function buildDeferredTokenFormulaPreview(record, other, t) {
   const thoughtPrice = inputPrice * thoughtRatio;
   const cachePrice = inputPrice * cacheRatio;
   const nonCacheInputTokens = Math.max(promptTokens - cacheTokens, 0);
-  const thoughtTokens = Math.max(totalTokens - promptTokens - completionTokens, 0);
+  const thoughtTokens = Math.max(
+    totalTokens - promptTokens - completionTokens,
+    0,
+  );
 
   const terms = [];
   if (nonCacheInputTokens > 0) {
@@ -555,7 +577,9 @@ export const getLogsColumns = ({
       title: t('渠道'),
       dataIndex: 'channel',
       render: (text, record, index) => {
-        const fullChannelName = (record.channel_name || String(text || '')).trim();
+        const fullChannelName = (
+          record.channel_name || String(text || '')
+        ).trim();
         const shortChannelName = fullChannelName
           ? fullChannelName.slice(0, 2)
           : String(text || '-');
@@ -584,7 +608,10 @@ export const getLogsColumns = ({
         }
 
         return isAdminUser &&
-          (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
+          (record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6) ? (
           <Space>
             <span style={{ position: 'relative', display: 'inline-block' }}>
               <Tooltip content={fullChannelName || t('未知渠道')}>
@@ -651,7 +678,10 @@ export const getLogsColumns = ({
       dataIndex: 'channel',
       render: (text, record, index) => {
         return isAdminUser &&
-          (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
+          (record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6) ? (
           <Tag
             color={colors[(parseInt(text, 10) || 0) % colors.length]}
             shape='circle'
@@ -694,7 +724,10 @@ export const getLogsColumns = ({
       title: t('令牌'),
       dataIndex: 'token_name',
       render: (text, record, index) => {
-        return record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6 ? (
+        return record.type === 0 ||
+          record.type === 2 ||
+          record.type === 5 ||
+          record.type === 6 ? (
           <div>
             <Tag
               color='grey'
@@ -717,7 +750,12 @@ export const getLogsColumns = ({
       title: t('分组'),
       dataIndex: 'group',
       render: (text, record, index) => {
-        if (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) {
+        if (
+          record.type === 0 ||
+          record.type === 2 ||
+          record.type === 5 ||
+          record.type === 6
+        ) {
           if (record.group) {
             return <>{renderGroup(record.group)}</>;
           } else {
@@ -749,7 +787,12 @@ export const getLogsColumns = ({
       title: t('定价分组'),
       dataIndex: 'pricing_group',
       render: (text, record, index) => {
-        if (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) {
+        if (
+          record.type === 0 ||
+          record.type === 2 ||
+          record.type === 5 ||
+          record.type === 6
+        ) {
           if (text) {
             return <>{renderGroup(text)}</>;
           }
@@ -770,7 +813,10 @@ export const getLogsColumns = ({
       title: t('模型'),
       dataIndex: 'model_name',
       render: (text, record, index) => {
-        return record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6 ? (
+        return record.type === 0 ||
+          record.type === 2 ||
+          record.type === 5 ||
+          record.type === 6 ? (
           <>{renderModelName(record, copyText, t)}</>
         ) : (
           <></>
@@ -837,7 +883,10 @@ export const getLogsColumns = ({
           cacheText = `${t('缓存写')} ${formatTokenCount(cacheSummary.cacheWriteTokens)}`;
         }
 
-        return record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6 ? (
+        return record.type === 0 ||
+          record.type === 2 ||
+          record.type === 5 ||
+          record.type === 6 ? (
           <div
             style={{
               display: 'inline-flex',
@@ -871,7 +920,10 @@ export const getLogsColumns = ({
       dataIndex: 'completion_tokens',
       render: (text, record, index) => {
         return parseInt(text) > 0 &&
-          (record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6) ? (
+          (record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6) ? (
           <>{<span> {text} </span>}</>
         ) : (
           <></>
@@ -883,7 +935,14 @@ export const getLogsColumns = ({
       title: t('花费'),
       dataIndex: 'quota',
       render: (text, record, index) => {
-        if (!(record.type === 0 || record.type === 2 || record.type === 5 || record.type === 6)) {
+        if (
+          !(
+            record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6
+          )
+        ) {
           return <></>;
         }
         const other = getLogOther(record.other);
@@ -897,16 +956,30 @@ export const getLogsColumns = ({
           );
         }
         // Deferred settle pending: clearly show not yet charged
-        if (other?.deferred_settle && other?.terminal_charge_state === 'pending') {
+        if (
+          other?.deferred_settle &&
+          other?.terminal_charge_state === 'pending'
+        ) {
           const est = toTokenNumber(other?.estimated_quota);
-          const tip = est > 0
-            ? t('预估 {{cost}}，以任务完成后结算为准', { cost: renderQuota(est, 6) })
-            : t('等待任务完成后结算');
+          const tip =
+            est > 0
+              ? t('预估 {{cost}}，以任务完成后结算为准', {
+                  cost: renderQuota(est, 6),
+                })
+              : t('等待任务完成后结算');
           return (
             <Tooltip content={tip}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Tag color='orange' size='small'>{t('待结算')}</Tag>
-                <span style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}>{t('未扣费')}</span>
+              <span
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <Tag color='orange' size='small'>
+                  {t('待结算')}
+                </Tag>
+                <span
+                  style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
+                >
+                  {t('未扣费')}
+                </span>
               </span>
             </Tooltip>
           );
@@ -965,9 +1038,9 @@ export const getLogsColumns = ({
           }
           if (other.admin_info !== undefined) {
             if (
-                other.admin_info.use_channel !== null &&
-                other.admin_info.use_channel !== undefined &&
-                other.admin_info.use_channel !== ''
+              other.admin_info.use_channel !== null &&
+              other.admin_info.use_channel !== undefined &&
+              other.admin_info.use_channel !== ''
             ) {
               let useChannel = other.admin_info.use_channel;
               let useChannelStr = useChannel.join('->');
@@ -993,7 +1066,9 @@ export const getLogsColumns = ({
           ]
             .filter(Boolean)
             .join('\n');
-          const summary = [t('异步任务退款'), refundTarget].filter(Boolean).join('\n');
+          const summary = [t('异步任务退款'), refundTarget]
+            .filter(Boolean)
+            .join('\n');
           return (
             <Typography.Paragraph
               ellipsis={{ rows: 2 }}
@@ -1059,6 +1134,65 @@ export const getLogsColumns = ({
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
           const billedQuota = Number(other?.actual_quota || record?.quota || 0);
+          const reason = other?.terminal_charge_reason || record?.content || '-';
+          const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
+          const credits = toTokenNumber(other?.upstream_credits);
+          const isCreditSettle = other?.settlement_type === 'credits';
+          const groupRatio = Number(other?.group_ratio);
+          if (isAdaptorAdjust) {
+            const quotaPerUnit = Number(getQuotaPerUnit());
+            const creditsUnitPrice =
+              isCreditSettle && credits > 0
+                ? deriveCreditsUnitPrice({
+                    credits,
+                    groupRatio,
+                    finalPrice: billedQuota / quotaPerUnit,
+                  })
+                : null;
+            const creditsFormula =
+              isCreditSettle && credits > 0
+                ? buildCreditsSettlementFormula({
+                    credits,
+                    groupRatio,
+                    finalPrice: billedQuota / quotaPerUnit,
+                    labels: {
+                      groupRatio: t('分组倍率（模型覆盖）'),
+                    },
+                  })
+                : null;
+            const summary = [
+              `${t('终态重算扣费')}：${renderQuota(billedQuota, 6)}`,
+              isCreditSettle
+                ? t('结算方式：上游实际消耗结算（按 credits）')
+                : t('结算方式：上游实际消耗结算'),
+              isCreditSettle &&
+              credits > 0 &&
+              Number.isFinite(creditsUnitPrice)
+                ? t('credits 单价：{{price}} / credit', {
+                    price: formatDirectPerCallPrice(creditsUnitPrice),
+                  })
+                : null,
+              creditsFormula,
+              `${t('结算原因')}：${reason}`,
+              t('仅供参考，以实际扣费为准'),
+            ]
+              .filter(Boolean)
+              .join('\n');
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 260 } },
+                  },
+                }}
+                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+              >
+                {summary}
+              </Typography.Paragraph>
+            );
+          }
           const tokenTotal = resolveDeferredTotalTokens(
             record,
             other,
@@ -1080,13 +1214,18 @@ export const getLogsColumns = ({
             0,
             billingDisplayMode,
             other?.group_ratio_source,
+            other,
           );
-          const formulaPreview = buildDeferredTokenFormulaPreview(record, other, t);
+          const formulaPreview = buildDeferredTokenFormulaPreview(
+            record,
+            other,
+            t,
+          );
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
             billingSummary,
             formulaPreview,
-            `${t('结算原因')}：${other?.terminal_charge_reason || record?.content || '-'}`,
+            `${t('结算原因')}：${reason}`,
             tokenTotal > 0
               ? `${t('任务总 Tokens')}：${formatTokenCount(tokenTotal)}`
               : null,
@@ -1193,6 +1332,106 @@ export const getLogsColumns = ({
 
         const modelPrice = Number(other?.model_price);
         const billedQuota = toTokenNumber(record?.quota);
+        const quotaPerUnit = Number(getQuotaPerUnit());
+        const billingSKU = getBillingSKU(other);
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          Number.isFinite(modelPrice) &&
+          modelPrice > 0 &&
+          hasDynamicPerCallRatios(other)
+        ) {
+          const groupRatio = Number(other?.group_ratio);
+          const dynamicPrice = calculateDynamicPerCallPrice({
+            modelPrice,
+            groupRatio,
+            otherRatios: other,
+          });
+          const parameterText = buildDynamicPerCallParameterText(other);
+          const summary = dynamicPrice
+            ? [
+                t('按次计费'),
+                `${t('基础单价')}：${formatDirectPerCallPrice(dynamicPrice.basePrice)} / ${t('次')}`,
+                parameterText ? `${t('计算参数')}：${parameterText}` : null,
+                buildDynamicPerCallFormula({
+                  basePrice: dynamicPrice.basePrice,
+                  finalPrice: dynamicPrice.finalPrice,
+                  groupRatio: dynamicPrice.groupRatio,
+                  otherRatios: other,
+                }),
+                `${t('实际扣费')}：${renderQuota(billedQuota, 6)}`,
+                t('仅供参考，以实际扣费为准'),
+              ]
+                .filter(Boolean)
+                .join('\n')
+            : '';
+          if (summary) {
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 320 } },
+                  },
+                }}
+                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+              >
+                {summary}
+              </Typography.Paragraph>
+            );
+          }
+        }
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          Number.isFinite(modelPrice) &&
+          modelPrice > 0 &&
+          !hasDynamicPerCallRatios(other) &&
+          billingSKU
+        ) {
+          const groupRatio = Number(other?.group_ratio);
+          const fixedPrice = calculateFixedPerCallPrice({
+            modelPrice,
+            groupRatio,
+          });
+          const summary = fixedPrice
+            ? [
+                t('按次计费'),
+                `${t('计费SKU')}：${billingSKU}`,
+                `${t('SKU单价')}：$${fixedPrice.unitPrice.toFixed(6)} / ${t('次')}`,
+                `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio.toFixed(4) : '-'}`,
+                buildFixedPerCallFormula({
+                  unitPrice: fixedPrice.unitPrice,
+                  finalPrice:
+                    billedQuota > 0
+                      ? billedQuota / quotaPerUnit
+                      : fixedPrice.finalPrice,
+                  groupRatio: fixedPrice.groupRatio,
+                }),
+                `${t('实际扣费')}：${renderQuota(billedQuota, 6)}`,
+                t('仅供参考，以实际扣费为准'),
+              ]
+                .filter(Boolean)
+                .join('\n')
+            : '';
+          if (summary) {
+            return (
+              <Typography.Paragraph
+                ellipsis={{
+                  rows: 2,
+                  showTooltip: {
+                    type: 'popover',
+                    opts: { style: { width: 320 } },
+                  },
+                }}
+                style={{ maxWidth: 240, whiteSpace: 'pre-line' }}
+              >
+                {summary}
+              </Typography.Paragraph>
+            );
+          }
+        }
         if (
           isNonTextTaskEndpoint &&
           hasNoTokenUsage &&
@@ -1200,13 +1439,21 @@ export const getLogsColumns = ({
           billedQuota > 0
         ) {
           const groupRatio = Number(other?.group_ratio);
-          const safeRatio = Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
-          const derivedModelPrice = billedQuota / safeRatio;
+          const safeRatio =
+            Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
+          const derivedModelPrice = derivePerCallUnitPriceFromQuota({
+            billedQuota,
+            groupRatio: safeRatio,
+            quotaPerUnit,
+          });
+          const derivedModelPriceText = formatDirectPerCallPrice(
+            derivedModelPrice,
+          );
           const summary = [
             t('按次计费（根据实际扣费反推）'),
-            `${t('模型单价')}：${renderQuota(derivedModelPrice, 6)} / ${t('次')}`,
+            `${t('模型单价')}：${derivedModelPriceText} / ${t('次')}`,
             `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio : '-'}`,
-            `(${t('模型单价')} ${renderQuota(derivedModelPrice, 6)} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
+            `(${t('模型单价')} ${derivedModelPriceText} / ${t('次')}) * ${t('分组倍率（模型覆盖）')} ${safeRatio.toFixed(4)} = ${renderQuota(billedQuota, 6)}`,
             t('仅供参考，以实际扣费为准'),
           ]
             .filter(Boolean)
@@ -1226,7 +1473,11 @@ export const getLogsColumns = ({
             </Typography.Paragraph>
           );
         }
-        if (isNonTextTaskEndpoint && hasNoTokenUsage && !(Number.isFinite(modelPrice) && modelPrice > 0)) {
+        if (
+          isNonTextTaskEndpoint &&
+          hasNoTokenUsage &&
+          !(Number.isFinite(modelPrice) && modelPrice > 0)
+        ) {
           const modelRatio = Number(other?.model_ratio);
           const groupRatio = Number(other?.group_ratio);
           const estimatedPreconsumeTokens =
@@ -1289,6 +1540,7 @@ export const getLogsColumns = ({
               'claude',
               billingDisplayMode,
               other?.group_ratio_source,
+              other,
             )
           : renderModelPriceSimple(
               other.model_ratio,
@@ -1309,6 +1561,7 @@ export const getLogsColumns = ({
               'openai',
               billingDisplayMode,
               other?.group_ratio_source,
+              other,
             );
         let cacheSummary = '';
         const tokenSummary = buildTokenUsageSummary(record, other, t);
@@ -1331,26 +1584,26 @@ export const getLogsColumns = ({
           }
         }
         return (
-            <Typography.Paragraph
-                ellipsis={
-                  isMobile
-                    ? false
-                    : {
-                        rows: 3,
-                        showTooltip: {
-                          type: 'popover',
-                          opts: { style: { width: 420 } },
-                        },
-                      }
-                }
-                style={{
-                  maxWidth: isMobile ? 'none' : 240,
-                  whiteSpace: 'pre-line',
-                  wordBreak: 'break-word',
-                }}
-            >
-              {[tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
-            </Typography.Paragraph>
+          <Typography.Paragraph
+            ellipsis={
+              isMobile
+                ? false
+                : {
+                    rows: 3,
+                    showTooltip: {
+                      type: 'popover',
+                      opts: { style: { width: 420 } },
+                    },
+                  }
+            }
+            style={{
+              maxWidth: isMobile ? 'none' : 240,
+              whiteSpace: 'pre-line',
+              wordBreak: 'break-word',
+            }}
+          >
+            {[tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
+          </Typography.Paragraph>
         );
       },
     },

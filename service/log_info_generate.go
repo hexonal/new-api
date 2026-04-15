@@ -12,14 +12,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
-	if other == nil {
-		return
+type RequestLogMetadata struct {
+	RequestPath       string
+	RequestConversion []string
+}
+
+func BuildRequestLogMetadata(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) RequestLogMetadata {
+	return RequestLogMetadata{
+		RequestPath:       buildRequestPath(ctx, relayInfo),
+		RequestConversion: buildRequestConversionChain(relayInfo),
 	}
-	if ctx != nil && ctx.Request != nil && ctx.Request.URL != nil {
-		if path := ctx.Request.URL.Path; path != "" {
-			other["request_path"] = path
-			return
+}
+
+func buildRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) string {
+	if ctx != nil {
+		if v, ok := ctx.Get("original_request_path"); ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return s
+			}
+		}
+		if ctx.Request != nil && ctx.Request.URL != nil {
+			if path := ctx.Request.URL.Path; path != "" {
+				return path
+			}
 		}
 	}
 	if relayInfo != nil && relayInfo.RequestURLPath != "" {
@@ -27,8 +42,53 @@ func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other
 		if idx := strings.Index(path, "?"); idx != -1 {
 			path = path[:idx]
 		}
-		other["request_path"] = path
+		return path
 	}
+	return ""
+}
+
+func buildRequestConversionChain(relayInfo *relaycommon.RelayInfo) []string {
+	if relayInfo == nil || len(relayInfo.RequestConversionChain) == 0 {
+		return nil
+	}
+	chain := make([]string, 0, len(relayInfo.RequestConversionChain))
+	for _, f := range relayInfo.RequestConversionChain {
+		switch f {
+		case types.RelayFormatOpenAI:
+			chain = append(chain, "OpenAI Compatible")
+		case types.RelayFormatClaude:
+			chain = append(chain, "Claude Messages")
+		case types.RelayFormatGemini:
+			chain = append(chain, "Google Gemini")
+		case types.RelayFormatOpenAIResponses:
+			chain = append(chain, "OpenAI Responses")
+		default:
+			chain = append(chain, string(f))
+		}
+	}
+	if len(chain) == 0 {
+		return nil
+	}
+	return chain
+}
+
+func appendRequestLogMetadata(other map[string]interface{}, meta RequestLogMetadata) {
+	if other == nil {
+		return
+	}
+	if strings.TrimSpace(meta.RequestPath) != "" {
+		other["request_path"] = meta.RequestPath
+	}
+	if len(meta.RequestConversion) > 0 {
+		other["request_conversion"] = meta.RequestConversion
+	}
+}
+
+func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if other == nil {
+		return
+	}
+	appendRequestLogMetadata(other, BuildRequestLogMetadata(ctx, relayInfo))
 }
 
 func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelRatio, groupRatio, completionRatio float64,
@@ -138,28 +198,9 @@ func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other map[st
 	if relayInfo == nil || other == nil {
 		return
 	}
-	if len(relayInfo.RequestConversionChain) == 0 {
-		return
-	}
-	chain := make([]string, 0, len(relayInfo.RequestConversionChain))
-	for _, f := range relayInfo.RequestConversionChain {
-		switch f {
-		case types.RelayFormatOpenAI:
-			chain = append(chain, "OpenAI Compatible")
-		case types.RelayFormatClaude:
-			chain = append(chain, "Claude Messages")
-		case types.RelayFormatGemini:
-			chain = append(chain, "Google Gemini")
-		case types.RelayFormatOpenAIResponses:
-			chain = append(chain, "OpenAI Responses")
-		default:
-			chain = append(chain, string(f))
-		}
-	}
-	if len(chain) == 0 {
-		return
-	}
-	other["request_conversion"] = chain
+	appendRequestLogMetadata(other, RequestLogMetadata{
+		RequestConversion: buildRequestConversionChain(relayInfo),
+	})
 }
 
 func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {

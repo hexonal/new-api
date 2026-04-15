@@ -90,7 +90,7 @@ type RelayInfo struct {
 	UserId            int
 	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
 	UserGroup         string // 用户所在分组
-	UserPricingGroup  string // 计费专用分组，优先于 UsingGroup 查询倍率
+	UserPricingGroup  string // 兼容字段；运行时定价以 UserGroup 为准
 	TokenUnlimited    bool
 	StartTime         time.Time
 	FirstResponseTime time.Time
@@ -225,8 +225,16 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 }
 
-// EffectivePricingGroup returns UserPricingGroup if set, otherwise falls back to UsingGroup.
+// EffectivePricingGroup returns the user group for runtime pricing decisions.
+// pricing_group is kept as a compatibility mirror and must not override user group.
 func (info *RelayInfo) EffectivePricingGroup() string {
+	if info.UserGroup != "" {
+		return info.UserGroup
+	}
+	if info.UsingGroup != "" {
+		return info.UsingGroup
+	}
+	// Keep a final fallback for legacy/internal callers that may still pass only UserPricingGroup.
 	if info.UserPricingGroup != "" {
 		return info.UserPricingGroup
 	}
@@ -459,13 +467,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request: request,
 
-		RequestId:  reqId,
-		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		RequestId:        reqId,
+		UserId:           common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup:       common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserGroup:        common.GetContextKeyString(c, constant.ContextKeyUserGroup),
 		UserPricingGroup: common.GetContextKeyString(c, constant.ContextKeyUserPricingGroup),
-		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
-		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
+		UserQuota:        common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
+		UserEmail:        common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
@@ -665,8 +673,9 @@ func (info *RelayInfo) HasSendResponse() bool {
 }
 
 type TaskRelayInfo struct {
-	Action       string
-	OriginTaskID string
+	Action        string
+	OriginTaskID  string
+	ConsumedModel string
 	// PublicTaskID 是提交时预生成的 task_xxxx 格式公开 ID，
 	// 供 DoResponse 在返回给客户端时使用（避免暴露上游真实 ID）。
 	PublicTaskID string
@@ -692,6 +701,7 @@ type TaskSubmitReq struct {
 	Images         []string               `json:"images,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	AspectRatio    string                 `json:"aspect_ratio,omitempty"`
+	Quality        string                 `json:"quality,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
 	Seconds        string                 `json:"seconds,omitempty"`
 	InputReference string                 `json:"input_reference,omitempty"`

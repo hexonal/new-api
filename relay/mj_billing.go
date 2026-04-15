@@ -1,11 +1,11 @@
 package relay
 
 import (
-	"math"
 	"regexp"
 	"strings"
 
 	"github.com/QuantumNous/new-api/constant"
+	helper "github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/types"
 )
 
@@ -41,7 +41,18 @@ func applyMjSpeedRatioForImagine(action, prompt string, priceData types.PriceDat
 		return priceData
 	}
 	priceData.ModelPrice = priceData.ModelPrice * ratio
-	priceData.Quota = int(math.Round(float64(priceData.Quota) * ratio))
+	groupRatio := priceData.GroupRatioInfo.GroupRatio
+	if groupRatio == 0 {
+		priceData.Quota = 0
+	} else {
+		if groupRatio < 0 {
+			groupRatio = 1
+		}
+		priceData.Quota = helper.CalculateFixedPerCallQuota(
+			priceData.ModelPrice,
+			groupRatio,
+		)
+	}
 	priceData.AddOtherRatio("speed_ratio", ratio)
 	switch mode {
 	case "turbo":

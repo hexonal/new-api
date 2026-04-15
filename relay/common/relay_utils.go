@@ -110,6 +110,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Mode:        formData.Get("mode"),
 		Image:       formData.Get("image"),
 		Size:        formData.Get("size"),
+		Quality:     formData.Get("quality"),
 		Metadata:    make(map[string]interface{}),
 	}
 	if req.CallbackURL == "" {
@@ -225,6 +226,7 @@ func isKnownTaskField(field string) bool {
 		"image":           true,
 		"images":          true,
 		"size":            true,
+		"quality":         true,
 		"duration":        true,
 		"input_reference": true, // Sora 特有字段
 		"callback_url":    true,

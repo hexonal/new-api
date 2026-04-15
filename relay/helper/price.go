@@ -2,13 +2,16 @@ package helper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,13 +34,9 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	// Determine the group used for pricing/ratio lookups.
-	// UserPricingGroup (from user.pricing_group) takes priority;
-	// falls back to UsingGroup for backward compatibility.
-	pricingGroup := relayInfo.UserPricingGroup
-	if pricingGroup == "" {
-		pricingGroup = relayInfo.UsingGroup
-	}
+	// Runtime pricing always uses the user group.
+	// pricing_group is a compatibility mirror and must not override user group.
+	pricingGroup := relayInfo.EffectivePricingGroup()
 
 	// Warn if pricingGroup is set but not found in any ratio config
 	if pricingGroup != "" {
@@ -168,14 +167,14 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 // ModelPriceHelperPerCall 按次计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
-	groupRatioInfo := HandleGroupRatio(c, info)
-
-	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
+	pricingModelName := resolvePerCallPricingModelName(info)
+	groupRatioInfo := handleGroupRatioForModel(c, info, resolvePerCallGroupRatioModelNames(info, pricingModelName)...)
+	modelPrice, success := ratio_setting.GetModelPrice(pricingModelName, true)
 	// 如果没有配置价格，检查模型倍率配置
 	if !success {
 
 		// 没有配置费用，也要使用默认费用,否则按费率计费模型无法使用
-		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[info.OriginModelName]
+		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[pricingModelName]
 		if ok {
 			modelPrice = defaultPrice
 		} else {
@@ -191,9 +190,8 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 			// 未配置价格但配置了倍率，使用默认预扣价格
 			modelPrice = float64(common.PreConsumedQuota) / common.QuotaPerUnit
 		}
-
 	}
-	quota := int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+	quota := CalculateFixedPerCallQuota(modelPrice, groupRatioInfo.GroupRatio)
 
 	// 免费模型检测（与 ModelPriceHelper 对齐）
 	freeModel := false
@@ -211,6 +209,81 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		GroupRatioInfo: groupRatioInfo,
 	}
 	return priceData, nil
+}
+
+func resolvePerCallPricingModelName(info *relaycommon.RelayInfo) string {
+	if info == nil {
+		return ""
+	}
+
+	if info.ChannelType == constant.ChannelTypeMiniMax && info.TaskRelayInfo != nil {
+		consumedModel := strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+		if strings.Contains(strings.ToLower(consumedModel), "hailuo") {
+			if _, ok := ratio_setting.GetModelPrice(consumedModel, false); ok {
+				return consumedModel
+			}
+		}
+	}
+
+	return info.OriginModelName
+}
+
+func resolvePerCallGroupRatioModelNames(info *relaycommon.RelayInfo, pricingModelName string) []string {
+	if info == nil {
+		return nil
+	}
+	candidates := make([]string, 0, 2)
+	if strings.TrimSpace(pricingModelName) != "" {
+		candidates = append(candidates, pricingModelName)
+	}
+	if originModel := strings.TrimSpace(info.OriginModelName); originModel != "" && originModel != pricingModelName {
+		candidates = append(candidates, originModel)
+	}
+	return candidates
+}
+
+func handleGroupRatioForModel(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelNames ...string) types.GroupRatioInfo {
+	if relayInfo == nil {
+		return types.GroupRatioInfo{
+			GroupRatio:        1.0,
+			GroupSpecialRatio: -1,
+			GroupRatioSource:  types.GroupRatioSourceDefault,
+		}
+	}
+	if len(modelNames) == 0 {
+		return HandleGroupRatio(ctx, relayInfo)
+	}
+	groupRatioInfo := HandleGroupRatio(ctx, relayInfo)
+	pricingGroup := relayInfo.EffectivePricingGroup()
+	for _, modelName := range modelNames {
+		modelName = strings.TrimSpace(modelName)
+		if modelName == "" {
+			continue
+		}
+		if modelRatio, ok := ratio_setting.GetGroupModelRatio(pricingGroup, modelName); ok {
+			groupRatioInfo.GroupRatio = modelRatio
+			groupRatioInfo.GroupRatioSource = types.GroupRatioSourceModel
+			groupRatioInfo.HasSpecialRatio = false
+			groupRatioInfo.GroupSpecialRatio = -1
+			return groupRatioInfo
+		}
+	}
+	return groupRatioInfo
+}
+
+func CalculateFixedPerCallQuota(modelPrice, groupRatio float64) int {
+	if modelPrice <= 0 || groupRatio == 0 {
+		return 0
+	}
+
+	total := decimal.NewFromFloat(modelPrice).
+		Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+
+	if groupRatio > 0 {
+		total = total.Mul(decimal.NewFromFloat(groupRatio))
+	}
+
+	return int(total.Round(0).IntPart())
 }
 
 // ModelPriceHelperTokenOnly forces token-based pricing by model ratio.

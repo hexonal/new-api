@@ -36,7 +36,13 @@ func TestParseMjSpeedModeAndRatio(t *testing.T) {
 }
 
 func TestApplyMjSpeedRatioForImagine(t *testing.T) {
-	base := types.PriceData{ModelPrice: 0.1, Quota: 50000}
+	base := types.PriceData{
+		ModelPrice: 0.1,
+		Quota:      50000,
+		GroupRatioInfo: types.GroupRatioInfo{
+			GroupRatio: 1,
+		},
+	}
 
 	fast := applyMjSpeedRatioForImagine(constant.MjActionImagine, "x --fast", base)
 	if fast.Quota != 100000 {
@@ -51,5 +57,20 @@ func TestApplyMjSpeedRatioForImagine(t *testing.T) {
 	unchanged := applyMjSpeedRatioForImagine(constant.MjActionUpscale, "x --turbo", base)
 	if unchanged.Quota != 50000 {
 		t.Fatalf("non-imagine should keep quota: got %d want %d", unchanged.Quota, 50000)
+	}
+}
+
+func TestApplyMjSpeedRatioForImagine_AvoidsDoubleRounding(t *testing.T) {
+	base := types.PriceData{
+		ModelPrice: 0.198529,
+		Quota:      99265,
+		GroupRatioInfo: types.GroupRatioInfo{
+			GroupRatio: 1,
+		},
+	}
+
+	fast := applyMjSpeedRatioForImagine(constant.MjActionImagine, "x --fast", base)
+	if fast.Quota != 198529 {
+		t.Fatalf("fast quota mismatch: got %d want %d", fast.Quota, 198529)
 	}
 }

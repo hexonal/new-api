@@ -228,13 +228,13 @@ func OperatorProvision(c *gin.Context) {
 
 		// Try to create user inside the transaction to avoid race conditions.
 		cleanUser := model.User{
-			Username:    createUsername,
-			DisplayName: req.DisplayName,
-			Password:    req.Password,
+			Username:     createUsername,
+			DisplayName:  req.DisplayName,
+			Password:     req.Password,
 			Group:        req.Group,
-			PricingGroup: req.PricingGroup,
+			PricingGroup: req.Group,
 			Status:       common.UserStatusEnabled,
-			Role:        common.RoleCommonUser,
+			Role:         common.RoleCommonUser,
 		}
 		if insertErr := cleanUser.InsertWithTx(tx, 0); insertErr != nil {
 			if isDuplicateError(insertErr) {

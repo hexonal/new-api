@@ -414,6 +414,12 @@ func GetSelf(c *gin.Context) {
 		"permissions":       permissions,                // 新增权限字段
 	}
 
+	if !isAdminRole(userRole) {
+		// pricing_group is an internal pricing field and should never be exposed
+		// to non-admin users through the self endpoint.
+		responseData["pricing_group"] = ""
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -576,21 +582,15 @@ func UpdateUser(c *gin.Context) {
 	if updatedUser.Password == "$I_LOVE_U" {
 		updatedUser.Password = "" // rollback to what it should be
 	}
+	updatedUser.PricingGroup = updatedUser.Group
 	updatePassword := updatedUser.Password != ""
 	groupChanged := originUser.Group != updatedUser.Group
-
-	// Check if pricing_group was explicitly provided in the request body
-	var pricingGroupProvided bool
-	var rawFields map[string]json.RawMessage
-	if err := common.Unmarshal(bodyBytes, &rawFields); err == nil {
-		_, pricingGroupProvided = rawFields["pricing_group"]
-	}
 
 	var syncedTokenCount int
 	var tokenKeysToInvalidate []string
 
-	// Use transaction when group changes or pricing_group is provided to ensure atomicity
-	needsTx := groupChanged || pricingGroupProvided
+	// Use transaction when group changes to keep user/token groups in sync atomically.
+	needsTx := groupChanged
 	if needsTx {
 		err := model.DB.Transaction(func(tx *gorm.DB) error {
 			if err := updatedUser.EditWithTx(tx, updatePassword); err != nil {
@@ -604,12 +604,6 @@ func UpdateUser(c *gin.Context) {
 				}
 				syncedTokenCount = count
 				tokenKeysToInvalidate = keys
-			}
-			// Update pricing_group within the same transaction
-			if pricingGroupProvided {
-				if err := tx.Model(&model.User{}).Where("id = ?", updatedUser.Id).Update("pricing_group", updatedUser.PricingGroup).Error; err != nil {
-					return fmt.Errorf("定价分组更新失败：%w", err)
-				}
 			}
 			return nil
 		})

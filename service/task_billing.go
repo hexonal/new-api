@@ -89,6 +89,9 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	other["model_ratio"] = info.PriceData.ModelRatio
 	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	if info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.ConsumedModel) != "" {
+		other["billing_sku"] = strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+	}
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
@@ -148,6 +151,9 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 	other["model_ratio"] = info.PriceData.ModelRatio
 	other["completion_ratio"] = info.PriceData.CompletionRatio
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	if info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.ConsumedModel) != "" {
+		other["billing_sku"] = strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+	}
 	if info.PriceData.GroupRatioInfo.GroupRatioSource != "" {
 		other["group_ratio_source"] = string(info.PriceData.GroupRatioInfo.GroupRatioSource)
 	}
@@ -259,6 +265,10 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 				other[k] = v
 			}
 		}
+		appendRequestLogMetadata(other, RequestLogMetadata{
+			RequestPath:       bc.RequestPath,
+			RequestConversion: bc.RequestConversion,
+		})
 	}
 	props := task.Properties
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
@@ -809,11 +819,7 @@ func calculateTaskQuotaByTokens(task *model.Task, totalTokens int) (int, bool) {
 	if err == nil {
 		userGroup = user.Group
 		if pricingGroup == "" {
-			if user.PricingGroup != "" {
-				pricingGroup = user.PricingGroup
-			} else {
-				pricingGroup = user.Group
-			}
+			pricingGroup = user.Group
 		}
 	}
 	if pricingGroup == "" {

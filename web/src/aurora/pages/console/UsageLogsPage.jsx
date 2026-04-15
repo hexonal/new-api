@@ -19,128 +19,157 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconChevronDown } from '@douyinfe/semi-icons';
+import { copy, getLogOther, renderNumber, renderQuota, showError, showSuccess } from '../../../helpers';
 import { useLogsData as useUsageLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
-import { timestamp2string, renderQuota, renderNumber } from '../../../helpers';
-import { Table, Thead, Tbody, Tr, Th, Td } from '../../primitives/table';
-import { Badge } from '../../primitives/badge';
-import { Button } from '../../primitives/button';
-import { Input } from '../../primitives/input';
-
-const LOG_TYPE_OPTIONS = [
-  { value: '0', label: '全部' },
-  { value: '1', label: '充值' },
-  { value: '2', label: '消费' },
-  { value: '3', label: '管理' },
-  { value: '4', label: '系统' },
-  { value: '5', label: '错误' },
-  { value: '6', label: '退款' },
-];
-
-const LOG_STATUS_VARIANT = {
-  1: 'secondary',
-  2: 'secondary',
-  3: 'outline',
-  4: 'outline',
-  5: 'destructive',
-  6: 'destructive',
-};
-
-const escapeCsvCell = (value) => {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  const normalized = String(value).replaceAll('"', '""');
-  return /[",\n]/.test(normalized) ? `"${normalized}"` : normalized;
-};
+import UserInfoModal from '../../../components/table/usage-logs/modals/UserInfoModal';
+import ChannelAffinityUsageCacheModal from '../../../components/table/usage-logs/modals/ChannelAffinityUsageCacheModal';
+import UsageLogRow from './usage-logs/UsageLogRow';
+import UsageLogsColumnSelector from './usage-logs/UsageLogsColumnSelector';
+import UsageLogsFilters from './usage-logs/UsageLogsFilters';
+import { buildUsageLogColumns } from './usage-logs/usage-log-columns';
+import {
+  buildInitialFilters,
+  buildPaginationItems,
+  escapeCsvCell,
+  formatRelativeTime,
+  PAGE_SIZE_OPTIONS,
+  resolveStatusMeta,
+  toQueryDateTimeValue,
+} from './usage-logs/page-utils';
 
 export default function UsageLogsPage() {
   const { t } = useTranslation();
   const data = useUsageLogsData();
+  const initialFiltersRef = React.useRef(null);
+  const filtersRef = React.useRef(null);
+  const setFormApiRef = React.useRef(data.setFormApi);
+  const refreshRef = React.useRef(data.refresh);
+
+  if (!initialFiltersRef.current) {
+    initialFiltersRef.current = buildInitialFilters(data.formInitValues);
+  }
+
   const [expandedRows, setExpandedRows] = React.useState({});
-  const [filters, setFilters] = React.useState({
-    from: '',
-    to: '',
-    model_name: '',
-    username: '',
-    channel: '',
-    logType: '0',
-  });
-  const [pageInput, setPageInput] = React.useState('1');
+  const [filters, setFilters] = React.useState(initialFiltersRef.current);
+
+  filtersRef.current = filters;
 
   React.useEffect(() => {
-    data.setFormApi({
+    setFormApiRef.current = data.setFormApi;
+    refreshRef.current = data.refresh;
+  }, [data.refresh, data.setFormApi]);
+
+  React.useEffect(() => {
+    setFormApiRef.current({
       getValues: () => {
+        const currentFilters = filtersRef.current;
         const dateRange =
-          filters.from && filters.to
-            ? [`${filters.from} 00:00:00`, `${filters.to} 23:59:59`]
+          currentFilters?.from && currentFilters?.to
+            ? [
+                toQueryDateTimeValue(currentFilters.from),
+                toQueryDateTimeValue(currentFilters.to),
+              ]
             : undefined;
+
         return {
-          model_name: filters.model_name,
-          username: filters.username,
-          channel: filters.channel,
-          logType: filters.logType,
+          username: currentFilters?.username || '',
+          token_name: currentFilters?.token_name || '',
+          group: currentFilters?.group || '',
+          pricing_group: currentFilters?.pricing_group || '',
+          request_id: currentFilters?.request_id || '',
+          model_name: currentFilters?.model_name || '',
+          channel: currentFilters?.channel || '',
+          logType: currentFilters?.logType || '0',
           dateRange,
         };
       },
     });
-  }, [
-    data.setFormApi,
-    filters.channel,
-    filters.from,
-    filters.logType,
-    filters.model_name,
-    filters.to,
-    filters.username,
-  ]);
+  }, []);
 
-  React.useEffect(() => {
-    setPageInput(String(data.activePage || 1));
-  }, [data.activePage]);
+  const updateFilter = React.useCallback((field, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
 
-  const channelOptions = React.useMemo(() => {
-    const map = new Map();
-    for (const log of data.logs || []) {
-      const channelId = log.channel === null || log.channel === undefined ? '' : String(log.channel);
-      if (!channelId) {
-        continue;
-      }
-      const channelName = String(log.channel_name || '').trim();
-      const label = channelName ? `${channelName} (${channelId})` : channelId;
-      map.set(channelId, label);
-    }
-    if (filters.channel && !map.has(filters.channel)) {
-      map.set(filters.channel, filters.channel);
-    }
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
-  }, [data.logs, filters.channel]);
+  const handleSearch = React.useCallback(() => {
+    refreshRef.current();
+  }, []);
+
+  const handleReset = React.useCallback(() => {
+    const nextFilters = { ...initialFiltersRef.current };
+    filtersRef.current = nextFilters;
+    setFilters(nextFilters);
+    data.setLogType(0);
+    window.setTimeout(() => {
+      refreshRef.current();
+    }, 0);
+  }, [data]);
+
+  const handleLogTypeChange = React.useCallback(
+    (value) => {
+      updateFilter('logType', value);
+      data.setLogType(Number.parseInt(value, 10) || 0);
+      window.setTimeout(() => {
+        refreshRef.current();
+      }, 0);
+    },
+    [data, updateFilter],
+  );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      Number(data.logCount || 0) / Math.max(1, Number(data.pageSize || 1)),
+    ),
+  );
+
+  const paginationItems = React.useMemo(
+    () => buildPaginationItems(data.activePage, totalPages),
+    [data.activePage, totalPages],
+  );
 
   const handleExport = React.useCallback(() => {
     const rows = data.logs || [];
     const csvRows = [
-      ['时间', '模型', '用户', '渠道', '状态', '用量', '费用'],
+      [
+        'Time',
+        'Model',
+        'User',
+        'Tokens',
+        'Cost',
+        'Latency',
+        'Status',
+        'Request ID',
+      ],
       ...rows.map((log) => {
-        const timeText =
-          log.timestamp2string ||
-          (log.created_at ? timestamp2string(log.created_at) : '-');
-        const channelText = log.channel_name || log.channel || '-';
-        const statusOption = LOG_TYPE_OPTIONS.find(
-          (item) => Number(item.value) === Number(log.type),
-        );
+        const other = getLogOther(log?.other);
+        const requestId =
+          log?.request_id || other?.request_id || other?.task_id || '-';
+        const statusMeta = resolveStatusMeta(log);
+        const latencyText = String(log?.use_time || '').trim();
+
         return [
-          timeText,
-          log.model_name || '-',
-          log.username || '-',
-          channelText,
-          statusOption ? t(statusOption.label) : t('未知'),
-          `${renderNumber(log.prompt_tokens || 0)} / ${renderNumber(log.completion_tokens || 0)}`,
-          renderQuota(log.quota || 0, 6),
+          formatRelativeTime(log?.created_at),
+          log?.model_name || '-',
+          log?.username || '-',
+          `${renderNumber(log?.prompt_tokens || 0)} / ${renderNumber(log?.completion_tokens || 0)}`,
+          renderQuota(log?.quota || 0, 6),
+          latencyText ? `${latencyText}s` : '-',
+          statusMeta.label,
+          requestId,
         ];
       }),
     ];
+
     const csvText = csvRows
       .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
       .join('\n');
-    const blob = new Blob([`\uFEFF${csvText}`], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([`\uFEFF${csvText}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const dateTag = new Date().toISOString().slice(0, 19).replaceAll(':', '-');
@@ -150,258 +179,271 @@ export default function UsageLogsPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [data.logs, t]);
+  }, [data.logs]);
 
-  const statusLabelByType = React.useCallback(
-    (type) => {
-      const option = LOG_TYPE_OPTIONS.find((item) => Number(item.value) === Number(type));
-      return option ? t(option.label) : t('未知');
+  const handleCopy = React.useCallback(
+    async (text) => {
+      const content = String(text || '').trim();
+      if (!content) {
+        return;
+      }
+
+      if (await copy(content)) {
+        showSuccess(`${t('已复制：')}${content}`);
+        return;
+      }
+      showError(t('无法复制到剪贴板，请手动复制'));
     },
     [t],
   );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(Number(data.logCount || 0) / Math.max(1, Number(data.pageSize || 1))),
+  const allColumns = React.useMemo(
+    () => buildUsageLogColumns({ data, t }),
+    [
+      data.COLUMN_KEYS,
+      data.copyText,
+      data.expandData,
+      data.isAdminUser,
+      data.openChannelAffinityUsageCacheModal,
+      data.showUserInfoFunc,
+      t,
+    ],
   );
 
-  return (
-    <div className='space-y-4'>
-      <div className='rounded-xl border border-border bg-card/70 p-3'>
-        <div className='grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6'>
-          <Input
-            type='date'
-            value={filters.from}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, from: event.target.value }))
-            }
-          />
-          <Input
-            type='date'
-            value={filters.to}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, to: event.target.value }))
-            }
-          />
-          <Input
-            placeholder={t('模型')}
-            value={filters.model_name}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, model_name: event.target.value }))
-            }
-          />
-          <Input
-            placeholder={t('用户')}
-            value={filters.username}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, username: event.target.value }))
-            }
-          />
-          <select
-            className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
-            value={filters.channel}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, channel: event.target.value }))
-            }
-          >
-            <option value=''>{t('全部渠道')}</option>
-            {channelOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
-            value={filters.logType}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, logType: event.target.value }))
-            }
-          >
-            {LOG_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.label)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className='mt-3 flex flex-wrap items-center justify-end gap-2'>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={() => data.refresh()}
-            loading={data.loading}
-          >
-            {t('查询')}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={handleExport}
-            disabled={data.loading || (data.logs || []).length === 0}
-          >
-            {t('导出')}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={() => data.loadLogs(data.activePage, data.pageSize)}
-            loading={data.loading}
-          >
-            {t('刷新')}
-          </Button>
-        </div>
-      </div>
+  const visibleColumns = React.useMemo(
+    () =>
+      allColumns.filter((column) => data.visibleColumns?.[column.key] !== false),
+    [allColumns, data.visibleColumns],
+  );
 
-      <div className='rounded-xl border border-border bg-card/70'>
-        <Table>
-          <Thead>
-            <Tr>
-              <Th>{t('时间')}</Th>
-              <Th>{t('模型')}</Th>
-              <Th>{t('用户')}</Th>
-              <Th>{t('渠道')}</Th>
-              <Th>{t('状态')}</Th>
-              <Th>{t('用量')}</Th>
-              <Th>{t('费用')}</Th>
-              <Th>{t('操作')}</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {(data.logs || []).map((log) => {
-              const expanded = !!expandedRows[log.key];
-              const details = data.expandData?.[log.key] || [];
+  const selectableColumns = React.useMemo(() => {
+    return allColumns.filter((column) => {
+      if (data.isAdminUser) {
+        return true;
+      }
+      return ![
+        data.COLUMN_KEYS.CHANNEL,
+        data.COLUMN_KEYS.CHANNEL_ID,
+        data.COLUMN_KEYS.USERNAME,
+        data.COLUMN_KEYS.RETRY,
+        data.COLUMN_KEYS.GROUP,
+        data.COLUMN_KEYS.PRICING_GROUP,
+      ].includes(column.key);
+    });
+  }, [allColumns, data.COLUMN_KEYS, data.isAdminUser]);
+
+  const allSelectableChecked = React.useMemo(
+    () =>
+      selectableColumns.length > 0 &&
+      selectableColumns.every((column) => data.visibleColumns?.[column.key]),
+    [data.visibleColumns, selectableColumns],
+  );
+
+  const someSelectableChecked = React.useMemo(
+    () =>
+      selectableColumns.some((column) => data.visibleColumns?.[column.key]) &&
+      !allSelectableChecked,
+    [allSelectableChecked, data.visibleColumns, selectableColumns],
+  );
+
+  const tableMinWidth = React.useMemo(() => {
+    const baseWidth = visibleColumns.reduce((sum, column) => {
+      if (column.key === data.COLUMN_KEYS.DETAILS) {
+        return sum + 280;
+      }
+      if (column.key === data.COLUMN_KEYS.MODEL) {
+        return sum + 180;
+      }
+      if (
+        column.key === data.COLUMN_KEYS.CHANNEL ||
+        column.key === data.COLUMN_KEYS.RETRY
+      ) {
+        return sum + 160;
+      }
+      return sum + 120;
+    }, 140);
+
+    return Math.max(baseWidth, 980);
+  }, [data.COLUMN_KEYS, visibleColumns]);
+
+  const detailColSpan = visibleColumns.length + 2;
+
+  return (
+    <>
+      <UserInfoModal {...data} />
+      <ChannelAffinityUsageCacheModal {...data} />
+      <UsageLogsColumnSelector
+        open={data.showColumnSelector}
+        t={t}
+        allSelectableChecked={allSelectableChecked}
+        someSelectableChecked={someSelectableChecked}
+        visibleColumnCount={visibleColumns.length}
+        selectableColumns={selectableColumns}
+        visibleColumns={data.visibleColumns}
+        onSelectAll={data.handleSelectAll}
+        onToggleColumn={data.handleColumnVisibilityChange}
+        onReset={data.initDefaultColumns}
+        onClose={() => data.setShowColumnSelector(false)}
+      />
+
+      <div className='flex min-h-full w-full min-w-0 flex-1 flex-col gap-6'>
+        <header>
+          <h1 className='text-3xl font-bold text-on-surface'>Usage Logs</h1>
+          <p className='mt-1 text-on-surface-variant'>
+            Monitor API request history and token usage across your organization.
+          </p>
+        </header>
+
+        <UsageLogsFilters
+          t={t}
+          data={data}
+          filters={filters}
+          updateFilter={updateFilter}
+          handleLogTypeChange={handleLogTypeChange}
+          handleSearch={handleSearch}
+          handleReset={handleReset}
+          handleExport={handleExport}
+        />
+
+        <section className='flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm'>
+          <div className='overflow-x-auto'>
+            <table
+              className='w-full border-collapse text-left'
+              style={{ minWidth: `${tableMinWidth}px` }}
+            >
+              <thead>
+                <tr className='border-b border-outline-variant bg-surface-container-low text-[11px] font-bold uppercase tracking-wider text-on-surface-variant'>
+                  <th className='w-10 px-6 py-3'></th>
+                  {visibleColumns.map((column) => (
+                    <th
+                      key={column.key}
+                      className={`px-4 py-3 ${
+                        column.key === data.COLUMN_KEYS.DETAILS
+                          ? 'min-w-[280px]'
+                          : ''
+                      }`}
+                    >
+                      {column.title}
+                    </th>
+                  ))}
+                  <th className='px-4 py-3 text-right'>{t('操作')}</th>
+                </tr>
+              </thead>
+              <tbody className='text-sm text-on-surface'>
+                {(data.logs || []).map((log, rowIndex) => {
+                  const expanded = Boolean(expandedRows[log.key]);
+                  return (
+                    <UsageLogRow
+                      key={log.key}
+                      log={log}
+                      rowIndex={rowIndex}
+                      expanded={expanded}
+                      visibleColumns={visibleColumns}
+                      detailColSpan={detailColSpan}
+                      data={data}
+                      t={t}
+                      onToggle={() =>
+                        setExpandedRows((prev) => ({
+                          ...prev,
+                          [log.key]: !prev[log.key],
+                        }))
+                      }
+                      handleCopy={handleCopy}
+                    />
+                  );
+                })}
+
+                {!data.loading && (data.logs || []).length === 0 && (
+                  <tr>
+                    <td
+                      className='px-4 py-10 text-center text-sm text-on-surface-variant'
+                      colSpan={detailColSpan}
+                    >
+                      {t('暂无数据')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer className='flex flex-col items-center justify-between gap-4 sm:flex-row'>
+          <div className='flex items-center gap-2 text-sm text-on-surface-variant'>
+            <span>Show</span>
+            <select
+              className='rounded-lg border border-outline-variant bg-white px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
+              value={String(data.pageSize)}
+              onChange={(event) =>
+                data.handlePageSizeChange(Number(event.target.value))
+              }
+              disabled={data.loading}
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+            <span>of {data.logCount || 0} logs</span>
+          </div>
+
+          <div className='flex items-center gap-1'>
+            <button
+              type='button'
+              className='rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container disabled:opacity-50'
+              onClick={() =>
+                data.handlePageChange(Math.max(1, data.activePage - 1))
+              }
+              disabled={data.loading || data.activePage <= 1}
+            >
+              <IconChevronDown className='rotate-90' size='small' />
+            </button>
+
+            {paginationItems.map((item, index) => {
+              if (item === 'ellipsis') {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className='px-2 text-on-surface-variant'
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const page = Number(item);
+              const active = page === data.activePage;
               return (
-                <React.Fragment key={log.key}>
-                  <Tr>
-                    <Td className='text-xs'>
-                      {log.timestamp2string ||
-                        (log.created_at ? timestamp2string(log.created_at) : '-')}
-                    </Td>
-                    <Td className='text-xs'>{log.model_name || '-'}</Td>
-                    <Td className='text-xs'>{log.username || '-'}</Td>
-                    <Td className='text-xs'>{log.channel_name || log.channel || '-'}</Td>
-                    <Td>
-                      <Badge
-                        variant={LOG_STATUS_VARIANT[Number(log.type)] || 'outline'}
-                      >
-                        {statusLabelByType(log.type)}
-                      </Badge>
-                    </Td>
-                    <Td className='text-xs'>
-                      {renderNumber(log.prompt_tokens || 0)} /{' '}
-                      {renderNumber(log.completion_tokens || 0)}
-                    </Td>
-                    <Td className='text-xs'>{renderQuota(log.quota || 0, 6)}</Td>
-                    <Td>
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        onClick={() =>
-                          setExpandedRows((prev) => ({
-                            ...prev,
-                            [log.key]: !prev[log.key],
-                          }))
-                        }
-                      >
-                        {expanded ? t('收起') : t('展开')}
-                      </Button>
-                    </Td>
-                  </Tr>
-                  {expanded && (
-                    <Tr>
-                      <Td colSpan={8}>
-                        <div className='rounded-lg border border-border bg-muted/40 p-3 text-xs'>
-                          {details.length === 0 ? (
-                            <span className='text-muted-foreground'>{t('暂无详情')}</span>
-                          ) : (
-                            details.map((item, index) => (
-                              <div key={`${log.key}-${index}`} className='mb-1 break-all'>
-                                <span className='text-muted-foreground'>{item.key}:</span>{' '}
-                                <span>{item.value ?? '-'}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </Td>
-                    </Tr>
-                  )}
-                </React.Fragment>
+                <button
+                  key={`page-${page}`}
+                  type='button'
+                  className={`h-9 w-9 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-primary font-bold text-white'
+                      : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
+                  }`}
+                  disabled={data.loading}
+                  onClick={() => data.handlePageChange(page)}
+                >
+                  {page}
+                </button>
               );
             })}
-            {!data.loading && (data.logs || []).length === 0 && (
-              <Tr>
-                <Td colSpan={8} className='py-8 text-center text-muted-foreground'>
-                  {t('暂无数据')}
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </div>
 
-      <div className='flex items-center justify-between text-sm text-muted-foreground'>
-        <span>
-          {t('共')} {data.logCount || 0} {t('条')}
-        </span>
-        <div className='flex items-center gap-2'>
-          <select
-            className='h-8 rounded-lg border border-input bg-background px-2 text-xs'
-            value={String(data.pageSize)}
-            onChange={(event) => data.handlePageSizeChange(Number(event.target.value))}
-            disabled={data.loading}
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size} / {t('页')}
-              </option>
-            ))}
-          </select>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={data.activePage <= 1 || data.loading}
-            onClick={() => data.handlePageChange(data.activePage - 1)}
-          >
-            {t('上一页')}
-          </Button>
-          <span>
-            {data.activePage} / {totalPages}
-          </span>
-          <div className='flex items-center gap-1'>
-            <Input
-              type='number'
-              min='1'
-              max={String(totalPages)}
-              value={pageInput}
-              onChange={(event) => setPageInput(event.target.value)}
-              className='h-8 w-20'
-            />
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={data.loading}
-              onClick={() => {
-                const nextPage = Math.min(
-                  totalPages,
-                  Math.max(1, Number.parseInt(pageInput, 10) || 1),
-                );
-                data.handlePageChange(nextPage);
-              }}
+            <button
+              type='button'
+              className='rounded-lg border border-outline-variant p-2 transition-colors hover:bg-surface-container disabled:opacity-50'
+              onClick={() =>
+                data.handlePageChange(Math.min(totalPages, data.activePage + 1))
+              }
+              disabled={data.loading || data.activePage >= totalPages}
             >
-              {t('跳转')}
-            </Button>
+              <IconChevronDown className='-rotate-90' size='small' />
+            </button>
           </div>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={data.activePage >= totalPages || data.loading}
-            onClick={() => data.handlePageChange(data.activePage + 1)}
-          >
-            {t('下一页')}
-          </Button>
-        </div>
+        </footer>
       </div>
-    </div>
+    </>
   );
 }

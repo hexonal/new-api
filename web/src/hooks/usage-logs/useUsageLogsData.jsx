@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -31,19 +31,45 @@ import {
   renderNumber,
   getLogOther,
   copy,
+  getQuotaPerUnit,
   renderClaudeLogContent,
   renderLogContent,
   renderAudioModelPrice,
   renderClaudeModelPrice,
   renderModelPrice,
 } from '../../helpers';
+import {
+  hasDynamicPerCallRatios,
+  calculateDynamicPerCallPrice,
+  buildDynamicPerCallFormula,
+  buildDynamicPerCallParameterText,
+  getBillingSKU,
+  calculateFixedPerCallPrice,
+  buildFixedPerCallFormula,
+  deriveCreditsUnitPrice,
+  buildCreditsSettlementFormula,
+  formatDirectPerCallPrice,
+  derivePerCallUnitPriceFromQuota,
+} from '../../helpers/dynamicPerCall';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { StatusContext } from '../../context/Status';
 
 const toPositiveNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
+
+const hasAudioTokenBreakdown = (other) =>
+  Boolean(other?.ws) ||
+  [
+    other?.audio_input,
+    other?.audio_output,
+    other?.text_input,
+    other?.text_output,
+    other?.audio_ratio,
+    other?.audio_completion_ratio,
+  ].some((value) => toPositiveNumber(value) > 0);
 
 const parseTokenRecalculateTotal = (...candidates) => {
   for (const candidate of candidates) {
@@ -126,7 +152,9 @@ const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   ) {
     return null;
   }
-  const estimatedTokens = Math.round(quotaValue / (modelRatioValue * groupRatioValue));
+  const estimatedTokens = Math.round(
+    quotaValue / (modelRatioValue * groupRatioValue),
+  );
   const inputPrice = modelRatioValue * 2;
   return t(
     '(预扣 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
@@ -203,8 +231,22 @@ const buildDeferredTokenFormula = (
   return `(${terms.join(' + ')}) * ${t('分组倍率（模型覆盖）')} ${gr.toFixed(4)}`;
 };
 
+const getRequestErrorMessage = (error, fallbackMessage) => {
+  const apiMessage = error?.response?.data?.message;
+  if (typeof apiMessage === 'string' && apiMessage.trim()) {
+    return apiMessage;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
+  const [statusState] = useContext(StatusContext);
 
   // Define column keys for selection
   const COLUMN_KEYS = {
@@ -227,6 +269,7 @@ export const useLogsData = () => {
   };
 
   // Basic state
+  const [rawLogs, setRawLogs] = useState([]);
   const [logs, setLogs] = useState([]);
   const [expandData, setExpandData] = useState({});
   const [showStat, setShowStat] = useState(false);
@@ -239,6 +282,12 @@ export const useLogsData = () => {
 
   // User and admin
   const isAdminUser = isAdmin();
+  const showGroupForNonAdmin =
+    isAdminUser ||
+    statusState?.status?.user_logs_show_group_for_non_admin === true;
+  const showPricingGroupForNonAdmin =
+    isAdminUser ||
+    statusState?.status?.user_logs_show_pricing_group_for_non_admin === true;
   // Role-specific storage key to prevent different roles from overwriting each other
   const STORAGE_KEY = isAdminUser
     ? 'logs-table-columns-admin'
@@ -279,8 +328,10 @@ export const useLogsData = () => {
       [COLUMN_KEYS.CHANNEL_ID]: isAdminUser,
       [COLUMN_KEYS.USERNAME]: isAdminUser,
       [COLUMN_KEYS.TOKEN]: true,
-      [COLUMN_KEYS.GROUP]: true,
-      [COLUMN_KEYS.PRICING_GROUP]: false,
+      [COLUMN_KEYS.GROUP]: isAdminUser ? true : showGroupForNonAdmin,
+      [COLUMN_KEYS.PRICING_GROUP]: isAdminUser
+        ? true
+        : showPricingGroupForNonAdmin,
       [COLUMN_KEYS.TYPE]: true,
       [COLUMN_KEYS.MODEL]: true,
       [COLUMN_KEYS.USE_TIME]: true,
@@ -310,6 +361,10 @@ export const useLogsData = () => {
         merged[COLUMN_KEYS.CHANNEL_ID] = false;
         merged[COLUMN_KEYS.USERNAME] = false;
         merged[COLUMN_KEYS.RETRY] = false;
+        merged[COLUMN_KEYS.GROUP] = showGroupForNonAdmin;
+        merged[COLUMN_KEYS.PRICING_GROUP] = showPricingGroupForNonAdmin;
+      } else {
+        merged[COLUMN_KEYS.PRICING_GROUP] = true;
       }
 
       return merged;
@@ -330,7 +385,9 @@ export const useLogsData = () => {
   };
 
   // Column visibility state
-  const [visibleColumns, setVisibleColumns] = useState(getInitialVisibleColumns);
+  const [visibleColumns, setVisibleColumns] = useState(
+    getInitialVisibleColumns,
+  );
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [billingDisplayMode, setBillingDisplayMode] = useState(
     getInitialBillingDisplayMode,
@@ -360,6 +417,13 @@ export const useLogsData = () => {
 
   // Handle column visibility change
   const handleColumnVisibilityChange = (columnKey, checked) => {
+    if (
+      !isAdminUser &&
+      (columnKey === COLUMN_KEYS.GROUP ||
+        columnKey === COLUMN_KEYS.PRICING_GROUP)
+    ) {
+      return;
+    }
     const updatedColumns = { ...visibleColumns, [columnKey]: checked };
     setVisibleColumns(updatedColumns);
   };
@@ -378,6 +442,10 @@ export const useLogsData = () => {
         !isAdminUser
       ) {
         updatedColumns[key] = false;
+      } else if (!isAdminUser && key === COLUMN_KEYS.GROUP) {
+        updatedColumns[key] = showGroupForNonAdmin;
+      } else if (!isAdminUser && key === COLUMN_KEYS.PRICING_GROUP) {
+        updatedColumns[key] = showPricingGroupForNonAdmin;
       } else {
         updatedColumns[key] = checked;
       }
@@ -392,6 +460,31 @@ export const useLogsData = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
     }
   }, [visibleColumns]);
+
+  useEffect(() => {
+    if (isAdminUser) {
+      return;
+    }
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [COLUMN_KEYS.CHANNEL]: false,
+      [COLUMN_KEYS.CHANNEL_ID]: false,
+      [COLUMN_KEYS.USERNAME]: false,
+      [COLUMN_KEYS.RETRY]: false,
+      [COLUMN_KEYS.GROUP]: showGroupForNonAdmin,
+      [COLUMN_KEYS.PRICING_GROUP]: showPricingGroupForNonAdmin,
+    }));
+  }, [
+    isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
+    COLUMN_KEYS.CHANNEL,
+    COLUMN_KEYS.CHANNEL_ID,
+    COLUMN_KEYS.USERNAME,
+    COLUMN_KEYS.RETRY,
+    COLUMN_KEYS.GROUP,
+    COLUMN_KEYS.PRICING_GROUP,
+  ]);
 
   useEffect(() => {
     localStorage.setItem(BILLING_DISPLAY_MODE_STORAGE_KEY, billingDisplayMode);
@@ -418,13 +511,19 @@ export const useLogsData = () => {
 
     return {
       username: exactRequestSearch ? '' : (formValues.username || '').trim(),
-      token_name: exactRequestSearch ? '' : (formValues.token_name || '').trim(),
-      model_name: exactRequestSearch ? '' : (formValues.model_name || '').trim(),
+      token_name: exactRequestSearch
+        ? ''
+        : (formValues.token_name || '').trim(),
+      model_name: exactRequestSearch
+        ? ''
+        : (formValues.model_name || '').trim(),
       start_timestamp,
       end_timestamp,
       channel: exactRequestSearch ? '' : (formValues.channel || '').trim(),
       group: exactRequestSearch ? '' : (formValues.group || '').trim(),
-      pricing_group: exactRequestSearch ? '' : (formValues.pricing_group || '').trim(),
+      pricing_group: exactRequestSearch
+        ? ''
+        : (formValues.pricing_group || '').trim(),
       request_id: requestId,
       logType: exactRequestSearch
         ? ''
@@ -460,8 +559,10 @@ export const useLogsData = () => {
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
@@ -491,8 +592,10 @@ export const useLogsData = () => {
     const { success, message, data } = res.data;
     if (success) {
       setStat(data);
+      return true;
     } else {
       showError(message);
+      return false;
     }
   };
 
@@ -501,13 +604,18 @@ export const useLogsData = () => {
       return;
     }
     setLoadingStat(true);
-    if (isAdminUser) {
-      await getLogStat();
-    } else {
-      await getLogSelfStat();
+    try {
+      const success = isAdminUser
+        ? await getLogStat()
+        : await getLogSelfStat();
+      if (success) {
+        setShowStat(true);
+      }
+    } catch (error) {
+      showError(getRequestErrorMessage(error, t('统计信息加载失败，请重试')));
+    } finally {
+      setLoadingStat(false);
     }
-    setShowStat(true);
-    setLoadingStat(false);
   };
 
   // User info function
@@ -537,7 +645,8 @@ export const useLogsData = () => {
   };
 
   // Format logs data
-  const setLogsFormat = (logs) => {
+  const setLogsFormat = (sourceLogs) => {
+    const logs = sourceLogs.map((log) => ({ ...log }));
     const requestConversionDisplayValue = (conversionChain) => {
       const chain = Array.isArray(conversionChain)
         ? conversionChain.filter(Boolean)
@@ -555,16 +664,25 @@ export const useLogsData = () => {
       let other = getLogOther(logs[i].other);
       let expandDataLocal = [];
 
-      if (isAdminUser && (logs[i].type === 0 || logs[i].type === 2 || logs[i].type === 6)) {
+      if (
+        isAdminUser &&
+        (logs[i].type === 0 || logs[i].type === 2 || logs[i].type === 6)
+      ) {
         expandDataLocal.push({
           key: t('渠道信息'),
           value: `${logs[i].channel} - ${logs[i].channel_name || '[未知]'}`,
         });
       }
-      if (logs[i].pricing_group) {
+      if (showPricingGroupForNonAdmin && logs[i].pricing_group) {
         expandDataLocal.push({
           key: t('定价分组'),
           value: logs[i].pricing_group,
+        });
+      }
+      if (showGroupForNonAdmin && logs[i].group) {
+        expandDataLocal.push({
+          key: t('分组'),
+          value: logs[i].group,
         });
       }
       if (logs[i].request_id) {
@@ -591,7 +709,7 @@ export const useLogsData = () => {
         key: t('输出 Tokens'),
         value: renderNumber(logs[i].completion_tokens || 0),
       });
-      if (other?.ws || other?.audio) {
+      if (hasAudioTokenBreakdown(other)) {
         expandDataLocal.push({
           key: t('语音输入'),
           value: other.audio_input,
@@ -625,7 +743,10 @@ export const useLogsData = () => {
         const deferredTokenRecalculate =
           isDeferredTokenRecalculateLog(logs[i], other) &&
           toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0;
-        const deferredPendingSubmit = isDeferredSettlePendingLog(logs[i], other);
+        const deferredPendingSubmit = isDeferredSettlePendingLog(
+          logs[i],
+          other,
+        );
         const promptTokens = toPositiveNumber(
           logs[i]?.prompt_tokens || other?.task_prompt_tokens,
         );
@@ -638,15 +759,24 @@ export const useLogsData = () => {
           promptTokens,
           completionTokens,
         );
-        const isAdaptorAdjustLog = String(other?.terminal_charge_reason || '').includes('adaptor_adjust');
+        const isAdaptorAdjustLog = String(
+          other?.terminal_charge_reason || '',
+        ).includes('adaptor_adjust');
         const isCreditSettlement = other?.settlement_type === 'credits';
         const upstreamCredits = toPositiveNumber(other?.upstream_credits);
+        const billedQuota = toPositiveNumber(
+          other?.actual_quota || logs[i]?.quota || 0,
+        );
         const deferredBillingSummary = deferredTokenRecalculate
           ? isAdaptorAdjustLog
             ? isCreditSettlement && upstreamCredits > 0
-              ? t('上游消耗 {{credits}} credits × 分组倍率 {{ratio}}', {
+              ? buildCreditsSettlementFormula({
                   credits: upstreamCredits,
-                  ratio: Number(other?.group_ratio || 1).toFixed(1),
+                  groupRatio: Number(other?.group_ratio || 1),
+                  finalPrice: billedQuota / getQuotaPerUnit(),
+                  labels: {
+                    groupRatio: t('分组倍率（模型覆盖）'),
+                  },
                 })
               : t('上游实际消耗结算，分组倍率(模型覆盖) {{ratio}}', {
                   ratio: Number(other?.group_ratio || 1).toFixed(1),
@@ -666,6 +796,7 @@ export const useLogsData = () => {
                 0,
                 billingDisplayMode,
                 other?.group_ratio_source,
+                other,
               )
           : null;
         const deferredPromptTokens =
@@ -690,7 +821,8 @@ export const useLogsData = () => {
                 }),
                 deferredBillingSummary,
                 t('结算原因：{{reason}}', {
-                  reason: other?.terminal_charge_reason || logs[i].content || '-',
+                  reason:
+                    other?.terminal_charge_reason || logs[i].content || '-',
                 }),
               ]
                 .filter(Boolean)
@@ -715,42 +847,43 @@ export const useLogsData = () => {
                 ]
                   .filter(Boolean)
                   .join(' | ')
-            : other?.claude
-              ? renderClaudeLogContent(
-                  other?.model_ratio,
-                  other?.completion_ratio,
-                  other?.model_price,
-                  other?.group_ratio,
-                  other?.user_group_ratio,
-                  other?.cache_ratio || 1.0,
-                  other?.cache_creation_ratio || 1.0,
-                  other.cache_creation_tokens_5m || 0,
-                  other.cache_creation_ratio_5m ||
-                    other.cache_creation_ratio ||
+              : other?.claude
+                ? renderClaudeLogContent(
+                    other?.model_ratio,
+                    other?.completion_ratio,
+                    other?.model_price,
+                    other?.group_ratio,
+                    other?.user_group_ratio,
+                    other?.cache_ratio || 1.0,
+                    other?.cache_creation_ratio || 1.0,
+                    other.cache_creation_tokens_5m || 0,
+                    other.cache_creation_ratio_5m ||
+                      other.cache_creation_ratio ||
+                      1.0,
+                    other.cache_creation_tokens_1h || 0,
+                    other.cache_creation_ratio_1h ||
+                      other.cache_creation_ratio ||
+                      1.0,
+                    billingDisplayMode,
+                    other?.group_ratio_source,
+                  )
+                : renderLogContent(
+                    other?.model_ratio,
+                    other?.completion_ratio,
+                    other?.model_price,
+                    other?.group_ratio,
+                    other?.user_group_ratio,
+                    other?.cache_ratio || 1.0,
+                    false,
                     1.0,
-                  other.cache_creation_tokens_1h || 0,
-                  other.cache_creation_ratio_1h ||
-                    other.cache_creation_ratio ||
-                    1.0,
-                  billingDisplayMode,
-                  other?.group_ratio_source,
-                )
-              : renderLogContent(
-                  other?.model_ratio,
-                  other?.completion_ratio,
-                  other?.model_price,
-                  other?.group_ratio,
-                  other?.user_group_ratio,
-                  other?.cache_ratio || 1.0,
-                  false,
-                  1.0,
-                  other?.web_search || false,
-                  other?.web_search_call_count || 0,
-                  other?.file_search || false,
-                  other?.file_search_call_count || 0,
-                  billingDisplayMode,
-                  other?.group_ratio_source,
-                ),
+                    other?.web_search || false,
+                    other?.web_search_call_count || 0,
+                    other?.file_search || false,
+                    other?.file_search_call_count || 0,
+                    billingDisplayMode,
+                    other?.group_ratio_source,
+                    other,
+                  ),
         });
         if (logs[i]?.content) {
           expandDataLocal.push({
@@ -801,7 +934,7 @@ export const useLogsData = () => {
               toPositiveNumber(logs[i]?.completion_tokens) ===
             0;
 
-          if (other?.ws || other?.audio) {
+          if (hasAudioTokenBreakdown(other)) {
             content = renderAudioModelPrice(
               other?.text_input,
               other?.text_output,
@@ -847,8 +980,11 @@ export const useLogsData = () => {
             isDeferredTokenRecalculateLog(logs[i], other) &&
             toPositiveNumber(other?.actual_quota || logs[i]?.quota) > 0
           ) {
-            const billedQuota = Number(other?.actual_quota || logs[i]?.quota || 0);
-            const reason = other?.terminal_charge_reason || logs[i].content || '-';
+            const billedQuota = Number(
+              other?.actual_quota || logs[i]?.quota || 0,
+            );
+            const reason =
+              other?.terminal_charge_reason || logs[i].content || '-';
             const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
 
             if (isAdaptorAdjust) {
@@ -856,6 +992,26 @@ export const useLogsData = () => {
               const groupRatio = Number(other?.group_ratio);
               const credits = toPositiveNumber(other?.upstream_credits);
               const isCreditSettle = other?.settlement_type === 'credits';
+              const quotaPerUnit = Number(getQuotaPerUnit());
+              const creditsUnitPrice =
+                isCreditSettle && credits > 0
+                  ? deriveCreditsUnitPrice({
+                      credits,
+                      groupRatio,
+                      finalPrice: billedQuota / quotaPerUnit,
+                    })
+                  : null;
+              const creditsFormula =
+                isCreditSettle && credits > 0
+                  ? buildCreditsSettlementFormula({
+                      credits,
+                      groupRatio,
+                      finalPrice: billedQuota / quotaPerUnit,
+                      labels: {
+                        groupRatio: t('分组倍率（模型覆盖）'),
+                      },
+                    })
+                  : '';
               content = (
                 <article>
                   <p>
@@ -869,10 +1025,17 @@ export const useLogsData = () => {
                       : t('结算方式：上游实际消耗结算')}
                   </p>
                   {isCreditSettle && credits > 0 && (
-                    <p>
-                      {t('上游消耗：{{credits}} credits', { credits })}
-                    </p>
+                    <p>{t('上游消耗：{{credits}} credits', { credits })}</p>
                   )}
+                  {isCreditSettle &&
+                    credits > 0 &&
+                    Number.isFinite(creditsUnitPrice) && (
+                      <p>
+                        {t('credits 单价：{{price}} / credit', {
+                          price: formatDirectPerCallPrice(creditsUnitPrice),
+                        })}
+                      </p>
+                    )}
                   {Number.isFinite(groupRatio) && groupRatio !== 1 && (
                     <p>
                       {t('分组倍率（模型覆盖）：{{ratio}}', {
@@ -880,9 +1043,8 @@ export const useLogsData = () => {
                       })}
                     </p>
                   )}
-                  <p>
-                    {t('结算原因：{{reason}}', { reason })}
-                  </p>
+                  {creditsFormula && <p>{creditsFormula}</p>}
+                  <p>{t('结算原因：{{reason}}', { reason })}</p>
                 </article>
               );
             } else {
@@ -916,10 +1078,12 @@ export const useLogsData = () => {
                 0,
                 billingDisplayMode,
                 other?.group_ratio_source,
+                other,
               );
               const modelName = logs[i]?.model_name || '';
               const isGeminiImagePreview =
-                modelName.includes('image-preview') || modelName.includes('image_preview');
+                modelName.includes('image-preview') ||
+                modelName.includes('image_preview');
               const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
               const forcedFormula = buildDeferredTokenFormula(
                 deferredPromptTokens,
@@ -942,9 +1106,7 @@ export const useLogsData = () => {
                   </p>
                   {billingProcess}
                   {forcedFormula && <p>{forcedFormula}</p>}
-                  <p>
-                    {t('结算原因：{{reason}}', { reason })}
-                  </p>
+                  <p>{t('结算原因：{{reason}}', { reason })}</p>
                   {totalTokens > 0 && (
                     <p>
                       {t('任务总 Tokens：{{tokens}}', {
@@ -966,7 +1128,14 @@ export const useLogsData = () => {
             // Extract OtherRatios from log data (e.g. seconds, duration, quality, resolution)
             const otherRatioKeys = Object.keys(other || {}).filter(
               (k) =>
-                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
+                [
+                  'duration',
+                  'quality',
+                  'speed_ratio',
+                  'seconds',
+                  'size',
+                  'resolution',
+                ].includes(k) &&
                 Number(other[k]) !== 1 &&
                 Number.isFinite(Number(other[k])),
             );
@@ -1005,21 +1174,54 @@ export const useLogsData = () => {
           ) {
             // Per-call billing for task models (e.g. Kling video)
             const billedQuota = toPositiveNumber(logs[i]?.quota);
+            const quotaPerUnit = Number(getQuotaPerUnit());
             const perCallPrice = Number(other?.model_price);
             const groupRatio = Number(other?.group_ratio);
+            const billingSKU = getBillingSKU(other);
+            const dynamicPrice = hasDynamicPerCallRatios(other)
+              ? calculateDynamicPerCallPrice({
+                  modelPrice: perCallPrice,
+                  groupRatio,
+                  otherRatios: other,
+                })
+              : null;
+            const fixedPerCallPrice =
+              !dynamicPrice && billingSKU
+                ? calculateFixedPerCallPrice({
+                    modelPrice: perCallPrice,
+                    groupRatio,
+                  })
+                : null;
+            const parameterText = buildDynamicPerCallParameterText(other);
             const otherRatioKeys = Object.keys(other || {}).filter(
               (k) =>
-                ['duration', 'quality', 'speed_ratio', 'seconds', 'size', 'resolution'].includes(k) &&
-                Number(other[k]) !== 1,
+                [
+                  'duration',
+                  'quality',
+                  'speed_ratio',
+                  'seconds',
+                  'size',
+                  'resolution',
+                ].includes(k) && Number(other[k]) !== 1,
             );
             content = (
               <article>
                 <p>{t('按次计费')}</p>
                 <p>
-                  {t('模型单价：{{price}} / 次', {
-                    price: `$${perCallPrice.toFixed(6)}`,
-                  })}
+                  {t(
+                    dynamicPrice
+                      ? '基础单价：{{price}} / 次'
+                      : fixedPerCallPrice
+                        ? 'SKU单价：{{price}} / 次'
+                        : '模型单价：{{price}} / 次',
+                    {
+                      price: formatDirectPerCallPrice(perCallPrice),
+                    },
+                  )}
                 </p>
+                {billingSKU && (
+                  <p>{t('计费SKU：{{sku}}', { sku: billingSKU })}</p>
+                )}
                 <p>
                   {t('分组倍率（模型覆盖）：{{ratio}}', {
                     ratio: Number.isFinite(groupRatio)
@@ -1030,9 +1232,32 @@ export const useLogsData = () => {
                 {otherRatioKeys.length > 0 && (
                   <p>
                     {t('计算参数')}：
-                    {otherRatioKeys
-                      .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
-                      .join(', ')}
+                    {parameterText ||
+                      otherRatioKeys
+                        .map((k) => `${k}=${Number(other[k]).toFixed(2)}`)
+                        .join(', ')}
+                  </p>
+                )}
+                {dynamicPrice && (
+                  <p>
+                    {buildDynamicPerCallFormula({
+                      basePrice: dynamicPrice.basePrice,
+                      finalPrice: dynamicPrice.finalPrice,
+                      groupRatio: dynamicPrice.groupRatio,
+                      otherRatios: other,
+                    })}
+                  </p>
+                )}
+                {fixedPerCallPrice && (
+                  <p>
+                    {buildFixedPerCallFormula({
+                      unitPrice: fixedPerCallPrice.unitPrice,
+                      finalPrice:
+                        billedQuota > 0
+                          ? billedQuota / quotaPerUnit
+                          : fixedPerCallPrice.finalPrice,
+                      groupRatio: fixedPerCallPrice.groupRatio,
+                    })}
                   </p>
                 )}
                 <p>
@@ -1048,13 +1273,21 @@ export const useLogsData = () => {
               const groupRatio = Number(other?.group_ratio);
               const safeGroupRatio =
                 Number.isFinite(groupRatio) && groupRatio > 0 ? groupRatio : 1;
-              const derivedModelPrice = billedQuota / safeGroupRatio;
+              const quotaPerUnit = Number(getQuotaPerUnit());
+              const derivedModelPrice = derivePerCallUnitPriceFromQuota({
+                billedQuota,
+                groupRatio: safeGroupRatio,
+                quotaPerUnit,
+              });
+              const derivedModelPriceText = formatDirectPerCallPrice(
+                derivedModelPrice,
+              );
               content = (
                 <article>
                   <p>{t('按次计费（根据实际扣费反推）')}</p>
                   <p>
                     {t('模型单价：{{price}} / 次', {
-                      price: `$${derivedModelPrice.toFixed(6)}`,
+                      price: derivedModelPriceText,
                     })}
                   </p>
                   <p>
@@ -1068,7 +1301,7 @@ export const useLogsData = () => {
                     {t(
                       '(模型单价 {{price}} / 次) * 分组倍率（模型覆盖） {{ratio}} = {{cost}}',
                       {
-                        price: `$${derivedModelPrice.toFixed(6)}`,
+                        price: derivedModelPriceText,
                         ratio: safeGroupRatio.toFixed(4),
                         cost: renderQuota(billedQuota, 6),
                       },
@@ -1078,50 +1311,50 @@ export const useLogsData = () => {
                 </article>
               );
             } else {
-            const modelRatio = Number(other?.model_ratio);
-            const groupRatio = Number(other?.group_ratio);
-            const estimatedPreconsumeTokens =
-              Number.isFinite(modelRatio) &&
-              modelRatio > 0 &&
-              Number.isFinite(groupRatio) &&
-              groupRatio > 0 &&
-              billedQuota > 0
-                ? Math.round(billedQuota / (modelRatio * groupRatio))
-                : 0;
+              const modelRatio = Number(other?.model_ratio);
+              const groupRatio = Number(other?.group_ratio);
+              const estimatedPreconsumeTokens =
+                Number.isFinite(modelRatio) &&
+                modelRatio > 0 &&
+                Number.isFinite(groupRatio) &&
+                groupRatio > 0 &&
+                billedQuota > 0
+                  ? Math.round(billedQuota / (modelRatio * groupRatio))
+                  : 0;
 
-            content = (
-              <article>
-                <p>{t('按量计费（预扣阶段）')}</p>
-                <p>
-                  {t('输入价格：{{price}} / 1M tokens', {
-                    price: `${Number(modelRatio * 2 || 0).toFixed(6)}`,
-                  })}
-                </p>
-                <p>
-                  {t('分组倍率（模型覆盖）：{{ratio}}', {
-                    ratio: Number.isFinite(groupRatio)
-                      ? Number(groupRatio).toFixed(4)
-                      : '-',
-                  })}
-                </p>
-                <p>
-                  {t('本次未回传 Token，用预扣额度计费：{{cost}}', {
-                    cost: renderQuota(billedQuota, 6),
-                  })}
-                </p>
-                {estimatedPreconsumeTokens > 0 && (
+              content = (
+                <article>
+                  <p>{t('按量计费（预扣阶段）')}</p>
                   <p>
-                    {t(
-                      '预扣 Token 基数（估算）：{{tokens}}（公式：quota / model_ratio / group_ratio）',
-                      {
-                        tokens: renderNumber(estimatedPreconsumeTokens),
-                      },
-                    )}
+                    {t('输入价格：{{price}} / 1M tokens', {
+                      price: `${Number(modelRatio * 2 || 0).toFixed(6)}`,
+                    })}
                   </p>
-                )}
-                <p>{t('仅供参考，以实际扣费为准')}</p>
-              </article>
-            );
+                  <p>
+                    {t('分组倍率（模型覆盖）：{{ratio}}', {
+                      ratio: Number.isFinite(groupRatio)
+                        ? Number(groupRatio).toFixed(4)
+                        : '-',
+                    })}
+                  </p>
+                  <p>
+                    {t('本次未回传 Token，用预扣额度计费：{{cost}}', {
+                      cost: renderQuota(billedQuota, 6),
+                    })}
+                  </p>
+                  {estimatedPreconsumeTokens > 0 && (
+                    <p>
+                      {t(
+                        '预扣 Token 基数（估算）：{{tokens}}（公式：quota / model_ratio / group_ratio）',
+                        {
+                          tokens: renderNumber(estimatedPreconsumeTokens),
+                        },
+                      )}
+                    </p>
+                  )}
+                  <p>{t('仅供参考，以实际扣费为准')}</p>
+                </article>
+              );
             }
           } else {
             content = renderModelPrice(
@@ -1150,6 +1383,7 @@ export const useLogsData = () => {
               other?.image_generation_call_price || 0,
               billingDisplayMode,
               other?.group_ratio_source,
+              other,
             );
           }
           expandDataLocal.push({
@@ -1187,7 +1421,14 @@ export const useLogsData = () => {
           expandDataLocal.push({
             key: t('失败原因'),
             value: (
-              <div style={{ maxWidth: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.6 }}>
+              <div
+                style={{
+                  maxWidth: 600,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.6,
+                }}
+              >
                 {other.reason}
               </div>
             ),
@@ -1323,57 +1564,78 @@ export const useLogsData = () => {
     setLogs(logs);
   };
 
+  useEffect(() => {
+    if (rawLogs.length === 0) {
+      setExpandData({});
+      setLogs([]);
+      return;
+    }
+    setLogsFormat(rawLogs);
+  }, [
+    rawLogs,
+    isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
+  ]);
+
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
     setLoading(true);
 
-    let url = '';
-    const {
-      username,
-      token_name,
-      model_name,
-      start_timestamp,
-      end_timestamp,
-      channel,
-      group,
-      pricing_group,
-      request_id,
-      logType: formLogType,
-      exactRequestSearch,
-    } = getFormValues();
+    try {
+      let url = '';
+      const {
+        username,
+        token_name,
+        model_name,
+        start_timestamp,
+        end_timestamp,
+        channel,
+        group,
+        pricing_group,
+        request_id,
+        logType: formLogType,
+        exactRequestSearch,
+      } = getFormValues();
 
-    const currentLogType =
-      customLogType !== null
-        ? customLogType
-        : formLogType !== undefined
-          ? formLogType
-          : logType;
+      const currentLogType =
+        customLogType !== null
+          ? customLogType
+          : formLogType !== undefined
+            ? formLogType
+            : logType;
 
-    let localStartTimestamp = exactRequestSearch
-      ? 0
-      : Date.parse(start_timestamp) / 1000;
-    let localEndTimestamp = exactRequestSearch
-      ? 0
-      : Date.parse(end_timestamp) / 1000;
-    if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
-    } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
-    }
-    url = encodeURI(url);
-    const res = await API.get(url);
-    const { success, message, data } = res.data;
-    if (success) {
-      const newPageData = data.items;
-      setActivePage(data.page);
-      setPageSize(data.page_size);
-      setLogCount(data.total);
+      let localStartTimestamp = exactRequestSearch
+        ? 0
+        : Date.parse(start_timestamp) / 1000;
+      let localEndTimestamp = exactRequestSearch
+        ? 0
+        : Date.parse(end_timestamp) / 1000;
+      if (isAdminUser) {
+        url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
+      } else {
+        url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}&pricing_group=${pricing_group}&request_id=${request_id}`;
+      }
+      url = encodeURI(url);
+      const res = await API.get(url);
+      const { success, message, data } = res.data;
+      if (success) {
+        const newPageData = data.items;
+        setActivePage(data.page);
+        setPageSize(data.page_size);
+        setLogCount(data.total);
+        setRawLogs(newPageData);
+        return true;
+      }
 
-      setLogsFormat(newPageData);
-    } else {
       showError(message);
+      return false;
+    } catch (error) {
+      showError(getRequestErrorMessage(error, t('日志加载失败，请重试')));
+      return false;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Page handlers
@@ -1386,7 +1648,7 @@ export const useLogsData = () => {
     localStorage.setItem('page-size', size + '');
     setPageSize(size);
     setActivePage(1);
-    loadLogs(activePage, size)
+    loadLogs(1, size)
       .then()
       .catch((reason) => {
         showError(reason);
@@ -1449,6 +1711,8 @@ export const useLogsData = () => {
     logType,
     stat,
     isAdminUser,
+    showGroupForNonAdmin,
+    showPricingGroupForNonAdmin,
 
     // Form state
     formApi,

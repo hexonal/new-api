@@ -20,7 +20,11 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Card, Avatar, Typography, Table, Tag } from '@douyinfe/semi-ui';
 import { IconCoinMoneyStroked } from '@douyinfe/semi-icons';
-import { calculateModelPrice, getModelPriceItems } from '../../../../../helpers';
+import {
+  calculateModelPrice,
+  getModelPriceItems,
+} from '../../../../../helpers';
+import { buildHailuoSkuPricingRows } from '../../../../../helpers/hailuoSkuPricing.js';
 
 const { Text } = Typography;
 
@@ -42,6 +46,8 @@ const ModelPricingTable = ({
     : [];
   const autoChain = autoGroups.filter((g) => modelEnableGroups.includes(g));
   const renderGroupPriceTable = () => {
+    const formatPrice = (priceUSD) => displayPrice(priceUSD);
+
     // 仅展示模型可用的分组：模型 enable_groups 与用户可用分组的交集
 
     const availableGroups = Object.keys(usableGroup || {})
@@ -52,7 +58,7 @@ const ModelPricingTable = ({
     // 准备表格数据
     const tableData = availableGroups.map((group) => {
       const priceData = modelData
-          ? calculateModelPrice({
+        ? calculateModelPrice({
             record: modelData,
             selectedGroup: group,
             groupRatio,
@@ -83,6 +89,12 @@ const ModelPricingTable = ({
               ? t('按次计费')
               : '-',
         priceItems: getModelPriceItems(priceData, t, siteDisplayType),
+        hailuoSkuRows: buildHailuoSkuPricingRows({
+          record: modelData,
+          selectedGroup: group,
+          groupRatio,
+          groupModelRatio,
+        }),
       };
     });
 
@@ -132,7 +144,7 @@ const ModelPricingTable = ({
     columns.push({
       title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('价格摘要'),
       dataIndex: 'priceItems',
-      render: (items) => (
+      render: (items, record) => (
         <div className='space-y-1'>
           {items.map((item) => (
             <div key={item.key}>
@@ -142,6 +154,28 @@ const ModelPricingTable = ({
               <div className='text-xs text-gray-500'>{item.suffix}</div>
             </div>
           ))}
+          {Array.isArray(record?.hailuoSkuRows) &&
+            record.hailuoSkuRows.length > 0 && (
+              <div className='pt-2 space-y-2'>
+                {record.hailuoSkuRows.map((row) => (
+                  <div
+                    key={row.sku}
+                    className='rounded-lg border border-gray-200 px-3 py-2'
+                  >
+                    <div className='font-medium text-gray-900'>{row.sku}</div>
+                    <div className='mt-1 text-xs text-gray-500'>
+                      {`${row.duration}s · ${row.resolution} · ${t('官方积分')} ${row.official_points}`}
+                    </div>
+                    <div className='mt-1 text-xs text-gray-600'>
+                      {`${t('基础价格')} ${formatPrice(row.unitPrice)} / ${t('次')}`}
+                    </div>
+                    <div className='text-xs text-gray-600'>
+                      {`${t('当前分组价格')} ${formatPrice(row.finalPrice)} / ${t('次')} · ${t('倍率')} ${row.groupRatio}x`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       ),
     });
