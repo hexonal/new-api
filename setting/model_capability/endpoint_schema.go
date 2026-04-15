@@ -14,12 +14,12 @@ const (
 )
 
 type EndpointParameterSchema struct {
-	Kind      ParameterSchemaKind                `json:"kind"`
-	ValueType string                             `json:"value_type"`
-	Options   []string                           `json:"options"`
-	Items     *EndpointParameterSchema           `json:"items"`
-	Fields    map[string]EndpointParameterDef    `json:"fields"`
-	Variants  []EndpointParameterSchema          `json:"variants"`
+	Kind      ParameterSchemaKind             `json:"kind"`
+	ValueType string                          `json:"value_type"`
+	Options   []string                        `json:"options"`
+	Items     *EndpointParameterSchema        `json:"items"`
+	Fields    map[string]EndpointParameterDef `json:"fields"`
+	Variants  []EndpointParameterSchema       `json:"variants"`
 }
 
 type EndpointParameterDef struct {
@@ -30,15 +30,16 @@ type EndpointParameterDef struct {
 }
 
 type ModelEndpointSchema struct {
-	Supported     bool                            `json:"supported"`
-	RequestFormat string                          `json:"request_format"`
-	SDKMethod     string                          `json:"sdk_method"`
-	Parameters    map[string]EndpointParameterDef `json:"parameters"`
+	Supported       bool                            `json:"supported"`
+	RequestFormat   string                          `json:"request_format"`
+	SDKMethod       string                          `json:"sdk_method"`
+	StreamSDKMethod string                          `json:"stream_sdk_method,omitempty"`
+	Parameters      map[string]EndpointParameterDef `json:"parameters"`
 
-	Path          string                          `json:"path"`
-	Method        string                          `json:"method"`
-	ProviderStyle string                          `json:"provider_style"`
-	Async         bool                            `json:"async"`
+	Path          string `json:"path"`
+	Method        string `json:"method"`
+	ProviderStyle string `json:"provider_style"`
+	Async         bool   `json:"async"`
 }
 
 func NormalizeCapabilityKeys(key string) []string {

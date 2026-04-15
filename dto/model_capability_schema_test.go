@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -22,6 +23,9 @@ func TestAnthropicEndpointTypeCapabilityContract(t *testing.T) {
 	if chat.SDKMethod != "aiApi.chatCompletions" {
 		t.Fatalf("unexpected chat sdk method: %s", chat.SDKMethod)
 	}
+	if chat.StreamSDKMethod != "aiApi.chatCompletionsStream" {
+		t.Fatalf("unexpected chat stream sdk method: %s", chat.StreamSDKMethod)
+	}
 
 	claude, ok := specs["claude_messages"]
 	if !ok {
@@ -36,11 +40,49 @@ func TestAnthropicEndpointTypeCapabilityContract(t *testing.T) {
 	if claude.SDKMethod != "aiApi.messages" {
 		t.Fatalf("unexpected claude_messages sdk method: %s", claude.SDKMethod)
 	}
+	if claude.StreamSDKMethod != "aiApi.messagesStream" {
+		t.Fatalf("unexpected claude_messages stream sdk method: %s", claude.StreamSDKMethod)
+	}
 }
 
 func TestInferSDKMethodKeepsClaudeMessagesSyncMethod(t *testing.T) {
 	got := inferSDKMethod("claude_messages", "/v1/messages", "anthropic")
 	if got != "aiApi.messages" {
 		t.Fatalf("unexpected claude_messages sdk method: %s", got)
+	}
+}
+
+func TestInferStreamSDKMethodForTextCapabilities(t *testing.T) {
+	chat := inferStreamSDKMethod("chat", "/v1/chat/completions", "openai-chat")
+	if chat != "aiApi.chatCompletionsStream" {
+		t.Fatalf("unexpected chat stream sdk method: %s", chat)
+	}
+
+	claude := inferStreamSDKMethod("claude_messages", "/v1/messages", "anthropic")
+	if claude != "aiApi.messagesStream" {
+		t.Fatalf("unexpected claude_messages stream sdk method: %s", claude)
+	}
+}
+
+func TestParseCapabilitySpecPreservesExplicitSDKMethod(t *testing.T) {
+	raw := json.RawMessage(`{
+		"supported": true,
+		"path": "/v1/messages",
+		"method": "POST",
+		"provider_style": "anthropic",
+		"request_format": "json",
+		"sdk_method": "aiApi.messagesStream",
+		"parameters": {}
+	}`)
+
+	spec, ok := parseCapabilitySpec("claude_messages", raw)
+	if !ok {
+		t.Fatal("expected claude_messages capability to parse")
+	}
+	if spec.SDKMethod != "aiApi.messagesStream" {
+		t.Fatalf("unexpected preserved sdk method: %s", spec.SDKMethod)
+	}
+	if spec.StreamSDKMethod != "aiApi.messagesStream" {
+		t.Fatalf("unexpected stream sdk method: %s", spec.StreamSDKMethod)
 	}
 }

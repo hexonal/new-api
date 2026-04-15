@@ -15,10 +15,10 @@ type CapabilitySpec = model_capability.ModelEndpointSchema
 type CapabilityMap map[string]CapabilitySpec
 
 type legacyCapabilitySpec struct {
-	Path          string                              `json:"path"`
-	Method        string                              `json:"method"`
-	ProviderStyle string                              `json:"provider_style"`
-	Async         bool                                `json:"async"`
+	Path          string                               `json:"path"`
+	Method        string                               `json:"method"`
+	ProviderStyle string                               `json:"provider_style"`
+	Async         bool                                 `json:"async"`
 	Parameters    map[string]legacyCapabilityParameter `json:"parameters"`
 }
 
@@ -98,7 +98,13 @@ func parseCapabilitySpec(capabilityKey string, raw json.RawMessage) (CapabilityS
 	spec.ProviderStyle = inferProviderStyle(capabilityKey, spec.Path, spec.ProviderStyle)
 	spec.Method = inferMethod(spec.Method)
 	spec.RequestFormat = inferRequestFormat(capabilityKey, spec.Path, spec.Method, spec.ProviderStyle)
-	spec.SDKMethod = inferSDKMethod(capabilityKey, spec.Path, spec.ProviderStyle)
+	spec.SDKMethod = normalizeSDKMethod(spec.SDKMethod, capabilityKey, spec.Path, spec.ProviderStyle)
+	spec.StreamSDKMethod = normalizeStreamSDKMethod(
+		spec.StreamSDKMethod,
+		capabilityKey,
+		spec.Path,
+		spec.ProviderStyle,
+	)
 	if spec.Parameters == nil {
 		spec.Parameters = map[string]CapabilityParameter{}
 	}
@@ -123,7 +129,12 @@ func parseLegacyCapabilitySpec(capabilityKey string, raw json.RawMessage) (Capab
 		Async:         legacy.Async || inferAsync(capabilityKey, legacy.ProviderStyle),
 		RequestFormat: inferRequestFormat(capabilityKey, legacy.Path, legacy.Method, legacy.ProviderStyle),
 		SDKMethod:     inferSDKMethod(capabilityKey, legacy.Path, legacy.ProviderStyle),
-		Parameters:    convertLegacyParameters(legacy.Parameters),
+		StreamSDKMethod: inferStreamSDKMethod(
+			capabilityKey,
+			legacy.Path,
+			legacy.ProviderStyle,
+		),
+		Parameters: convertLegacyParameters(legacy.Parameters),
 	}
 	return spec, true
 }
@@ -266,6 +277,14 @@ func inferProviderStyle(capabilityKey string, path string, providerStyle string)
 	}
 }
 
+func normalizeSDKMethod(current string, capabilityKey string, path string, providerStyle string) string {
+	trimmed := strings.TrimSpace(current)
+	if trimmed != "" {
+		return trimmed
+	}
+	return inferSDKMethod(capabilityKey, path, providerStyle)
+}
+
 func inferSDKMethod(capabilityKey string, path string, providerStyle string) string {
 	switch capabilityKey {
 	case "text_to_image":
@@ -322,18 +341,52 @@ func inferSDKMethod(capabilityKey string, path string, providerStyle string) str
 	}
 }
 
+func normalizeStreamSDKMethod(current string, capabilityKey string, path string, providerStyle string) string {
+	trimmed := strings.TrimSpace(current)
+	if trimmed != "" {
+		return trimmed
+	}
+	return inferStreamSDKMethod(capabilityKey, path, providerStyle)
+}
+
+func inferStreamSDKMethod(capabilityKey string, path string, providerStyle string) string {
+	switch capabilityKey {
+	case "chat":
+		return "aiApi.chatCompletionsStream"
+	case "claude_messages":
+		return "aiApi.messagesStream"
+	}
+
+	trimmedPath := strings.TrimSpace(path)
+	switch trimmedPath {
+	case "/v1/chat/completions":
+		return "aiApi.chatCompletionsStream"
+	case "/v1/messages":
+		return "aiApi.messagesStream"
+	}
+
+	if providerStyle == "openai-chat" {
+		return "aiApi.chatCompletionsStream"
+	}
+	if providerStyle == "anthropic" {
+		return "aiApi.messagesStream"
+	}
+	return ""
+}
+
 func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[string]CapabilitySpec {
 	switch string(endpointType) {
 	case "chat", string(constant.EndpointTypeOpenAIChat), string(constant.EndpointTypeGemini):
 		return map[string]CapabilitySpec{
 			"chat": {
-				Supported:     true,
-				Path:          "/v1/chat/completions",
-				Method:        "POST",
-				ProviderStyle: "openai-chat",
-				RequestFormat: "json",
-				SDKMethod:     "aiApi.chatCompletions",
-				Parameters:    map[string]CapabilityParameter{},
+				Supported:       true,
+				Path:            "/v1/chat/completions",
+				Method:          "POST",
+				ProviderStyle:   "openai-chat",
+				RequestFormat:   "json",
+				SDKMethod:       "aiApi.chatCompletions",
+				StreamSDKMethod: "aiApi.chatCompletionsStream",
+				Parameters:      map[string]CapabilityParameter{},
 			},
 		}
 	case "claude_messages", string(constant.EndpointTypeAnthropic):
@@ -341,22 +394,24 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 		// chat 保留向后兼容，claude_messages 让 SDK 的 invokeModelCapability 走 Anthropic 协议
 		return map[string]CapabilitySpec{
 			"chat": {
-				Supported:     true,
-				Path:          "/v1/chat/completions",
-				Method:        "POST",
-				ProviderStyle: "openai-chat",
-				RequestFormat: "json",
-				SDKMethod:     "aiApi.chatCompletions",
-				Parameters:    map[string]CapabilityParameter{},
+				Supported:       true,
+				Path:            "/v1/chat/completions",
+				Method:          "POST",
+				ProviderStyle:   "openai-chat",
+				RequestFormat:   "json",
+				SDKMethod:       "aiApi.chatCompletions",
+				StreamSDKMethod: "aiApi.chatCompletionsStream",
+				Parameters:      map[string]CapabilityParameter{},
 			},
 			"claude_messages": {
-				Supported:     true,
-				Path:          "/v1/messages",
-				Method:        "POST",
-				ProviderStyle: "anthropic",
-				RequestFormat: "json",
-				SDKMethod:     "aiApi.messages",
-				Parameters:    map[string]CapabilityParameter{},
+				Supported:       true,
+				Path:            "/v1/messages",
+				Method:          "POST",
+				ProviderStyle:   "anthropic",
+				RequestFormat:   "json",
+				SDKMethod:       "aiApi.messages",
+				StreamSDKMethod: "aiApi.messagesStream",
+				Parameters:      map[string]CapabilityParameter{},
 			},
 		}
 	case "openai_response", string(constant.EndpointTypeOpenAIResponse), string(constant.EndpointTypeOpenAIResponseCompact):
@@ -364,13 +419,14 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 		// chat 保留向后兼容，openai_response 让 SDK 走新一代 Responses 协议
 		return map[string]CapabilitySpec{
 			"chat": {
-				Supported:     true,
-				Path:          "/v1/chat/completions",
-				Method:        "POST",
-				ProviderStyle: "openai-chat",
-				RequestFormat: "json",
-				SDKMethod:     "aiApi.chatCompletions",
-				Parameters:    map[string]CapabilityParameter{},
+				Supported:       true,
+				Path:            "/v1/chat/completions",
+				Method:          "POST",
+				ProviderStyle:   "openai-chat",
+				RequestFormat:   "json",
+				SDKMethod:       "aiApi.chatCompletions",
+				StreamSDKMethod: "aiApi.chatCompletionsStream",
+				Parameters:      map[string]CapabilityParameter{},
 			},
 			"openai_response": {
 				Supported:     true,

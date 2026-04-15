@@ -31,6 +31,13 @@ import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../helpers/utils';
 import { API, isAdmin, showError, timestamp2string } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
+import {
+  formatGenerationRecordId,
+  formatGenerationTaskId,
+  formatNullableText,
+  formatQuota,
+  formatTokenCount,
+} from './utils';
 
 const { Text } = Typography;
 
@@ -92,6 +99,66 @@ const formatOutputs = (outputs) => {
     </a>
   );
 };
+
+const DetailItem = ({ label, children }) => (
+  <div className='flex min-w-0 flex-col gap-1 rounded-lg border border-[var(--semi-color-border)] p-2'>
+    <Text type='secondary' size='small'>
+      {label}
+    </Text>
+    <Text className='break-all'>{children}</Text>
+  </div>
+);
+
+const GenerationRecordDetail = ({ record, t }) => (
+  <div className='flex flex-col gap-3 py-2'>
+    <div className='grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-4'>
+      <DetailItem label={t('记录ID')}>
+        {formatGenerationRecordId(record.id)}
+      </DetailItem>
+      <DetailItem label={t('任务ID')}>
+        {formatGenerationTaskId(record)}
+      </DetailItem>
+      <DetailItem label={t('请求ID')}>
+        {formatNullableText(record.request_id)}
+      </DetailItem>
+      <DetailItem label={t('平台')}>
+        {formatNullableText(record.platform)}
+      </DetailItem>
+      <DetailItem label={t('配额')}>{formatQuota(record.quota)}</DetailItem>
+      <DetailItem label={t('提示Token')}>
+        {formatTokenCount(record.prompt_tokens)}
+      </DetailItem>
+      <DetailItem label={t('完成Token')}>
+        {formatTokenCount(record.completion_tokens)}
+      </DetailItem>
+      <DetailItem label={t('总Token')}>
+        {formatTokenCount(record.total_tokens)}
+      </DetailItem>
+      <DetailItem label={t('提交时间')}>
+        {normalizeTimestamp(record.submit_time)}
+      </DetailItem>
+      <DetailItem label={t('耗时')}>
+        {formatDuration(record.start_time, record.finish_time)}
+      </DetailItem>
+      <DetailItem label={t('退款')}>
+        {record.refunded ? `${t('已退款')} ${record.refunded_quota || 0}` : '-'}
+      </DetailItem>
+      <DetailItem label={t('产物')}>{formatOutputs(record.outputs)}</DetailItem>
+    </div>
+    <div className='flex flex-col gap-1'>
+      <Text type='secondary'>{t('输入摘要')}</Text>
+      <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] p-2 text-sm'>
+        {formatNullableText(record.input_preview)}
+      </pre>
+    </div>
+    <div className='flex flex-col gap-1'>
+      <Text type='secondary'>{t('错误信息')}</Text>
+      <pre className='max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] p-2 text-sm'>
+        {formatNullableText(record.error_message)}
+      </pre>
+    </div>
+  </div>
+);
 
 const GenerationRecord = () => {
   const { t } = useTranslation();
@@ -198,6 +265,13 @@ const GenerationRecord = () => {
   const columns = useMemo(
     () => [
       {
+        title: t('记录ID'),
+        dataIndex: 'id',
+        key: 'id',
+        width: 100,
+        render: (value) => formatGenerationRecordId(value),
+      },
+      {
         title: t('提交时间'),
         dataIndex: 'submit_time',
         key: 'submit_time',
@@ -239,7 +313,7 @@ const GenerationRecord = () => {
         dataIndex: 'task_id',
         key: 'task_id',
         width: 180,
-        render: (value) => value || '-',
+        render: (_, record) => formatGenerationTaskId(record),
       },
       {
         title: t('请求ID'),
@@ -253,14 +327,28 @@ const GenerationRecord = () => {
         dataIndex: 'quota',
         key: 'quota',
         width: 100,
-        render: (value) => Number(value || 0).toFixed(2),
+        render: (value) => formatQuota(value),
+      },
+      {
+        title: t('提示Token'),
+        dataIndex: 'prompt_tokens',
+        key: 'prompt_tokens',
+        width: 110,
+        render: (value) => formatTokenCount(value),
+      },
+      {
+        title: t('完成Token'),
+        dataIndex: 'completion_tokens',
+        key: 'completion_tokens',
+        width: 110,
+        render: (value) => formatTokenCount(value),
       },
       {
         title: t('总Token'),
         dataIndex: 'total_tokens',
         key: 'total_tokens',
         width: 100,
-        render: (value) => Number(value || 0),
+        render: (value) => formatTokenCount(value),
       },
       {
         title: t('耗时'),
@@ -376,6 +464,7 @@ const GenerationRecord = () => {
           loading={loading}
           rowKey='key'
           pagination={false}
+          scroll={{ x: 1740 }}
           empty={
             <Empty
               image={<IllustrationNoResult />}
@@ -393,12 +482,7 @@ const GenerationRecord = () => {
             </Empty>
           }
           expandedRowRender={(record) => (
-            <div className='flex flex-col gap-2 py-2'>
-              <Text type='secondary'>{t('输入摘要')}</Text>
-              <Text>{record.input_preview || '-'}</Text>
-              <Text type='secondary'>{t('错误信息')}</Text>
-              <Text>{record.error_message || '-'}</Text>
-            </div>
+            <GenerationRecordDetail record={record} t={t} />
           )}
         />
       </CardPro>
