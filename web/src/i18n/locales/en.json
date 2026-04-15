@@ -358,7 +358,7 @@
     "代理地址": "Proxy address",
     "代理设置": "Proxy Settings",
     "代码已复制到剪贴板": "Code copied to clipboard",
-    "令牌": "Tokens",
+    "令牌": "Token",
     "令牌分组": "Token grouping",
     "令牌分组，默认为用户的分组": "Token group, default is your group",
     "令牌创建成功，请在列表页面点击复制获取令牌！": "Token created successfully, please click copy on the list page to get the token!",
@@ -2416,7 +2416,7 @@
     "编辑方式": "",
     "编辑标签": "Edit Tag",
     "编辑模型": "Edit Model",
-    "编辑模式": "Edit Mode",
+    "编辑模式": "Edit mode",
     "编辑用户": "Edit User",
     "编辑聊天配置": "Edit Chat Configuration",
     "编辑规则": "",
@@ -3348,9 +3348,52 @@
     "配置可用额度和无限额度策略": "Configure quota and unlimited usage policy",
     "提交前检查": "Review before submit",
     "确认配置后提交，提交成功会自动刷新列表": "Review settings before submitting. The list will refresh automatically after success.",
-    "编辑模式": "Edit mode",
     "创建模式": "Create mode",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "This dialog now uses Aurora native components to avoid the legacy chain that triggers StrictMode warnings.",
-    "令牌": "Token"
+    "home": {
+      "hero": {
+        "title": "The Unified Interface For LLMs",
+        "description": "Better prices, better stability. Just replace your model base URL and access the world's most powerful AI models through a single API."
+      },
+      "actions": {
+        "getApiKey": "Get API Key",
+        "exploreModels": "Explore Models"
+      },
+      "apiConfig": {
+        "title": "API BASE CONFIGURATION",
+        "endpointPath": "/v1/chat/completions"
+      },
+      "dropdown": {
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "stats": {
+        "monthlyTokens": "Monthly Tokens",
+        "globalUsers": "Global Users",
+        "activeProviders": "Active Providers",
+        "models": "Models"
+      },
+      "providers": {
+        "title": "SUPPORTED PROVIDERS",
+        "description": "One integration, endless possibilities",
+        "moreThanThirty": "30+ MORE"
+      },
+      "cards": {
+        "advancedRouting": {
+          "title": "Advanced Routing Logic",
+          "description": "Automatically route requests to the most stable or cheapest provider based on real-time health checks and price indices.",
+          "pointUptime": "99.99% Guaranteed Uptime",
+          "pointLatency": "Dynamic Latency Optimization"
+        },
+        "instantSetup": {
+          "title": "Instant Setup",
+          "description": "Swap your existing OpenAI base URL for ours and start saving instantly. No code changes required for most SDKs.",
+          "button": "View SDK Guide"
+        }
+      }
+    },
+    "footer": {
+      "subtitle": "AI Gateway Platform"
+    }
   }
 }

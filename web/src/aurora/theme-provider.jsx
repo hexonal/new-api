@@ -24,13 +24,17 @@ const ThemeModeContext = createContext({
 
 export const useAuroraTheme = () => useContext(ThemeModeContext);
 
-const getSystemMode = () => {
-  if (typeof window === 'undefined') return 'light';
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  return 'light';
-};
+// 原逻辑（保留注释）：
+// const getSystemMode = () => {
+//   if (typeof window === 'undefined') return 'light';
+//   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+//     return 'dark';
+//   }
+//   return 'light';
+// };
+//
+// 当前需求：强制浅色
+const getSystemMode = () => 'light';
 
 export const AuroraThemeProvider = ({ children }) => {
   const [mode, setMode] = useState(() => {
@@ -43,20 +47,28 @@ export const AuroraThemeProvider = ({ children }) => {
   });
   const [systemMode, setSystemMode] = useState(getSystemMode);
 
+  // 原逻辑（保留注释）：
+  // useEffect(() => {
+  //   if (typeof window === 'undefined' || !window.matchMedia) return;
+  //   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  //   const handleChange = (event) => {
+  //     setSystemMode(event.matches ? 'dark' : 'light');
+  //   };
+  //   mediaQuery.addEventListener('change', handleChange);
+  //   return () => mediaQuery.removeEventListener('change', handleChange);
+  // }, []);
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (event) => {
-      setSystemMode(event.matches ? 'dark' : 'light');
-    };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+    if (systemMode !== 'light') {
+      setSystemMode('light');
+    }
+  }, [systemMode]);
 
-  const resolvedMode = useMemo(
-    () => (mode === 'auto' ? systemMode : mode),
-    [mode, systemMode],
-  );
+  // 原逻辑（保留注释）：
+  // const resolvedMode = useMemo(
+  //   () => (mode === 'auto' ? systemMode : mode),
+  //   [mode, systemMode],
+  // );
+  const resolvedMode = useMemo(() => 'light', []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;

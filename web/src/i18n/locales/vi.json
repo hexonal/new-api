@@ -352,7 +352,7 @@
     "代理地址": "Địa chỉ proxy",
     "代理设置": "Cài đặt proxy",
     "代码已复制到剪贴板": "Mã đã được sao chép vào khay nhớ tạm",
-    "令牌": "Mã thông báo",
+    "令牌": "Token",
     "令牌分组": "Nhóm mã thông báo",
     "令牌分组，默认为用户的分组": "Nhóm mã thông báo, mặc định là nhóm của bạn",
     "令牌创建成功，请在列表页面点击复制获取令牌！": "Tạo mã thông báo thành công, vui lòng nhấp vào sao chép trên trang danh sách để lấy mã thông báo!",
@@ -3843,9 +3843,52 @@
     "配置可用额度和无限额度策略": "Cấu hình hạn mức khả dụng và chính sách không giới hạn",
     "提交前检查": "Kiểm tra trước khi gửi",
     "确认配置后提交，提交成功会自动刷新列表": "Xác nhận cấu hình trước khi gửi. Danh sách sẽ tự động làm mới sau khi thành công.",
-    "编辑模式": "Chế độ chỉnh sửa",
     "创建模式": "Chế độ tạo",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "Hộp thoại này đã chuyển sang Aurora native để tránh chuỗi thành phần cũ gây cảnh báo StrictMode.",
-    "令牌": "Token"
+    "home": {
+      "hero": {
+        "title": "Giao diện hợp nhất cho LLM",
+        "description": "Giá tốt hơn, ổn định hơn. Chỉ cần thay Base URL mô hình là bạn có thể truy cập các mô hình AI mạnh nhất thế giới thông qua một API duy nhất."
+      },
+      "actions": {
+        "getApiKey": "Lấy API Key",
+        "exploreModels": "Khám phá mô hình"
+      },
+      "apiConfig": {
+        "title": "CẤU HÌNH CƠ BẢN API",
+        "endpointPath": "/v1/chat/completions"
+      },
+      "dropdown": {
+        "edit": "Chỉnh sửa",
+        "delete": "Xóa"
+      },
+      "stats": {
+        "monthlyTokens": "Token hàng tháng",
+        "globalUsers": "Người dùng toàn cầu",
+        "activeProviders": "Nhà cung cấp đang hoạt động",
+        "models": "Mô hình"
+      },
+      "providers": {
+        "title": "NHÀ CUNG CẤP ĐƯỢC HỖ TRỢ",
+        "description": "Một lần tích hợp, vô vàn khả năng",
+        "moreThanThirty": "30+ KHÁC"
+      },
+      "cards": {
+        "advancedRouting": {
+          "title": "Logic định tuyến nâng cao",
+          "description": "Tự động định tuyến yêu cầu đến nhà cung cấp ổn định nhất hoặc rẻ nhất dựa trên kiểm tra trạng thái và chỉ số giá theo thời gian thực.",
+          "pointUptime": "Đảm bảo uptime 99,99%",
+          "pointLatency": "Tối ưu độ trễ động"
+        },
+        "instantSetup": {
+          "title": "Thiết lập tức thì",
+          "description": "Thay Base URL OpenAI hiện có bằng URL của chúng tôi và bắt đầu tiết kiệm ngay lập tức. Hầu hết SDK không cần thay đổi mã nguồn.",
+          "button": "Xem hướng dẫn SDK"
+        }
+      }
+    },
+    "footer": {
+      "subtitle": "Nền tảng cổng AI"
+    }
   }
 }
