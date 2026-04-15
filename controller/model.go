@@ -147,19 +147,21 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
-				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
+				supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(allowModel)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(allowModel)
 				oaiModel.FunctionCalling = isModelFunctionCallingEnabled(allowModel)
 				oaiModel.Capabilities = capabilities
+				oaiModel.Icon = icon
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
-				supportedEndpointTypes, capabilities := resolveModelCapabilities(allowModel)
+				supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(allowModel)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     allowModel,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
+					Icon:                   icon,
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(allowModel),
 					FunctionCalling:        isModelFunctionCallingEnabled(allowModel),
@@ -203,19 +205,21 @@ func ListModels(c *gin.Context, modelType int) {
 				}
 			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
-				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
+				supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(modelName)
 				oaiModel.SupportedEndpointTypes = supportedEndpointTypes
 				oaiModel.Reasoning = isModelReasoningEnabled(modelName)
 				oaiModel.FunctionCalling = isModelFunctionCallingEnabled(modelName)
 				oaiModel.Capabilities = capabilities
+				oaiModel.Icon = icon
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
 			} else {
-				supportedEndpointTypes, capabilities := resolveModelCapabilities(modelName)
+				supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(modelName)
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
 					Id:                     modelName,
 					Object:                 "model",
 					Created:                1626777600,
 					OwnedBy:                "custom",
+					Icon:                   icon,
 					SupportedEndpointTypes: supportedEndpointTypes,
 					Reasoning:              isModelReasoningEnabled(modelName),
 					FunctionCalling:        isModelFunctionCallingEnabled(modelName),
@@ -273,16 +277,16 @@ func isModelFunctionCallingEnabled(modelName string) bool {
 	return ok && v
 }
 
-func resolveModelCapabilities(modelName string) ([]constant.EndpointType, dto.CapabilityMap) {
+func resolveModelCapabilities(modelName string) ([]constant.EndpointType, dto.CapabilityMap, string) {
 	if model.DB == nil || modelName == "" {
-		return []constant.EndpointType{}, dto.CapabilityMap{}
+		return []constant.EndpointType{}, dto.CapabilityMap{}, ""
 	}
 
 	var meta model.Model
-	if err := model.DB.Select("endpoints").Where("model_name = ?", modelName).First(&meta).Error; err != nil {
+	if err := model.DB.Select("endpoints", "icon").Where("model_name = ?", modelName).First(&meta).Error; err != nil {
 		endpointTypes := model.GetModelSupportEndpointTypes(modelName)
 		capabilities := dto.BuildCapabilityMapFromEndpointTypes(endpointTypes)
-		return dto.SupportedEndpointTypes(capabilities), capabilities
+		return dto.SupportedEndpointTypes(capabilities), capabilities, ""
 	}
 
 	capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
@@ -291,7 +295,7 @@ func resolveModelCapabilities(modelName string) ([]constant.EndpointType, dto.Ca
 		capabilities = dto.BuildCapabilityMapFromEndpointTypes(endpointTypes)
 	}
 
-	return dto.SupportedEndpointTypes(capabilities), capabilities
+	return dto.SupportedEndpointTypes(capabilities), capabilities, meta.Icon
 }
 
 func ChannelListModels(c *gin.Context) {
@@ -318,11 +322,12 @@ func EnabledListModels(c *gin.Context) {
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
 	if aiModel, ok := openAIModelsMap[modelId]; ok {
-		supportedEndpointTypes, capabilities := resolveModelCapabilities(modelId)
+		supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(modelId)
 		aiModel.SupportedEndpointTypes = supportedEndpointTypes
 		aiModel.Capabilities = capabilities
 		aiModel.Reasoning = isModelReasoningEnabled(modelId)
 		aiModel.FunctionCalling = isModelFunctionCallingEnabled(modelId)
+		aiModel.Icon = icon
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{
@@ -339,12 +344,13 @@ func RetrieveModel(c *gin.Context, modelType int) {
 
 	var meta model.Model
 	if model.DB != nil && model.DB.Select("model_name").Where("model_name = ?", modelId).First(&meta).Error == nil {
-		supportedEndpointTypes, capabilities := resolveModelCapabilities(modelId)
+		supportedEndpointTypes, capabilities, icon := resolveModelCapabilities(modelId)
 		c.JSON(200, dto.OpenAIModels{
 			Id:                     modelId,
 			Object:                 "model",
 			Created:                1626777600,
 			OwnedBy:                "custom",
+			Icon:                   icon,
 			SupportedEndpointTypes: supportedEndpointTypes,
 			Reasoning:              isModelReasoningEnabled(modelId),
 			FunctionCalling:        isModelFunctionCallingEnabled(modelId),

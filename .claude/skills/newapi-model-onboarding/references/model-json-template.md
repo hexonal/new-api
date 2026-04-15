@@ -298,6 +298,24 @@
           "value_type": "integer",
           "options": ["5", "10"]
         }
+      },
+      "supportsFirstLastFrame": {
+        "required": false,
+        "default": false,
+        "description": "Whether this model supports first-last-frame video generation",
+        "schema": {
+          "kind": "scalar",
+          "value_type": "boolean"
+        }
+      },
+      "supportsAudio": {
+        "required": false,
+        "default": false,
+        "description": "Whether this model supports audio output or audio track generation",
+        "schema": {
+          "kind": "scalar",
+          "value_type": "boolean"
+        }
       }
     }
   }
@@ -339,6 +357,24 @@
         "schema": {
           "kind": "scalar",
           "value_type": "string"
+        }
+      },
+      "supportsFirstLastFrame": {
+        "required": false,
+        "default": false,
+        "description": "Whether this model supports first-last-frame video generation",
+        "schema": {
+          "kind": "scalar",
+          "value_type": "boolean"
+        }
+      },
+      "supportsAudio": {
+        "required": false,
+        "default": false,
+        "description": "Whether this model supports audio output or audio track generation",
+        "schema": {
+          "kind": "scalar",
+          "value_type": "boolean"
         }
       }
     }

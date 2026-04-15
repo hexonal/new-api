@@ -71,6 +71,9 @@ description: |
 - 从上游文档与真实响应收集参数
 - 拆分必填/可选、类型、默认值、枚举范围
 - 视频模型重点确认：`duration/seconds`、参考图参数（`image_url`、`input_reference`）
+- 视频模型必须额外确认并配置两个能力标记参数：
+  - `supportsFirstLastFrame`（是否支持首尾帧）
+  - `supportsAudio`（是否支持音频）
 
 结果必须产出结构化参数表。
 
@@ -125,6 +128,9 @@ description: |
   - 视频（仅 aiApi）：`openai-video`
   - 其他（仅 aiApi）：`openai-embeddings` / `openai-moderation` / `openai-realtime` / `suno` / `midjourney` / `jina`
 - 图生视频若上游要求双参（如 `image_url + input_reference`）必须同时标记 `required`
+- 视频能力（`text_to_video` / `image_to_video`）必须声明两个能力标记参数，且固定命名：
+  - `supportsFirstLastFrame`：`kind=scalar`，`value_type=boolean`
+  - `supportsAudio`：`kind=scalar`，`value_type=boolean`
 - 文本模型若支持多个端点（如 OpenAI Chat + Anthropic Messages + OpenAI Responses），必须全部写入 `capabilities`，不能只保留一个
 - 多文本端点模型必须显式维护”主端点”和”扩展端点”：
   - 主端点：`chat`（供默认 SDK 路由，走 `/v1/chat/completions`）
@@ -213,6 +219,22 @@ description: |
 - Option 写入后，调用 `POST /api/option/refresh_pricing_cache` 即可热生效（无需重启）
 - `/v1/models` 响应中的 `reasoning` 和 `function_calling` 字段会立即反映新配置
 
+### 6.6 视频能力标记参数（强制）
+
+视频能力（`text_to_video` / `image_to_video`）必须在 `capabilities.<key>.parameters` 中显式配置以下参数，用于下游统一派生 UI 和业务能力：
+
+| 参数名 | 含义 | schema |
+|---|---|---|
+| `supportsFirstLastFrame` | 是否支持首尾帧视频生成 | `kind=scalar` + `value_type=boolean` |
+| `supportsAudio` | 是否支持音频生成/音频轨 | `kind=scalar` + `value_type=boolean` |
+
+约束：
+
+- 必须使用固定命名（区分大小写）
+- 不得用其他别名替代（例如 `support_audio`、`audio_supported`）
+- 值语义必须与上游真实能力一致，禁止默认全填 `true`
+- 若上游仅支持首帧，不支持尾帧，则 `supportsFirstLastFrame=false`
+
 ## 7) 配置价格 SQL
 
 - 在 `prices` 写入 `model + type + channel_type + input + output`
@@ -233,6 +255,7 @@ description: |
 - `/v1/models` 的 `supported_endpoint_types` 正确
 - `capabilities.*` 中 `path/method/provider_style/request_format/sdk_method` 不为空
 - 预期枚举参数保持 `kind=enum`，未降级
+- 视频能力必须暴露 `supportsFirstLastFrame` 与 `supportsAudio` 参数，且 schema 为 `boolean`
 - DB 与 `/v1/models` 一致
 - 文本模型若声明多端点，`/v1/models` 必须看到全部能力 key（包括扩展端点如 `claude_messages` / `openai_response`）
 - `models_id_seq`、`channels_id_seq` 与表内 `MAX(id)` 无漂移

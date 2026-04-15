@@ -167,7 +167,28 @@ curl -sS --location --request GET 'https://<domain>/v1/models' \
 
 输出应为空。若非空，说明该文本 capability 的 `provider_style` 不在 `TextModelProviderStyle` 中，需修正。
 
-## 8.8 最终输出
+## 8.8 视频能力标记参数验收
+
+验证视频能力是否暴露 `supportsFirstLastFrame`、`supportsAudio`，且 schema 为 boolean：
+
+```bash
+curl -sS --location --request GET 'https://<domain>/v1/models' \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Accept: application/json' \
+| jq -r '.data[] as $m
+  | ($m.capabilities // {}) | to_entries[]
+  | select(.key=="text_to_video" or .key=="image_to_video")
+  | . as $cap
+  | ["supportsFirstLastFrame","supportsAudio"][]
+  | . as $p
+  | ($cap.value.parameters[$p].schema // {}) as $s
+  | select(($s.kind // "") != "scalar" or ($s.value_type // "") != "boolean")
+  | [$m.id,$cap.key,$p,($s.kind // "missing"),($s.value_type // "missing")] | @tsv'
+```
+
+输出应为空。若非空，说明视频能力标记参数缺失或 schema 不符合规范。
+
+## 8.9 最终输出
 
 - 上游配置摘要
 - 上游模型清单

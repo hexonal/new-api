@@ -43,6 +43,12 @@
 - `schema.value_type`:
 - `schema.options`（若 enum，必须字符串数组）:
 
+视频能力（`text_to_video` / `image_to_video`）额外必填：
+
+- `supportsFirstLastFrame`（boolean）:
+- `supportsAudio`（boolean）:
+- 判定依据（上游文档链接 / 实测请求与响应）:
+
 ## D. 价格配置
 
 - `price_type`（tokens / times）:

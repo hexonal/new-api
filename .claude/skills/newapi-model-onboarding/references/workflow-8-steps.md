@@ -48,6 +48,7 @@
 - 从上游文档与真实响应收集参数
 - 每个参数拆分：`必填 / 可选 / 类型 / 默认值 / 枚举范围`
 - 视频模型重点确认：`duration` / `seconds` / `image_url` / `input_reference` / `character_url` / `character_timestamps`
+- 视频模型必须确认并记录两个能力标记参数：`supportsFirstLastFrame`、`supportsAudio`
 - 图像模型重点确认：`size` / `n` / `response_format` / `quality`
 - 音频模型重点确认：`voice` / `response_format` / `speed` / `language`
 
@@ -113,6 +114,9 @@
   - `kind=enum` 必须带 `options`（字符串数组）
   - `default` 落在 `options` 内
 - `capability_key` 只能从 SKILL.md §6.3 的白名单选取
+- 视频能力（`text_to_video` / `image_to_video`）必须在 parameters 内声明：
+  - `supportsFirstLastFrame`（boolean）
+  - `supportsAudio`（boolean）
 - 对齐 SDK（见 SKILL.md §6.4）：任何新增 capability key 同 PR 改 api-sdk 两端
 - 若新增文本类 capability 的 provider_style 不在 TextModelProviderStyle 中，需同步更新 api-sdk 的 `provider/types.ts` 和 `provider/protocol.ts`
 - 确认模型级特性标记：若模型支持 function calling，需在系统设置的 `ModelFunctionCallingMap` Option 中配置；若为推理模型，需在 `ModelReasoningMap` 中配置
@@ -164,6 +168,7 @@
 - `/v1/models` 的 `supported_endpoint_types` 正确
 - `capabilities.*` 中 `path/method/provider_style/request_format/sdk_method` 均非空
 - 预期枚举参数保持 `kind=enum`，未降级为 `scalar`
+- 视频能力参数 `supportsFirstLastFrame`、`supportsAudio` 存在且为 boolean
 - DB 与 `/v1/models` 一致（用 jq 对比两边）
 - 文本模型若声明多端点，必须看到全部 capability key（`chat` + 扩展端点如 `claude_messages` / `openai_response`）
 - `models_id_seq` / `channels_id_seq` 与表内 `MAX(id)` 无漂移
