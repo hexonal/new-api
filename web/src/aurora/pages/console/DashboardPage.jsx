@@ -17,57 +17,142 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Wallet, BarChart3, Activity, Cpu, Gauge, RefreshCw } from 'lucide-react';
+import React, { useContext, useEffect, useRef } from 'react';
+import { Activity, BarChart3, Gauge, RefreshCw, Wallet } from 'lucide-react';
 import { UserContext } from '../../../context/User';
 import { StatusContext } from '../../../context/Status';
-
+import { StatCard, SpendChart, ApiEndpointsCard } from './components';
+import { SPEND_CHART_TABS } from './components/spend-chart-constants.js';
+import FaqAccordion from './components/FaqAccordion';
+import AnnouncementCenterCard from './dashboard/AnnouncementCenterCard';
 import {
-  StatCard,
-  SpendChart,
-  ServiceHealthCard,
-  FaqAccordion,
-  ApiEndpointsCard,
-} from './components';
+  buildDashboardHighlightCards,
+  buildDashboardSupportPanels,
+} from './dashboard/dashboard-view-model';
 import { useDashboardData } from '../../../hooks/dashboard/useDashboardData';
 import { useDashboardStats } from '../../../hooks/dashboard/useDashboardStats';
 import { useDashboardCharts } from '../../../hooks/dashboard/useDashboardCharts';
 
-const QUICK_ACTIONS = [
-  {
-    title: 'API Keys',
-    href: '/console/token',
-    description: '创建/管理 API Key',
-  },
-  {
-    title: 'Usage Logs',
-    href: '/console/log',
-    description: '查看请求和计费明细',
-  },
-  {
-    title: 'Key Cost',
-    href: '/console/key-cost',
-    description: '模型花费分析',
-  },
-];
-
 const iconMap = {
   balance: Wallet,
-  usedQuota: BarChart3,
   requests: Activity,
-  rate: Cpu,
-  rpm: Gauge,
+  usage: BarChart3,
+  rate: Gauge,
 };
+
+const buildAnnouncementData = (items = []) =>
+  items.map((item) => ({
+    ...item,
+    relative: item?.relative || '',
+    time: item?.time || item?.publishDate || '',
+  }));
+
+function DashboardBanner({ greeting, loading, onRefresh, t }) {
+  return (
+    <section className='mb-2'>
+      <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+        <div>
+          <h1 className="font-headline text-3xl font-extrabold tracking-tight text-slate-900">
+            Dashboard
+          </h1>
+          <p className='mt-1 text-sm text-slate-500'>{greeting}</p>
+        </div>
+        <button
+          type='button'
+          className='inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50'
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <RefreshCw className='h-4 w-4' />
+          {t('刷新数据')}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function DashboardHighlights({ cards }) {
+  return (
+    <section className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+      {cards.map((card, index) => {
+        const Icon = iconMap[card.metricKey] || Activity;
+
+        return (
+          <StatCard
+            key={`${card.metricKey}-${index}`}
+            title={card.title || ''}
+            value={card.value || 0}
+            icon={<Icon className='h-4 w-4' />}
+            badgeText={card.badgeText}
+          />
+        );
+      })}
+    </section>
+  );
+}
+
+function DashboardChartSection({ dashboardData }) {
+  const [activeChartTab, setActiveChartTab] = React.useState('trend');
+
+  return (
+    <section className='rounded-xl border border-slate-200 bg-white p-6 shadow-sm'>
+      <div className='mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+        <div className='flex flex-wrap gap-2'>
+          {SPEND_CHART_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type='button'
+              className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                activeChartTab === tab.key
+                  ? 'bg-indigo-50 font-bold text-indigo-600'
+                  : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+              }`}
+              onClick={() => setActiveChartTab(tab.key)}
+            >
+              {dashboardData.t(tab.label)}
+            </button>
+          ))}
+        </div>
+        <div className='text-xs font-medium uppercase tracking-[0.16em] text-slate-400'>
+          {dashboardData.t('范围')}: {dashboardData.dataExportDefaultTime}
+        </div>
+      </div>
+      <SpendChart
+        title={dashboardData.t('模型数据分析')}
+        data={dashboardData.quotaData || []}
+        pieData={dashboardData.pieData}
+        modelColors={dashboardData.modelColors}
+        loading={dashboardData.loading}
+        activeTab={activeChartTab}
+        onTabChange={setActiveChartTab}
+        showTabs={false}
+        showTitle={false}
+      />
+    </section>
+  );
+}
+
+function DashboardSupportGrid({ panels, t }) {
+  return (
+    <section className='grid gap-8 lg:grid-cols-3'>
+      <ApiEndpointsCard endpoints={panels[0].items} t={t} />
+      <FaqAccordion items={panels[1].items} t={t} />
+      <AnnouncementCenterCard
+        title={t('Announcements')}
+        announcementItems={panels[2].announcementItems}
+        uptimeItems={panels[2].uptimeItems}
+        emptyTitle={panels[2].emptyTitle}
+        emptyDescription={panels[2].emptyDescription}
+        t={t}
+      />
+    </section>
+  );
+}
 
 export default function DashboardPage() {
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
-  const navigate = useNavigate();
-
   const dashboardData = useDashboardData(userState, userDispatch, statusState);
-
-  // Chart hook aggregates quotaData → consumeQuota, consumeTokens, times
   const dashboardCharts = useDashboardCharts(
     dashboardData.dataExportDefaultTime,
     dashboardData.setTrendData,
@@ -79,7 +164,6 @@ export default function DashboardPage() {
     dashboardData.setModelColors,
     dashboardData.t,
   );
-
   const { groupedStatsData } = useDashboardStats(
     userState,
     dashboardData.consumeQuota,
@@ -90,115 +174,55 @@ export default function DashboardPage() {
     dashboardData.navigate,
     dashboardData.t,
   );
+  const dataLoaded = useRef(false);
 
-  // Load data once on mount — mirrors Legacy Dashboard init flow
-  const dataLoaded = React.useRef(false);
   useEffect(() => {
-    if (dataLoaded.current) return;
+    if (dataLoaded.current) {
+      return;
+    }
     dataLoaded.current = true;
 
-    (async () => {
+    void (async () => {
       const data = await dashboardData.refresh();
       if (data && data.length > 0) {
         dashboardCharts.updateChartData(data);
       }
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboardCharts, dashboardData]);
 
-  const faqItems = Array.isArray(statusState?.status?.faq) ? statusState.status.faq : [];
-  const apiInfo = Array.isArray(statusState?.status?.api_info) ? statusState.status.api_info : [];
-  const uptimeItems = Array.isArray(dashboardData.uptimeData)
-    ? dashboardData.uptimeData
-    : [];
-  const quickStatCards = (groupedStatsData || []).flatMap((group) => group?.items || []);
-
-  const handleQuickActionNavigate = (event, href) => {
-    const isModifiedClick =
-      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-    const isNonPrimaryButton = event.button !== 0;
-
-    if (isModifiedClick || isNonPrimaryButton) {
-      return;
-    }
-
-    event.preventDefault();
-    navigate(href);
-  };
+  const cards = buildDashboardHighlightCards(groupedStatsData || []);
+  const panels = buildDashboardSupportPanels({
+    apiInfoItems: Array.isArray(statusState?.status?.api_info)
+      ? statusState.status.api_info
+      : [],
+    faqItems: Array.isArray(statusState?.status?.faq) ? statusState.status.faq : [],
+    announcementItems: buildAnnouncementData(
+      Array.isArray(statusState?.status?.announcements)
+        ? statusState.status.announcements
+        : [],
+    ),
+    uptimeItems: Array.isArray(dashboardData.uptimeData)
+      ? dashboardData.uptimeData
+      : [],
+    t: dashboardData.t,
+  });
 
   return (
-    <div className='space-y-6'>
-      <section className='rounded-xl border border-border p-4 md:p-5 bg-card/70'>
-        <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-2'>
-          <div>
-            <p className='text-sm text-muted-foreground'>{dashboardData.t('欢迎回来')}</p>
-            <h1 className='text-xl font-semibold text-foreground'>
-              {dashboardData.getGreeting}
-            </h1>
-          </div>
-          <button
-            type='button'
-            className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent'
-            onClick={async () => {
-              const data = await dashboardData.refresh();
-              if (data && data.length > 0) dashboardCharts.updateChartData(data);
-            }}
-            disabled={dashboardData.loading}
-          >
-            <RefreshCw className='h-4 w-4' />
-            {dashboardData.t('刷新数据')}
-          </button>
-        </div>
-      </section>
-
-      <section className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
-        {quickStatCards.map((card, index) => {
-          const Icon = iconMap[card.key] || Activity;
-          return (
-            <StatCard
-              key={`${card.title}-${index}`}
-              title={card.title || ''}
-              value={card.value || 0}
-              icon={<Icon className='h-4 w-4 text-blue-400' />}
-            />
-          );
-        })}
-      </section>
-
-      <section className='grid gap-4 lg:grid-cols-3'>
-        <div className='lg:col-span-2'>
-          <SpendChart
-            title={dashboardData.t('模型数据分析')}
-            data={dashboardData.quotaData || []}
-            pieData={dashboardData.pieData}
-            modelColors={dashboardData.modelColors}
-            loading={dashboardData.loading}
-          />
-        </div>
-        <ApiEndpointsCard endpoints={apiInfo} />
-      </section>
-
-      <section className='grid gap-4 lg:grid-cols-2'>
-        <ServiceHealthCard
-          items={uptimeItems}
-          loading={dashboardData.uptimeLoading}
-          t={dashboardData.t}
-        />
-        <FaqAccordion items={faqItems} t={dashboardData.t} />
-      </section>
-
-      <section className='grid gap-3 md:grid-cols-2 lg:grid-cols-3'>
-        {QUICK_ACTIONS.map((action) => (
-          <a
-            key={action.title}
-            href={action.href}
-            onClick={(event) => handleQuickActionNavigate(event, action.href)}
-            className='rounded-lg border border-border bg-card/70 p-4 hover:bg-accent transition-colors'
-          >
-            <h3 className='font-semibold'>{action.title}</h3>
-            <p className='text-sm text-muted-foreground mt-1'>{action.description}</p>
-          </a>
-        ))}
-      </section>
+    <div className='space-y-8'>
+      <DashboardBanner
+        greeting={dashboardData.getGreeting}
+        loading={dashboardData.loading}
+        onRefresh={async () => {
+          const data = await dashboardData.refresh();
+          if (data && data.length > 0) {
+            dashboardCharts.updateChartData(data);
+          }
+        }}
+        t={dashboardData.t}
+      />
+      <DashboardHighlights cards={cards} />
+      <DashboardChartSection dashboardData={dashboardData} />
+      <DashboardSupportGrid panels={panels} t={dashboardData.t} />
     </div>
   );
 }

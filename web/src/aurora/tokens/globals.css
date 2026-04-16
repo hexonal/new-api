@@ -116,7 +116,7 @@
   min-height: 64px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .aurora-top-nav-left {
@@ -145,6 +145,8 @@
   font-weight: 700;
   color: hsl(var(--foreground));
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .aurora-brand-mark {
@@ -155,7 +157,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(360px, 40vw);
+  width: min(300px, 34vw);
+  min-width: 220px;
   color: hsl(var(--muted-foreground));
 }
 
@@ -164,18 +167,20 @@
 }
 
 .aurora-top-nav-links {
-  margin-left: 14px;
+  margin-left: 6px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .aurora-top-nav-link {
   text-decoration: none;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: 9999px;
   font-size: 0.875rem;
   color: hsl(var(--foreground));
+  white-space: nowrap;
 }
 
 .aurora-top-nav-link:hover {
@@ -185,6 +190,7 @@
 
 .aurora-top-nav-user {
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .aurora-top-nav-auth {
@@ -221,6 +227,10 @@
   align-items: start;
 }
 
+.aurora-body-shell-dashboard {
+  padding-top: 20px;
+}
+
 .aurora-body-shell.compact {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -251,6 +261,18 @@
 
 .aurora-content.compact {
   margin-left: 0;
+}
+
+.aurora-content-dashboard {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  padding: 4px 0 0;
+}
+
+.aurora-content-dashboard .aurora-page-shell-plain {
+  padding: 0;
 }
 
 .aurora-page-shell {
@@ -319,7 +341,8 @@
   align-items: start;
   gap: 16px;
   padding: 10px 0;
-  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 82%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 82%, transparent);
 }
 
 .usage-log-detail-row:last-child {
@@ -359,14 +382,24 @@
   justify-content: center;
   background: hsl(var(--background));
   color: hsl(var(--muted-foreground));
-  transition: color 160ms ease, border-color 160ms ease,
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
     background-color 160ms ease;
 }
 
 .usage-log-detail-copy:hover {
   color: hsl(var(--primary));
-  border-color: color-mix(in oklab, hsl(var(--primary)) 30%, hsl(var(--border)));
-  background: color-mix(in oklab, hsl(var(--primary)) 8%, hsl(var(--background)));
+  border-color: color-mix(
+    in oklab,
+    hsl(var(--primary)) 30%,
+    hsl(var(--border))
+  );
+  background: color-mix(
+    in oklab,
+    hsl(var(--primary)) 8%,
+    hsl(var(--background))
+  );
 }
 
 .usage-log-detail-copy-placeholder {
@@ -945,7 +978,7 @@
   color: hsl(var(--muted-foreground));
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 959px) {
   .aurora-top-nav-links {
     display: none;
   }
