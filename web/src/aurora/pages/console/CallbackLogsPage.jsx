@@ -18,156 +18,115 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { timestamp2string } from '../../../helpers';
+import { copy, showError, showSuccess } from '../../../helpers';
 import { useCallbackLogsData } from '../../../hooks/callback-logs/useCallbackLogsData';
-import { Table, Thead, Tbody, Tr, Th, Td } from '../../primitives/table';
-import { Badge } from '../../primitives/badge';
-import { Button } from '../../primitives/button';
+import CallbackLogAttemptsDialog from './callback-logs/CallbackLogAttemptsDialog';
+import CallbackLogFilters from './callback-logs/CallbackLogFilters';
+import CallbackLogPageHeader from './callback-logs/CallbackLogPageHeader';
+import CallbackLogPagination from './callback-logs/CallbackLogPagination';
+import CallbackLogStats from './callback-logs/CallbackLogStats';
+import CallbackLogTable from './callback-logs/CallbackLogTable';
+import {
+  buildCallbackStats,
+  buildPaginationItems,
+  exportCallbackEvents,
+} from './callback-logs/callback-log-utils';
 
 export default function CallbackLogsPage() {
   const data = useCallbackLogsData();
   const totalPages = Math.max(
     1,
-    Math.ceil(Number(data.eventCount || 0) / Math.max(1, Number(data.pageSize || 1))),
+    Math.ceil(
+      Number(data.eventCount || 0) / Math.max(1, Number(data.pageSize || 1)),
+    ),
+  );
+  const stats = React.useMemo(
+    () => buildCallbackStats(data.events),
+    [data.events],
+  );
+  const paginationItems = React.useMemo(
+    () => buildPaginationItems(data.activePage, totalPages),
+    [data.activePage, totalPages],
   );
 
+  const handleCopy = React.useCallback(
+    async (text) => {
+      const content = String(text || '').trim();
+      if (!content) {
+        return;
+      }
+      if (await copy(content)) {
+        showSuccess(`${data.t('已复制：')}${content}`);
+        return;
+      }
+      showError(data.t('无法复制到剪贴板，请手动复制'));
+    },
+    [data, data.t],
+  );
+
+  const handleSearch = React.useCallback(() => {
+    data.loadEvents(1, data.pageSize);
+  }, [data]);
+
+  const handleReset = React.useCallback(() => {
+    data.setFilters(data.DEFAULT_FILTERS);
+    window.setTimeout(() => {
+      data.loadEvents(1, data.pageSize);
+    }, 0);
+  }, [data]);
+
+  const handleExport = React.useCallback(() => {
+    exportCallbackEvents(data.events);
+  }, [data.events]);
+
   return (
-    <div className='space-y-4'>
-      <div className='rounded-xl border border-border bg-card/70 p-3'>
-        <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
-          <select
-            className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
-            value={data.filters.status}
-            onChange={(event) =>
-              data.setFilters((prev) => ({ ...prev, status: event.target.value }))
-            }
-          >
-            <option value=''>{data.t('全部状态')}</option>
-            <option value='pending'>{data.t('待处理')}</option>
-            <option value='processing'>{data.t('处理中')}</option>
-            <option value='retry_wait'>{data.t('重试等待')}</option>
-            <option value='succeeded'>{data.t('成功')}</option>
-            <option value='dead'>{data.t('失败')}</option>
-            <option value='cancelled'>{data.t('已取消')}</option>
-          </select>
-          <select
-            className='h-10 rounded-lg border border-input bg-background px-3 text-sm'
-            value={data.filters.source}
-            onChange={(event) =>
-              data.setFilters((prev) => ({ ...prev, source: event.target.value }))
-            }
-          >
-            <option value=''>{data.t('全部来源')}</option>
-            <option value='consume'>{data.t('消费回调')}</option>
-            <option value='operator'>{data.t('运营回调')}</option>
-            <option value='feishu'>{data.t('飞书通知')}</option>
-            <option value='user_points_guard'>{data.t('积分预扣校验')}</option>
-          </select>
-          <div className='flex items-center justify-end gap-2'>
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={() => data.loadEvents(1, data.pageSize)}
-              loading={data.loading}
-            >
-              {data.t('查询')}
-            </Button>
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={() => data.refresh()}
-              loading={data.loading}
-            >
-              {data.t('刷新')}
-            </Button>
-          </div>
-        </div>
-      </div>
+    <div className='space-y-6'>
+      <CallbackLogPageHeader
+        loading={data.loading}
+        onExport={handleExport}
+        onRefresh={data.refresh}
+        t={data.t}
+      />
 
-      <div className='rounded-xl border border-border bg-card/70'>
-        <Table>
-          <Thead>
-            <Tr>
-              <Th>{data.t('创建时间')}</Th>
-              <Th>{data.t('来源')}</Th>
-              <Th>{data.t('状态')}</Th>
-              <Th>{data.t('事件类型')}</Th>
-              <Th>{data.t('Request ID')}</Th>
-              <Th>{data.t('用户名')}</Th>
-              <Th>{data.t('Retry')}</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {(data.events || []).map((event) => (
-              <Tr key={event.key}>
-                <Td className='text-xs'>
-                  {event.created_at ? timestamp2string(event.created_at) : '-'}
-                </Td>
-                <Td className='text-xs'>{event.source || '-'}</Td>
-                <Td>
-                  <Badge
-                    variant={
-                      event.status === 'dead'
-                        ? 'destructive'
-                        : event.status === 'succeeded'
-                          ? 'secondary'
-                          : 'outline'
-                    }
-                  >
-                    {event.status || '-'}
-                  </Badge>
-                </Td>
-                <Td className='text-xs'>{event.event_type || '-'}</Td>
-                <Td className='font-mono text-xs'>{event.request_id || '-'}</Td>
-                <Td className='text-xs'>{event.username || '-'}</Td>
-                <Td>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={() => data.retryEvent(event.id)}
-                  >
-                    {data.t('Retry')}
-                  </Button>
-                </Td>
-              </Tr>
-            ))}
-            {!data.loading && (data.events || []).length === 0 && (
-              <Tr>
-                <Td colSpan={7} className='py-8 text-center text-muted-foreground'>
-                  {data.t('暂无数据')}
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </div>
+      <CallbackLogFilters
+        filters={data.filters}
+        setFilters={data.setFilters}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        loading={data.loading}
+        t={data.t}
+      />
 
-      <div className='flex items-center justify-between text-sm text-muted-foreground'>
-        <span>
-          {data.t('共')} {data.eventCount || 0} {data.t('条')}
-        </span>
-        <div className='flex items-center gap-2'>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={data.activePage <= 1 || data.loading}
-            onClick={() => data.handlePageChange(data.activePage - 1)}
-          >
-            {data.t('上一页')}
-          </Button>
-          <span>
-            {data.activePage} / {totalPages}
-          </span>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={data.activePage >= totalPages || data.loading}
-            onClick={() => data.handlePageChange(data.activePage + 1)}
-          >
-            {data.t('下一页')}
-          </Button>
-        </div>
-      </div>
+      <CallbackLogTable
+        events={data.events || []}
+        loading={data.loading}
+        onCopy={handleCopy}
+        onRetry={data.retryEvent}
+        onOpenAttempts={data.openAttemptsDialog}
+        t={data.t}
+      />
+
+      <CallbackLogPagination
+        activePage={data.activePage}
+        eventCount={data.eventCount}
+        loading={data.loading}
+        onPageChange={data.handlePageChange}
+        pageSize={data.pageSize}
+        paginationItems={paginationItems}
+        t={data.t}
+        totalPages={totalPages}
+      />
+
+      <CallbackLogStats stats={stats} t={data.t} />
+
+      <CallbackLogAttemptsDialog
+        open={data.showAttemptsDialog}
+        onOpenChange={data.closeAttemptsDialog}
+        event={data.selectedEvent}
+        attempts={data.attempts}
+        attemptsLoading={data.attemptsLoading}
+        t={data.t}
+      />
     </div>
   );
 }
