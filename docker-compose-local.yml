@@ -17,6 +17,11 @@ services:
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
+      - OTEL_RUNTIME_METRICS_ENABLED=true
+      - OTEL_SERVICE_NAME=new-api
+      - OTEL_APP_NAME=new-api
+      - OTEL_DEPLOYMENT_ENV=prod
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
     depends_on:
       - redis
       - postgres
@@ -26,10 +31,13 @@ services:
       timeout: 10s
       retries: 3
     logging:
-      driver: json-file
+      driver: fluentd
       options:
-        max-size: "50m"
-        max-file: "5"
+        fluentd-address: "127.0.0.1:24225"
+        fluentd-async: "true"
+        fluentd-sub-second-precision: "true"
+        tag: "docker.{{.Name}}"
+        env: "OTEL_DEPLOYMENT_ENV,OTEL_SERVICE_NAME,OTEL_APP_NAME"
 
   redis:
     image: redis:7-alpine

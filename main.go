@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"log"
@@ -164,6 +165,20 @@ func main() {
 	err = common.StartPyroScope()
 	if err != nil {
 		common.SysError(fmt.Sprintf("start pyroscope error : %v", err))
+	}
+
+	metricShutdown, err := common.StartOTELRuntimeMetrics()
+	if err != nil {
+		common.SysError(fmt.Sprintf("start otel runtime metrics error : %v", err))
+	}
+	if metricShutdown != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if shutdownErr := metricShutdown(shutdownCtx); shutdownErr != nil {
+				common.SysError(fmt.Sprintf("shutdown otel runtime metrics error : %v", shutdownErr))
+			}
+		}()
 	}
 
 	// Initialize HTTP server

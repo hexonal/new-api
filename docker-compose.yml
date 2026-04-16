@@ -32,6 +32,11 @@ services:
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
+      - OTEL_RUNTIME_METRICS_ENABLED=true
+      - OTEL_SERVICE_NAME=new-api
+      - OTEL_APP_NAME=new-api
+      - OTEL_DEPLOYMENT_ENV=prod
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
 #      - MEDIA_ARCHIVE_ENABLED=true
 #      - MEDIA_ARCHIVE_S3_ENDPOINT=https://oss.example.com
 #      - MEDIA_ARCHIVE_S3_REGION=us-east-1
@@ -60,6 +65,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "127.0.0.1:24225"
+        fluentd-async: "true"
+        fluentd-sub-second-precision: "true"
+        tag: "docker.{{.Name}}"
+        env: "OTEL_DEPLOYMENT_ENV,OTEL_SERVICE_NAME,OTEL_APP_NAME"
 
   redis:
     image: redis:latest
