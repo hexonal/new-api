@@ -26,6 +26,25 @@ import {
 } from '../../constants/key-cost.constants';
 import { getDefaultDateRange } from '../../helpers/key-cost';
 
+const normalizeSummaryRecords = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.list)) return payload.list;
+  if (Array.isArray(payload?.records)) return payload.records;
+  return [];
+};
+
+const normalizeTokenIdKey = (value) => {
+  if (value === null || value === undefined) return '';
+  const normalized = String(value).trim();
+  return normalized;
+};
+
+const normalizeTokenNameKey = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim().toLowerCase();
+};
+
 /**
  * Data-fetching hook for the multi-Key comparison view.
  *
@@ -64,20 +83,51 @@ export const useKeyCompareData = () => {
   const compareData = useMemo(() => {
     if (selectedTokenIds.length === 0) return new Map();
 
-    const idSet = new Set(selectedTokenIds);
+    const idSet = new Set(
+      selectedTokenIds.map((id) => normalizeTokenIdKey(id)).filter(Boolean),
+    );
+    if (idSet.size === 0) return new Map();
+
+    const tokenIdToName = new Map(
+      (tokens || [])
+        .map((token) => [
+          normalizeTokenIdKey(token?.id),
+          normalizeTokenNameKey(token?.name),
+        ])
+        .filter(([idKey]) => Boolean(idKey)),
+    );
+
+    const nameToSelectedId = new Map();
+    for (const idKey of idSet) {
+      const tokenNameKey = tokenIdToName.get(idKey);
+      if (tokenNameKey) {
+        nameToSelectedId.set(tokenNameKey, idKey);
+      }
+    }
+
     const grouped = new Map();
 
     for (const item of rawData) {
-      const id = item.token_id;
-      if (!idSet.has(id)) continue;
-      if (!grouped.has(id)) {
-        grouped.set(id, []);
+      let matchedIdKey = '';
+      const itemIdKey = normalizeTokenIdKey(item?.token_id);
+
+      if (itemIdKey && idSet.has(itemIdKey)) {
+        matchedIdKey = itemIdKey;
+      } else {
+        const itemNameKey = normalizeTokenNameKey(item?.token_name);
+        matchedIdKey = nameToSelectedId.get(itemNameKey) || '';
       }
-      grouped.get(id).push(item);
+
+      if (!matchedIdKey) continue;
+
+      if (!grouped.has(matchedIdKey)) {
+        grouped.set(matchedIdKey, []);
+      }
+      grouped.get(matchedIdKey).push(item);
     }
 
     return grouped;
-  }, [rawData, selectedTokenIds]);
+  }, [rawData, selectedTokenIds, tokens]);
 
   // ========== Fetch tokens ==========
   const fetchTokens = useCallback(async () => {
@@ -87,7 +137,7 @@ export const useKeyCompareData = () => {
       });
       const { success, message, data } = res.data;
       if (success) {
-        setTokens(Array.isArray(data) ? data : (data?.items || []));
+        setTokens(Array.isArray(data) ? data : data?.items || []);
       } else {
         showError(message);
       }
@@ -117,12 +167,14 @@ export const useKeyCompareData = () => {
       const res = await API.get(basePath, { params });
       const { success, message, data } = res.data;
       if (success) {
-        setRawData(data || []);
+        setRawData(normalizeSummaryRecords(data));
       } else {
         showError(message);
+        setRawData([]);
       }
     } catch (err) {
       console.error('Failed to fetch compare summaries', err);
+      setRawData([]);
     } finally {
       setLoading(false);
     }
@@ -130,10 +182,14 @@ export const useKeyCompareData = () => {
 
   // ========== Guard: max compare keys ==========
   const handleSetSelectedTokenIds = useCallback((ids) => {
-    if (Array.isArray(ids) && ids.length > MAX_COMPARE_KEYS) {
-      ids = ids.slice(0, MAX_COMPARE_KEYS);
-    }
-    setSelectedTokenIds(ids || []);
+    const normalized = Array.from(
+      new Set(
+        (Array.isArray(ids) ? ids : [])
+          .map((id) => normalizeTokenIdKey(id))
+          .filter(Boolean),
+      ),
+    );
+    setSelectedTokenIds(normalized.slice(0, MAX_COMPARE_KEYS));
   }, []);
 
   // ========== Initial fetch ==========

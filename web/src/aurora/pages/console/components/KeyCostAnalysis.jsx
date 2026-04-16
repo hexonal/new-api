@@ -28,58 +28,15 @@ import {
 import { useKeyCostData } from '../../../../hooks/key-cost/useKeyCostData';
 import { useKeyCostStats } from '../../../../hooks/key-cost/useKeyCostStats';
 import { useKeyCostCharts } from '../../../../hooks/key-cost/useKeyCostCharts';
-import { formatQuotaDisplay } from '../../../../helpers/key-cost';
+import {
+  formatQuotaDisplay,
+  quotaToNumeric,
+} from '../../../../helpers/key-cost';
 import { renderNumber } from '../../../../helpers';
 
 const PAGE_SIZE = 10;
 
 const MODEL_COLORS = ['#4a4bd7', '#00687b', '#6e3bd8', '#9ca3af', '#14b8a6'];
-const DEFAULT_MODEL_ROWS = [
-  {
-    key: 'placeholder-gpt-5.4',
-    modelName: 'gpt-5.4',
-    requestCount: 8,
-    promptTokens: 1200,
-    completionTokens: 800,
-    totalTokens: 2000,
-    costValue: 62,
-    costText: '$0.00',
-    percentage: 62,
-  },
-  {
-    key: 'placeholder-minimax',
-    modelName: 'MiniMax-Text-01',
-    requestCount: 4,
-    promptTokens: 450,
-    completionTokens: 300,
-    totalTokens: 750,
-    costValue: 23,
-    costText: '$0.00',
-    percentage: 23,
-  },
-  {
-    key: 'placeholder-gpt-4.1',
-    modelName: 'gpt-4.1',
-    requestCount: 3,
-    promptTokens: 200,
-    completionTokens: 150,
-    totalTokens: 350,
-    costValue: 11,
-    costText: '$0.00',
-    percentage: 11,
-  },
-  {
-    key: 'placeholder-kimi',
-    modelName: 'kimi-for-coding',
-    requestCount: 1,
-    promptTokens: 52,
-    completionTokens: 0,
-    totalTokens: 52,
-    costValue: 4,
-    costText: '$0.00',
-    percentage: 4,
-  },
-];
 
 const MODEL_ICON_MAP = [
   {
@@ -120,6 +77,18 @@ const getModelIcon = (modelName) => {
     iconClass: 'text-gray-500',
     bgClass: 'bg-gray-100',
   };
+};
+
+const getModelBadgeText = (modelName) => {
+  const normalized = String(modelName || '').trim();
+  if (!normalized) {
+    return 'AI';
+  }
+  const letterMatch = normalized.match(/[a-z0-9]/i);
+  if (!letterMatch) {
+    return 'AI';
+  }
+  return letterMatch[0].toUpperCase();
 };
 
 const formatDateInput = (value) => {
@@ -183,6 +152,8 @@ const KeyCostAnalysis = () => {
   const charts = useKeyCostCharts(data.summaryData, data.granularity, data.t);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [openMenuRowKey, setOpenMenuRowKey] = useState(null);
+  const [activeModelFilter, setActiveModelFilter] = useState('');
 
   const trendSpec =
     data.activeChartTab === METRIC_REQUESTS
@@ -191,9 +162,7 @@ const KeyCostAnalysis = () => {
         ? charts.specTokenLine
         : charts.specCostLine;
 
-  const trendHasData =
-    trendSpec?.data?.[0]?.values && trendSpec.data[0].values.length > 0;
-  const hasRealData = (data.summaryData || []).length > 0;
+  const trendHasData = trendSpec?.data?.[0]?.values?.length > 0;
 
   const modelRows = useMemo(() => {
     const byModel = new Map();
@@ -223,11 +192,10 @@ const KeyCostAnalysis = () => {
 
     return Array.from(byModel.values())
       .map((row, index) => {
-        const costValue = Number.isFinite(row.costQuota) ? row.costQuota : 0;
+        const costQuota = Number.isFinite(row.costQuota) ? row.costQuota : 0;
+        const costValue = quotaToNumeric(costQuota);
         const percentage =
-          totalQuota > 0
-            ? Math.round((costValue / totalQuota) * 100)
-            : 0;
+          totalQuota > 0 ? Math.round((costQuota / totalQuota) * 100) : 0;
         return {
           key: `${row.modelName}-${index}`,
           modelName: row.modelName,
@@ -243,15 +211,25 @@ const KeyCostAnalysis = () => {
       .sort((a, b) => b.costValue - a.costValue);
   }, [data.summaryData]);
 
-  const totalPages = Math.max(1, Math.ceil(modelRows.length / PAGE_SIZE));
+  const filteredModelRows = useMemo(() => {
+    if (!activeModelFilter) {
+      return modelRows;
+    }
+    return modelRows.filter((row) => row.modelName === activeModelFilter);
+  }, [activeModelFilter, modelRows]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredModelRows.length / PAGE_SIZE),
+  );
 
   const pagedRows = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return modelRows.slice(start, start + PAGE_SIZE);
-  }, [currentPage, modelRows]);
+    return filteredModelRows.slice(start, start + PAGE_SIZE);
+  }, [currentPage, filteredModelRows]);
 
-  const displayRows = modelRows.length > 0 ? modelRows : DEFAULT_MODEL_ROWS;
-  const distributionRows = displayRows.slice(0, 4);
+  const hasRealData = modelRows.length > 0;
+  const distributionRows = modelRows.slice(0, 4);
   const rankingMax =
     distributionRows.length > 0
       ? Math.max(...distributionRows.map((item) => item.costValue), 0)
@@ -263,7 +241,7 @@ const KeyCostAnalysis = () => {
   );
 
   const tokenOptions = useMemo(() => {
-    const options = [{ value: '', label: 'All Keys' }];
+    const options = [{ value: '', label: data.t('全部 Key') }];
     for (const token of data.tokens || []) {
       options.push({
         value: String(token.id),
@@ -271,7 +249,7 @@ const KeyCostAnalysis = () => {
       });
     }
     return options;
-  }, [data.tokens]);
+  }, [data.t, data.tokens]);
 
   const handleTokenChange = (event) => {
     const raw = event.target.value;
@@ -298,7 +276,14 @@ const KeyCostAnalysis = () => {
 
   const handleExport = useCallback(() => {
     const rows = [
-      ['Model Name', 'Requests', 'Prompt Tokens', 'Completion Tokens', 'Cost', 'Percentage'],
+      [
+        'Model Name',
+        'Requests',
+        'Prompt Tokens',
+        'Completion Tokens',
+        'Cost',
+        'Percentage',
+      ],
       ...modelRows.map((row) => [
         row.modelName,
         row.requestCount,
@@ -329,15 +314,55 @@ const KeyCostAnalysis = () => {
   const activeDateRange = Array.isArray(data.dateRange)
     ? data.dateRange
     : [new Date(), new Date()];
-  const tableRows = hasRealData ? pagedRows : DEFAULT_MODEL_ROWS;
+  const tableRows = pagedRows;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [data.selectedTokenId, data.granularity, data.dateRange, modelRows.length]);
+  }, [
+    data.selectedTokenId,
+    data.granularity,
+    data.dateRange,
+    filteredModelRows.length,
+  ]);
+
+  useEffect(() => {
+    if (
+      activeModelFilter &&
+      !modelRows.some((row) => row.modelName === activeModelFilter)
+    ) {
+      setActiveModelFilter('');
+    }
+  }, [activeModelFilter, modelRows]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-model-menu-root="true"]')
+      ) {
+        return;
+      }
+      setOpenMenuRowKey(null);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
+  const handleCopyModelName = useCallback(async (name) => {
+    try {
+      await navigator.clipboard.writeText(name);
+    } catch (error) {
+      // ignore clipboard permission failures
+    } finally {
+      setOpenMenuRowKey(null);
+    }
+  }, []);
 
   return (
-    <div className='mx-auto max-w-[1200px] space-y-8 p-2 text-on-surface'>
-      <div className='flex items-end justify-between'>
+    <div className='w-full max-w-none space-y-8 p-2 text-on-surface'>
+      <div className='flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between'>
         <div>
           <h2 className="font-['Public_Sans'] text-3xl font-extrabold tracking-tight text-on-surface">
             Key Cost Analysis
@@ -348,20 +373,27 @@ const KeyCostAnalysis = () => {
         </div>
         <button
           type='button'
-          className='flex items-center gap-2 rounded-xl border border-outline-variant px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5'
+          className='flex self-start items-center gap-2 rounded-xl border border-outline-variant px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 xl:self-auto'
           onClick={handleExport}
+          disabled={!hasRealData}
         >
-          <span className='material-symbols-outlined text-lg'>download</span>
+          <span aria-hidden='true' className='text-base leading-none'>
+            ↓
+          </span>
           Export CSV
         </button>
       </div>
 
-      <section className='flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4'>
-        <div className='flex items-center gap-4'>
+      <section className='flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 xl:flex-row xl:items-center xl:justify-between'>
+        <div className='flex w-full flex-wrap items-center gap-3 xl:w-auto xl:flex-nowrap'>
           <div className='relative'>
             <select
-              className='appearance-none rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 pr-10 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/20'
-              value={data.selectedTokenId === null ? '' : String(data.selectedTokenId)}
+              className='w-full min-w-0 appearance-none rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 pr-10 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 sm:min-w-[220px]'
+              value={
+                data.selectedTokenId === null
+                  ? ''
+                  : String(data.selectedTokenId)
+              }
               onChange={handleTokenChange}
             >
               {tokenOptions.map((option) => (
@@ -370,17 +402,16 @@ const KeyCostAnalysis = () => {
                 </option>
               ))}
             </select>
-            <span className='material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400'>
-              expand_more
+            <span
+              aria-hidden='true'
+              className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400'
+            >
+              ▾
             </span>
           </div>
 
-          <div className='flex rounded-lg bg-gray-100 p-1'>
-            {[
-              { value: 'day', label: 'Day' },
-              { value: 'week', label: 'Week' },
-              { value: 'month', label: 'Month' },
-            ].map((item) => {
+          <div className='flex flex-wrap rounded-lg bg-gray-100 p-1'>
+            {(data.granularityOptions || []).map((item) => {
               const active = data.granularity === item.value;
               return (
                 <button
@@ -400,10 +431,10 @@ const KeyCostAnalysis = () => {
           </div>
         </div>
 
-        <div className='flex items-center gap-3'>
-          <div className='flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2'>
-            <span className='material-symbols-outlined text-lg text-gray-400'>
-              calendar_today
+        <div className='flex w-full flex-wrap items-center gap-3 xl:w-auto xl:justify-end'>
+          <div className='flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2'>
+            <span aria-hidden='true' className='text-sm text-gray-400'>
+              📅
             </span>
             <input
               type='date'
@@ -419,38 +450,45 @@ const KeyCostAnalysis = () => {
               onChange={(event) => handleDateChange(1, event.target.value)}
             />
           </div>
-
+          <button
+            type='button'
+            className='rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dim disabled:cursor-not-allowed disabled:opacity-60'
+            onClick={data.refresh}
+            disabled={data.loading}
+          >
+            {data.loading ? data.t('刷新中...') : data.t('刷新')}
+          </button>
         </div>
       </section>
 
-      <section className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
-        {(statsData || []).map((item, index) => (
-          <article
-            key={`${item.title}-${index}`}
-            className='group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6'
-          >
-            <div className='mb-4 flex items-start justify-between'>
-              <p className='text-sm font-medium text-gray-500'>{item.title}</p>
-              {index === 0 && (
-                <span className='inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600'>
-                  <span className='material-symbols-outlined mr-0.5 text-xs'>
-                    trending_up
-                  </span>
-                  +0.0%
-                </span>
-              )}
-            </div>
-            <p className="font-['Public_Sans'] text-3xl font-black text-on-surface">
-              {item.value}
-            </p>
-            <div className='absolute bottom-0 left-0 h-1 w-full translate-y-full bg-primary transition-transform group-hover:translate-y-0'></div>
-          </article>
-        ))}
-      </section>
+      {hasRealData ? (
+        <section className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+          {(statsData || []).map((item, index) => (
+            <article
+              key={`${item.title}-${index}`}
+              className='group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6'
+            >
+              <div className='mb-4 flex items-start justify-between'>
+                <p className='text-sm font-medium text-gray-500'>
+                  {item.title}
+                </p>
+              </div>
+              <p className="font-['Public_Sans'] break-all text-xl font-black text-on-surface sm:text-3xl">
+                {item.value}
+              </p>
+              <div className='absolute bottom-0 left-0 h-1 w-full translate-y-full bg-primary transition-transform group-hover:translate-y-0'></div>
+            </article>
+          ))}
+        </section>
+      ) : (
+        <section className='rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500'>
+          {data.t('当前筛选条件暂无统计数据')}
+        </section>
+      )}
 
       <section className='overflow-hidden rounded-xl border border-gray-200 bg-white'>
-        <div className='flex items-center justify-between border-b border-gray-100 px-6 py-4'>
-          <div className='flex gap-6'>
+        <div className='flex flex-col gap-2 border-b border-gray-100 px-6 py-4 xl:flex-row xl:items-center xl:justify-between'>
+          <div className='flex flex-wrap gap-4'>
             <button
               type='button'
               className={`-mb-[17px] border-b-2 pb-4 text-sm ${
@@ -486,65 +524,50 @@ const KeyCostAnalysis = () => {
             </button>
           </div>
           <div className='text-xs font-medium text-gray-400'>
-            {formatDateLabel(activeDateRange[0])} - {formatDateLabel(activeDateRange[1])}
+            {formatDateLabel(activeDateRange[0])} -{' '}
+            {formatDateLabel(activeDateRange[1])}
           </div>
         </div>
 
-        <div className='h-[400px] p-4'>
-          {trendHasData ? (
-            <VChart spec={trendSpec} option={CHART_CONFIG} />
-          ) : (
-            <div className='relative h-full overflow-hidden rounded-lg bg-white'>
-              <svg
-                className='h-full w-full'
-                preserveAspectRatio='none'
-                viewBox='0 0 1000 300'
-              >
-                <path
-                  d='M0 250 Q 150 200 300 230 T 600 150 T 1000 100 L 1000 300 L 0 300 Z'
-                  fill='rgba(74, 75, 215, 0.05)'
-                ></path>
-                <path
-                  d='M0 250 Q 150 200 300 230 T 600 150 T 1000 100'
-                  fill='none'
-                  stroke='#4a4bd7'
-                  strokeWidth='3'
-                ></path>
-                <path
-                  d='M0 270 Q 200 260 400 280 T 800 220 T 1000 240'
-                  fill='none'
-                  stroke='#00687b'
-                  strokeDasharray='4'
-                  strokeWidth='2'
-                ></path>
-                <path
-                  d='M0 290 Q 250 285 500 295 T 1000 280'
-                  fill='none'
-                  stroke='#6e3bd8'
-                  strokeDasharray='2'
-                  strokeWidth='2'
-                ></path>
-              </svg>
-            </div>
-          )}
+        <div className='h-[280px] overflow-x-auto p-4 md:h-[320px] xl:h-[400px]'>
+          <div className='h-full min-w-[520px]'>
+            {trendHasData ? (
+              <VChart spec={trendSpec} option={CHART_CONFIG} />
+            ) : (
+              <div className='flex h-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-400'>
+                {data.t('当前筛选条件暂无数据')}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className='flex flex-wrap justify-center gap-6 border-t border-gray-100 bg-gray-50 px-6 py-4'>
-          {distributionRows.map((row, index) => (
-            <div key={`${row.modelName}-${index}`} className='flex items-center gap-2'>
+        {distributionRows.length > 0 ? (
+          <div className='flex flex-wrap justify-center gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 md:gap-4'>
+            {distributionRows.map((row, index) => (
               <div
-                className='h-3 w-3 rounded-full'
-                style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
-              ></div>
-              <span className='text-xs font-medium text-gray-600'>
-                {row.modelName}
-              </span>
-            </div>
-          ))}
-        </div>
+                key={`${row.modelName}-${index}`}
+                className='flex items-center gap-2'
+              >
+                <div
+                  className='h-3 w-3 rounded-full'
+                  style={{
+                    backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
+                  }}
+                ></div>
+                <span className='text-xs font-medium text-gray-600'>
+                  {row.modelName}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className='border-t border-gray-100 bg-gray-50 px-6 py-4 text-center text-sm text-gray-400'>
+            {data.t('暂无数据')}
+          </div>
+        )}
       </section>
 
-      <section className='grid grid-cols-1 gap-8 lg:grid-cols-10'>
+      <section className='grid grid-cols-1 gap-6 xl:grid-cols-10'>
         <article className='rounded-xl border border-gray-200 bg-white p-6 lg:col-span-4'>
           <h3 className="mb-6 font-['Public_Sans'] text-lg font-bold">
             Model Cost Distribution
@@ -576,7 +599,8 @@ const KeyCostAnalysis = () => {
                       className='h-full rounded-full'
                       style={{
                         width: `${Math.max(0, Math.min(100, row.percentage))}%`,
-                        backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
+                        backgroundColor:
+                          MODEL_COLORS[index % MODEL_COLORS.length],
                       }}
                     ></div>
                   </div>
@@ -584,12 +608,16 @@ const KeyCostAnalysis = () => {
               ))}
             </>
           ) : (
-            <div className='py-20 text-center text-sm text-gray-400'>暂无数据</div>
+            <div className='py-20 text-center text-sm text-gray-400'>
+              暂无数据
+            </div>
           )}
         </article>
 
         <article className='rounded-xl border border-gray-200 bg-white p-6 lg:col-span-6'>
-          <h3 className="mb-6 font-['Public_Sans'] text-lg font-bold">Cost Ranking</h3>
+          <h3 className="mb-6 font-['Public_Sans'] text-lg font-bold">
+            Cost Ranking
+          </h3>
 
           {distributionRows.length > 0 ? (
             <div className='space-y-6'>
@@ -601,7 +629,9 @@ const KeyCostAnalysis = () => {
                 return (
                   <div key={`${row.modelName}-ranking`}>
                     <div className='mb-2 flex items-center justify-between'>
-                      <span className='text-sm font-semibold'>{row.modelName}</span>
+                      <span className='text-sm font-semibold'>
+                        {row.modelName}
+                      </span>
                       <span className='text-sm font-bold'>{row.costText}</span>
                     </div>
                     <div className='h-3 w-full rounded-full bg-gray-50'>
@@ -609,7 +639,8 @@ const KeyCostAnalysis = () => {
                         className='h-full rounded-full'
                         style={{
                           width: `${width}%`,
-                          backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length],
+                          backgroundColor:
+                            MODEL_COLORS[index % MODEL_COLORS.length],
                         }}
                       ></div>
                     </div>
@@ -618,25 +649,31 @@ const KeyCostAnalysis = () => {
               })}
             </div>
           ) : (
-            <div className='py-20 text-center text-sm text-gray-400'>暂无数据</div>
+            <div className='py-20 text-center text-sm text-gray-400'>
+              暂无数据
+            </div>
           )}
         </article>
       </section>
 
       <section className='overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm'>
         <div className='flex items-center justify-between border-b border-gray-100 p-6'>
-          <h3 className="font-['Public_Sans'] text-lg font-bold">Model Details</h3>
+          <h3 className="font-['Public_Sans'] text-lg font-bold">
+            Model Details
+          </h3>
           <button
             type='button'
             className='p-1.5 text-gray-400 transition-colors hover:text-gray-600'
             aria-label='filter'
           >
-            <span className='material-symbols-outlined'>filter_list</span>
+            <span aria-hidden='true' className='text-base leading-none'>
+              ≡
+            </span>
           </button>
         </div>
 
         <div className='overflow-x-auto'>
-          <table className='w-full text-left'>
+          <table className='w-full min-w-[920px] text-left'>
             <thead className='border-b border-gray-100 bg-gray-50'>
               <tr>
                 <th className='px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-gray-500'>
@@ -670,12 +707,12 @@ const KeyCostAnalysis = () => {
                     <td className='px-6 py-4'>
                       <div className='flex items-center gap-3'>
                         <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconMeta.bgClass}`}
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg ${iconMeta.bgClass}`}
                         >
                           <span
-                            className={`material-symbols-outlined text-lg ${iconMeta.iconClass}`}
+                            className={`text-xs font-bold uppercase leading-none ${iconMeta.iconClass}`}
                           >
-                            {iconMeta.icon}
+                            {getModelBadgeText(row.modelName)}
                           </span>
                         </div>
                         <span className='text-sm font-semibold text-on-surface'>
@@ -691,21 +728,29 @@ const KeyCostAnalysis = () => {
                     <td className='px-6 py-4'>
                       <div className='flex flex-col text-sm'>
                         <span className='flex items-center gap-1 text-gray-600'>
-                          <span className='material-symbols-outlined text-xs'>
-                            arrow_upward
+                          <span
+                            aria-hidden='true'
+                            className='text-xs leading-none'
+                          >
+                            ↑
                           </span>
                           {renderNumber(row.promptTokens)}
                         </span>
                         <span className='flex items-center gap-1 text-gray-400'>
-                          <span className='material-symbols-outlined text-xs'>
-                            arrow_downward
+                          <span
+                            aria-hidden='true'
+                            className='text-xs leading-none'
+                          >
+                            ↓
                           </span>
                           {renderNumber(row.completionTokens)}
                         </span>
                       </div>
                     </td>
 
-                    <td className='px-6 py-4 text-sm font-bold'>{row.costText}</td>
+                    <td className='px-6 py-4 text-sm font-bold'>
+                      {row.costText}
+                    </td>
 
                     <td className='px-6 py-4'>
                       <span
@@ -720,13 +765,50 @@ const KeyCostAnalysis = () => {
                     </td>
 
                     <td className='px-6 py-4 text-right'>
-                      <button
-                        type='button'
-                        className='text-gray-400 transition-colors hover:text-gray-600'
-                        aria-label='more'
+                      <div
+                        className='relative inline-flex'
+                        data-model-menu-root='true'
                       >
-                        <span className='material-symbols-outlined'>more_vert</span>
-                      </button>
+                        <button
+                          type='button'
+                          className='text-gray-400 transition-colors hover:text-gray-600'
+                          aria-label='more'
+                          onClick={() =>
+                            setOpenMenuRowKey((prev) =>
+                              prev === row.key ? null : row.key,
+                            )
+                          }
+                        >
+                          <span
+                            aria-hidden='true'
+                            className='block text-lg font-semibold leading-none'
+                          >
+                            ⋮
+                          </span>
+                        </button>
+                        {openMenuRowKey === row.key && (
+                          <div className='absolute right-0 top-6 z-20 min-w-[140px] overflow-hidden rounded-md border border-gray-200 bg-white text-left text-xs shadow-lg'>
+                            <button
+                              type='button'
+                              className='block w-full px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50'
+                              onClick={() => {
+                                setActiveModelFilter(row.modelName);
+                                setCurrentPage(1);
+                                setOpenMenuRowKey(null);
+                              }}
+                            >
+                              按该模型筛选
+                            </button>
+                            <button
+                              type='button'
+                              className='block w-full px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50'
+                              onClick={() => handleCopyModelName(row.modelName)}
+                            >
+                              复制模型名
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -746,11 +828,20 @@ const KeyCostAnalysis = () => {
           </table>
         </div>
 
-        <div className='flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4'>
+        <div className='flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4 md:flex-row md:items-center md:justify-between'>
           <p className='text-sm text-gray-500'>
-            Showing {tableRows.length} of {hasRealData ? modelRows.length : DEFAULT_MODEL_ROWS.length} results
+            Showing {tableRows.length} of {filteredModelRows.length} results
           </p>
-          <div className='flex gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
+            {activeModelFilter && (
+              <button
+                type='button'
+                className='rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50'
+                onClick={() => setActiveModelFilter('')}
+              >
+                清除筛选: {activeModelFilter}
+              </button>
+            )}
             <button
               type='button'
               className='cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50'
@@ -772,7 +863,6 @@ const KeyCostAnalysis = () => {
           </div>
         </div>
       </section>
-
     </div>
   );
 };

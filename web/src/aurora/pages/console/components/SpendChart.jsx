@@ -41,6 +41,10 @@ import {
   formatPieLabel,
   shouldRenderPieLabel,
 } from './spend-chart-utils';
+import {
+  sanitizeDashboardMetricNumber,
+} from '../dashboard/dashboard-value-guards.js';
+import { SPEND_CHART_TABS } from './spend-chart-constants.js';
 
 const COLORS = [
   '#6366f1',
@@ -68,23 +72,23 @@ const SpendChart = ({
   pieData = [],
   modelColors = {},
   loading = false,
+  activeTab: controlledActiveTab,
+  onTabChange,
+  showTabs = true,
+  showTitle = true,
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('distribution');
-  const tabs = [
-    { key: 'distribution', label: t('消耗分布') },
-    { key: 'trend', label: t('消耗趋势') },
-    { key: 'requestDist', label: t('调用次数分布') },
-    { key: 'requestRank', label: t('调用次数排行') },
-  ];
+  const [internalActiveTab, setInternalActiveTab] = useState('distribution');
+  const activeTab = controlledActiveTab || internalActiveTab;
+  const setActiveTab = onTabChange || setInternalActiveTab;
 
   // Aggregate data for charts
   const modelMap = {};
   (data || []).forEach((item) => {
     const name = item.model_name || item.model || '未分类';
     if (!modelMap[name]) modelMap[name] = { quota: 0, count: 0 };
-    modelMap[name].quota += Number(item.quota || 0);
-    modelMap[name].count += Number(item.count || 0);
+    modelMap[name].quota += sanitizeDashboardMetricNumber(item.quota);
+    modelMap[name].count += sanitizeDashboardMetricNumber(item.count);
   });
 
   const distData = Object.entries(modelMap)
@@ -108,8 +112,8 @@ const SpendChart = ({
     .sort((a, b) => a.created_at - b.created_at)
     .map((item) => ({
       time: item.created_at,
-      quota: Number(item.quota || 0),
-      count: Number(item.count || 0),
+      quota: sanitizeDashboardMetricNumber(item.quota),
+      count: sanitizeDashboardMetricNumber(item.count),
       model: item.model_name || '未分类',
     }));
 
@@ -291,25 +295,29 @@ const SpendChart = ({
 
   return (
     <div className='rounded-xl border border-border bg-card p-4'>
-      <div className='flex items-center justify-between mb-3'>
-        <h2 className='text-sm font-medium'>{title}</h2>
-        <div className='flex gap-1'>
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-              type='button'
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {(showTitle || showTabs) && (
+        <div className='mb-3 flex items-center justify-between'>
+          {showTitle ? <h2 className='text-sm font-medium'>{title}</h2> : <div />}
+          {showTabs && (
+            <div className='flex gap-1'>
+              {SPEND_CHART_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type='button'
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      )}
       <div className='h-[280px] min-w-0'>
         {loading ? (
           <div className='h-full flex items-center justify-center text-sm text-muted-foreground'>

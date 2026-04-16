@@ -1,3 +1,21 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import { TOP_N_MODELS } from '../constants/key-cost.constants';
 import { getQuotaWithUnit, renderQuotaNumberWithDigit } from './render';
 
@@ -36,8 +54,9 @@ export function getDefaultDateRange() {
  * Re-exports logic from render.jsx's getQuotaWithUnit for consistency.
  */
 export function quotaToNumeric(quota, digits = 4) {
-  if (typeof quota !== 'number' || isNaN(quota)) return 0;
-  return parseFloat(getQuotaWithUnit(quota, digits));
+  const parsedQuota = Number(quota);
+  if (!Number.isFinite(parsedQuota)) return 0;
+  return parseFloat(getQuotaWithUnit(parsedQuota, digits));
 }
 
 /**
@@ -59,13 +78,17 @@ export function aggregateByModel(data, topN = TOP_N_MODELS) {
   const map = new Map();
   for (const item of data) {
     const model = normalizeChartCategory(item.model_name, 'unknown');
+    const quota = Number(item.total_quota ?? 0) || 0;
+    const count = Number(item.request_count ?? 0) || 0;
+    const promptTokens = Number(item.prompt_tokens ?? 0) || 0;
+    const completionTokens = Number(item.completion_tokens ?? 0) || 0;
     if (!map.has(model)) {
       map.set(model, { model, quota: 0, count: 0, tokens: 0 });
     }
     const agg = map.get(model);
-    agg.quota += item.total_quota || 0;
-    agg.count += item.request_count || 0;
-    agg.tokens += (item.prompt_tokens || 0) + (item.completion_tokens || 0);
+    agg.quota += quota;
+    agg.count += count;
+    agg.tokens += promptTokens + completionTokens;
   }
 
   const sorted = Array.from(map.values()).sort((a, b) => b.quota - a.quota);
@@ -96,14 +119,18 @@ export function aggregateByTimeBucket(data) {
   for (const item of data) {
     const tb = normalizeChartCategory(item.time_bucket, '');
     const model = normalizeChartCategory(item.model_name, 'unknown');
+    const quota = Number(item.total_quota ?? 0) || 0;
+    const count = Number(item.request_count ?? 0) || 0;
+    const promptTokens = Number(item.prompt_tokens ?? 0) || 0;
+    const completionTokens = Number(item.completion_tokens ?? 0) || 0;
 
     if (!totalMap.has(tb)) {
       totalMap.set(tb, { time_bucket: tb, quota: 0, count: 0, tokens: 0 });
     }
     const tot = totalMap.get(tb);
-    tot.quota += item.total_quota || 0;
-    tot.count += item.request_count || 0;
-    tot.tokens += (item.prompt_tokens || 0) + (item.completion_tokens || 0);
+    tot.quota += quota;
+    tot.count += count;
+    tot.tokens += promptTokens + completionTokens;
 
     if (!modelMap.has(model)) {
       modelMap.set(model, new Map());
@@ -113,9 +140,9 @@ export function aggregateByTimeBucket(data) {
       mBuckets.set(tb, { time_bucket: tb, quota: 0, count: 0, tokens: 0 });
     }
     const mAgg = mBuckets.get(tb);
-    mAgg.quota += item.total_quota || 0;
-    mAgg.count += item.request_count || 0;
-    mAgg.tokens += (item.prompt_tokens || 0) + (item.completion_tokens || 0);
+    mAgg.quota += quota;
+    mAgg.count += count;
+    mAgg.tokens += promptTokens + completionTokens;
   }
 
   const totals = Array.from(totalMap.values()).sort((a, b) =>

@@ -1,3 +1,21 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import { useMemo } from 'react';
 import { renderNumber } from '../../helpers';
 import {
@@ -29,6 +47,11 @@ const normalizeSeriesLabel = (value, fallback) => {
   }
 };
 
+const normalizeTokenIdKey = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
+
 /**
  * Build VChart specs for the multi-Key comparison view.
  *
@@ -50,10 +73,11 @@ export const useKeyCompareCharts = (
   const tokenNameMap = useMemo(() => {
     const map = new Map();
     for (const tok of tokens) {
-      map.set(
-        tok.id,
-        normalizeSeriesLabel(tok.name, `Key #${tok.id}`),
-      );
+      const tokenIdKey = normalizeTokenIdKey(tok.id);
+      if (!tokenIdKey) {
+        continue;
+      }
+      map.set(tokenIdKey, normalizeSeriesLabel(tok.name, `Key #${tokenIdKey}`));
     }
     return map;
   }, [tokens]);
@@ -156,10 +180,11 @@ export const useKeyCompareCharts = (
       let totalTokens = 0;
 
       for (const item of records) {
-        totalQuota += item.total_quota || 0;
-        totalRequests += item.request_count || 0;
+        totalQuota += Number(item.total_quota ?? 0) || 0;
+        totalRequests += Number(item.request_count ?? 0) || 0;
         totalTokens +=
-          (item.prompt_tokens || 0) + (item.completion_tokens || 0);
+          (Number(item.prompt_tokens ?? 0) || 0) +
+          (Number(item.completion_tokens ?? 0) || 0);
       }
 
       return {
@@ -170,9 +195,7 @@ export const useKeyCompareCharts = (
         requests: totalRequests,
         tokens: totalTokens,
         avgCost: formatQuotaDisplay(
-          totalRequests > 0
-            ? quotaToNumeric(totalQuota / totalRequests)
-            : 0,
+          totalRequests > 0 ? quotaToNumeric(totalQuota / totalRequests) : 0,
           4,
         ),
       };
