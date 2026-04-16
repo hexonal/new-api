@@ -26,6 +26,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { API, getLogo, getSystemName, showSuccess } from '../../helpers';
@@ -43,8 +44,10 @@ import {
 } from '../primitives/dropdown-menu';
 import {
   getLanguageSwitcherLabel,
+  getResolvedDocsLink,
   getTopNavDisplayState,
   getTopNavLinks,
+  parseHeaderNavModulesConfig,
 } from './top-nav-utils';
 
 const languageOptions = [
@@ -67,10 +70,19 @@ const buildDisplayName = (user) => {
 
 const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
   const { t, i18n } = useTranslation();
+  const [statusState] = useContext(StatusContext);
   const [userState, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const displayState = getTopNavDisplayState(isMobile);
+  const docsLink = useMemo(
+    () => getResolvedDocsLink(statusState?.status),
+    [statusState?.status],
+  );
+  const headerNavModules = useMemo(
+    () => parseHeaderNavModulesConfig(statusState?.status?.HeaderNavModules),
+    [statusState?.status?.HeaderNavModules],
+  );
 
   const currentUser = useMemo(() => {
     if (userState?.user) return userState.user;
@@ -84,7 +96,14 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
       return null;
     }
   }, [userState?.user]);
-  const quickLinks = useMemo(() => getTopNavLinks(t), [t]);
+  const quickLinks = useMemo(
+    () =>
+      getTopNavLinks(t, {
+        docsLink,
+        headerNavModules,
+      }),
+    [docsLink, headerNavModules, t],
+  );
 
   const logout = async () => {
     try {
@@ -153,13 +172,25 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
 
         <nav className='aurora-top-nav-links' aria-label={t('主导航')}>
           {quickLinks.map((link) => (
-            <Link
-              key={link.href}
-              to={link.href}
-              className='aurora-top-nav-link'
-            >
-              {link.label}
-            </Link>
+            link.external ? (
+              <a
+                key={link.href}
+                href={link.href}
+                className='aurora-top-nav-link'
+                target='_blank'
+                rel='noreferrer'
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.href}
+                to={link.href}
+                className='aurora-top-nav-link'
+              >
+                {link.label}
+              </Link>
+            )
           ))}
         </nav>
 
