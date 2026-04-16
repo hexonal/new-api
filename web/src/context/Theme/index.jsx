@@ -34,15 +34,18 @@ export const useActualTheme = () => useContext(ActualThemeContext);
 const SetThemeContext = createContext(null);
 export const useSetTheme = () => useContext(SetThemeContext);
 
-// 检测系统主题偏好
-const getSystemTheme = () => {
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-  }
-  return 'light';
-};
+// 原逻辑（保留注释）：
+// const getSystemTheme = () => {
+//   if (typeof window !== 'undefined' && window.matchMedia) {
+//     return window.matchMedia('(prefers-color-scheme: dark)').matches
+//       ? 'dark'
+//       : 'light';
+//   }
+//   return 'light';
+// };
+//
+// 当前需求：强制使用浅色主题，不跟随系统深色模式
+const getSystemTheme = () => 'light';
 
 export const ThemeProvider = ({ children }) => {
   const [theme, _setTheme] = useState(() => {
@@ -55,25 +58,30 @@ export const ThemeProvider = ({ children }) => {
 
   const [systemTheme, setSystemTheme] = useState(getSystemTheme());
 
-  // 计算实际应用的主题
-  const actualTheme = theme === 'auto' ? systemTheme : theme;
+  // 统一使用浅色样式
+  const actualTheme = 'light';
 
-  // 监听系统主题变化
+  // 原逻辑（保留注释）：
+  // useEffect(() => {
+  //   if (typeof window !== 'undefined' && window.matchMedia) {
+  //     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  //
+  //     const handleSystemThemeChange = (e) => {
+  //       setSystemTheme(e.matches ? 'dark' : 'light');
+  //     };
+  //
+  //     mediaQuery.addEventListener('change', handleSystemThemeChange);
+  //
+  //     return () => {
+  //       mediaQuery.removeEventListener('change', handleSystemThemeChange);
+  //     };
+  //   }
+  // }, []);
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-      const handleSystemThemeChange = (e) => {
-        setSystemTheme(e.matches ? 'dark' : 'light');
-      };
-
-      mediaQuery.addEventListener('change', handleSystemThemeChange);
-
-      return () => {
-        mediaQuery.removeEventListener('change', handleSystemThemeChange);
-      };
+    if (systemTheme !== 'light') {
+      setSystemTheme('light');
     }
-  }, []);
+  }, [systemTheme]);
 
   // 应用主题到DOM
   useEffect(() => {
