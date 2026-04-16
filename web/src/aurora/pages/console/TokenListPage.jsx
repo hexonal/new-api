@@ -19,13 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, Infinity, KeyRound, Layers3, Search } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Infinity,
+  KeyRound,
+  Layers3,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useTokensData } from '../../../hooks/tokens/useTokensData';
 import { timestamp2string, renderQuota } from '../../../helpers';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../primitives/table';
-import { Badge } from '../../primitives/badge';
-import { Button } from '../../primitives/button';
-import { Input } from '../../primitives/input';
 import EditTokenModal from '../../modals/EditTokenModal';
 import { filterExistingTokenIds } from './token-list-utils';
 import {
@@ -35,18 +42,38 @@ import {
 
 const getStatusBadge = (status, t) => {
   if (status === 1) {
-    return <Badge variant='secondary'>{t('已启用')}</Badge>;
+    return (
+      <span className='inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700'>
+        {t('已启用')}
+      </span>
+    );
   }
   if (status === 2) {
-    return <Badge variant='destructive'>{t('已禁用')}</Badge>;
+    return (
+      <span className='inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700'>
+        {t('已禁用')}
+      </span>
+    );
   }
   if (status === 3) {
-    return <Badge variant='outline'>{t('已过期')}</Badge>;
+    return (
+      <span className='inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600'>
+        {t('已过期')}
+      </span>
+    );
   }
   if (status === 4) {
-    return <Badge variant='outline'>{t('已耗尽')}</Badge>;
+    return (
+      <span className='inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700'>
+        {t('已耗尽')}
+      </span>
+    );
   }
-  return <Badge variant='outline'>{t('未知')}</Badge>;
+  return (
+    <span className='inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600'>
+      {t('未知')}
+    </span>
+  );
 };
 
 const getLimitText = (token, t) => {
@@ -80,6 +107,41 @@ const getModelRestrictions = (token, t) => {
     return models.join(', ');
   }
   return `${models.slice(0, 2).join(', ')} +${models.length - 2}`;
+};
+
+const maskTokenKey = (value) => {
+  const text = String(value || '').trim();
+  if (!text) {
+    return 'sk-...';
+  }
+  if (text.length <= 10) {
+    return `sk-${text}`;
+  }
+  return `sk-${text.slice(0, 6)}...${text.slice(-4)}`;
+};
+
+const formatTokenCreatedAt = (createdAt) => {
+  const seconds = Number(createdAt);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '-';
+  }
+
+  const createdDate = new Date(seconds * 1000);
+  const deltaSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - createdDate.getTime()) / 1000),
+  );
+
+  if (deltaSeconds < 86400) {
+    const hours = Math.max(1, Math.floor(deltaSeconds / 3600));
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  }
+  if (deltaSeconds < 86400 * 30) {
+    const days = Math.max(1, Math.floor(deltaSeconds / 86400));
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  }
+
+  return timestamp2string(seconds);
 };
 
 export default function TokenListPage() {
@@ -155,6 +217,13 @@ export default function TokenListPage() {
       Number(data.tokenCount || 0) / Math.max(1, Number(data.pageSize || 1)),
     ),
   );
+  const currentTokenCount = (data.tokens || []).length;
+  const pageStart =
+    currentTokenCount === 0
+      ? 0
+      : (Number(data.activePage || 1) - 1) * Number(data.pageSize || 1) + 1;
+  const pageEnd =
+    currentTokenCount === 0 ? 0 : pageStart + currentTokenCount - 1;
 
   const summaryCards = useMemo(() => {
     const currentTokens = data.tokens || [];
@@ -168,25 +237,25 @@ export default function TokenListPage() {
     return [
       {
         key: 'total',
-        label: t('API 密钥'),
+        label: 'Total Keys',
         value: data.tokenCount || 0,
         icon: <KeyRound className='h-4 w-4' />,
       },
       {
         key: 'enabled',
-        label: t('已启用'),
+        label: 'Active Keys',
         value: enabledCount,
         icon: <CircleCheck className='h-4 w-4' />,
       },
       {
         key: 'unlimited',
-        label: t('无限额度'),
+        label: 'Unlimited',
         value: unlimitedCount,
         icon: <Infinity className='h-4 w-4' />,
       },
       {
         key: 'page',
-        label: t('当前页'),
+        label: 'Page',
         value: `${data.activePage || 1}/${totalPages}`,
         icon: <Layers3 className='h-4 w-4' />,
       },
@@ -257,7 +326,7 @@ export default function TokenListPage() {
   };
 
   return (
-    <div className='mx-auto w-full max-w-[1680px] space-y-6 pb-6'>
+    <div className='mx-auto w-full max-w-[1200px] pb-8'>
       <EditTokenModal
         refresh={data.refresh}
         editingToken={data.editingToken}
@@ -265,59 +334,101 @@ export default function TokenListPage() {
         handleClose={data.closeEdit}
       />
 
-      <section className='rounded-[28px] border border-[#e7ebf3] bg-white px-6 py-5 shadow-[0_22px_50px_rgba(15,23,42,0.06)]'>
-        <div className='flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
-          <div className='space-y-2'>
-            <div className='text-xs font-medium uppercase tracking-[0.24em] text-slate-400'>
-              {t('令牌工作区')}
-            </div>
-            <div className='text-2xl font-semibold text-slate-950'>
-              {getTokenListTitle(t)}
-            </div>
-            <p className='max-w-2xl text-sm leading-6 text-slate-500'>
-              {t(
-                '为常用操作预留更清晰的工作区，便于筛选、复制、禁用和批量管理令牌。',
-              )}
-            </p>
-          </div>
-          <div className='flex items-center gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => data.refresh()}
-              loading={data.loading}
-            >
-              {t('刷新')}
-            </Button>
-            <Button
-              size='sm'
-              onClick={() => {
-                data.setEditingToken({ id: undefined });
-                data.setShowEdit(true);
-              }}
-            >
-              {t('添加令牌')}
-            </Button>
-          </div>
+      <section className='mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
+        <div>
+          <h1 className='text-3xl font-black tracking-tight text-slate-950'>
+            {getTokenListTitle(t)}
+          </h1>
+          <p className='mt-1 text-sm text-slate-500'>
+            Create and manage your API keys for programmatic access to the
+            gateway.
+          </p>
+        </div>
+        <button
+          type='button'
+          className='inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.99]'
+          onClick={() => {
+            data.setEditingToken({ id: undefined });
+            data.setShowEdit(true);
+          }}
+        >
+          <Plus className='h-4 w-4' />
+          Create Key
+        </button>
+      </section>
+
+      <section className='mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+        <div className='flex min-w-0 flex-1 flex-col gap-3 sm:flex-row'>
+          <label className='relative min-w-0 flex-1'>
+            <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400' />
+            <input
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+              placeholder='Search by name...'
+              className='w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+            />
+          </label>
+          <label className='relative min-w-0 sm:w-[280px]'>
+            <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400' />
+            <input
+              value={searchToken}
+              onChange={(event) => setSearchToken(event.target.value)}
+              placeholder={t('密钥')}
+              className='w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+            />
+          </label>
+        </div>
+
+        <div className='flex flex-wrap items-center justify-end gap-2'>
+          <button
+            type='button'
+            className='inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50'
+            onClick={handleSearch}
+            disabled={data.searching}
+          >
+            <SlidersHorizontal className='h-4 w-4' />
+            {t('查询')}
+          </button>
+          <button
+            type='button'
+            className='rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50'
+            onClick={handleReset}
+          >
+            {t('重置')}
+          </button>
+          <button
+            type='button'
+            className='rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50'
+            onClick={handleBatchCopy}
+          >
+            {t('复制所选令牌')}
+          </button>
+          <button
+            type='button'
+            className='rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50'
+            onClick={handleBatchDelete}
+          >
+            {t('删除所选令牌')}
+          </button>
         </div>
       </section>
 
-      <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+      <section className='mb-8 grid gap-6 md:grid-cols-3 xl:grid-cols-4'>
         {summaryCards.map((item) => (
           <div
             key={item.key}
-            className='rounded-[24px] border border-[#e7ebf3] bg-white px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.05)]'
+            className='rounded-xl border border-slate-200 bg-white p-5'
           >
-            <div className='flex items-start justify-between gap-4'>
-              <div className='space-y-2'>
-                <div className='text-xs uppercase tracking-[0.18em] text-slate-400'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <div className='mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'>
                   {item.label}
                 </div>
-                <div className='text-2xl font-semibold text-slate-950'>
+                <div className='text-2xl font-black text-slate-950'>
                   {item.value}
                 </div>
               </div>
-              <div className='rounded-2xl border border-[#e7ebf3] bg-[#f7f9fc] p-2 text-[#3652f5]'>
+              <div className='rounded-xl border border-slate-200 bg-slate-50 p-2 text-indigo-600'>
                 {item.icon}
               </div>
             </div>
@@ -325,230 +436,181 @@ export default function TokenListPage() {
         ))}
       </section>
 
-      <section className='rounded-[28px] border border-[#e7ebf3] bg-white p-5 shadow-[0_22px_50px_rgba(15,23,42,0.06)]'>
-        <div className='flex flex-col gap-5'>
-          <div className='flex items-center justify-between'>
-            <h2 className='text-lg font-semibold text-slate-950'>
-              {getTokenListTitle(t)}
-            </h2>
-          </div>
-
-          <div className='flex flex-col gap-3 rounded-[24px] border border-[#e7ebf3] bg-[#fbfcff] p-4'>
-            <div className='grid grid-cols-1 gap-3 xl:grid-cols-2'>
-              <Input
-                value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder={t('搜索关键字')}
-                icon={<Search className='h-4 w-4' />}
-                className='bg-white'
-              />
-              <Input
-                value={searchToken}
-                onChange={(event) => setSearchToken(event.target.value)}
-                placeholder={t('密钥')}
-                icon={<Search className='h-4 w-4' />}
-                className='bg-white'
-              />
-            </div>
-            <div className='flex flex-wrap items-center gap-2'>
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={handleSearch}
-                loading={data.searching}
-              >
-                {t('查询')}
-              </Button>
-              <Button size='sm' variant='outline' onClick={handleReset}>
-                {t('重置')}
-              </Button>
-              <div className='mx-1 h-5 w-px bg-border' />
-              <Button size='sm' variant='outline' onClick={handleBatchCopy}>
-                {t('复制所选令牌')}
-              </Button>
-              <Button
-                size='sm'
-                variant='destructive'
-                onClick={handleBatchDelete}
-              >
-                {t('删除所选令牌')}
-              </Button>
-            </div>
-          </div>
-
-          <div className='overflow-hidden rounded-[24px] border border-[#e7ebf3] bg-white'>
-            <Table className='min-w-[1040px]'>
-              <Thead>
-                <Tr>
-                  <Th className='w-10'>
+      <section className='overflow-hidden rounded-xl border border-slate-200 bg-white'>
+        <div className='overflow-x-auto'>
+          <Table className='min-w-[1120px]'>
+            <Thead>
+              <Tr>
+                <Th className='w-10 px-4 py-4'>
+                  <input
+                    type='checkbox'
+                    checked={allChecked}
+                    ref={(node) => {
+                      if (node) {
+                        node.indeterminate = indeterminate;
+                      }
+                    }}
+                    onChange={handleSelectAll}
+                  />
+                </Th>
+                {tableHeaderLabels.map((label) => (
+                  <Th
+                    key={label}
+                    className='px-6 py-4 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400'
+                  >
+                    {label}
+                  </Th>
+                ))}
+              </Tr>
+            </Thead>
+            <Tbody>
+              {(data.tokens || []).map((token) => (
+                <Tr
+                  key={token.id}
+                  className='group border-b border-slate-100 transition-colors hover:bg-indigo-50/30'
+                >
+                  <Td className='px-4 py-5'>
                     <input
                       type='checkbox'
-                      checked={allChecked}
-                      ref={(node) => {
-                        if (node) {
-                          node.indeterminate = indeterminate;
-                        }
+                      checked={selectedTokenIds.includes(token.id)}
+                      onChange={(event) => {
+                        const checked = !!event.target.checked;
+                        setSelectedTokenIds((prev) => {
+                          if (checked) {
+                            return Array.from(new Set([...prev, token.id]));
+                          }
+                          return prev.filter((item) => item !== token.id);
+                        });
                       }}
-                      onChange={handleSelectAll}
                     />
-                  </Th>
-                  {tableHeaderLabels.map((label) => (
-                    <Th key={label}>{label}</Th>
-                  ))}
-                </Tr>
-              </Thead>
-              <Tbody>
-                {(data.tokens || []).map((token) => (
-                  <Tr
-                    key={token.id}
-                    className={token.status === 1 ? '' : 'bg-muted/40'}
-                  >
-                    <Td>
-                      <input
-                        type='checkbox'
-                        checked={selectedTokenIds.includes(token.id)}
-                        onChange={(event) => {
-                          const checked = !!event.target.checked;
-                          setSelectedTokenIds((prev) => {
-                            if (checked) {
-                              return Array.from(new Set([...prev, token.id]));
-                            }
-                            return prev.filter((item) => item !== token.id);
-                          });
-                        }}
-                      />
-                    </Td>
-                    <Td>
-                      <div className='min-w-[220px]'>
-                        <div className='text-sm font-medium'>
-                          {token.name || t('未命名令牌')}
-                        </div>
-                        <div className='font-mono text-xs text-muted-foreground'>{`sk-${token.key || ''}`}</div>
+                  </Td>
+                  <Td className='px-6 py-5'>
+                    <div className='min-w-[220px]'>
+                      <div className='mb-0.5 text-sm font-bold text-slate-950'>
+                        {token.name || t('未命名令牌')}
                       </div>
-                    </Td>
-                    <Td className='whitespace-nowrap'>
-                      {getStatusBadge(token.status, t)}
-                    </Td>
-                    <Td className='whitespace-nowrap text-xs'>
-                      {getModelRestrictions(token, t)}
-                    </Td>
-                    <Td className='whitespace-nowrap text-xs'>
-                      {getUsageText(token, t)}
-                    </Td>
-                    <Td className='whitespace-nowrap text-xs'>
-                      {getLimitText(token, t)}
-                    </Td>
-                    <Td className='whitespace-nowrap text-xs'>
-                      {token.created_time
-                        ? timestamp2string(token.created_time)
-                        : '-'}
-                    </Td>
-                    <Td className='min-w-[252px]'>
-                      <div className='flex flex-nowrap gap-2'>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          className='whitespace-nowrap'
-                          onClick={() => openChat(token)}
-                          disabled={chatLinks.length === 0}
-                        >
-                          {t('聊天')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          className='whitespace-nowrap'
-                          onClick={() => data.copyTokenKey(token)}
-                        >
-                          {t('复制')}
-                        </Button>
-                        {token.status === 1 ? (
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            className='whitespace-nowrap'
-                            onClick={() =>
-                              data.manageToken(token.id, 'disable', token)
-                            }
-                          >
-                            {t('禁用')}
-                          </Button>
-                        ) : (
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            className='whitespace-nowrap'
-                            onClick={() =>
-                              data.manageToken(token.id, 'enable', token)
-                            }
-                          >
-                            {t('启用')}
-                          </Button>
-                        )}
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          className='whitespace-nowrap'
-                          onClick={() => {
-                            data.setEditingToken(token);
-                            data.setShowEdit(true);
-                          }}
-                        >
-                          {t('编辑')}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='destructive'
-                          className='whitespace-nowrap'
+                      <div className='font-mono text-xs text-slate-400'>
+                        {maskTokenKey(token.key)}
+                      </div>
+                    </div>
+                  </Td>
+                  <Td className='px-6 py-5 whitespace-nowrap'>
+                    {getStatusBadge(token.status, t)}
+                  </Td>
+                  <Td className='px-6 py-5 whitespace-nowrap text-xs text-slate-500'>
+                    {getModelRestrictions(token, t)}
+                  </Td>
+                  <Td className='px-6 py-5 whitespace-nowrap text-sm font-medium text-slate-900'>
+                    {getUsageText(token, t)}
+                  </Td>
+                  <Td className='px-6 py-5 whitespace-nowrap text-xs text-slate-500'>
+                    {getLimitText(token, t)}
+                  </Td>
+                  <Td className='px-6 py-5 whitespace-nowrap text-xs text-slate-400'>
+                    {formatTokenCreatedAt(token.created_time)}
+                  </Td>
+                  <Td className='min-w-[280px] px-6 py-5'>
+                    <div className='flex flex-wrap justify-end gap-2'>
+                      <button
+                        type='button'
+                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
+                        onClick={() => openChat(token)}
+                        disabled={chatLinks.length === 0}
+                      >
+                        {t('聊天')}
+                      </button>
+                      <button
+                        type='button'
+                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
+                        onClick={() => data.copyTokenKey(token)}
+                      >
+                        {t('复制')}
+                      </button>
+                      {token.status === 1 ? (
+                        <button
+                          type='button'
+                          className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
                           onClick={() =>
-                            data.manageToken(token.id, 'delete', token)
+                            data.manageToken(token.id, 'disable', token)
                           }
                         >
-                          {t('删除')}
-                        </Button>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
-                {!data.loading && (data.tokens || []).length === 0 && (
-                  <Tr>
-                    <Td
-                      colSpan={8}
-                      className='py-8 text-center text-muted-foreground'
-                    >
-                      {t('暂无数据')}
-                    </Td>
-                  </Tr>
-                )}
-              </Tbody>
-            </Table>
-          </div>
+                          {t('禁用')}
+                        </button>
+                      ) : (
+                        <button
+                          type='button'
+                          className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
+                          onClick={() =>
+                            data.manageToken(token.id, 'enable', token)
+                          }
+                        >
+                          {t('启用')}
+                        </button>
+                      )}
+                      <button
+                        type='button'
+                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
+                        onClick={() => {
+                          data.setEditingToken(token);
+                          data.setShowEdit(true);
+                        }}
+                      >
+                        {t('编辑')}
+                      </button>
+                      <button
+                        type='button'
+                        className='rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50'
+                        onClick={() =>
+                          data.manageToken(token.id, 'delete', token)
+                        }
+                      >
+                        {t('删除')}
+                      </button>
+                    </div>
+                  </Td>
+                </Tr>
+              ))}
+              {!data.loading && (data.tokens || []).length === 0 && (
+                <Tr>
+                  <Td
+                    colSpan={8}
+                    className='px-6 py-10 text-center text-sm text-slate-500'
+                  >
+                    {t('暂无数据')}
+                  </Td>
+                </Tr>
+              )}
+            </Tbody>
+          </Table>
+        </div>
 
-          <div className='flex items-center justify-between text-sm text-muted-foreground'>
-            <span>
-              {t('共')} {data.tokenCount || 0} {t('条')}
+        <div className='flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between'>
+          <span className='text-xs font-medium text-slate-500'>
+            {`Showing ${pageStart}-${pageEnd} of ${data.tokenCount || 0} keys`}
+          </span>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              className='inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50'
+              disabled={data.activePage <= 1 || data.loading}
+              onClick={() => data.handlePageChange(data.activePage - 1)}
+            >
+              <ChevronLeft className='h-4 w-4' />
+            </button>
+            <span className='inline-flex h-7 min-w-7 items-center justify-center rounded bg-indigo-600 px-2 text-xs font-bold text-white shadow-sm'>
+              {data.activePage}
             </span>
-            <div className='flex items-center gap-2'>
-              <Button
-                size='sm'
-                variant='outline'
-                disabled={data.activePage <= 1 || data.loading}
-                onClick={() => data.handlePageChange(data.activePage - 1)}
-              >
-                {t('上一页')}
-              </Button>
-              <span>
-                {data.activePage} / {totalPages}
-              </span>
-              <Button
-                size='sm'
-                variant='outline'
-                disabled={data.activePage >= totalPages || data.loading}
-                onClick={() => data.handlePageChange(data.activePage + 1)}
-              >
-                {t('下一页')}
-              </Button>
-            </div>
+            <span className='text-xs font-medium text-slate-500'>
+              / {totalPages}
+            </span>
+            <button
+              type='button'
+              className='inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50'
+              disabled={data.activePage >= totalPages || data.loading}
+              onClick={() => data.handlePageChange(data.activePage + 1)}
+            >
+              <ChevronRight className='h-4 w-4' />
+            </button>
           </div>
         </div>
       </section>

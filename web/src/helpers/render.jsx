@@ -1097,22 +1097,25 @@ export function renderNumberWithPoint(num) {
 }
 
 export function getQuotaPerUnit() {
-  let quotaPerUnit = localStorage.getItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  return quotaPerUnit;
+  const raw = parseFloat(localStorage.getItem('quota_per_unit') || '1');
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
 export function renderUnitWithQuota(quota) {
-  let quotaPerUnit = localStorage.getItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  quota = parseFloat(quota);
-  return quotaPerUnit * quota;
+  const quotaPerUnit = getQuotaPerUnit();
+  const normalizedQuota = Number(quota || 0);
+  if (!Number.isFinite(normalizedQuota)) {
+    return 0;
+  }
+  return quotaPerUnit * normalizedQuota;
 }
 
 export function getQuotaWithUnit(quota, digits = 6) {
-  let quotaPerUnit = localStorage.getItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  return (quota / quotaPerUnit).toFixed(digits);
+  const normalizedQuota = Number(quota || 0);
+  if (!Number.isFinite(normalizedQuota)) {
+    return (0).toFixed(digits);
+  }
+  return (normalizedQuota / getQuotaPerUnit()).toFixed(digits);
 }
 
 export function renderQuotaWithAmount(amount) {
@@ -1176,18 +1179,23 @@ export function getCurrencyConfig() {
  */
 export function convertUSDToCurrency(usdAmount, digits = 2) {
   const { symbol, rate } = getCurrencyConfig();
-  const convertedAmount = usdAmount * rate;
+  const normalizedAmount = Number(usdAmount || 0);
+  const convertedAmount = Number.isFinite(normalizedAmount)
+    ? normalizedAmount * rate
+    : 0;
   return symbol + convertedAmount.toFixed(digits);
 }
 
 export function renderQuota(quota, digits = 2) {
-  let quotaPerUnit = localStorage.getItem('quota_per_unit');
   const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
-  quotaPerUnit = parseFloat(quotaPerUnit);
+  const normalizedQuota = Number(quota || 0);
+  const quotaPerUnit = getQuotaPerUnit();
   if (quotaDisplayType === 'TOKENS') {
-    return renderNumber(quota);
+    return renderNumber(Number.isFinite(normalizedQuota) ? normalizedQuota : 0);
   }
-  const resultUSD = quota / quotaPerUnit;
+  const resultUSD = Number.isFinite(normalizedQuota)
+    ? normalizedQuota / quotaPerUnit
+    : 0;
   let symbol = '$';
   let value = resultUSD;
   if (quotaDisplayType === 'CNY') {
@@ -1216,7 +1224,7 @@ export function renderQuota(quota, digits = 2) {
     symbol = symbolCustom;
   }
   const fixedResult = value.toFixed(digits);
-  if (parseFloat(fixedResult) === 0 && quota > 0 && value > 0) {
+  if (parseFloat(fixedResult) === 0 && normalizedQuota > 0 && value > 0) {
     const minValue = Math.pow(10, -digits);
     return symbol + minValue.toFixed(digits);
   }

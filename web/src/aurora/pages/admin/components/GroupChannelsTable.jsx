@@ -34,7 +34,7 @@ export default function GroupChannelsTable({ channels = [] }) {
           channels.map((item) => (
             <div key={item.id || item.name} className='rounded border border-border px-3 py-2 text-sm'>
               <span>{item.name || item.id}</span>
-              <span className='text-muted-foreground ml-3'>{item.type || t('N/A')}</span>
+              <span className='text-muted-foreground ml-3'>{item.type || t('未设置')}</span>
             </div>
           ))
         ) : (

@@ -31,9 +31,11 @@ import { API, setStatusData } from '../../helpers';
 import { getPreferredLanguage } from '../../i18n/preference';
 import { isPublicRoute, shouldShowMobileMenu } from './navigation-config';
 
+const DESKTOP_LAYOUT_MIN_WIDTH = 960;
+
 const getCompactMode = () => {
   if (typeof window === 'undefined') return false;
-  return window.innerWidth < 1180;
+  return window.innerWidth < DESKTOP_LAYOUT_MIN_WIDTH;
 };
 
 const restoreStoredUser = (userDispatch) => {

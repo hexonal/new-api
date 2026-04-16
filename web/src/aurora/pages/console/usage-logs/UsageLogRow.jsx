@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { IconChevronDown } from '@douyinfe/semi-icons';
+import { MoreHorizontal } from 'lucide-react';
 import {
   getDetailRecordValue,
   getLatencyToneClass,
@@ -85,7 +86,9 @@ export default function UsageLogRow({
         }`}
         onClick={onToggle}
       >
-        <td className={`px-6 py-3 ${expanded ? 'text-primary' : 'text-gray-400'}`}>
+        <td
+          className={`px-6 py-3 ${expanded ? 'text-primary' : 'text-gray-400'}`}
+        >
           <button
             type='button'
             className={`inline-flex transition-colors ${
@@ -109,7 +112,11 @@ export default function UsageLogRow({
             className={`px-4 py-3 align-top ${
               column.key === data.COLUMN_KEYS.DETAILS ? 'max-w-[320px]' : ''
             }`}
-            title={column.key === data.COLUMN_KEYS.COST ? billingHint || undefined : undefined}
+            title={
+              column.key === data.COLUMN_KEYS.COST
+                ? billingHint || undefined
+                : undefined
+            }
           >
             {column.render(log, rowIndex)}
           </td>
@@ -118,13 +125,14 @@ export default function UsageLogRow({
         <td className='px-4 py-3 text-right'>
           <button
             type='button'
-            className='rounded-lg border border-outline-variant px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container'
+            className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary'
             onClick={(event) => {
               event.stopPropagation();
               onToggle();
             }}
+            aria-label={expanded ? t('收起详情') : t('查看详情')}
           >
-            {expanded ? t('收起详情') : t('查看详情')}
+            <MoreHorizontal className='h-4 w-4' />
           </button>
         </td>
       </tr>

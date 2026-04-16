@@ -31,6 +31,13 @@ const getStrength = (value = '') => {
 
 const labels = ['weak', 'fair', 'good', 'strong', 'very strong'];
 
+const getStrengthLabel = (score) => {
+  if (score <= 0) {
+    return '';
+  }
+  return labels[score - 1] || '';
+};
+
 const PasswordStrengthBar = ({ value }) => {
   const score = getStrength(value);
   const width = `${Math.max(score, 0) * 25}%`;
@@ -52,7 +59,7 @@ const PasswordStrengthBar = ({ value }) => {
           aria-hidden={true}
         />
       </div>
-      <div className='aurora-strength-label'>{labels[score - 1] || 'empty'}</div>
+      <div className='aurora-strength-label'>{getStrengthLabel(score)}</div>
     </div>
   );
 };

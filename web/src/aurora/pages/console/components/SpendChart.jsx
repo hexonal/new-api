@@ -1,3 +1,22 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -36,13 +55,6 @@ const COLORS = [
   '#84cc16',
 ];
 
-const TABS = [
-  { key: 'distribution', label: '消耗分布' },
-  { key: 'trend', label: '消耗趋势' },
-  { key: 'requestDist', label: '调用次数分布' },
-  { key: 'requestRank', label: '调用次数排行' },
-];
-
 const formatTime = (value) => {
   if (!value) return '-';
   const d = new Date(Number(value) * 1000);
@@ -59,6 +71,12 @@ const SpendChart = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('distribution');
+  const tabs = [
+    { key: 'distribution', label: t('消耗分布') },
+    { key: 'trend', label: t('消耗趋势') },
+    { key: 'requestDist', label: t('调用次数分布') },
+    { key: 'requestRank', label: t('调用次数排行') },
+  ];
 
   // Aggregate data for charts
   const modelMap = {};
@@ -276,9 +294,9 @@ const SpendChart = ({
       <div className='flex items-center justify-between mb-3'>
         <h2 className='text-sm font-medium'>{title}</h2>
         <div className='flex gap-1'>
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
               type='button'
               onClick={() => setActiveTab(tab.key)}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
