@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Settings - Branding | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-dim": "#6b0221",
+                        "tertiary-fixed": "#53ddfc",
+                        "surface": "#f8f9ff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-dim": "#c4dcff",
+                        "surface-container-high": "#dce9ff",
+                        "on-error": "#fff7f7",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-primary-container": "#000000",
+                        "surface-bright": "#f8f9ff",
+                        "secondary-container": "#e9ddff",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-secondary": "#fdf7ff",
+                        "on-error-container": "#6e0523",
+                        "background": "#f8f9ff",
+                        "tertiary-container": "#53ddfc",
+                        "error-container": "#f97386",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "tertiary": "#00687b",
+                        "tertiary-dim": "#005b6c",
+                        "on-background": "#05345c",
+                        "primary-container": "#7073ff",
+                        "inverse-primary": "#8083ff",
+                        "surface-variant": "#d2e4ff",
+                        "on-primary-fixed": "#000000",
+                        "error": "#a8364b",
+                        "secondary": "#6e3bd8",
+                        "outline-variant": "#91b4e4",
+                        "surface-tint": "#4a4bd7",
+                        "on-primary": "#fbf7ff",
+                        "inverse-surface": "#000f21",
+                        "surface-container-highest": "#d2e4ff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "surface-container": "#e5eeff",
+                        "on-surface": "#05345c",
+                        "primary-dim": "#3d3dcb",
+                        "on-tertiary-fixed": "#003640",
+                        "primary-fixed": "#7073ff",
+                        "primary": "#4a4bd7",
+                        "surface-container-low": "#eff4ff",
+                        "outline": "#5a7da9",
+                        "secondary-dim": "#622bcb",
+                        "on-surface-variant": "#3d618c",
+                        "on-tertiary": "#effbff",
+                        "on-secondary-container": "#6029c9",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-tertiary-container": "#004b58"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-gray-200 flex justify-between items-center px-6 h-16 w-full font-['Public_Sans'] text-sm antialiased shadow-none">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-gray-900">ima-router</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 hover:text-gray-900 transition-colors duration-200 cursor-pointer active:opacity-80">Models</a>
+<a class="text-gray-500 hover:text-gray-900 transition-colors duration-200 cursor-pointer active:opacity-80">Gateways</a>
+<a class="text-gray-500 hover:text-gray-900 transition-colors duration-200 cursor-pointer active:opacity-80">Documentation</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary-fixed focus:border-primary-fixed outline-none w-64" placeholder="Search gateways..." type="text"/>
+</div>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional male software engineer with short hair and glasses smiling warmly" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMtzN9OXqtcVVZ6J5xf4t9TgYcIOOJyWXer8gcMHv4O0NnVz0_zARQcmz7cNASu6HJvxkPHwyvyAQON619tg8L00MaeMEun7jvejQD46HOrPKxezADGINipbZopYs5RWqODyFFiG4Z0KrO855nNBEuJODxdESP-pIMww9piazRHeszYskS9bnx4RUI9Wq7Ol-SG72o8LsecrU7Da2dn6VH_WmbyBbXZ546k7v5v1jxmf3o99D_qjJPOuTPxzEG_eOfFoH9aQI5o78"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-gray-50 border-r border-gray-200 flex flex-col py-4 overflow-y-auto font-['Public_Sans'] text-sm font-medium">
+<div class="px-6 py-2 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold">I</div>
+<div>
+<p class="text-on-surface font-bold leading-tight">Admin Console</p>
+<p class="text-xs text-gray-500">Enterprise Plan</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 my-1 mx-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 my-1 mx-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="extension">extension</span>
+<span>Models</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 my-1 mx-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+<span>Gateways</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 my-1 mx-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 my-1 mx-2 bg-indigo-50 text-indigo-600 font-semibold rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="px-4 py-4 space-y-1 border-t border-gray-200 mt-4">
+<a class="flex items-center gap-3 px-2 py-2 text-gray-600 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-2 py-2 text-gray-600 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+<span>API Keys</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 mt-16 p-8 max-w-[1200px]">
+<!-- Page Header -->
+<header class="mb-8">
+<h1 class="text-3xl font-extrabold text-on-surface tracking-tight">System Settings</h1>
+<p class="text-gray-500 mt-1">Configure global parameters and branding for your API gateway instance.</p>
+</header>
+<!-- Tabs Navigation -->
+<div class="flex overflow-x-auto border-b border-gray-200 mb-8 whitespace-nowrap scrollbar-hide">
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">General</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Auth</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Payment</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Rate Limiting</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Monitoring</button>
+<button class="px-6 py-3 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600 transition-colors">Branding</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Model</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Ratio</button>
+<button class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent transition-colors">Performance</button>
+</div>
+<!-- Bento Layout / Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Card: System Identity -->
+<section class="bg-white border border-gray-200 rounded-xl p-6 shadow-none flex flex-col h-full">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-indigo-600" data-icon="branding_watermark">branding_watermark</span>
+<h2 class="text-lg font-bold text-gray-900">System Identity</h2>
+</div>
+<div class="space-y-5 flex-1">
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">System Name</label>
+<input class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" type="text" value="ima-router"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Logo URL</label>
+<div class="flex gap-4">
+<input class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="https://domain.com/logo.png" type="text"/>
+<div class="w-10 h-10 bg-gray-50 border border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400 text-lg">image</span>
+</div>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Footer HTML</label>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-20" placeholder="© 2024 ima-router. All rights reserved."></textarea>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Home Page Content Type</label>
+<select class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+<option>Markdown</option>
+<option>HTML</option>
+<option>iframe URL</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Home Page Content</label>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-40" placeholder="# Welcome to our Gateway..."></textarea>
+</div>
+</div>
+<div class="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-100">
+<button class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all">Preview</button>
+<button class="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all">Save Changes</button>
+</div>
+</section>
+<!-- Right Column Grid -->
+<div class="space-y-8">
+<!-- Card: Announcements -->
+<section class="bg-white border border-gray-200 rounded-xl p-6 shadow-none">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600" data-icon="campaign">campaign</span>
+<h2 class="text-lg font-bold text-gray-900">Announcements</h2>
+</div>
+</div>
+<div class="space-y-6">
+<!-- Announcement 1 -->
+<div class="p-4 bg-gray-50 rounded-lg border border-gray-100 relative group">
+<div class="absolute top-4 right-4 flex gap-2">
+<button class="text-gray-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-3">
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Type</label>
+<select class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs">
+<option>Default</option>
+<option selected="">Success</option>
+<option>Warning</option>
+<option>Error</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Publish Date</label>
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs" type="date" value="2024-10-24"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Content</label>
+<textarea class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs" rows="2">New Llama 3.1 405B model is now available for all users.</textarea>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Extra Info</label>
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs" type="text" value="Read more in documentation"/>
+</div>
+</div>
+<!-- Announcement 2 -->
+<div class="p-4 bg-gray-50 rounded-lg border border-gray-100 relative group">
+<div class="absolute top-4 right-4 flex gap-2">
+<button class="text-gray-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-3">
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Type</label>
+<select class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs">
+<option>Default</option>
+<option>Success</option>
+<option selected="">Warning</option>
+<option>Error</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Publish Date</label>
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs" type="date" value="2024-11-01"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Content</label>
+<textarea class="w-full px-3 py-1.5 border border-gray-200 rounded bg-white text-xs" rows="2">Scheduled maintenance on Oct 27, 02:00 UTC.</textarea>
+</div>
+</div>
+</div>
+<div class="mt-6 flex items-center justify-between pt-4 border-t border-gray-100">
+<button class="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 text-sm font-semibold transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                            Add Announcement
+                        </button>
+<button class="px-4 py-1.5 bg-indigo-600 text-white rounded text-xs font-bold hover:bg-indigo-700">Save</button>
+</div>
+</section>
+<!-- Card: API Endpoints Info -->
+<section class="bg-white border border-gray-200 rounded-xl p-6 shadow-none">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-indigo-600" data-icon="api">api</span>
+<h2 class="text-lg font-bold text-gray-900">API Endpoints Info</h2>
+</div>
+<div class="space-y-4">
+<!-- Entry 1 -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-100 rounded-lg">
+<div class="space-y-3">
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="Route Name" type="text" value="Main API"/>
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="URL" type="text" value="https://api.ima-router.io/v1"/>
+</div>
+<div class="space-y-3">
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="Description" type="text" value="Core gateway endpoint"/>
+<select class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs">
+<option selected="">Blue</option>
+<option>Green</option>
+<option>Cyan</option>
+<option>Purple</option>
+<option>Pink</option>
+</select>
+</div>
+</div>
+<!-- Entry 2 -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-100 rounded-lg">
+<div class="space-y-3">
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="Route Name" type="text" value="Documentation"/>
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="URL" type="text" value="https://docs.ima-router.io"/>
+</div>
+<div class="space-y-3">
+<input class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs" placeholder="Description" type="text" value="Full developer docs"/>
+<select class="w-full px-3 py-1.5 border border-gray-200 rounded text-xs">
+<option>Blue</option>
+<option selected="">Green</option>
+<option>Cyan</option>
+<option>Purple</option>
+<option>Pink</option>
+</select>
+</div>
+</div>
+</div>
+<div class="mt-6 flex items-center justify-between pt-4 border-t border-gray-100">
+<button class="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 text-sm font-semibold transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                            Add Endpoint
+                        </button>
+<button class="px-4 py-1.5 bg-indigo-600 text-white rounded text-xs font-bold hover:bg-indigo-700">Save</button>
+</div>
+</section>
+</div>
+</div>
+<!-- Full Width Card: Quick FAQ -->
+<section class="bg-white border border-gray-200 rounded-xl p-6 shadow-none mt-8">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-indigo-600" data-icon="quiz">quiz</span>
+<h2 class="text-lg font-bold text-gray-900">Quick FAQ</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- FAQ Item 1 -->
+<div class="p-4 border border-gray-100 rounded-lg space-y-3 relative group">
+<button class="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+<input class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold" type="text" value="How do I get an API key?"/>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 h-20">Navigate to the API Keys section in your sidebar to generate a new key for authentication.</textarea>
+</div>
+<!-- FAQ Item 2 -->
+<div class="p-4 border border-gray-100 rounded-lg space-y-3 relative group">
+<button class="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+<input class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold" type="text" value="Is there a rate limit?"/>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 h-20">Yes, default rate limits depend on your tier. Enterprise users can request custom limits via support.</textarea>
+</div>
+<!-- FAQ Item 3 -->
+<div class="p-4 border border-gray-100 rounded-lg space-y-3 relative group">
+<button class="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+<input class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold" type="text" value="What models are supported?"/>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 h-20">We support major LLMs including OpenAI GPT series, Anthropic Claude, and Llama 3 via unified API.</textarea>
+</div>
+<!-- FAQ Item 4 -->
+<div class="p-4 border border-gray-100 rounded-lg space-y-3 relative group">
+<button class="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+<input class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold" type="text" value="Can I use custom gateways?"/>
+<textarea class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 h-20">Absolutely. You can add custom gateway providers in the Gateways tab of your dashboard.</textarea>
+</div>
+</div>
+<div class="mt-8 flex items-center justify-between pt-6 border-t border-gray-100">
+<button class="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                    Add FAQ Item
+                </button>
+<button class="px-8 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-sm transition-all">Save FAQ Section</button>
+</div>
+</section>
+<!-- Footer / Bottom Spacer -->
+<div class="h-16"></div>
+</main>
+</body></html>

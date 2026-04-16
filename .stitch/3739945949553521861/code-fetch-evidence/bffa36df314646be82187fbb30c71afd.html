@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>API Keys Management | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=Roboto+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#53ddfc",
+                        "on-error-container": "#6e0523",
+                        "error-container": "#f97386",
+                        "on-surface": "#05345c",
+                        "primary-fixed": "#7073ff",
+                        "secondary-fixed": "#e9ddff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "surface-bright": "#f8f9ff",
+                        "surface-variant": "#d2e4ff",
+                        "on-primary-fixed": "#000000",
+                        "on-secondary-container": "#6029c9",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-primary-container": "#000000",
+                        "background": "#f8f9ff",
+                        "inverse-primary": "#8083ff",
+                        "error-dim": "#6b0221",
+                        "surface-container-high": "#dce9ff",
+                        "on-surface-variant": "#3d618c",
+                        "surface": "#f8f9ff",
+                        "primary": "#4a4bd7",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-primary": "#fbf7ff",
+                        "secondary-dim": "#622bcb",
+                        "surface-dim": "#c4dcff",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "inverse-surface": "#000f21",
+                        "on-tertiary-fixed": "#003640",
+                        "tertiary-container": "#53ddfc",
+                        "outline": "#5a7da9",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-tertiary-container": "#004b58",
+                        "surface-container-highest": "#d2e4ff",
+                        "primary-container": "#7073ff",
+                        "on-background": "#05345c",
+                        "on-error": "#fff7f7",
+                        "primary-dim": "#3d3dcb",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#6e3bd8",
+                        "tertiary": "#00687b",
+                        "surface-container": "#e5eeff",
+                        "surface-container-low": "#eff4ff",
+                        "tertiary-dim": "#005b6c",
+                        "primary-fixed-dim": "#6366f1",
+                        "outline-variant": "#91b4e4",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-secondary": "#fdf7ff",
+                        "error": "#a8364b",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "secondary-container": "#e9ddff",
+                        "surface-tint": "#4a4bd7",
+                        "on-tertiary": "#effbff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "mono": ["Roboto Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background antialiased min-h-screen">
+<!-- TopNavBar Component -->
+<nav class="flex justify-between items-center px-6 h-16 w-full sticky top-0 z-50 bg-white border-b border-gray-200 font-headline">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900">ima-router</span>
+<div class="hidden md:flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-96">
+<span class="material-symbols-outlined text-gray-400 text-lg">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder-gray-400" placeholder="Search keys, logs, or models..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 hover:text-gray-900 transition-colors text-sm font-medium" href="#">Docs</a>
+<a class="text-gray-500 hover:text-gray-900 transition-colors text-sm font-medium" href="#">Support</a>
+<a class="text-gray-500 hover:text-gray-900 transition-colors text-sm font-medium" href="#">Changelog</a>
+</div>
+<div class="flex items-center gap-3 border-l border-gray-100 pl-6">
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-gray-200 cursor-pointer">
+<img alt="User avatar" data-alt="professional headshot of a software engineer with a friendly expression in a brightly lit modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAhv4O8CptJIh0E_StfFAnjnJAmiRQ8laMxF47qQvwzzDKfWctjn7bexff-yisF9EYMrkr7g60bYGqgJwwCOJ6rTnSeOGtTEpmZwosh7IQi2yF4i6AJKKnpGw4IinvYt5ABWE9l9oMdt5JsBJ1G-TchmBL8MpMVzgdHAAWQebXvEv_rMAQQB9Kw5gh-r3lyFcsNQmp-O5Pj0d0LY5c2Gb4AYxAvz1LATnDJLkYzC_x_PHD2dFFXPzOod1-vYoEWJJ3cM6qOkhQJJg"/>
+</div>
+</div>
+</div>
+</nav>
+<div class="flex min-h-[calc(100vh-4rem)]">
+<!-- SideNavBar Component -->
+<aside class="flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 pt-6 z-40 bg-gray-50 border-r border-gray-200">
+<div class="px-4 mb-8">
+<div class="flex items-center gap-3 px-2 py-3 mb-6">
+<div class="h-10 w-10 bg-primary-container rounded flex items-center justify-center text-on-primary-container font-black">IR</div>
+<div>
+<div class="text-sm font-bold text-gray-900 leading-tight">ima-router</div>
+<div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Enterprise Admin</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+                        Dashboard
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 text-indigo-600 font-bold border-r-4 border-indigo-600 rounded-l-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="vpn_key">vpn_key</span>
+                        API Keys
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="smart_toy">smart_toy</span>
+                        Models
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="bar_chart">bar_chart</span>
+                        Usage
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                        Settings
+                    </a>
+</nav>
+</div>
+<div class="mt-auto px-4 pb-8 space-y-1">
+<button class="w-full mb-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    Create New Key
+                </button>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help_outline">help_outline</span>
+                    Help
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+                    Logout
+                </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex-1 bg-white min-h-full">
+<div class="max-w-[1200px] mx-auto px-10 py-8">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="text-3xl font-black text-gray-900 tracking-tight font-headline">API Keys</h1>
+<p class="text-gray-500 mt-1">Create and manage your API keys for programmatic access to the gateway.</p>
+</div>
+<button class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-semibold shadow-sm transition-all transform active:scale-95">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                        Create Key
+                    </button>
+</div>
+<!-- Filters/Search Bar -->
+<div class="mb-6 flex gap-4">
+<div class="relative flex-1 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm" placeholder="Search by name..." type="text"/>
+</div>
+<button class="px-4 py-2.5 border border-gray-200 rounded-lg flex items-center gap-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+                        Filter
+                    </button>
+</div>
+<!-- Data Table -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 border-b border-gray-100 text-[11px] uppercase tracking-widest text-gray-400 font-bold">
+<th class="px-6 py-4">Key</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Group</th>
+<th class="px-6 py-4">Model Restrictions</th>
+<th class="px-6 py-4">Usage</th>
+<th class="px-6 py-4">Limit</th>
+<th class="px-6 py-4">Created</th>
+<th class="px-6 py-4 w-10"></th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-gray-100">
+<!-- Row 1 -->
+<tr class="group hover:bg-indigo-50/30 transition-colors">
+<td class="px-6 py-5">
+<div class="font-bold text-gray-900 mb-0.5">Production Core</div>
+<div class="font-mono text-xs text-gray-400">sk-ima-v1-fe3...b47</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700">Active</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">default</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-gray-500">None</span>
+</td>
+<td class="px-6 py-5 font-medium text-gray-900">$1,240.42</td>
+<td class="px-6 py-5 text-gray-500">Unlimited</td>
+<td class="px-6 py-5 text-gray-400">2 days ago</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:bg-gray-100 rounded transition-colors text-gray-400">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-indigo-50/30 transition-colors">
+<td class="px-6 py-5">
+<div class="font-bold text-gray-900 mb-0.5">Testing/Dev</div>
+<div class="font-mono text-xs text-gray-400">sk-ima-v1-92k...r22</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700">Active</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">default</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-gray-500 truncate max-w-[120px] block" title="GPT-4, Claude 3">GPT-4, Claude 3</span>
+</td>
+<td class="px-6 py-5 font-medium text-gray-900">$42.10</td>
+<td class="px-6 py-5 text-gray-500">$50.00</td>
+<td class="px-6 py-5 text-gray-400">12 days ago</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:bg-gray-100 rounded transition-colors text-gray-400">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-indigo-50/30 transition-colors">
+<td class="px-6 py-5">
+<div class="font-bold text-gray-900 mb-0.5">Legacy App v1</div>
+<div class="font-mono text-xs text-gray-400">sk-ima-v1-ac3...81z</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700">Disabled</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">default</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-gray-500">None</span>
+</td>
+<td class="px-6 py-5 font-medium text-gray-900">$0.00</td>
+<td class="px-6 py-5 text-gray-500">Unlimited</td>
+<td class="px-6 py-5 text-gray-400">1 month ago</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1 hover:bg-gray-100 rounded transition-colors text-gray-400">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination Footer -->
+<div class="px-6 py-4 bg-gray-50/50 flex items-center justify-between border-t border-gray-100">
+<span class="text-xs text-gray-500 font-medium">Showing 1-3 of 3 keys</span>
+<div class="flex items-center gap-2">
+<button class="p-1 rounded border border-gray-200 bg-white text-gray-400 hover:text-gray-600 disabled:opacity-50 transition-all" disabled="">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<div class="flex items-center gap-1">
+<button class="w-7 h-7 flex items-center justify-center text-xs font-bold bg-indigo-600 text-white rounded shadow-sm">1</button>
+</div>
+<button class="p-1 rounded border border-gray-200 bg-white text-gray-400 hover:text-gray-600 disabled:opacity-50 transition-all" disabled="">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Stats / Decorative element -->
+<div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="p-5 bg-white border border-gray-200 rounded-xl">
+<div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Active Keys</div>
+<div class="text-2xl font-black text-gray-900">2 <span class="text-xs font-normal text-gray-400 ml-1">/ 10 limit</span></div>
+</div>
+<div class="p-5 bg-white border border-gray-200 rounded-xl">
+<div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Monthly Usage</div>
+<div class="text-2xl font-black text-gray-900">$1,282.52</div>
+</div>
+<div class="p-5 bg-white border border-gray-200 rounded-xl">
+<div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Global Success Rate</div>
+<div class="text-2xl font-black text-emerald-600">99.8%</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

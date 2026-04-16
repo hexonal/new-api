@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ima-router — The Unified Interface For LLMs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#7073ff",
+                    "surface-container-low": "#eff4ff",
+                    "secondary-fixed": "#e9ddff",
+                    "surface-dim": "#c4dcff",
+                    "surface-container-high": "#dce9ff",
+                    "tertiary": "#00687b",
+                    "on-error": "#fff7f7",
+                    "surface-tint": "#4a4bd7",
+                    "tertiary-container": "#53ddfc",
+                    "on-primary-fixed": "#000000",
+                    "on-primary": "#fbf7ff",
+                    "tertiary-fixed": "#53ddfc",
+                    "on-primary-fixed-variant": "#010028",
+                    "primary-fixed-dim": "#6366f1",
+                    "on-background": "#05345c",
+                    "tertiary-dim": "#005b6c",
+                    "surface-container": "#e5eeff",
+                    "on-secondary": "#fdf7ff",
+                    "surface": "#f8f9ff",
+                    "on-error-container": "#6e0523",
+                    "surface-variant": "#d2e4ff",
+                    "surface-container-highest": "#d2e4ff",
+                    "on-tertiary-container": "#004b58",
+                    "on-primary-container": "#000000",
+                    "inverse-surface": "#000f21",
+                    "on-secondary-container": "#6029c9",
+                    "inverse-primary": "#8083ff",
+                    "on-tertiary-fixed-variant": "#005564",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#7073ff",
+                    "outline": "#5a7da9",
+                    "inverse-on-surface": "#8e9eb7",
+                    "error-dim": "#6b0221",
+                    "tertiary-fixed-dim": "#40ceed",
+                    "surface-bright": "#f8f9ff",
+                    "on-surface-variant": "#3d618c",
+                    "on-secondary-fixed": "#4d00b7",
+                    "primary": "#4a4bd7",
+                    "error": "#a8364b",
+                    "secondary-container": "#e9ddff",
+                    "on-secondary-fixed-variant": "#6a37d4",
+                    "background": "#f8f9ff",
+                    "on-tertiary": "#effbff",
+                    "on-surface": "#05345c",
+                    "secondary-dim": "#622bcb",
+                    "primary-dim": "#3d3dcb",
+                    "on-tertiary-fixed": "#003640",
+                    "secondary": "#6e3bd8",
+                    "outline-variant": "#91b4e4",
+                    "error-container": "#f97386",
+                    "secondary-fixed-dim": "#ddcdff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-white text-on-surface selection:bg-primary-container/30">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+<div class="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
+<!-- Brand Logo -->
+<div class="flex items-center gap-8">
+<a class="text-xl font-bold text-gray-900 dark:text-white tracking-tight font-public-sans" href="#">ima-router</a>
+<!-- Desktop Navigation Links -->
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-indigo-600 dark:text-indigo-400 font-semibold border-b-2 border-indigo-600 font-medium py-1" href="#">Models</a>
+<a class="text-gray-600 dark:text-gray-400 font-medium hover:text-indigo-500 transition-colors" href="#">Providers</a>
+<a class="text-gray-600 dark:text-gray-400 font-medium hover:text-indigo-500 transition-colors" href="#">Docs</a>
+<a class="text-gray-600 dark:text-gray-400 font-medium hover:text-indigo-500 transition-colors" href="#">Pricing</a>
+</nav>
+</div>
+<!-- Search Bar Center -->
+<div class="hidden lg:flex flex-1 max-w-md mx-8">
+<div class="relative w-full">
+<span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</span>
+<input class="w-full bg-gray-100 border-none rounded-lg pl-10 pr-12 py-2 text-sm focus:ring-2 focus:ring-primary" placeholder="Search models or providers..." type="text"/>
+<span class="absolute inset-y-0 right-3 flex items-center">
+<kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 bg-white border border-gray-300 rounded shadow-sm">/</kbd>
+</span>
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="hidden sm:block text-gray-600 font-medium hover:text-indigo-500 transition-colors">Sign In</button>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-all active:opacity-80">Get API Key</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="professional portrait of a tech professional with a clean minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-TR4EXO8vY8OgF2HiuAl5E5TnWSiOt8Aman0KJ1TOkf97coyCq19TT77Ni5L9uInsHlTBy5ujbouh1Fh3V--1_B-RiMQtMvT6dm417MEfBm2d2ZjqNss_3JHfiaLjpZZZo5WauXR3g9Xw4pcTJkHs7dUHvAPm5nsb-PRUtRt_HxeN9pghuon4-FvGK9dRj2zzowtG-oWXtdO5vkfagY6r7IfLqWUv6b2NRk2ueMBOJH3Dfg7dx4K5XOxB1X1cTRZOkCU8TQmgCI0"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-16">
+<!-- Hero Section -->
+<section class="max-w-7xl mx-auto px-6 py-20 text-center">
+<h1 class="text-5xl md:text-7xl font-black text-gray-900 tracking-tight mb-6 font-public-sans leading-tight">
+                The Unified Interface <br/>For LLMs
+            </h1>
+<p class="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+                Better prices, better stability. Just replace your model base URL and access the world's most powerful AI models through a single API.
+            </p>
+<div class="flex flex-col sm:flex-row justify-center gap-4 mb-16">
+<button class="bg-primary text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200">Get API Key</button>
+<button class="border-2 border-gray-200 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition-all">Explore Models</button>
+</div>
+<!-- Interface Widget (Glassmorphism & Code Style) -->
+<div class="max-w-3xl mx-auto bg-white border border-gray-200 rounded-2xl shadow-2xl p-4 md:p-6 mb-24 overflow-hidden">
+<div class="flex items-center gap-2 mb-4">
+<div class="w-3 h-3 rounded-full bg-red-400"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+<div class="w-3 h-3 rounded-full bg-green-400"></div>
+<span class="ml-4 text-xs font-mono text-gray-400">API BASE CONFIGURATION</span>
+</div>
+<div class="flex flex-col md:flex-row gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+<div class="flex-1 flex items-center bg-white border border-gray-200 rounded-lg px-4 py-3">
+<span class="text-gray-400 mr-2 text-sm">BASE_URL:</span>
+<input class="flex-1 border-none focus:ring-0 text-gray-900 font-mono text-sm p-0" readonly="" type="text" value="https://api.imarouter.com"/>
+</div>
+<div class="relative min-w-[200px]">
+<select class="w-full h-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono appearance-none focus:ring-2 focus:ring-primary outline-none">
+<option>/v1/chat/completions</option>
+<option>/v1/images/generations</option>
+<option>/v1/video/generations</option>
+</select>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</span>
+</div>
+<button class="bg-gray-900 text-white px-4 py-3 rounded-lg hover:bg-black transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Stats Row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto border-t border-gray-100 pt-16">
+<div class="text-center">
+<p class="text-3xl font-black text-gray-900 font-public-sans">70T</p>
+<p class="text-sm text-gray-500 font-medium uppercase tracking-wider">Monthly Tokens</p>
+</div>
+<div class="text-center">
+<p class="text-3xl font-black text-gray-900 font-public-sans">5M+</p>
+<p class="text-sm text-gray-500 font-medium uppercase tracking-wider">Global Users</p>
+</div>
+<div class="text-center">
+<p class="text-3xl font-black text-gray-900 font-public-sans">60+</p>
+<p class="text-sm text-gray-500 font-medium uppercase tracking-wider">Active Providers</p>
+</div>
+<div class="text-center">
+<p class="text-3xl font-black text-gray-900 font-public-sans">300+</p>
+<p class="text-sm text-gray-500 font-medium uppercase tracking-wider">Models</p>
+</div>
+</div>
+</section>
+<!-- Provider Logo Grid -->
+<section class="bg-gray-50 py-24">
+<div class="max-w-7xl mx-auto px-6">
+<div class="text-center mb-16">
+<h2 class="text-sm font-bold text-indigo-600 uppercase tracking-widest mb-4">Supported Providers</h2>
+<p class="text-3xl font-bold text-gray-900 font-public-sans">One integration, endless possibilities</p>
+</div>
+<div class="space-y-8 max-w-5xl mx-auto">
+<!-- Row 1 -->
+<div class="grid grid-cols-2 sm:grid-cols-5 gap-4 md:gap-8 items-center">
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<img alt="OpenAI" class="h-6 opacity-70" data-alt="OpenAI official vector logo in monochrome gray" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1uePSF6EXe0x3YWmAhxqCOw6GIxzZYxMhcoN1eLY5tlC_Fi51eJJJBmiWu9dU8vOpW8viTYCJbGDgSrBXkzd27l5URLBGKKDfjt3-tgd30YniUR-TM-mSs270GS377ZyagcC0rVJ5JmHHA8c54O_8FC4L_Mf1xiyT9RHuyUOH6h_DLvg6RI-wzdoeueCu3P5JNHFim1VZHM9mCjx4nS3zibr_XvwM6HqGvSmYxVKdg17-xED_f7HtAvGZ0wVDfyd6KGU840o3TpU"/>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<img alt="Google" class="h-6 opacity-70" data-alt="Google colorful wordmark logo on white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2rH5pDXp90mo-8Kx-a5_i2jWr5EL2CXNSue4qC1x9_GrStmuMwGOfGP0l27Uh8wHv_CQgSsOk0qY2mhYa_bIL5BlWG9cjPsO6O9OjnDt5Hk2Z-5pRU9HsITqx7SXRucw7rIsHK7qkEM1IilCwn8F9SIRcGUPvTEri_OJdUHssbrrD00c1YkY0cFTmleSJbBX0Q3I1qGfQHIl0KD4e3KlZ1ifwq5l4JwhNssZiQxWGDdEsnA8NrU2Q6p0NZtmyEe-XA3-V2GwXJow"/>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<img alt="Anthropic" class="h-6 opacity-70" data-alt="Anthropic modern logotype with sans-serif typography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCn-Kcs37RbKa5aZWFD2R1CqUxutxH7DXx0E0W7Br13ZaHSckSQEz0JRGQW5nn5HyVc8zosVAV4dAL6d0g8psE7-6_jDJJaNWxQSLlYbBTG-9SJTMQ6c5pRhzd0pSUAgC4YCXSJFQqFz3q5iVw5D6G_PtTAIoRPfSxBEr6KL5r_26kwYiVzJkMhC-d-RHitxuat-YCFfUeBB4ptiygKatRW9O4xPKqB0I0wb75dsX-cdgA6LdtTDODG-I6rOkf5nx8LDBeHqEAWCHQ"/>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<img alt="Meta" class="h-6 opacity-70" data-alt="Meta blue infinity symbol logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiVbPIgafqnLDvZ91oPqLDkiW9igOi1UJpBVIWs30OOb-fvUSYK1oxVgH8EkYXlROq_Hs4_jMFGgz4xgkm5Z8c-3BIDmGVY9W4IQOPrtrEHwiVDbLAu6MXbGYVW09C6GkAMFMZzZjF8UYIrsvWwxHlKCOeKweJKW7QBrya0QGrtwVzShvVeVxyW9K-a8eTXoyaHsU2_WyGUTi92T21TrR9nceNdkW8fhIM5DkcaQbpZuEpGUjAEKbG3VcdwJH9tZLlEKrYwJJqZMU"/>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100 p-4">
+<span class="font-bold text-gray-400">MISTRAL</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-2 sm:grid-cols-6 gap-4 md:gap-8 items-center">
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<span class="font-bold text-gray-400">MiniMax</span>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<span class="font-bold text-gray-400">ByteDance</span>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<span class="font-bold text-gray-400">Kling</span>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<span class="font-bold text-gray-400">Vidu</span>
+</div>
+<div class="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all bg-white rounded-xl border border-gray-100">
+<span class="font-bold text-gray-400">PixVerse</span>
+</div>
+<div class="h-16 flex items-center justify-center bg-indigo-50 rounded-xl border border-indigo-100">
+<span class="font-bold text-indigo-600">30+ MORE</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Featured Section (Bento Style) -->
+<section class="max-w-7xl mx-auto px-6 py-24">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<div class="md:col-span-8 bg-white border border-gray-200 rounded-3xl p-8 overflow-hidden relative group">
+<div class="relative z-10 max-w-md">
+<h3 class="text-2xl font-bold text-gray-900 mb-4 font-public-sans">Advanced Routing Logic</h3>
+<p class="text-gray-600 mb-6">Automatically route requests to the most stable or cheapest provider based on real-time health checks and price indices.</p>
+<ul class="space-y-3">
+<li class="flex items-center gap-2 text-sm text-gray-700">
+<span class="material-symbols-outlined text-green-500 text-lg">check_circle</span>
+                                99.99% Guaranteed Uptime
+                            </li>
+<li class="flex items-center gap-2 text-sm text-gray-700">
+<span class="material-symbols-outlined text-green-500 text-lg">check_circle</span>
+                                Dynamic Latency Optimization
+                            </li>
+</ul>
+</div>
+<div class="absolute top-1/2 right-0 -translate-y-1/2 w-1/2 h-full opacity-10 group-hover:opacity-20 transition-opacity">
+<img alt="Abstract Nodes" class="w-full h-full object-cover" data-alt="abstract digital network connection nodes with flowing light lines representing fast data transfer in deep blue palette" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd-H0H9bZmJ9S-B4tDLSdblNgEps_YK9LuvdGHLrlT7-NHrRNCUD4bA-maOnERglKK1tNIE5f59tUOeCLJD5XtvH0jOF7DkqHmpHSd7UTHm7T9zVyugHArGOb5mJOQ3BSBlgXl8Mx6c-l6qqRQ6cEzXWSOEB0v6fhIWksDWpbq4eWf6zNCqf2vSvytQnLpK01A1yU_4-2Dn0a0DULBaZtc78vM2qK_ZPyxSGQf_h-Wud012ywXthU3T6vi6NqO9_bWAv8hQ0q11UI"/>
+</div>
+</div>
+<div class="md:col-span-4 bg-indigo-600 rounded-3xl p-8 text-white">
+<span class="material-symbols-outlined text-4xl mb-4">bolt</span>
+<h3 class="text-2xl font-bold mb-4 font-public-sans">Instant Setup</h3>
+<p class="text-indigo-100 opacity-90 leading-relaxed">Swap your existing OpenAI base URL for ours and start saving instantly. No code changes required for most SDKs.</p>
+<button class="mt-8 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-colors w-full">View SDK Guide</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-900 w-full py-12">
+<div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="text-center md:text-left">
+<span class="text-lg font-black text-gray-900 dark:text-white font-public-sans">ima-router</span>
+<p class="text-sm font-public-sans text-gray-500 mt-2">AI Gateway Platform</p>
+</div>
+<div class="flex flex-wrap justify-center gap-8">
+<a class="text-sm font-public-sans text-gray-500 hover:text-gray-900 transition-colors" href="#">Privacy Policy</a>
+<a class="text-sm font-public-sans text-gray-500 hover:text-gray-900 transition-colors" href="#">Terms of Service</a>
+<a class="text-sm font-public-sans text-gray-500 hover:text-gray-900 transition-colors" href="#">Status</a>
+<a class="text-sm font-public-sans text-gray-500 hover:text-gray-900 transition-colors" href="#">Twitter</a>
+<a class="text-sm font-public-sans text-gray-500 hover:text-gray-900 transition-colors" href="#">GitHub</a>
+</div>
+<div class="text-center md:text-right">
+<p class="text-sm font-public-sans text-gray-400">© 2026 ima-router. All rights reserved.</p>
+<p class="text-xs font-mono text-indigo-400 mt-1 uppercase">api.imarouter.com</p>
+</div>
+</div>
+</footer>
+</body></html>

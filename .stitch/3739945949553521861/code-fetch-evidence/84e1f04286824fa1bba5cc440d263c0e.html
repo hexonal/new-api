@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Settings - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#4a4bd7",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#53ddfc",
+                        "outline-variant": "#91b4e4",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "secondary-fixed": "#e9ddff",
+                        "on-error-container": "#6e0523",
+                        "tertiary-container": "#53ddfc",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "primary-fixed": "#7073ff",
+                        "surface-container": "#e5eeff",
+                        "primary-container": "#7073ff",
+                        "on-secondary-container": "#6029c9",
+                        "on-primary-fixed-variant": "#010028",
+                        "surface-container-high": "#dce9ff",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "surface-container-low": "#eff4ff",
+                        "tertiary-dim": "#005b6c",
+                        "surface-dim": "#c4dcff",
+                        "error-container": "#f97386",
+                        "inverse-primary": "#8083ff",
+                        "secondary": "#6e3bd8",
+                        "outline": "#5a7da9",
+                        "on-tertiary-fixed": "#003640",
+                        "on-tertiary-container": "#004b58",
+                        "inverse-surface": "#000f21",
+                        "on-error": "#fff7f7",
+                        "primary": "#4a4bd7",
+                        "on-surface": "#05345c",
+                        "on-surface-variant": "#3d618c",
+                        "on-primary": "#fbf7ff",
+                        "surface-container-highest": "#d2e4ff",
+                        "background": "#f8f9ff",
+                        "error-dim": "#6b0221",
+                        "on-tertiary": "#effbff",
+                        "on-secondary": "#fdf7ff",
+                        "on-primary-container": "#000000",
+                        "error": "#a8364b",
+                        "on-primary-fixed": "#000000",
+                        "secondary-dim": "#622bcb",
+                        "inverse-on-surface": "#8e9eb7",
+                        "surface-variant": "#d2e4ff",
+                        "surface": "#f8f9ff",
+                        "primary-dim": "#3d3dcb",
+                        "tertiary": "#00687b",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-background": "#05345c",
+                        "on-secondary-fixed": "#4d00b7",
+                        "secondary-container": "#e9ddff",
+                        "surface-bright": "#f8f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center px-6 py-3 w-full sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white brand-font tracking-tight">ima-router</span>
+<nav class="hidden md:flex items-center gap-6 font-['Public_Sans'] text-sm antialiased">
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer" href="#">Dashboard</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer" href="#">Keys</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer" href="#">Usage</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 pb-1 font-semibold cursor-pointer" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-full cursor-pointer">
+<span class="material-symbols-outlined text-gray-600 dark:text-gray-300" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-full cursor-pointer">
+<span class="material-symbols-outlined text-gray-600 dark:text-gray-300" data-icon="settings">settings</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-gray-200" data-alt="clean professional headshot of a user with a friendly expression on a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaxqZCxYhnyBYcniXtEf19hSHORyN5HKIYanCw_ArBpT9O3dMP1zPXz9bG1bvE1qBHdLPvMdW6fNTOiBhSu8EnSI0t335kFZr_CBNMv6NUVSSnc2IYlwZCxjeQq4I34Cv3RExyN8mRY3GeAcp9E7R-ZrH7FJP7c572El1YdWlrI6DZAbMoiMuTaD4teXISKsG8usHoK4rxMHDRpvVfVbR6vEPzbXC63XaOVadcJ79WEjMTyCbm3iXr3MowlNOG9z5wG9g-lQ9vAm0"/>
+</div>
+</header>
+<div class="flex min-h-screen">
+<!-- SideNavBar Shell -->
+<aside class="flex flex-col gap-1 p-4 w-64 h-full fixed top-[60px] left-0 bg-gray-50 dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 hidden md:flex">
+<div class="mb-6 px-2">
+<p class="text-lg font-semibold text-gray-900 dark:text-white brand-font">System Settings</p>
+<p class="font-['Public_Sans'] uppercase tracking-wider text-[11px] font-bold text-gray-500">Global Configuration</p>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md transition-all duration-200 ease-in-out font-['Public_Sans'] uppercase tracking-wider text-[11px] font-bold" href="#model-settings">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings_input_component">settings_input_component</span>
+                    Model Configuration
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-200 ease-in-out font-['Public_Sans'] uppercase tracking-wider text-[11px] font-bold" href="#pricing-settings">
+<span class="material-symbols-outlined text-[18px]" data-icon="payments">payments</span>
+                    Pricing &amp; Ratios
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-200 ease-in-out font-['Public_Sans'] uppercase tracking-wider text-[11px] font-bold" href="#performance-settings">
+<span class="material-symbols-outlined text-[18px]" data-icon="speed">speed</span>
+                    Performance Tuning
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-200 ease-in-out font-['Public_Sans'] uppercase tracking-wider text-[11px] font-bold" href="#drawing-settings">
+<span class="material-symbols-outlined text-[18px]" data-icon="brush">brush</span>
+                    Chat &amp; Drawing
+                </a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 p-8 lg:p-12 max-w-[1200px]">
+<!-- SECTION 1: Model Settings -->
+<section class="mb-16 scroll-mt-20" id="model-settings">
+<div class="mb-6">
+<h2 class="text-2xl font-bold text-on-surface brand-font">Model Settings</h2>
+<p class="text-on-surface-variant text-sm">Configure global engine behavior and model-specific overrides.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Global Model Config -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:border-indigo-200">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="public">public</span>
+<h3 class="font-bold text-on-surface">Global Model Config</h3>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Max Context</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="128000"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Default Temp</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="text" value="0.7"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Stream Timeout (ms)</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="30000"/>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save Configuration</button>
+</div>
+</div>
+<!-- Claude Settings -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:border-indigo-200">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="auto_awesome">auto_awesome</span>
+<h3 class="font-bold text-on-surface">Claude Settings</h3>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Custom Headers</label>
+<textarea class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-mono" placeholder="anthropic-version: 2023-06-01" rows="2"></textarea>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Model Headers (JSON)</label>
+<textarea class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-mono" rows="2">{ "x-api-key": "sk-ant-..." }</textarea>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save Claude Config</button>
+</div>
+</div>
+<!-- Gemini Settings -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:border-indigo-200">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="visibility">visibility</span>
+<h3 class="font-bold text-on-surface">Gemini Settings</h3>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Safety Settings</label>
+<select class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm">
+<option>BLOCK_NONE</option>
+<option>BLOCK_LOW_AND_ABOVE</option>
+<option>BLOCK_MEDIUM_AND_ABOVE</option>
+<option>BLOCK_ONLY_HIGH</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Version Override</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" placeholder="v1beta" type="text"/>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save Gemini Config</button>
+</div>
+</div>
+<!-- Grok Settings -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:border-indigo-200">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="bolt">bolt</span>
+<h3 class="font-bold text-on-surface">Grok Settings</h3>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Base URL Override</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="text" value="https://api.x.ai/v1"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Stream Response Buffer</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="1024"/>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save Grok Config</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Ratio & Pricing -->
+<section class="mb-16 scroll-mt-20" id="pricing-settings">
+<div class="mb-6">
+<h2 class="text-2xl font-bold text-on-surface brand-font">Ratio &amp; Pricing</h2>
+<p class="text-on-surface-variant text-sm">Control how tokens are billed and calculated across different user groups.</p>
+</div>
+<div class="space-y-6">
+<!-- Model Ratio Table -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+<div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="calculate">calculate</span>
+<h3 class="font-bold text-on-surface">Model Ratio</h3>
+</div>
+<div class="flex gap-3">
+<div class="flex flex-col items-end gap-1">
+<button class="px-4 py-2 border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-indigo-50 transition-all">Sync from Upstream</button>
+<span class="text-[10px] text-gray-500 font-medium whitespace-nowrap">Select channels → Fetch latest ratios → Preview diff → Apply</span>
+</div><button class="px-4 py-2 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-all">Reset to Default</button>
+<button class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-all">Save All</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-50">
+<tr>
+<th class="px-6 py-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Model Name</th>
+<th class="px-6 py-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Input Ratio</th>
+<th class="px-6 py-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Output Ratio</th>
+<th class="px-6 py-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Completion Ratio</th>
+<th class="px-6 py-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100">
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm font-medium">gpt-4o</td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="3.0"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-error" data-icon="delete">delete</span></td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm font-medium">claude-3-5-sonnet</td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="5.0"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-error" data-icon="delete">delete</span></td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm font-medium">gemini-1.5-pro</td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="0.5"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.5"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-error" data-icon="delete">delete</span></td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm font-medium">deepseek-coder</td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="0.1"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="0.1"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-error" data-icon="delete">delete</span></td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm font-medium">llama-3-70b</td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="0.2"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="0.6"/></td>
+<td class="px-6 py-4"><input class="w-20 px-2 py-1 text-sm border border-gray-200 rounded" type="number" value="1.0"/></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-error" data-icon="delete">delete</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Group Ratio -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-gray-100 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="group">group</span>
+<h3 class="font-bold text-on-surface">Group Ratio</h3>
+</div>
+<button class="text-primary text-sm font-semibold">Save</button>
+</div>
+<div class="p-0 flex-1">
+<table class="w-full text-left">
+<thead class="bg-gray-50">
+<tr>
+<th class="px-6 py-2 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Group Name</th>
+<th class="px-6 py-2 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider text-right">Multiplier</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100">
+<tr>
+<td class="px-6 py-3 text-sm">Default</td>
+<td class="px-6 py-3 text-right"><input class="w-16 px-2 py-1 text-sm border border-gray-200 rounded text-right" type="number" value="1.0"/></td>
+</tr>
+<tr>
+<td class="px-6 py-3 text-sm">Premium</td>
+<td class="px-6 py-3 text-right"><input class="w-16 px-2 py-1 text-sm border border-gray-200 rounded text-right" type="number" value="0.8"/></td>
+</tr>
+<tr>
+<td class="px-6 py-3 text-sm">Enterprise</td>
+<td class="px-6 py-3 text-right"><input class="w-16 px-2 py-1 text-sm border border-gray-200 rounded text-right" type="number" value="0.5"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Unset Models -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-warning" data-icon="warning">warning</span>
+<h3 class="font-bold text-on-surface">Unset Models</h3>
+</div>
+<button class="px-3 py-1.5 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full hover:bg-secondary-fixed transition-all">Set Default</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded border border-gray-200">o1-mini-preview</span>
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded border border-gray-200">mistral-large-latest</span>
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded border border-gray-200">command-r-plus</span>
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded border border-gray-200">stable-diffusion-3</span>
+<span class="px-2 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded border border-gray-200">flux-schnell</span>
+</div>
+<p class="mt-4 text-xs text-on-surface-variant italic">These models are currently using fallback pricing. It is recommended to set explicit ratios.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 3: Performance -->
+<section class="mb-16 scroll-mt-20" id="performance-settings">
+<div class="mb-6">
+<h2 class="text-2xl font-bold text-on-surface brand-font">Performance</h2>
+<p class="text-on-surface-variant text-sm">Optimize gateway throughput and resource utilization.</p>
+</div>
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+<div class="flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-primary" data-icon="speed">speed</span>
+<h3 class="font-bold text-on-surface">Performance &amp; Caching</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-semibold text-sm">Disk Cache</p>
+<p class="text-xs text-on-surface-variant">Enable persistent storage for repetitive requests.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Cache Threshold (MB)</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="256"/>
+</div>
+</div>
+<div class="space-y-6">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Max Cache Size (MB)</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="2048"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Streaming Timeout</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="number" value="45000"/>
+</div>
+</div>
+</div>
+<div class="mt-10 pt-6 border-t border-gray-100 flex justify-end">
+<button class="mr-3 px-4 py-2.5 border border-amber-600 text-amber-600 hover:bg-amber-50 font-semibold rounded-lg transition-all text-sm">Force GC</button><button class="mr-3 px-4 py-2.5 border border-gray-300 text-gray-600 hover:bg-gray-50 font-semibold rounded-lg transition-all text-sm">Reset Stats</button><button class="px-6 py-2.5 bg-primary hover:bg-primary-dim text-white font-semibold rounded-lg transition-all active:opacity-80">Save Performance Settings</button>
+</div>
+</div>
+</section>
+<!-- SECTION 4: Drawing & Chat -->
+<section class="mb-24 scroll-mt-20" id="drawing-settings">
+<div class="mb-6">
+<h2 class="text-2xl font-bold text-on-surface brand-font">Drawing &amp; Chat</h2>
+<p class="text-on-surface-variant text-sm">Manage image generation proxies and native user interface features.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- MJ/Drawing Settings -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="brush">brush</span>
+<h3 class="font-bold text-on-surface">MJ/Drawing Settings</h3>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">MJ Proxy URL</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" placeholder="https://mj-proxy.yourdomain.com" type="url"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Callback URL</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="url" value="https://api.ima-router.io/v1/callback/mj"/>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Account Settings (JSON)</label>
+<textarea class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-mono" placeholder='{ "session_id": "...", "guild_id": "..." }' rows="3"></textarea>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save MJ Config</button>
+</div>
+</div>
+<!-- Chat Settings -->
+<div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="chat_bubble">chat_bubble</span>
+<h3 class="font-bold text-on-surface">Chat Settings</h3>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+<div>
+<p class="font-semibold text-sm">Enable Built-in Chat</p>
+<p class="text-xs text-on-surface-variant">Provide a native UI for testing models.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Chat Link</label>
+<div class="relative">
+<input class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" type="text" value="/chat/shared"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-gray-400 text-sm" data-icon="link">link</span>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="text-[12px] font-semibold text-on-surface-variant uppercase tracking-wider">Default Model</label>
+<select class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm">
+<option>gpt-4o-mini (Auto)</option>
+<option>claude-3-haiku</option>
+<option>gemini-1.5-flash</option>
+</select>
+</div>
+<button class="w-full bg-primary hover:bg-primary-dim text-white font-semibold py-2.5 rounded-lg transition-all active:opacity-80">Save Chat Settings</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Mobile Nav Anchor -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-3 px-2 z-50">
+<button class="flex flex-col items-center gap-1 text-gray-500">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-bold">DASHBOARD</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-indigo-600">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px] font-bold">SETTINGS</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-500">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="text-[10px] font-bold">BILLING</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-500">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px] font-bold">PROFILE</span>
+</button>
+</div>
+</body></html>

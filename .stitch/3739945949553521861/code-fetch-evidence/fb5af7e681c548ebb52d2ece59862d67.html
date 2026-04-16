@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Redemption Code Management - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#4a4bd7",
+                    "surface-tint": "#4a4bd7",
+                    "surface-container-low": "#eff4ff",
+                    "surface-container": "#e5eeff",
+                    "on-primary-container": "#000000",
+                    "inverse-primary": "#8083ff",
+                    "background": "#f8f9ff",
+                    "primary-dim": "#3d3dcb",
+                    "on-primary-fixed-variant": "#010028",
+                    "on-tertiary-fixed-variant": "#005564",
+                    "outline": "#5a7da9",
+                    "on-surface-variant": "#3d618c",
+                    "tertiary-fixed": "#53ddfc",
+                    "surface-dim": "#c4dcff",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-container": "#e9ddff",
+                    "on-primary-fixed": "#000000",
+                    "on-secondary-fixed": "#4d00b7",
+                    "primary-container": "#7073ff",
+                    "on-secondary-fixed-variant": "#6a37d4",
+                    "on-error-container": "#6e0523",
+                    "surface-bright": "#f8f9ff",
+                    "surface": "#f8f9ff",
+                    "error-dim": "#6b0221",
+                    "inverse-surface": "#000f21",
+                    "on-surface": "#05345c",
+                    "on-error": "#fff7f7",
+                    "secondary-dim": "#622bcb",
+                    "secondary-fixed-dim": "#ddcdff",
+                    "secondary-fixed": "#e9ddff",
+                    "on-background": "#05345c",
+                    "on-secondary": "#fdf7ff",
+                    "surface-container-high": "#dce9ff",
+                    "primary-fixed": "#7073ff",
+                    "error": "#a8364b",
+                    "on-tertiary-container": "#004b58",
+                    "on-secondary-container": "#6029c9",
+                    "tertiary": "#00687b",
+                    "on-primary": "#fbf7ff",
+                    "surface-variant": "#d2e4ff",
+                    "inverse-on-surface": "#8e9eb7",
+                    "surface-container-highest": "#d2e4ff",
+                    "primary-fixed-dim": "#6366f1",
+                    "tertiary-container": "#53ddfc",
+                    "error-container": "#f97386",
+                    "on-tertiary-fixed": "#003640",
+                    "tertiary-fixed-dim": "#40ceed",
+                    "tertiary-dim": "#005b6c",
+                    "outline-variant": "#91b4e4",
+                    "secondary": "#6e3bd8",
+                    "on-tertiary": "#effbff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Public Sans', sans-serif; }
+        .sidebar-item-active { background-color: #eff4ff; color: #4a4bd7; font-weight: 500; border-radius: 0.375rem; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden md:flex flex-col h-full py-4 px-3 space-y-1 w-64 border-r border-gray-200 bg-gray-50 dark:bg-gray-950 font-['Public_Sans'] text-sm tracking-tight shrink-0">
+<div class="px-3 py-4 mb-6">
+<h2 class="text-lg font-black text-indigo-600 dark:text-indigo-400">ima-router</h2>
+<p class="text-xs text-gray-500 uppercase tracking-widest mt-1">AI API Gateway</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all active:scale-95 duration-150 rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all active:scale-95 duration-150 rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="extension">extension</span>
+                Models
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium rounded-md active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+                Redemptions
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all active:scale-95 duration-150 rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+                Keys
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all active:scale-95 duration-150 rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+                Analytics
+            </a>
+</nav>
+<div class="pt-4 border-t border-gray-200 mt-auto space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+                Help
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-md" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<!-- Main Viewport -->
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-white dark:bg-gray-900 flex justify-between items-center px-6 h-16 w-full border-b border-gray-200 dark:border-gray-800 font-['Public_Sans'] text-sm antialiased z-10">
+<div class="flex items-center gap-4">
+<button class="md:hidden text-gray-600">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Docs</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">API</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Status</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="search">search</span>
+</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-100 border-none rounded-md text-xs w-64 focus:ring-2 focus:ring-indigo-500" placeholder="Search commands..." type="text"/>
+</div>
+<div class="flex items-center gap-3 border-l pl-4 border-gray-200">
+<button class="text-gray-500 hover:text-indigo-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-gray-500 hover:text-indigo-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="Close-up headshot of a smiling professional man with short dark hair in a well-lit office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAG4gqhKTfmbacLNOltxV1Euz-nLf1b0P4sOo2TyYK-TfoT3lsDB3IotVV7wg7OKIN5SgxFO9dXEbpVLhmkScrjDBoVg7uqafWS7uU-xdBMd3G3bJLkL8jhKed7RazERWtxcUXtSsrdT-BbjZCdcmLkgfycuo-LI79TXrvWLNjTuF1pI0mTXm14X9NVeqaoeh3TlxnzsQQlhlHC3kzTBCQdH9E4lHKbxklnKpM4DEWj1v153GNQxuScHmx_tOBMBvWA-qmttiP1q7Q"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto p-8">
+<div class="max-w-7xl mx-auto space-y-6">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-3xl font-extrabold text-on-surface tracking-tight">Redemption Codes</h1>
+<p class="text-text-secondary mt-1">Manage prepaid quota codes and track their activation status across your workspace.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="download">download</span>
+                            Export
+                        </button>
+<button class="px-4 py-2 bg-primary hover:bg-primary-dim text-white rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                            Generate Codes
+                        </button>
+</div>
+</div>
+<!-- Filters & Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+<div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+<div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600">
+<span class="material-symbols-outlined" data-icon="token">token</span>
+</div>
+<div>
+<p class="text-xs text-gray-500 font-medium">Total Active Codes</p>
+<p class="text-xl font-bold text-gray-900">1,204</p>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+<div class="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="text-xs text-gray-500 font-medium">Redeemed Today</p>
+<p class="text-xl font-bold text-gray-900">42</p>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+<div class="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-600">
+<span class="material-symbols-outlined" data-icon="pending">pending</span>
+</div>
+<div>
+<p class="text-xs text-gray-500 font-medium">Pending Claim</p>
+<p class="text-xl font-bold text-gray-900">158</p>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+<div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</div>
+<div>
+<p class="text-xs text-gray-500 font-medium">Total Value</p>
+<p class="text-xl font-bold text-gray-900">$24.5k</p>
+</div>
+</div>
+</div>
+<!-- Control Bar -->
+<div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-t-xl border-x border-t border-gray-200">
+<div class="relative flex-1">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+<span class="material-symbols-outlined text-lg" data-icon="search">search</span>
+</span>
+<input class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Search by code or name..." type="text"/>
+</div>
+<div class="flex gap-3">
+<select class="block w-40 pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+<option>All Statuses</option>
+<option>Active</option>
+<option>Used</option>
+<option>Expired</option>
+</select>
+<select class="block w-40 pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+<option>Sort by Date</option>
+<option>Newest first</option>
+<option>Oldest first</option>
+<option>Highest value</option>
+</select>
+</div>
+</div>
+<!-- Main Table Card -->
+<div class="bg-white border-x border-b border-gray-200 rounded-b-xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+<th class="px-6 py-3 border-b border-gray-200">ID</th>
+<th class="px-6 py-3 border-b border-gray-200">Code</th>
+<th class="px-6 py-3 border-b border-gray-200">Name / Label</th>
+<th class="px-6 py-3 border-b border-gray-200">Quota Amount</th>
+<th class="px-6 py-3 border-b border-gray-200">Status</th>
+<th class="px-6 py-3 border-b border-gray-200">Used By</th>
+<th class="px-6 py-3 border-b border-gray-200">Created At</th>
+<th class="px-6 py-3 border-b border-gray-200 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-200">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10294</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-7X2P</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Developer Starter</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$50.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">-</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 24, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10293</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-B9L1</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Enterprise Pilot</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$500.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            Used
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-700">alex.rivers</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 23, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10292</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-K3M8</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Campaign Promo</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$25.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            Expired
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">-</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 22, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10291</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-Y5R9</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Support Reimbursement</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$100.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">-</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 21, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10290</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-A1W2</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Internal Test</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$10.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            Used
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-700">admin_jeff</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 20, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10289</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-Q9N4</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Partner Perk</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$1,000.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">-</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 19, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10288</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-C4D5</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Alpha Tester Reward</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$150.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            Used
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-700">sarah_dev</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 18, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-gray-50 transition-colors border-b-0">
+<td class="px-6 py-4 text-xs text-gray-500 font-medium">#10287</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 group">
+<code class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono text-sm tracking-tighter">RDEM-****-Z0X1</code>
+<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-gray-900">Hackathon Prize</td>
+<td class="px-6 py-4 text-sm font-bold text-emerald-600">$250.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            Expired
+                                        </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500">-</td>
+<td class="px-6 py-4 text-sm text-gray-500">Oct 17, 2023</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-sm">
+<div class="text-gray-500">
+                            Showing <span class="font-medium text-gray-900">1</span> to <span class="font-medium text-gray-900">8</span> of <span class="font-medium text-gray-900">124</span> results
+                        </div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-400 cursor-not-allowed">
+<span class="material-symbols-outlined text-base align-middle" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="px-3 py-1 border border-indigo-600 rounded-md bg-indigo-50 text-indigo-600 font-medium">1</button>
+<button class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-600 hover:bg-gray-50">2</button>
+<button class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-600 hover:bg-gray-50">3</button>
+<span class="px-2 text-gray-400">...</span>
+<button class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-600 hover:bg-gray-50">16</button>
+<button class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-600 hover:bg-gray-50">
+<span class="material-symbols-outlined text-base align-middle" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Action FAB (Suppressed on Admin Pages as per rules, but shown for context if required by task - Suppressed) -->
+</div>
+</main>
+</div>
+</body></html>

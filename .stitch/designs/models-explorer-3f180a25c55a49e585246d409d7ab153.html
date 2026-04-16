@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Models Explorer - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-primary-fixed-variant": "#010028",
+                        "tertiary": "#00687b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-tertiary-container": "#004b58",
+                        "error-dim": "#6b0221",
+                        "surface-container-high": "#dce9ff",
+                        "surface-container": "#e5eeff",
+                        "on-secondary": "#fdf7ff",
+                        "on-tertiary": "#effbff",
+                        "on-background": "#05345c",
+                        "tertiary-dim": "#005b6c",
+                        "secondary": "#6e3bd8",
+                        "error-container": "#f97386",
+                        "on-primary-fixed": "#000000",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-surface": "#05345c",
+                        "surface-dim": "#c4dcff",
+                        "surface-bright": "#f8f9ff",
+                        "on-secondary-container": "#6029c9",
+                        "outline": "#5a7da9",
+                        "inverse-primary": "#8083ff",
+                        "on-surface-variant": "#3d618c",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "secondary-dim": "#622bcb",
+                        "secondary-container": "#e9ddff",
+                        "error": "#a8364b",
+                        "inverse-surface": "#000f21",
+                        "surface-container-low": "#eff4ff",
+                        "outline-variant": "#91b4e4",
+                        "primary": "#4a4bd7",
+                        "on-primary": "#fbf7ff",
+                        "tertiary-container": "#53ddfc",
+                        "primary-container": "#7073ff",
+                        "secondary-fixed": "#e9ddff",
+                        "primary-fixed-dim": "#6366f1",
+                        "primary-dim": "#3d3dcb",
+                        "tertiary-fixed": "#53ddfc",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-error": "#fff7f7",
+                        "surface-tint": "#4a4bd7",
+                        "on-error-container": "#6e0523",
+                        "background": "#f8f9ff",
+                        "surface-variant": "#d2e4ff",
+                        "on-primary-container": "#000000",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "primary-fixed": "#7073ff",
+                        "surface": "#f8f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-white text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+<div class="flex justify-between items-center px-6 py-3 w-full max-w-[1400px] mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">ima-router</span>
+<!-- Search Bar -->
+<div class="hidden md:flex items-center bg-surface-container-low rounded-lg px-3 py-1.5 w-64 border border-outline-variant">
+<span class="material-symbols-outlined text-outline text-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full font-label placeholder:text-outline ml-2" placeholder="Search..." type="text"/>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex items-center gap-6 font-['Public_Sans'] text-sm font-medium">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-80" href="#">Models</a>
+<a class="text-indigo-600 dark:text-indigo-400 font-semibold border-b-2 border-indigo-600 transition-colors cursor-pointer active:opacity-80" href="#">Activity</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-80" href="#">Keys</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-80" href="#">Docs</a>
+</nav>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-gray-500 hover:text-indigo-600 transition-colors" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-gray-500 hover:text-indigo-600 transition-colors" data-icon="settings">settings</button>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border border-outline-variant">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="Stylized modern 3D avatar of a professional user with clean geometric lines and soft purple lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAay4zYX059MH-2pbIZ8jFBFIncQKBDFYH9lQ6pJgjL-pHyKUh6eWmKwtj_ajaocHDb9eD_KatPkSpewSTUXMghHSyHZ2l6EL0vlgExD3HY516WH7hK2Dz4fqcKTopMOML73PnS7IDfF9z_VDtIeu2h-pH7cmz9ublDcdxuJmmZK1VeHdeRYkYE7U5RKgUbvnIAx9kUKHldV6xSEICZH0my965-Q5ZRq9YqjGhM9XjCjElkWVqonf8JhuxP_fEQ4k0yCGx0xcVhGsw"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-[1400px] mx-auto flex min-h-[calc(100vh-64px)]">
+<!-- Left Filter Panel -->
+<aside class="w-[240px] border-r border-gray-100 p-6 flex flex-col gap-8 flex-shrink-0 bg-gray-50/50">
+<div>
+<h3 class="text-xs font-bold text-gray-400 tracking-widest uppercase mb-4 font-headline">Input Modalities</h3>
+<div class="space-y-3">
+<label class="flex items-center gap-3 cursor-pointer group">
+<input checked="" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" type="checkbox"/>
+<span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600">Text</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" type="checkbox"/>
+<span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600">Image</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" type="checkbox"/>
+<span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600">Audio</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" type="checkbox"/>
+<span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600">Video</span>
+</label>
+</div>
+</div>
+<!-- Collapsible Sections -->
+<div class="space-y-6">
+<div class="border-t border-gray-200 pt-4">
+<div class="flex items-center justify-between cursor-pointer group">
+<h3 class="text-xs font-bold text-gray-900 tracking-widest uppercase font-headline">Context Length</h3>
+<span class="material-symbols-outlined text-sm text-gray-400 group-hover:text-indigo-600" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="border-t border-gray-200 pt-4">
+<div class="flex items-center justify-between cursor-pointer group">
+<h3 class="text-xs font-bold text-gray-900 tracking-widest uppercase font-headline">Prompt Pricing</h3>
+<span class="material-symbols-outlined text-sm text-gray-400 group-hover:text-indigo-600" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="border-t border-gray-200 pt-4">
+<div class="flex items-center justify-between cursor-pointer mb-4 group">
+<h3 class="text-xs font-bold text-gray-900 tracking-widest uppercase font-headline">Series</h3>
+<span class="material-symbols-outlined text-sm text-gray-400 group-hover:text-indigo-600" data-icon="expand_more">expand_more</span>
+</div>
+<div class="space-y-2">
+<span class="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600 inline-block hover:border-indigo-300 cursor-pointer">GPT</span>
+<span class="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600 inline-block hover:border-indigo-300 cursor-pointer">Claude</span>
+<span class="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600 inline-block hover:border-indigo-300 cursor-pointer">Gemini</span>
+</div>
+</div>
+<div class="border-t border-gray-200 pt-4">
+<div class="flex items-center justify-between cursor-pointer group">
+<h3 class="text-xs font-bold text-gray-900 tracking-widest uppercase font-headline">Providers</h3>
+<span class="material-symbols-outlined text-sm text-gray-400 group-hover:text-indigo-600" data-icon="expand_more">expand_more</span>
+</div>
+<div class="mt-4 space-y-2">
+<div class="text-sm text-gray-600 hover:text-indigo-600 cursor-pointer">OpenAI</div>
+<div class="text-sm text-gray-600 hover:text-indigo-600 cursor-pointer">Anthropic</div>
+<div class="text-sm text-gray-600 hover:text-indigo-600 cursor-pointer">Google</div>
+<div class="text-sm text-gray-500 italic">+ 5 more</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 p-8">
+<div class="max-w-[1000px]">
+<h1 class="text-4xl font-extrabold text-gray-900 mb-8 tracking-tight">Models</h1>
+<!-- Horizontal Tabs/Pills -->
+<div class="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-semibold whitespace-nowrap">Text 635</button>
+<button class="px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 rounded-full text-sm font-medium whitespace-nowrap transition-colors">Image 17</button>
+<button class="px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 rounded-full text-sm font-medium whitespace-nowrap transition-colors">Video 22</button>
+<button class="px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 rounded-full text-sm font-medium whitespace-nowrap transition-colors">Audio 5</button>
+<button class="px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 rounded-full text-sm font-medium whitespace-nowrap transition-colors">Embeddings 8</button>
+<button class="px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 rounded-full text-sm font-medium whitespace-nowrap transition-colors">Rerank 3</button>
+</div>
+<!-- Controls Row -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+<div class="flex items-center bg-white border border-gray-200 rounded-lg px-4 py-2 w-full md:w-[400px] shadow-sm focus-within:border-indigo-400 transition-all">
+<span class="material-symbols-outlined text-gray-400 text-lg mr-2" data-icon="search">search</span>
+<input class="w-full border-none focus:ring-0 text-sm font-label" placeholder="Search models..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative">
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+<span>Newest</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+<div class="flex bg-gray-100 rounded-lg p-1">
+<button class="p-1.5 bg-white shadow-sm rounded-md text-indigo-600">
+<span class="material-symbols-outlined text-[20px]" data-icon="list">list</span>
+</button>
+<button class="p-1.5 text-gray-500 hover:text-gray-700">
+<span class="material-symbols-outlined text-[20px]" data-icon="grid_view">grid_view</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Model List Container -->
+<div class="space-y-1">
+<!-- Model Row 1 -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white mb-4">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">claude-opus-4.6</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">1M context</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    The next generation of Claude Opus, featuring unprecedented reasoning capabilities and ultra-low latency for complex enterprise workflows and scientific simulation.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by anthropic</span>
+<span>|</span>
+<span>Apr 8, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$30/M input</span>
+<span>|</span>
+<span class="text-gray-700">$150/M output</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+<!-- Model Row 2 -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white mb-4">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">gpt-5.2</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">512K context</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    A breakthrough in large-scale language modeling with enhanced logical deduction and integrated tool-calling proficiency for autonomous agent deployment.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by openai</span>
+<span>|</span>
+<span>May 12, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$15/M input</span>
+<span>|</span>
+<span class="text-gray-700">$45/M output</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+<!-- Model Row 3 -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white mb-4">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">gemini-3-pro-preview</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">2M context</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    Google's ultra-long context model, optimized for multi-hour video analysis and extensive document retrieval with near-perfect needle-in-a-haystack accuracy.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by google</span>
+<span>|</span>
+<span>Jun 1, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$7/M input</span>
+<span>|</span>
+<span class="text-gray-700">$21/M output</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+<!-- Model Row 4 (Video) -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white mb-4">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">kling-v2-master</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">Video gen</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    The gold standard for cinematic video generation. Supporting up to 2-minute consistent sequences with physics-aware rendering and fluid human motion.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by kwai</span>
+<span>|</span>
+<span>Jul 14, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$1.20/sec gen</span>
+<span>|</span>
+<span class="text-gray-700">$0.50/edit</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+<!-- Model Row 5 -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white mb-4">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">pixverse-v5.6</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-orange-50 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">Real-time video</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    Optimized for real-time interactive video synthesis and stylized motion graphics. Industry leader in temporal consistency and texture preservation.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by pixverse</span>
+<span>|</span>
+<span>Aug 3, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$0.85/sec gen</span>
+<span>|</span>
+<span class="text-gray-700">Free preview</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+<!-- Model Row 6 -->
+<div class="group border border-gray-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all bg-white">
+<div class="flex items-start justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h3 class="text-lg font-bold text-gray-900 font-headline group-hover:text-indigo-600 transition-colors">MiniMax-M2.5</h3>
+<button class="material-symbols-outlined text-gray-400 text-sm hover:text-indigo-600" data-icon="content_copy">content_copy</button>
+<span class="bg-pink-50 text-pink-700 text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">MoE Architecture</span>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed max-w-3xl mb-3">
+                                    Dynamic Mixture-of-Experts model providing efficient high-quality text generation for multilingual conversational agents and support platforms.
+                                </p>
+<div class="flex items-center gap-4 text-xs font-medium text-gray-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> by minimax</span>
+<span>|</span>
+<span>Sep 19, 2026</span>
+<span>|</span>
+<span class="text-gray-700">$4/M input</span>
+<span>|</span>
+<span class="text-gray-700">$12/M output</span>
+</div>
+</div>
+<button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">Select</button>
+</div>
+</div>
+</div>
+<!-- Pagination Placeholder -->
+<div class="mt-12 flex items-center justify-center gap-2">
+<button class="p-2 text-gray-400 hover:text-indigo-600 disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-md bg-indigo-600 text-white text-sm font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 text-sm font-medium">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 text-sm font-medium">3</button>
+<span class="text-gray-400">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 text-sm font-medium">54</button>
+<button class="p-2 text-gray-400 hover:text-indigo-600">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Meta -->
+<footer class="max-w-[1400px] mx-auto px-6 py-8 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
+<div>© 2026 ima-router AI. All models governed by provider TOS.</div>
+<div class="flex gap-6">
+<a class="hover:text-indigo-600" href="#">Status</a>
+<a class="hover:text-indigo-600" href="#">API Docs</a>
+<a class="hover:text-indigo-600" href="#">Pricing</a>
+<a class="hover:text-indigo-600" href="#">Support</a>
+</div>
+</footer>
+</body></html>

@@ -22,10 +22,13 @@ import {
   BarChart3,
   Boxes,
   CreditCard,
+  HelpCircle,
   KeyRound,
   LayoutDashboard,
   ListTodo,
+  LogOut,
   Paintbrush,
+  Plus,
   Settings,
   ShieldCheck,
   Users,
@@ -114,6 +117,7 @@ const Sidebar = ({ onNavigate = () => {} }) => {
   const { t } = useTranslation();
   const sectionLabels = useMemo(() => getConsoleSectionLabels(t), [t]);
   const sidebarGroups = useMemo(() => getConsoleSidebarGroups(t), [t]);
+  const isPricingRoute = location.pathname === '/pricing';
 
   useEffect(() => {
     if (isSectionPath(sidebarGroups.workspace, location.pathname)) {
@@ -175,6 +179,102 @@ const Sidebar = ({ onNavigate = () => {} }) => {
       )),
     [collapsed, onNavigate, sidebarGroups],
   );
+
+  if (isPricingRoute) {
+    const pricingNavItems = [
+      {
+        key: 'dashboard',
+        label: 'Dashboard',
+        icon: <LayoutDashboard size={16} strokeWidth={2} />,
+        active: false,
+      },
+      {
+        key: 'models',
+        label: 'Models',
+        icon: <Boxes size={16} strokeWidth={2} />,
+        active: true,
+      },
+      {
+        key: 'keys',
+        label: 'Keys',
+        icon: <KeyRound size={16} strokeWidth={2} />,
+        active: false,
+      },
+      {
+        key: 'usage',
+        label: 'Usage',
+        icon: <BarChart3 size={16} strokeWidth={2} />,
+        active: false,
+      },
+      {
+        key: 'settings',
+        label: 'Settings',
+        icon: <Settings size={16} strokeWidth={2} />,
+        active: false,
+      },
+    ];
+
+    return (
+      <div className='flex h-full flex-col bg-gray-50 px-3 py-4'>
+        <div className='mb-4 px-2'>
+          <div className='flex items-center gap-2'>
+            <div className='flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white'>
+              <Boxes size={15} />
+            </div>
+            <div>
+              <h2 className="text-[11px] font-black uppercase tracking-wider text-indigo-600 font-['Public_Sans']">
+                Admin Console
+              </h2>
+              <p className='text-[10px] text-gray-500'>Gateway Management</p>
+            </div>
+          </div>
+        </div>
+
+        <nav className='space-y-1' aria-label='Pricing Sidebar'>
+          {pricingNavItems.map((item) => (
+            <button
+              key={item.key}
+              type='button'
+              className={[
+                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium font-['Public_Sans'] transition-colors",
+                item.active
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'text-gray-600 hover:bg-gray-100',
+              ].join(' ')}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <button
+          type='button'
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white font-['Public_Sans'] hover:bg-indigo-700"
+        >
+          <Plus size={14} />
+          <span>New Deployment</span>
+        </button>
+
+        <div className='mt-auto space-y-1 border-t border-gray-200 pt-3'>
+          <button
+            type='button'
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-gray-600 transition-colors hover:bg-gray-100 font-['Public_Sans']"
+          >
+            <HelpCircle size={15} />
+            <span>Help</span>
+          </button>
+          <button
+            type='button'
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-gray-600 transition-colors hover:bg-gray-100 font-['Public_Sans']"
+          >
+            <LogOut size={15} />
+            <span>Logout</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <nav className='aurora-sidebar' aria-label={t('控制台导航')}>

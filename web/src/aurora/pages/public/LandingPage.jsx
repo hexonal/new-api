@@ -46,6 +46,35 @@ const LandingPage = () => {
     }
   };
 
+  const resolveLink = (target) => {
+    try {
+      return new URL(target, window.location.origin);
+    } catch {
+      return null;
+    }
+  };
+
+  const isExternalLink = (target) => {
+    const resolved = resolveLink(target);
+    if (!resolved) {
+      return false;
+    }
+    return resolved.origin !== window.location.origin;
+  };
+
+  const handleDocsNavigate = () => {
+    const target = docsLink || endpoint;
+    const resolved = resolveLink(target);
+    if (!resolved) {
+      return;
+    }
+    if (isExternalLink(target)) {
+      window.open(resolved.toString(), '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.assign(resolved.toString());
+  };
+
   return (
     <div className='aurora-landing-page'>
       <section className='aurora-landing-hero'>
@@ -79,7 +108,7 @@ const LandingPage = () => {
           <button
             type='button'
             className='aurora-btn aurora-btn-outline'
-            onClick={() => window.open(docsLink || endpoint, '_blank')}
+            onClick={handleDocsNavigate}
           >
             {t('文档')}
           </button>

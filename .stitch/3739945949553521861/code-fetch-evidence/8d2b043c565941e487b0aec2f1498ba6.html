@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MJ Logs - ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#f8f9ff",
+                    "error-container": "#f97386",
+                    "on-secondary": "#fdf7ff",
+                    "on-tertiary-container": "#004b58",
+                    "surface-variant": "#d2e4ff",
+                    "on-primary-fixed": "#000000",
+                    "surface-tint": "#4a4bd7",
+                    "on-secondary-fixed-variant": "#6a37d4",
+                    "on-tertiary-fixed-variant": "#005564",
+                    "on-primary-fixed-variant": "#010028",
+                    "on-surface-variant": "#3d618c",
+                    "primary-dim": "#3d3dcb",
+                    "error": "#a8364b",
+                    "tertiary-container": "#53ddfc",
+                    "on-tertiary-fixed": "#003640",
+                    "on-error": "#fff7f7",
+                    "on-secondary-container": "#6029c9",
+                    "on-tertiary": "#effbff",
+                    "secondary-fixed-dim": "#ddcdff",
+                    "surface-container-high": "#dce9ff",
+                    "secondary": "#6e3bd8",
+                    "primary": "#4a4bd7",
+                    "tertiary-fixed": "#53ddfc",
+                    "surface-bright": "#f8f9ff",
+                    "on-primary": "#fbf7ff",
+                    "primary-fixed-dim": "#6366f1",
+                    "tertiary-fixed-dim": "#40ceed",
+                    "inverse-primary": "#8083ff",
+                    "on-primary-container": "#000000",
+                    "outline": "#5a7da9",
+                    "surface-container-highest": "#d2e4ff",
+                    "primary-container": "#7073ff",
+                    "surface-dim": "#c4dcff",
+                    "tertiary": "#00687b",
+                    "outline-variant": "#91b4e4",
+                    "secondary-container": "#e9ddff",
+                    "primary-fixed": "#7073ff",
+                    "on-secondary-fixed": "#4d00b7",
+                    "on-background": "#05345c",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-dim": "#005b6c",
+                    "inverse-surface": "#000f21",
+                    "secondary-dim": "#622bcb",
+                    "on-error-container": "#6e0523",
+                    "inverse-on-surface": "#8e9eb7",
+                    "secondary-fixed": "#e9ddff",
+                    "error-dim": "#6b0221",
+                    "surface-container-low": "#eff4ff",
+                    "on-surface": "#05345c",
+                    "background": "#f8f9ff",
+                    "surface-container": "#e5eeff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen">
+<!-- SideNavBar (Authority: JSON & Design System) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 bg-gray-50 dark:bg-gray-900 h-screen w-64 border-r border-gray-200 dark:border-gray-800 font-public-sans text-sm z-50">
+<div class="mb-8 px-4">
+<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">WORKSPACE</h2>
+<p class="text-[10px] text-gray-500 uppercase mt-1">Enterprise Gateway</p>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="flex items-center gap-3 px-4 py-2 mb-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</div>
+<!-- Active State: MJ Logs -->
+<div class="flex items-center gap-3 px-4 py-2 mb-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">list_alt</span>
+<span>MJ Logs</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-2 mb-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">bar_chart</span>
+<span>Usage</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-2 mb-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">payments</span>
+<span>Billing</span>
+</div>
+</nav>
+<div class="mt-auto border-t border-gray-200 dark:border-gray-800 pt-4">
+<button class="w-full bg-primary text-white py-2 px-4 rounded-xl font-semibold mb-4 transition-colors hover:bg-primary-dim">
+                Upgrade Plan
+            </button>
+<div class="flex items-center gap-3 px-4 py-2 mb-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">help</span>
+<span>Help</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-2 mb-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer active:opacity-80 transition-all">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 bg-white min-h-screen flex flex-col">
+<!-- TopAppBar (Authority: JSON) -->
+<header class="flex justify-between items-center px-6 h-16 w-full border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 font-public-sans sticky top-0 z-40">
+<div class="text-xl font-bold text-gray-900 dark:text-white">ima-router</div>
+<div class="flex-1 max-w-md px-8">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-gray-50 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20" placeholder="Search resources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-6 text-sm">
+<span class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer transition-colors">Models</span>
+<span class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer transition-colors">API Keys</span>
+<span class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer transition-colors">Docs</span>
+</div>
+<div class="flex items-center gap-4 border-l border-gray-200 pl-6">
+<span class="material-symbols-outlined text-gray-500 cursor-pointer hover:text-primary">notifications</span>
+<span class="material-symbols-outlined text-gray-500 cursor-pointer hover:text-primary">settings</span>
+<img alt="User Avatar" class="w-8 h-8 rounded-full object-cover" data-alt="professional male headshot with clean background and soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADUQ3zsKcfXNVrkIpmuXNUh5rQ0aeHLv6CR-5zL19U8bi6SD4_5jnOcSkuWRf8eZbq9_RIvHmIQwTSpKqEzKIpNam9FVRgXTf4Hc1fMZ62HNqcgBF3pEXGlUAgAwxE_EsUoIM0Onm8OkktLCJARjXLp8MYtu-ALoYvVKN990d4gDPN8LjTPHbG9ep8XTfCqc3uXlTw8jIM0hjphkssNn9PQdh7Jw2o_piYLi8ocS0BnKpUwl6FA_OIj7RTFmPYj24GaYX_7Tv364g"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-8 max-w-[1400px] w-full mx-auto">
+<!-- Info Banner -->
+<div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-8 flex items-start gap-3">
+<span class="material-symbols-outlined text-indigo-500 mt-0.5">info</span>
+<p class="text-sm text-indigo-900 font-medium">
+                    MJ logs are powered by the Midjourney/Youchuan relay. Configure in <span class="underline cursor-pointer">System Settings &gt; MJ Settings</span>.
+                </p>
+</div>
+<!-- Header -->
+<div class="mb-8">
+<h1 class="text-2xl font-bold text-gray-900 tracking-tight">Midjourney Logs</h1>
+<p class="text-gray-500 mt-1">Track image generation tasks across your environment</p>
+</div>
+<!-- Filter Bar -->
+<div class="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm">
+<div class="flex flex-wrap items-center gap-4">
+<div class="flex flex-col gap-1">
+<label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Date Range</label>
+<div class="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm cursor-pointer hover:border-primary/40 transition-colors">
+<span class="material-symbols-outlined text-gray-400 text-sm">calendar_today</span>
+<span class="text-gray-700">Apr 1 - Apr 8, 2026</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 flex-1 min-w-[200px]">
+<label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Search Task</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-primary focus:border-primary transition-all" placeholder="Task ID..." type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-1 w-48">
+<label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Channel</label>
+<input class="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-primary focus:border-primary transition-all" placeholder="Channel ID" type="text"/>
+</div>
+<div class="flex flex-col gap-1 self-end">
+<button class="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 flex items-center gap-2 h-[42px] active:opacity-80 transition-all">
+<span class="material-symbols-outlined text-lg">refresh</span>
+                            Refresh
+                        </button>
+</div>
+</div>
+</div>
+<!-- Logs Table Container -->
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50/50 border-b border-gray-200">
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created Time</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Channel</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Task ID</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Progress</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Prompt</th>
+<th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100">
+<!-- Row 1: Success -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">2 min ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">42.2s</td>
+<td class="px-6 py-4 text-sm text-gray-500">MJ-Relay-Main</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-600">Imagine</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_4x92mK0Lp</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="vibrant neon cyberpunk city alleyway with reflective puddles and futuristic signage" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPSbg3c8u1RPKy4P-wxvAPHlF2_1vOHcLyykuqtpJ_oOvxiiZCuv0IAqoNtkl6SvVArmwZ-yReGfz2JyDwYcuLjq2iEV354eZfQQHNBRwVUlfb0G51l3m2yVPtJinope0b_gmKzuJJpD-rkLB6fL1hKB29W2bJW6Q3jo5XcB5RBNuc4lSuWlOFWXUi5auW1xCX-6VbmxWDDvYyJnSUNEQdbe9UtjZGh-GtR12GDXt3TakiXQipES3GqJ2zVpdMsGQaOhSd26v2TEo"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">a cybernetic forest at sunset, cinematic lighting, ultra-detailed foliage, 8k resolution --ar 16:9</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 2: Success (Upscale) -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">15 min ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">15.1s</td>
+<td class="px-6 py-4 text-sm text-gray-500">Production-MJ</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-600">Upscale</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_0a12xR7Qs</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="earth from space showing glowing continents at night and swirling atmosphere clouds" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGGU71uNQuWyt1IjAai7Ak7ATTQmBfJCX-d7yknSPrGR02-bZfiwAgv4-dDFQq65zZ9CbwMmf2ITKiSYPWXkcnFOX330tdD1It3e0sKww1zlLcATMWe24laxcmcRlsCr5PuoASdVXwSBYuqCLktKASuIyQmUgvVeRyPQrRzhd9p0U2yEvtQ6sKWfouzD85CgJkDbcdmG2HVg80iuduyn_QHgIEgWqatQ9MWAHbZBjeoGwLQbd6FdWIKRyDJtlKEUTvkcz_sezaVUU"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">minimalist architectural photography, clean white geometric structures against deep blue sky --v 6.0</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 3: In Progress -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">Just now</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">--</td>
+<td class="px-6 py-4 text-sm text-gray-500">MJ-Relay-Main</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-600">Imagine</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_7f45hW2Zm</td>
+<td class="px-6 py-4">
+<div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
+<span class="material-symbols-outlined text-gray-300">image</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 animate-pulse">
+<span class="material-symbols-outlined text-[14px] animate-spin">refresh</span> In Progress
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[45%]"></div>
+</div>
+<span class="text-xs font-bold text-blue-500">45%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">origami dragon made of transparent crystal, sunlight refracting through wings, macro photography</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 4: Variation -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">22 min ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">38.4s</td>
+<td class="px-6 py-4 text-sm text-gray-500">MJ-Relay-Main</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-purple-50 text-purple-600">Variation</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_k921lP0Wn</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="old leather-bound book on mahogany desk with warm light from a nearby window" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeQPWst5iYJnu_4JhvkXjpRTYOgIleA3BJEFUoHv9up8gaDUdQNRQD6G3OeKLmWsd0WiBpBrLSLBmSbtzGkOjfs9OPzXnqnmiBpYKIzkqu3u7mEMPOUbTbOuNfIBFjlU5aBIHtZHBml03jR13mX1myy71e8YSCdc-RtykG7gsNreudXM_Ue1BHBsWz_ZfZuPEtGOLHULE1il7Zc7PvmyrrrBhrtl40aGwJlcbq3r-IiX6Z_R5WI7gKbuvx70p6vt8x45I5cozToKk"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">baroque style portrait of a futuristic astronaut wearing gold ornate armor, dark background</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 5: Failed -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">34 min ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">0.8s</td>
+<td class="px-6 py-4 text-sm text-gray-500">Production-MJ</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-600">Imagine</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_2e88tY6Bn</td>
+<td class="px-6 py-4">
+<div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center border border-red-100">
+<span class="material-symbols-outlined text-red-300">error</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
+<span class="material-symbols-outlined text-[14px]">cancel</span> Failed
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-red-500 w-[0%]"></div>
+</div>
+<span class="text-xs font-bold text-red-500">0%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-red-400 line-clamp-2 max-w-[200px] italic">Invalid parameter: --ar 100:1 detected. Request rejected by relay.</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 6: Pan -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">45 min ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">29.5s</td>
+<td class="px-6 py-4 text-sm text-gray-500">MJ-Relay-Main</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-orange-50 text-orange-600">Pan</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_6v33rN9Kj</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="panoramic tropical beach with white sand turquoise water and leaning palm trees" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLJV8x7D55-U_wYNVSwGj8p9SZjf_7rcTwxhM4y5p2wMDfhoZQsL4PTYoPhUI54prTsAsZ9ZTZWFuW76EWs8XvrlmUhOpkj-pVcMAH8UM6x1lyGeYa8HTY-SW3BjMOlgEc-ZwN-Ph_1r_1bxJJiw8JqAnGexmi-DoRer9VUU754haKx4dSQE0308qy5zVUvaPMPdiDq1sNhQLNI1wPOscQS8vDzZaBpWMEKJqY_Sb0Sgx4vbdWXFjSX7vkj-XpI8xYYLCnZ06csfo"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">extending landscape to the right, lush tropical beach, white sand, turquoise water, 8k</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 7: Success -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">1 hour ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">51.2s</td>
+<td class="px-6 py-4 text-sm text-gray-500">Production-MJ</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-600">Imagine</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_9m22zX1Lo</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="abstract fluid silk texture with iridescent colors and smooth waves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaA2Ap9PTquKFeL2KHPUtkzOEt8MeoFphP6r8gojFmzLRobVyHD_NARqeZrtVOk0B75Cqy2D-rVYc_JBUihAUwIgRGQ_c35L9260E4Fh55M_LYfuJ5kQkxLt1OZoLAWBmRIAts8u8GNw_iAZmJap0ActPOYCwnG6Kcm9wYuv5X4C7ph-XWZJ9gqlYFgrIr4yZ7p_zjYTZQ3yf8tStYkrbtrRK5WalZyH79RDHDpLj6JpPwxPbI3T_YTETgHuycSmrxisdLLs8T-mA"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">abstract iridescent fluid silk ripples, holographic texture, smooth lighting, dreamy --v 6.0</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 8: Upscale -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">1.2 hours ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">18.9s</td>
+<td class="px-6 py-4 text-sm text-gray-500">MJ-Relay-Main</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-600">Upscale</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_1b44vP8Kl</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="majestic stag standing in a misty forest at dawn with golden sunlight filtering through trees" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJM9OUXx8aX1Bmh5qe8u3sl-inWPlE111b4aTFL9EXvaH6wizgSzfVwYSOB7rkdjAsfwbZGlviMDqFzaw_0wOk0Q0LcvOUohG0Q0G1ouIX0wZishyu6shn1q_nUAAlN7Kzypnkc3w6xEATcFlgym0nEU0LNCNkqEUOckzJRVwQrGY2KuhyvztLelnAQkGOSBMGqK7LRhCqpbY1N2saTdf-PCtSGseW39llRT4mrvay9KJWteDJNgjFIs0c6sUYD9rXAmFUNk5YhpM"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">a majestic stag in a mystical forest, ethereal atmosphere, volumetric lighting, photorealistic</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 9: Variation -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">2 hours ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">44.0s</td>
+<td class="px-6 py-4 text-sm text-gray-500">Production-MJ</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-purple-50 text-purple-600">Variation</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_3f99yX0Pk</td>
+<td class="px-6 py-4">
+<img alt="MJ Result" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shadow-sm border border-gray-200" data-alt="close-up of a detailed microchip with glowing blue data paths and intricate circuitry" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7PvMoW4ArY7VfWnceS_a3bsyyNChxg0bAeq0RdsAvWpWRhm4k1eH4dA0J3QDW1zHDviEYBFaRu3cMW0wG_ba_DM7gNEslIdMOgUzu5P6XGNXYXOK_rRyUO3ZV_nGSKMfHOi6dQC53BF_gblVUrE8ObEfsvYFty8MBpiwS34z9WW0Ee7XxLXsnsNVpEtuJvJfH3xIhg0eiRswVlkUcFDSke0ExeDz1W5GnWe2whyejBNRyfGqsjwFrIYOqpy28-uDs7hrcPCWF-dc"/>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-full"></div>
+</div>
+<span class="text-xs font-bold text-gray-500">100%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">cybernetic processor core, macro view, blue glowing circuits, 8k, unreal engine 5 render</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 10: In Progress -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-600">3 hours ago</td>
+<td class="px-6 py-4 text-sm text-gray-600 font-medium">--</td>
+<td class="px-6 py-4 text-sm text-gray-500">Production-MJ</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-600">Imagine</span>
+</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">mj_5a66rZ2Mn</td>
+<td class="px-6 py-4">
+<div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center border border-dashed border-gray-300">
+<span class="material-symbols-outlined text-gray-300">image</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 animate-pulse">
+<span class="material-symbols-outlined text-[14px] animate-spin">refresh</span> In Progress
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[78%]"></div>
+</div>
+<span class="text-xs font-bold text-blue-500">78%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-gray-600 line-clamp-2 max-w-[200px]">ancient temple carved into a giant tree, bioluminescent lanterns, mystical atmosphere</p>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary text-xs font-semibold hover:underline">View Details</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+<p class="text-sm text-gray-500">Showing <span class="font-medium text-gray-900">1 - 10</span> of <span class="font-medium text-gray-900">248</span> results</p>
+<div class="flex items-center gap-2">
+<button class="p-2 border border-gray-300 rounded-lg bg-white text-gray-400 hover:text-gray-900 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="px-4 py-1.5 border border-primary bg-indigo-50 text-primary text-sm font-bold rounded-lg">1</button>
+<button class="px-4 py-1.5 border border-gray-300 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">2</button>
+<button class="px-4 py-1.5 border border-gray-300 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">3</button>
+<button class="p-2 border border-gray-300 rounded-lg bg-white text-gray-600 hover:text-gray-900">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

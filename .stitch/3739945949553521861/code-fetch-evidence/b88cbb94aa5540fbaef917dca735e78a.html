@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ima-router | Modal Previews</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#6a37d4",
+                      "surface-bright": "#f8f9ff",
+                      "surface-variant": "#d2e4ff",
+                      "surface-dim": "#c4dcff",
+                      "secondary": "#6e3bd8",
+                      "surface-container-high": "#dce9ff",
+                      "on-primary-container": "#000000",
+                      "inverse-primary": "#8083ff",
+                      "secondary-fixed": "#e9ddff",
+                      "on-surface": "#05345c",
+                      "on-primary-fixed-variant": "#010028",
+                      "on-secondary-container": "#6029c9",
+                      "background": "#f8f9ff",
+                      "inverse-surface": "#000f21",
+                      "secondary-dim": "#622bcb",
+                      "surface": "#f8f9ff",
+                      "primary-fixed": "#7073ff",
+                      "on-background": "#05345c",
+                      "primary-dim": "#3d3dcb",
+                      "outline-variant": "#91b4e4",
+                      "surface-tint": "#4a4bd7",
+                      "on-tertiary-fixed-variant": "#005564",
+                      "primary-fixed-dim": "#6366f1",
+                      "error-container": "#f97386",
+                      "surface-container-low": "#eff4ff",
+                      "on-primary": "#fbf7ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-error": "#fff7f7",
+                      "on-secondary": "#fdf7ff",
+                      "primary": "#4a4bd7",
+                      "error-dim": "#6b0221",
+                      "tertiary-dim": "#005b6c",
+                      "error": "#a8364b",
+                      "primary-container": "#7073ff",
+                      "on-tertiary": "#effbff",
+                      "on-secondary-fixed": "#4d00b7",
+                      "on-tertiary-fixed": "#003640",
+                      "secondary-container": "#e9ddff",
+                      "tertiary-container": "#53ddfc",
+                      "inverse-on-surface": "#8e9eb7",
+                      "on-tertiary-container": "#004b58",
+                      "secondary-fixed-dim": "#ddcdff",
+                      "outline": "#5a7da9",
+                      "surface-container": "#e5eeff",
+                      "on-error-container": "#6e0523",
+                      "tertiary-fixed-dim": "#40ceed",
+                      "surface-container-highest": "#d2e4ff",
+                      "tertiary-fixed": "#53ddfc",
+                      "on-surface-variant": "#3d618c",
+                      "on-primary-fixed": "#000000",
+                      "tertiary": "#00687b"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Public Sans"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Top Navigation Anchor -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-6 py-3 w-full bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">ima-router</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 pb-1 font-public-sans text-sm font-medium" href="#">Dashboard</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-public-sans text-sm font-medium" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-public-sans text-sm font-medium" href="#">Logs</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-public-sans text-sm font-medium" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-gray-500 hover:text-indigo-600 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="Close-up portrait of a professional man in a bright modern office setting, soft corporate lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB92kD-Am6c-r-3hECqlQCnzBgepFMmUGWI5ZRbnSetBmDULijjhpIaGeyotOF1jv-UGrOKzQd1lqE-IG9cJ2KoHIpQ0KLeBa8LhkWaNB13ZktYz6W09JCJWGOnR42VgJ2jGeGSl9fu_0v_82BLlAiU_PMtwdwmd5AJxMJBBobLDLLDUSPCBBotorHpqEeOe92ICZ2jDs0JL5YIbTuVaCAUhfOxJsuLQYqm-j-2ZagNw2McJViXXPjOQUq2VuLL5ay4L-yPYdBOhz8"/>
+</div>
+</header>
+<main class="max-w-5xl mx-auto py-12 px-6">
+<div class="mb-12">
+<h1 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-2">CRUD Interface System</h1>
+<p class="text-gray-600">Enterprise modal components for resource management and platform orchestration.</p>
+</div>
+<!-- Vertical Stack of Modals as Previews -->
+<div class="space-y-24">
+<!-- Modal 1: Create/Edit API Token -->
+<section class="relative min-h-[600px] flex items-center justify-center p-8 bg-gray-500/10 rounded-2xl overflow-hidden">
+<div class="absolute inset-0 bg-gray-500/20 backdrop-blur-sm"></div>
+<div class="relative z-10 w-full max-w-[560px] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+<div class="px-8 pt-8 pb-6">
+<div class="flex justify-between items-start mb-6">
+<h2 class="text-xl font-bold text-gray-900">Create New Token</h2>
+<button class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="space-y-5">
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Name</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Production Frontend" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Expiration Date</label>
+<div class="relative">
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="date"/>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Quota Limit ($)</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded text-indigo-600 focus:ring-indigo-500" type="checkbox"/>
+<span class="text-[10px] font-bold text-indigo-600 uppercase">Unlimited</span>
+</label>
+</div>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="50.00" type="number"/>
+</div>
+</div><div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Number of tokens to generate</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" min="1" type="number" value="1"/>
+<p class="text-[10px] text-gray-400 mt-1">Set to 1 for single key, or higher for batch generation</p>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Model Restrictions</label>
+<div class="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                                        GPT-4 <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                                        Claude 3 <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+<button class="text-xs font-bold text-indigo-600 hover:underline">+ Add Model</button>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">IP Whitelist</label>
+<textarea class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="One IP per line (optional)" rows="2"></textarea>
+</div>
+<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
+<span class="material-symbols-outlined text-amber-600" data-weight="fill">warning</span>
+<div>
+<p class="text-xs font-bold text-amber-900 mb-1">Security Notice</p>
+<div class="flex items-center gap-2">
+<code class="text-sm font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded">sk-ima-•••••••••••••••••</code>
+<button class="p-1 hover:bg-amber-200 rounded transition-colors">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+</button><button class="flex items-center gap-1 px-2 py-1 border border-red-200 text-red-600 hover:bg-red-50 rounded transition-colors ml-2">
+<span class="material-symbols-outlined text-sm">refresh</span>
+<span class="text-[10px] font-bold uppercase">Regenerate</span>
+</button>
+</div>
+<p class="text-[10px] text-amber-700 mt-1">This key will only be shown once. Please save it securely.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+<button class="px-6 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
+<button class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Create Token</button>
+</div>
+</div>
+</section>
+<hr class="border-gray-200"/>
+<!-- Modal 2: Add/Edit User -->
+<section class="relative min-h-[600px] flex items-center justify-center p-8 bg-gray-500/10 rounded-2xl overflow-hidden">
+<div class="absolute inset-0 bg-gray-500/20 backdrop-blur-sm"></div>
+<div class="relative z-10 w-full max-w-[560px] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+<div class="px-8 pt-8 pb-6">
+<div class="flex justify-between items-start mb-6">
+<h2 class="text-xl font-bold text-gray-900">Add New User</h2>
+<button class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="grid grid-cols-2 gap-x-6 gap-y-5">
+<div class="col-span-1">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Username</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="text"/>
+</div>
+<div class="col-span-1">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Display Name</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="text"/>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Email Address</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="email"/>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Password</label>
+<div class="relative">
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="password" value="••••••••••••"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">autorenew</span>
+<span class="text-[10px] font-bold uppercase">Generate</span>
+</button>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Group</label>
+<select class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-no-repeat bg-[right_1rem_center]">
+<option>default</option>
+<option>premium</option>
+<option>enterprise</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Role</label>
+<select class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none">
+<option>User</option>
+<option>Admin</option>
+</select>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Initial Quota ($)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+<input class="w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="number" value="10.00"/>
+</div>
+</div>
+</div>
+</div>
+<div class="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+<button class="px-6 py-2 text-sm font-bold text-gray-500">Cancel</button>
+<button class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200">Create User</button>
+</div>
+</div>
+</section>
+<hr class="border-gray-200"/>
+<!-- Modal 3: Create/Edit Redemption Code -->
+<section class="relative min-h-[500px] flex items-center justify-center p-8 bg-gray-500/10 rounded-2xl overflow-hidden">
+<div class="absolute inset-0 bg-gray-500/20 backdrop-blur-sm"></div>
+<div class="relative z-10 w-full max-w-[560px] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+<div class="px-8 pt-8 pb-6">
+<div class="flex justify-between items-start mb-6">
+<h2 class="text-xl font-bold text-gray-900">Generate Redemption Codes</h2>
+<button class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="space-y-5">
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Batch Name</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. Summer 2024 Campaign" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Quota Amount ($)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+<input class="w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="number" value="25"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Count</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="number" value="100"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Expiration Date</label>
+<div class="relative flex items-center">
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" type="date"/>
+</div>
+</div>
+<div class="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+<p class="text-xs text-gray-600 text-center">Codes will be generated as unique 16-character alphanumeric strings. You can export the list as CSV after generation.</p>
+</div>
+</div>
+</div>
+<div class="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+<button class="px-6 py-2 text-sm font-bold text-gray-500">Cancel</button>
+<button class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200">Generate Codes</button>
+</div>
+</div>
+</section>
+<hr class="border-gray-200"/>
+<!-- Modal 4: Create Subscription Plan -->
+<section class="relative min-h-[700px] flex items-center justify-center p-8 bg-gray-500/10 rounded-2xl overflow-hidden">
+<div class="absolute inset-0 bg-gray-500/20 backdrop-blur-sm"></div>
+<div class="relative z-10 w-full max-w-[560px] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+<div class="px-8 pt-8 pb-6">
+<div class="flex justify-between items-start mb-6">
+<h2 class="text-xl font-bold text-gray-900">Create Subscription Plan</h2>
+<button class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="grid grid-cols-2 gap-x-6 gap-y-5">
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Plan Name</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. Developer Pro" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Price ($)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+<input class="w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="29.00" type="number"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Billing Period</label>
+<div class="flex bg-gray-100 p-1 rounded-lg">
+<button class="flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-indigo-600 shadow-sm">Monthly</button>
+<button class="flex-1 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-700">Yearly</button>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Quota Limit</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10M tokens" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Priority Level</label>
+<select class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+<option>Standard</option>
+<option>High</option>
+<option>Ultra</option>
+</select>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Group Assignment</label>
+<select class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+<option>premium</option>
+<option>enterprise</option>
+</select>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Features</label>
+<textarea class="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="List plan features, one per line..." rows="3"></textarea>
+</div>
+<div class="col-span-2 flex items-center justify-between p-4 bg-indigo-50 rounded-lg">
+<div>
+<span class="text-sm font-bold text-indigo-900 block">Plan Status</span>
+<span class="text-[10px] text-indigo-700">Active plans are immediately visible to users</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+<button class="px-6 py-2 text-sm font-bold text-gray-500">Cancel</button>
+<button class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200">Create Plan</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Nav Placeholder for Mobile Context -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-3 flex justify-around items-center z-50">
+<button class="flex flex-col items-center text-indigo-600">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold mt-1">Dashboard</span>
+</button>
+<button class="flex flex-col items-center text-gray-400">
+<span class="material-symbols-outlined">layers</span>
+<span class="text-[10px] font-bold mt-1">Models</span>
+</button>
+<button class="flex flex-col items-center text-gray-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold mt-1">Settings</span>
+</button>
+</nav>
+</body></html>

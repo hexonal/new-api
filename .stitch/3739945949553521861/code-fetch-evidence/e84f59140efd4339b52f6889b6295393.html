@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Settings - Payment | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#004b58",
+                        "primary-container": "#7073ff",
+                        "on-surface-variant": "#3d618c",
+                        "surface-container-low": "#eff4ff",
+                        "primary-fixed-dim": "#6366f1",
+                        "outline": "#5a7da9",
+                        "secondary-container": "#e9ddff",
+                        "secondary-dim": "#622bcb",
+                        "surface-container": "#e5eeff",
+                        "inverse-surface": "#000f21",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "surface-tint": "#4a4bd7",
+                        "surface-bright": "#f8f9ff",
+                        "inverse-primary": "#8083ff",
+                        "error-dim": "#6b0221",
+                        "on-primary": "#fbf7ff",
+                        "tertiary-dim": "#005b6c",
+                        "error": "#a8364b",
+                        "tertiary": "#00687b",
+                        "secondary-fixed": "#e9ddff",
+                        "secondary": "#6e3bd8",
+                        "primary-dim": "#3d3dcb",
+                        "on-primary-fixed": "#000000",
+                        "background": "#f8f9ff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "error-container": "#f97386",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-primary-container": "#000000",
+                        "inverse-on-surface": "#8e9eb7",
+                        "surface": "#f8f9ff",
+                        "on-surface": "#05345c",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "on-error-container": "#6e0523",
+                        "on-secondary-container": "#6029c9",
+                        "surface-variant": "#d2e4ff",
+                        "surface-dim": "#c4dcff",
+                        "tertiary-fixed": "#53ddfc",
+                        "on-background": "#05345c",
+                        "outline-variant": "#91b4e4",
+                        "on-error": "#fff7f7",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-secondary-fixed": "#4d00b7",
+                        "surface-container-highest": "#d2e4ff",
+                        "surface-container-high": "#dce9ff",
+                        "primary-fixed": "#7073ff",
+                        "primary": "#4a4bd7",
+                        "on-tertiary": "#effbff",
+                        "on-secondary": "#fdf7ff",
+                        "tertiary-container": "#53ddfc",
+                        "surface-container-lowest": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center px-6 py-3 w-full max-w-full sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white">ima-router</span>
+<div class="hidden md:flex items-center space-x-6 text-sm font-medium">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors" href="#">Dashboard</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors" href="#">Keys</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 pb-1" href="#">Settings</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors" href="#">Docs</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search settings..." type="text"/>
+</div>
+<button class="text-gray-500 hover:text-indigo-500 transition-all opacity-90 active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-gray-500 hover:text-indigo-500 transition-all opacity-90 active:scale-95">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="minimalist professional portrait of a tech administrator with clean lines and soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbKbKgEYwndPT0nsTuSqUm8Yi0cwiZ9NI7N5kPlEobm7_fH2WPdfNoIVsPneJphEGKsNJvxzSIS4ri-RXouDiidICYOpJUtBbt0ONd-3LHxgFbmrloRzzoCEm9VUnrWb690l_WDK9OdMcAG6xLQIBRTppvnxwSaIaatwAno3ypmPqFfaUWRdc0mB2sXM4PpQGL06Icz04D163L6fM7qoDufUK6GF7bHXGYJjW6zQ_-YlBf0qQb6fWArT0oMnN2ECfSSAGCTafMwfM"/>
+</div>
+</nav>
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="bg-gray-50 dark:bg-gray-900 flex flex-col h-full sticky top-[61px] h-[calc(100vh-61px)] w-64 border-r border-gray-200 dark:border-gray-800">
+<div class="p-6 border-b border-gray-200 dark:border-gray-800">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center text-indigo-600">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-gray-900 dark:text-white leading-none">System Settings</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Manage gateway configuration</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4 overflow-y-auto">
+<div class="px-4 mb-4">
+<p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2">Core Configuration</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+<span>General</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="lock">lock</span>
+<span>Authentication</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="speed">speed</span>
+<span>Usage Limits</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-semibold rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="payments">payments</span>
+<span>Payment</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="hub">hub</span>
+<span>Providers</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="list_alt">list_alt</span>
+<span>Logs</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="p-4 border-t border-gray-200 dark:border-gray-800">
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="support_agent">support_agent</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span>API Status</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-8 overflow-y-auto">
+<div class="max-w-6xl mx-auto">
+<header class="mb-8">
+<h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">System Settings</h1>
+<p class="text-gray-500 mt-2">Configure billing gateways and payment behavior for your API consumers.</p>
+</header>
+<!-- Sub-tab Navigation -->
+<div class="flex items-center border-b border-gray-200 mb-8 overflow-x-auto whitespace-nowrap">
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">General</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Auth</button>
+<button class="px-4 py-3 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600">Payment</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Rate Limiting</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Monitoring</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Branding</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Model</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Ratio</button>
+<button class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Performance</button>
+</div>
+<!-- Settings Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Card: General Payment -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-bold text-gray-900">General Payment</h3>
+<span class="material-symbols-outlined text-gray-400" data-icon="settings_suggest">settings_suggest</span>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm font-semibold text-gray-900">Enable top-up</p>
+<p class="text-xs text-gray-500">Allow users to add balance to their account</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm font-semibold text-gray-900">Enable online payment</p>
+<p class="text-xs text-gray-500">Enable automated payment gateways</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment currency</label>
+<select class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary">
+<option>USD</option>
+<option>CNY</option>
+<option>EUR</option>
+<option>GBP</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Minimum top-up amount</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" type="number" value="5.00"/>
+</div>
+</div>
+<div class="pt-2">
+<button class="w-full bg-primary hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm active:scale-[0.98]">Save</button>
+</div>
+</div>
+</div>
+<!-- Card: Stripe -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-[#635BFF]/10 rounded-xl flex items-center justify-center text-[#635BFF]">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+<h3 class="text-lg font-bold text-gray-900">Stripe</h3>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#635BFF]"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Publishable Key</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="pk_live_..." type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Secret Key</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" type="password" value="••••••••••••••••"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Webhook Secret</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="whsec_..." type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Price ID for top-up</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="price_..." type="text"/>
+</div>
+</div>
+<div class="flex gap-3 pt-2">
+<button class="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-2.5 rounded-xl transition-all active:scale-[0.98]">Test Connection</button>
+<button class="flex-1 bg-primary hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm active:scale-[0.98]">Save</button>
+</div>
+</div>
+</div>
+<!-- Card: Creem -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+</div>
+<h3 class="text-lg font-bold text-gray-900">Creem</h3>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">API Key</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="Enter API Key" type="password"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Webhook Secret</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="Enter Webhook Secret" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Product ID</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="prod_..." type="text"/>
+</div>
+<div class="pt-2">
+<button class="w-full bg-primary hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm active:scale-[0.98]">Save</button>
+</div>
+</div>
+</div>
+<!-- Card: EPay (易支付) -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+<h3 class="text-lg font-bold text-gray-900">EPay (易支付)</h3>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">EPay URL</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="https://..." type="url"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Merchant ID</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="ID" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase mb-1">Secret Key</label>
+<input class="w-full bg-gray-50 border border-gray-200 rounded-xl text-sm py-2 px-3 focus:ring-primary focus:border-primary" placeholder="Key" type="password"/>
+</div>
+<div class="pt-2">
+<button class="w-full bg-primary hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm active:scale-[0.98]">Save</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Info Section -->
+<div class="mt-12 p-6 bg-surface-container rounded-xl flex items-start gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Payment Configuration Security</h4>
+<p class="text-sm text-on-surface-variant mt-1">Secrets and API keys are encrypted at rest. When you save them, the old values are permanently overwritten. Ensure your webhook URLs are properly configured in your payment provider dashboard to receive payment success notifications.</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

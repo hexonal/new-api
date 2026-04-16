@@ -48,7 +48,6 @@ export const useTaskLogsData = () => {
     TASK_STATUS: 'task_status',
     PROGRESS: 'progress',
     FAIL_REASON: 'fail_reason',
-    RESULT_URL: 'result_url',
   };
 
   // Basic state
@@ -141,7 +140,6 @@ export const useTaskLogsData = () => {
       [COLUMN_KEYS.TASK_STATUS]: true,
       [COLUMN_KEYS.PROGRESS]: true,
       [COLUMN_KEYS.FAIL_REASON]: true,
-      [COLUMN_KEYS.RESULT_URL]: true,
     };
   };
 
@@ -230,21 +228,26 @@ export const useTaskLogsData = () => {
   // Load logs function
   const loadLogs = async (page = 1, size = pageSize) => {
     setLoading(true);
-    const { channel_id, task_id, start_timestamp, end_timestamp } =
-      getFormValues();
-    let localStartTimestamp = parseInt(Date.parse(start_timestamp) / 1000);
-    let localEndTimestamp = parseInt(Date.parse(end_timestamp) / 1000);
-    let url = isAdminUser
-      ? `/api/task/?p=${page}&page_size=${size}&channel_id=${channel_id}&task_id=${task_id}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`
-      : `/api/task/self?p=${page}&page_size=${size}&task_id=${task_id}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
-    const res = await API.get(url);
-    const { success, message, data } = res.data;
-    if (success) {
-      syncPageData(data);
-    } else {
-      showError(message);
+    try {
+      const { channel_id, task_id, start_timestamp, end_timestamp } =
+        getFormValues();
+      let localStartTimestamp = parseInt(Date.parse(start_timestamp) / 1000);
+      let localEndTimestamp = parseInt(Date.parse(end_timestamp) / 1000);
+      let url = isAdminUser
+        ? `/api/task/?p=${page}&page_size=${size}&channel_id=${channel_id}&task_id=${task_id}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`
+        : `/api/task/self?p=${page}&page_size=${size}&task_id=${task_id}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
+      const res = await API.get(url);
+      const { success, message, data } = res.data;
+      if (success) {
+        syncPageData(data);
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(error?.message || t('获取任务日志失败'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Page handlers
@@ -259,7 +262,7 @@ export const useTaskLogsData = () => {
 
   // Refresh function
   const refresh = async () => {
-    await loadLogs(1, pageSize);
+    await loadLogs(activePage, pageSize);
   };
 
   // Copy text function

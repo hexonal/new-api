@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Model Management - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#6e0523",
+                        "surface-dim": "#c4dcff",
+                        "secondary-dim": "#622bcb",
+                        "background": "#f8f9ff",
+                        "on-tertiary-container": "#004b58",
+                        "error-container": "#f97386",
+                        "on-secondary-container": "#6029c9",
+                        "error-dim": "#6b0221",
+                        "surface-tint": "#4a4bd7",
+                        "surface-container-high": "#dce9ff",
+                        "surface-container": "#e5eeff",
+                        "primary-container": "#7073ff",
+                        "tertiary": "#00687b",
+                        "on-secondary-fixed": "#4d00b7",
+                        "primary-dim": "#3d3dcb",
+                        "outline": "#5a7da9",
+                        "on-primary-fixed": "#000000",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "primary-fixed": "#7073ff",
+                        "on-primary-container": "#000000",
+                        "on-error": "#fff7f7",
+                        "inverse-primary": "#8083ff",
+                        "tertiary-container": "#53ddfc",
+                        "on-primary": "#fbf7ff",
+                        "on-tertiary": "#effbff",
+                        "secondary-container": "#e9ddff",
+                        "surface-container-low": "#eff4ff",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "inverse-on-surface": "#8e9eb7",
+                        "secondary-fixed": "#e9ddff",
+                        "on-background": "#05345c",
+                        "secondary": "#6e3bd8",
+                        "surface": "#f8f9ff",
+                        "primary": "#4a4bd7",
+                        "tertiary-dim": "#005b6c",
+                        "tertiary-fixed": "#53ddfc",
+                        "surface-bright": "#f8f9ff",
+                        "outline-variant": "#91b4e4",
+                        "on-surface-variant": "#3d618c",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "inverse-surface": "#000f21",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-primary-fixed-variant": "#010028",
+                        "error": "#a8364b",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-secondary": "#fdf7ff",
+                        "surface-variant": "#d2e4ff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-surface": "#05345c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-white text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 docked full-width top-0 z-50 fixed w-full">
+<div class="flex justify-between items-center h-16 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white font-public-sans">ima-router</span>
+<nav class="hidden md:flex items-center space-y-0 space-x-6">
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans transition-colors cursor-pointer active:opacity-80" href="#">Docs</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans transition-colors cursor-pointer active:opacity-80" href="#">API</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans transition-colors cursor-pointer active:opacity-80" href="#">Pricing</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none w-64" placeholder="Quick search..." type="text"/>
+</div>
+<button class="text-gray-600 p-2 hover:bg-gray-50 rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-gray-600 p-2 hover:bg-gray-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="close-up portrait of a professional male software engineer with glasses smiling in a corporate office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNfpkcWiLeZ-536iVtEJVC9xW5TuTFc-o03LxlN9lSyWsgcSAyRLZB0hQfqcPormKZM4Oq5CYWLeXGtxBmEbF6so2rJ2TctmDKbcBtt1FYRTyB7Q9FIbBAnP3LBkJ92BEUbz2yLJwF5p7vhY_LFG1mpPfnqQBgzzBkNYwhd5NpQ7KEz8nT4PmaNVfe2AV9pAhE0jYJH4GAGvP57z0C1PgVoueC7JoPOVl1ziuHHvoPf3DAgRb1kHgBZ5mB5PpyN7bQuk4adZ9VZz0"/>
+</div>
+</div>
+</header>
+<div class="flex pt-16">
+<!-- SideNavBar -->
+<aside class="bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 docked left-0 h-[calc(100vh-64px)] w-64 sticky top-16 p-4 flex flex-col space-y-2">
+<div class="px-2 py-4 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</div>
+<div>
+<h2 class="text-sm font-black text-indigo-600 font-public-sans leading-tight uppercase tracking-wider">Admin Console</h2>
+<p class="text-[10px] text-gray-500 font-medium">Gateway Management</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="Category">category</span>
+<span>Models</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+<span>Keys</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="bar_chart">bar_chart</span>
+<span>Usage</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<button class="w-full mt-4 bg-primary text-white py-2 px-4 rounded-lg font-semibold text-sm hover:bg-primary-dim transition-colors flex items-center justify-center gap-2 mb-6">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                New Deployment
+            </button>
+<div class="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span>Help</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-all font-public-sans text-sm scale-95 active:scale-100" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 min-w-0 bg-white">
+<!-- Warning Banner -->
+<div class="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3 text-amber-800 text-sm font-medium">
+<span class="material-symbols-outlined text-amber-600" data-icon="info">info</span>
+<span>This configuration controls the 'Model Marketplace' display only. It does not affect actual model routing. For routing, go to 'Channel Management'.</span>
+</div>
+<button class="text-amber-500 hover:text-amber-700 transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<!-- Page Content -->
+<div class="p-8 max-w-[1400px] mx-auto">
+<div class="flex items-end justify-between mb-8">
+<div>
+<h1 class="text-3xl font-black text-on-surface font-public-sans tracking-tight">Model Management</h1>
+<p class="text-text-secondary mt-1">Manage public visibility and marketplace metadata for available AI models.</p>
+</div>
+</div>
+<!-- Filter Tabs -->
+<div class="mb-8 overflow-x-auto">
+<div class="flex items-center border-b border-gray-100 min-w-max gap-8">
+<button class="pb-4 px-1 border-b-2 border-primary text-primary font-bold flex items-center gap-2 whitespace-nowrap">
+                            All 77 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Google 2 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            OpenAI 11 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Kling 7 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            ByteDance 13 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Vidu 6 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            DeepSeek 0 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Moonshot 1 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Midjourney 1 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="pb-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 whitespace-nowrap">
+                            Joyme 1 <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Action Bar -->
+<div class="flex flex-col xl:flex-row gap-4 mb-6 items-center justify-between">
+<div class="flex flex-wrap gap-2 w-full xl:w-auto">
+<button class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-dim transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span> Add Model
+                        </button>
+<button class="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">Unconfigured Models</button>
+<button class="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">sync</span> Sync
+                        </button>
+<button class="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">Prefill Templates</button>
+<button class="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">splitscreen</span> Compact View
+                        </button>
+</div>
+<div class="flex items-center gap-2 w-full xl:w-auto">
+<div class="relative flex-1 xl:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+<input class="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary/10" placeholder="Search model name..." type="text"/>
+</div>
+<div class="relative flex-1 xl:w-48">
+<input class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary/10" placeholder="Search provider..." type="text"/>
+</div>
+<button class="bg-on-surface text-white px-5 py-2 rounded-lg text-sm font-semibold hover:opacity-90">Query</button>
+<button class="border border-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50">Reset</button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-50 border-b border-gray-200">
+<tr>
+<th class="px-6 py-4 w-10"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></th>
+<th class="px-2 py-4 w-10"></th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Model Name</th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Match</th>
+<th class="px-4 py-4 text-center font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Sync</th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Provider</th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Tags</th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Endpoints</th>
+<th class="px-6 py-4 font-semibold text-xs text-gray-500 uppercase tracking-wider font-public-sans">Channels</th>
+<th class="px-6 py-4"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="px-2 py-4">
+<div class="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="smart_toy">smart_toy</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-bold text-on-surface">seedance-upload</span>
+<button class="text-gray-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+<span class="text-[11px] text-gray-400 font-medium">Active</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border border-emerald-100">Exact</span></td>
+<td class="px-4 py-4 text-center"><span class="material-symbols-outlined text-emerald-500" data-icon="check_circle">check_circle</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-blue-600 rounded-sm flex items-center justify-center text-[10px] text-white font-bold">B</div>
+<span class="text-sm font-medium">ByteDance</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-wrap gap-1">
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">asset</span>
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">seedance</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-medium">ima_pro_sd(60)</span>
+</td>
+<td class="px-6 py-4"><a class="text-primary text-sm font-semibold hover:underline" href="#">3 Channels</a></td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-on-surface transition-colors p-1"><span class="material-symbols-outlined">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="px-2 py-4"><div class="w-8 h-8 rounded bg-gray-50 flex items-center justify-center text-gray-400"><span class="material-symbols-outlined text-lg">bolt</span></div></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-on-surface">ima-pro-fast</span>
+<button class="text-gray-400 hover:text-primary"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border border-emerald-100">Exact</span></td>
+<td class="px-4 py-4 text-center"><span class="material-symbols-outlined text-gray-300" data-icon="cancel">cancel</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-purple-600 rounded-sm flex items-center justify-center text-[10px] text-white font-bold">J</div>
+<span class="text-sm font-medium">Joyme</span>
+</div>
+</td>
+<td class="px-6 py-4">-</td>
+<td class="px-6 py-4">
+<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-medium">openai-videos</span>
+</td>
+<td class="px-6 py-4"><a class="text-primary text-sm font-semibold hover:underline" href="#">1 Channel</a></td>
+<td class="px-6 py-4 text-right"><button class="text-gray-400 hover:text-on-surface transition-colors p-1"><span class="material-symbols-outlined">more_vert</span></button></td>
+</tr>
+<!-- Row 3: Midjourney Row -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="px-2 py-4"><div class="w-8 h-8 rounded bg-gray-900 flex items-center justify-center text-white"><span class="material-symbols-outlined text-lg" data-icon="palette">palette</span></div></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-on-surface">mj_pan</span>
+<button class="text-gray-400 hover:text-primary"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border border-emerald-100">Exact</span></td>
+<td class="px-4 py-4 text-center"><span class="material-symbols-outlined text-emerald-500">check_circle</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-900 text-xl">camera</span>
+<span class="text-sm font-medium">Midjourney</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-wrap gap-1">
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">midjourney</span>
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">image</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-medium">midjourney</span>
+</td>
+<td class="px-6 py-4"><a class="text-primary text-sm font-semibold hover:underline" href="#">悠船(58)</a></td>
+<td class="px-6 py-4 text-right"><button class="text-gray-400 hover:text-on-surface transition-colors p-1"><span class="material-symbols-outlined">more_vert</span></button></td>
+</tr>
+<!-- Row 4: OpenAI Row -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="px-2 py-4"><div class="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center text-white"><span class="material-symbols-outlined text-lg">auto_awesome</span></div></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-on-surface">gpt-5.2</span>
+<button class="text-gray-400 hover:text-primary"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border border-emerald-100">Exact</span></td>
+<td class="px-4 py-4 text-center"><span class="material-symbols-outlined text-emerald-500">check_circle</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-emerald-600 rounded-sm flex items-center justify-center text-[10px] text-white font-bold">O</div>
+<span class="text-sm font-medium">OpenAI</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-wrap gap-1">
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">chat</span>
+<span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">advanced</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-medium">openai</span>
+</td>
+<td class="px-6 py-4"><a class="text-primary text-sm font-semibold hover:underline" href="#">22 Channels</a></td>
+<td class="px-6 py-4 text-right"><button class="text-gray-400 hover:text-on-surface transition-colors p-1"><span class="material-symbols-outlined">more_vert</span></button></td>
+</tr>
+<!-- Row 5: MiniMax Row -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4"><input class="rounded text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="px-2 py-4"><div class="w-8 h-8 rounded bg-blue-500 flex items-center justify-center text-white font-bold text-[10px]">MM</div></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-on-surface">MiniMax-Text-01</span>
+<button class="text-gray-400 hover:text-primary"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border border-emerald-100">Exact</span></td>
+<td class="px-4 py-4 text-center"><span class="material-symbols-outlined text-emerald-500">check_circle</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium">MiniMax</span>
+</div>
+</td>
+<td class="px-6 py-4"><span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded">text-generation</span></td>
+<td class="px-6 py-4">
+<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-medium">openai</span>
+</td>
+<td class="px-6 py-4"><a class="text-primary text-sm font-semibold hover:underline" href="#">8 Channels</a></td>
+<td class="px-6 py-4 text-right"><button class="text-gray-400 hover:text-on-surface transition-colors p-1"><span class="material-symbols-outlined">more_vert</span></button></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Pagination -->
+<div class="flex flex-col md:flex-row items-center justify-between gap-4 px-2">
+<span class="text-sm text-gray-500 font-medium">Showing 1-10 of 77 models</span>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 text-sm font-semibold transition-colors">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 text-sm font-semibold transition-colors">3</button>
+<span class="px-1 text-gray-400 font-bold">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 text-sm font-semibold transition-colors">8</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<select class="bg-white border border-gray-200 rounded-lg text-sm px-3 py-1.5 focus:ring-primary/20 focus:border-primary outline-none">
+<option>10 per page</option>
+<option>20 per page</option>
+<option>50 per page</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Navigation Bottom (Suppressed as per Shell Visibility rules for high-density admin console) -->
+</body></html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ima-router | Overlay Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#7073ff",
+                        "on-surface": "#05345c",
+                        "on-tertiary-fixed": "#003640",
+                        "primary-fixed-dim": "#6366f1",
+                        "secondary": "#6e3bd8",
+                        "on-primary-fixed": "#000000",
+                        "surface-dim": "#c4dcff",
+                        "on-tertiary": "#effbff",
+                        "error-container": "#f97386",
+                        "on-secondary": "#fdf7ff",
+                        "tertiary-dim": "#005b6c",
+                        "background": "#f8f9ff",
+                        "on-primary": "#fbf7ff",
+                        "tertiary-fixed": "#53ddfc",
+                        "inverse-primary": "#8083ff",
+                        "error": "#a8364b",
+                        "secondary-dim": "#622bcb",
+                        "error-dim": "#6b0221",
+                        "on-primary-container": "#000000",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "surface-container": "#e5eeff",
+                        "on-secondary-container": "#6029c9",
+                        "on-secondary-fixed": "#4d00b7",
+                        "primary-fixed": "#7073ff",
+                        "inverse-surface": "#000f21",
+                        "surface-container-low": "#eff4ff",
+                        "tertiary-container": "#53ddfc",
+                        "tertiary": "#00687b",
+                        "outline-variant": "#91b4e4",
+                        "secondary-container": "#e9ddff",
+                        "surface-variant": "#d2e4ff",
+                        "outline": "#5a7da9",
+                        "surface-container-high": "#dce9ff",
+                        "primary": "#4a4bd7",
+                        "on-tertiary-container": "#004b58",
+                        "on-background": "#05345c",
+                        "surface": "#f8f9ff",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "on-error": "#fff7f7",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-surface-variant": "#3d618c",
+                        "inverse-on-surface": "#8e9eb7",
+                        "primary-dim": "#3d3dcb",
+                        "on-error-container": "#6e0523",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "surface-bright": "#f8f9ff",
+                        "secondary-fixed": "#e9ddff",
+                        "on-primary-fixed-variant": "#010028",
+                        "surface-tint": "#4a4bd7",
+                        "on-tertiary-fixed-variant": "#005564"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-500/50 min-h-screen">
+<!-- Top Navigation Anchor -->
+<nav class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center px-6 py-3 w-full fixed top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">ima-router</span>
+<div class="hidden md:flex gap-6">
+<a class="font-public-sans text-sm font-medium text-gray-500 hover:text-indigo-500 transition-colors" href="#">Models</a>
+<a class="font-public-sans text-sm font-medium text-gray-500 hover:text-indigo-500 transition-colors" href="#">API Keys</a>
+<a class="font-public-sans text-sm font-medium text-gray-500 hover:text-indigo-500 transition-colors" href="#">Logs</a>
+<a class="font-public-sans text-sm font-medium text-gray-500 hover:text-indigo-500 transition-colors" href="#">Metrics</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-gray-500 cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-gray-500 cursor-pointer" data-icon="settings">settings</span>
+<button class="bg-primary text-white px-4 py-1.5 rounded-xl font-public-sans text-sm font-medium hover:bg-primary-dim transition-colors">Create Key</button>
+<img alt="User Avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="close up professional headshot of a smiling developer with short dark hair and modern glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBf4RCLJc_YD5VdFiUe5Z5VBxyS3fM4tWXmKun1aUJADKnQIHFm3p5jUjoLfJ0OeDWhCgFJNHdhZbGAV6h7039kAVTvND3W_arPoK5-RxLBf_jJSjErzIUtjeTBc31G4cLrFCy4wiS0cenOXvlGc4j0PsQBvYJQIu5feVmKC6mXGtWQdBr9DxLa_ytFyv_tPUGGZAtBbh4h-OhZM9CM02SzIa79H6tfYem2o18EEcQKG9sMT0v0o0wAT5EQogu8BDKYQ5IiUmr73aE"/>
+</div>
+</nav>
+<!-- Main Content: Vertical Stack of Overlays -->
+<main class="pt-24 pb-12 flex flex-col items-center gap-12 overflow-y-auto px-4">
+<!-- Overlay 1: Two-Factor Authentication -->
+<section class="w-full max-w-[400px] bg-surface-container-lowest rounded-xl border border-outline-variant shadow-lg p-8 animate-fade-in">
+<div class="flex flex-col items-center text-center">
+<div class="w-12 h-12 bg-primary-container/10 text-primary rounded-full flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-3xl" data-icon="shield_person">shield_person</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface mb-1">Two-Factor Authentication</h2>
+<p class="text-sm text-on-surface-variant mb-8">Enter the 6-digit code from your authenticator app</p>
+<div class="grid grid-cols-6 gap-2 mb-6 w-full">
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text" value="4"/>
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text" value="9"/>
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text" value="2"/>
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text"/>
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text"/>
+<input class="w-full h-12 text-center text-lg font-bold border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" maxlength="1" type="text"/>
+</div>
+<button class="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dim transition-colors mb-4">Verify</button>
+<div class="flex flex-col gap-3">
+<a class="text-xs font-semibold text-primary hover:underline" href="#">Use backup code</a>
+<button class="text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors">Cancel</button>
+</div>
+<p class="mt-8 text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="timer">timer</span>
+                    Code expires in <span class="font-mono font-bold text-primary">4:59</span>
+</p>
+</div>
+</section>
+<div class="w-24 h-px bg-gray-400"></div>
+<!-- Overlay 2: System Announcement -->
+<section class="w-full max-w-[500px] bg-surface-container-lowest rounded-xl border border-outline-variant shadow-lg relative">
+<button class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+<div class="p-8">
+<div class="w-12 h-12 bg-secondary-container/30 text-secondary rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-2xl" data-icon="notifications_active">notifications_active</span>
+</div>
+<h2 class="text-2xl font-black text-on-surface tracking-tight mb-4">System Announcement</h2>
+<div class="space-y-4 text-on-surface-variant leading-relaxed">
+<p class="font-bold text-on-surface">Welcome to ima-router v2.0!</p>
+<p>We've completely rebuilt the core routing engine for faster inference and lower latency. New features include:</p>
+<ul class="list-disc pl-5 space-y-1 text-sm">
+<li>Native support for Ollama local instances</li>
+<li>Advanced prompt caching across multiple providers</li>
+<li>Real-time token usage streaming dashboards</li>
+<li>Enhanced security with automated key rotation</li>
+</ul>
+</div>
+<div class="mt-8 flex items-center justify-between">
+<label class="flex items-center gap-2 cursor-pointer group">
+<input class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Don't show this again</span>
+</label>
+<button class="bg-primary text-white px-8 py-2.5 rounded-xl font-bold hover:bg-primary-dim transition-colors">Got it</button>
+</div>
+</div>
+</section>
+<div class="w-24 h-px bg-gray-400"></div>
+<!-- Overlay 3: Ollama Models -->
+<section class="w-full max-w-[560px] bg-surface-container-lowest rounded-xl border border-outline-variant shadow-lg flex flex-col overflow-hidden">
+<!-- Modal Header -->
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/50">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-primary rounded-lg text-white">
+<span class="material-symbols-outlined text-xl" data-icon="terminal">terminal</span>
+</div>
+<div>
+<h3 class="font-black text-on-surface tracking-tight">Ollama Models — Channel #12</h3>
+<p class="text-xs text-on-surface-variant">Manage local model distribution</p>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<!-- Tabs -->
+<div class="flex border-b border-outline-variant px-6">
+<button class="px-4 py-3 text-sm font-bold text-primary border-b-2 border-primary">Pull Model</button>
+<button class="px-4 py-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">Installed Models</button>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex gap-2">
+<div class="relative flex-grow">
+<input class="w-full pl-4 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-mono text-sm focus:ring-2 focus:ring-primary outline-none" type="text" value="llama3.1:70b"/>
+</div>
+<button class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-dim transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+                        Pull
+                    </button>
+</div>
+<!-- Progress Section -->
+<div class="space-y-3">
+<div class="flex justify-between items-end">
+<div class="space-y-1">
+<p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Downloading Manifest</p>
+<p class="text-sm font-mono font-medium text-on-surface">4.8 GB / 10.2 GB</p>
+</div>
+<div class="text-right">
+<p class="text-sm font-mono text-primary font-bold">45%</p>
+<p class="text-xs text-on-surface-variant">2.1 GB/s • ~3 min ETA</p>
+</div>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<!-- Log Area -->
+<div class="bg-on-surface text-on-primary p-4 rounded-lg font-mono text-xs h-32 overflow-y-auto space-y-1 shadow-inner">
+<p class="text-tertiary-fixed opacity-70">[14:20:01] Initializing connection to registry.ollama.ai...</p>
+<p class="text-tertiary-fixed opacity-70">[14:20:03] Fetching manifest for llama3.1:70b</p>
+<p class="text-primary-fixed">[14:20:05] Verifying checksum: 4a2b1c...</p>
+<p class="text-white">[14:20:06] Pulling layer: f234b6789 (2.1 GB/s)</p>
+<p class="text-white">[14:20:10] Pulling layer: a987c5432 (1.8 GB/s)</p>
+<div class="w-2 h-4 bg-white/30 animate-pulse inline-block align-middle ml-1"></div>
+</div>
+</div>
+<div class="p-6 bg-surface-container-low border-t border-outline-variant flex justify-end">
+<button class="px-6 py-2 border border-outline text-on-surface font-bold rounded-lg hover:bg-surface-variant transition-colors">Close</button>
+</div>
+</section>
+<div class="w-24 h-px bg-gray-400"></div>
+<!-- Overlay 4: Verify Your Identity -->
+<section class="w-full max-w-[380px] bg-surface-container-lowest rounded-xl border border-outline-variant shadow-lg p-8">
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 bg-on-surface-variant/5 text-on-surface-variant rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl" data-icon="lock_open">lock_open</span>
+</div>
+<h2 class="text-xl font-black text-on-surface tracking-tight mb-2">Verify Your Identity</h2>
+<p class="text-sm text-on-surface-variant text-center mb-8">Please confirm your credentials to modify sensitive API settings.</p>
+<!-- Password Mode -->
+<div class="w-full space-y-4">
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Password</label>
+<input class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="••••••••" type="password"/>
+</div>
+<button class="w-full bg-on-surface text-white py-3 rounded-xl font-bold hover:bg-black transition-colors">Verify</button>
+</div>
+<div class="relative w-full my-8 flex items-center">
+<div class="flex-grow border-t border-outline-variant"></div>
+<span class="px-3 text-[10px] font-black text-on-surface-variant uppercase tracking-widest bg-surface-container-lowest">OR</span>
+<div class="flex-grow border-t border-outline-variant"></div>
+</div>
+<!-- Passkey Button -->
+<button class="w-full border border-outline text-on-surface-variant py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors mb-6">
+<span class="material-symbols-outlined text-xl" data-icon="fingerprint">fingerprint</span>
+                    Use Passkey
+                </button>
+<div class="flex flex-col items-center gap-4">
+<a class="text-xs font-bold text-primary hover:underline transition-all" href="#">Use passkey instead</a>
+<button class="text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors">Cancel</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Nav for Mobile Anchor -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around items-center z-50">
+<div class="flex flex-col items-center text-indigo-600">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-bold uppercase mt-1">Dash</span>
+</div>
+<div class="flex flex-col items-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="router">router</span>
+<span class="text-[10px] font-bold uppercase mt-1">Gateway</span>
+</div>
+<div class="flex flex-col items-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span class="text-[10px] font-bold uppercase mt-1">Local</span>
+</div>
+<div class="flex flex-col items-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+<span class="text-[10px] font-bold uppercase mt-1">Security</span>
+</div>
+</div>
+</body></html>

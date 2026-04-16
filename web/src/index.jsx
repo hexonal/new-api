@@ -27,6 +27,7 @@ import { ThemeProvider } from './context/Theme';
 import App from './App';
 import './i18n/i18n';
 import './index.css';
+import { setupWebMcpTools } from './helpers/webmcp';
 import { LocaleProvider } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
@@ -40,6 +41,7 @@ if (typeof window !== 'undefined') {
     'color: #10b981; font-weight: bold; font-size: 24px;',
     'color: inherit; font-size: 14px;',
   );
+  void setupWebMcpTools();
 }
 
 function SemiLocaleWrapper({ children }) {

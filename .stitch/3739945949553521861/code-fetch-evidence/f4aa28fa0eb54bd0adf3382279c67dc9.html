@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add New Channel | ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#53ddfc",
+                        "on-error": "#fff7f7",
+                        "inverse-primary": "#8083ff",
+                        "on-primary": "#fbf7ff",
+                        "surface-container-low": "#eff4ff",
+                        "secondary-container": "#e9ddff",
+                        "on-tertiary": "#effbff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "secondary": "#6e3bd8",
+                        "secondary-fixed": "#e9ddff",
+                        "on-background": "#05345c",
+                        "primary": "#4a4bd7",
+                        "surface": "#f8f9ff",
+                        "tertiary-dim": "#005b6c",
+                        "tertiary-fixed": "#53ddfc",
+                        "surface-bright": "#f8f9ff",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "on-surface-variant": "#3d618c",
+                        "outline-variant": "#91b4e4",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-primary-fixed-variant": "#010028",
+                        "inverse-surface": "#000f21",
+                        "error": "#a8364b",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-secondary": "#fdf7ff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-surface": "#05345c",
+                        "surface-variant": "#d2e4ff",
+                        "on-error-container": "#6e0523",
+                        "secondary-dim": "#622bcb",
+                        "surface-dim": "#c4dcff",
+                        "background": "#f8f9ff",
+                        "on-tertiary-container": "#004b58",
+                        "error-container": "#f97386",
+                        "on-secondary-container": "#6029c9",
+                        "error-dim": "#6b0221",
+                        "surface-container-high": "#dce9ff",
+                        "surface-tint": "#4a4bd7",
+                        "primary-container": "#7073ff",
+                        "surface-container": "#e5eeff",
+                        "tertiary": "#00687b",
+                        "outline": "#5a7da9",
+                        "primary-dim": "#3d3dcb",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-primary-fixed": "#000000",
+                        "on-primary-container": "#000000",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "primary-fixed": "#7073ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopNavBar -->
+<header class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+<nav class="flex items-center justify-between px-8 h-16 w-full max-w-7xl mx-auto font-['Public_Sans'] text-sm antialiased">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-indigo-600 dark:text-indigo-400">ima-router</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Dashboard</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Models</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 pb-1" href="#">Channels</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Keys</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" href="#">Settings</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-100 dark:bg-gray-900 border-none rounded-full text-xs focus:ring-2 focus:ring-primary w-64" placeholder="Search..." type="text"/>
+</div>
+<button class="text-gray-500 hover:text-primary"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-gray-500 hover:text-primary"><span class="material-symbols-outlined">help</span></button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="professional headshot of a smiling developer in a studio setting with soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDM_deyyDZSkkHvboWNmtzAOleJ2xGO7ac0kb66UEYi1JPBxrCMJJ6a-dfgaODU3CStMR7gKPeS0W55qlStNEySyjduik1_jpSKaclAETMEgTyWftkbPv72MfgLD2--Yj_NeUpqgHJJKFb2ltmh0o2Ih8c_7-tLrrWx8aAEeJ3HMWsMW3wFfW_uir2H6Elhr8giYBhBOUby0qw6x2ves7a-aPjQlqDvnP3A04lZ_CWl1o3Rg9uyRNG4dK7-QpJdkutBriGOmDxyWlk"/>
+</div>
+</nav>
+</header>
+<div class="flex max-w-7xl mx-auto">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col h-[calc(100vh-64px)] sticky top-16 p-4 gap-2 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64 shrink-0 font-['Public_Sans'] text-sm tracking-tight">
+<div class="mb-6 px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-white">
+<span class="material-symbols-outlined">hub</span>
+</div>
+<div>
+<div class="font-bold text-gray-900 dark:text-white">ima-router</div>
+<div class="text-[10px] text-gray-500 uppercase tracking-widest">API Gateway</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">dashboard</span> Overview
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">monitoring</span> Analytics
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">hub</span> Channels
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">deployed_code</span> Models
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">receipt_long</span> Logs
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-lg">group</span> Users
+                </a>
+</nav>
+<button class="mt-4 w-full bg-primary text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-primary-dim transition-all">
+<span class="material-symbols-outlined text-sm">add</span> New Deployment
+            </button>
+<div class="mt-auto border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg" href="#">
+<span class="material-symbols-outlined text-lg">description</span> Documentation
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg" href="#">
+<span class="material-symbols-outlined text-lg">support_agent</span> Support
+                </a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 min-h-screen bg-surface px-8 pt-8 pb-32">
+<!-- Header Section -->
+<div class="mb-8">
+<nav class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+<a class="hover:text-primary transition-colors" href="#">Channels</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-gray-900 font-medium">Add New Channel</span>
+</nav>
+<div class="flex items-center justify-between">
+<h1 class="text-2xl font-bold text-gray-900">Add New Channel</h1>
+<button class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
+<span class="material-symbols-outlined text-lg">arrow_back</span> Back to Channels
+                    </button>
+</div>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+<!-- Left Column (60%) -->
+<div class="lg:col-span-3 space-y-6">
+<!-- 1. Basic Information -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">info</span> Basic Information
+                        </h2>
+<div class="space-y-5">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Provider</label>
+<div class="relative">
+<select class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none">
+<option>OpenAI</option>
+<option>Anthropic</option>
+<option>Google Gemini</option>
+<option>Mistral AI</option>
+<option>MiniMax</option>
+</select>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">api</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Name</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary" placeholder="e.g., MiniMax Production" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+<div class="relative">
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary" type="password" value="sk-xxxxxxxxxxxxxxxx"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-indigo-50/50 rounded-lg">
+<div class="pt-0.5">
+<input class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" type="checkbox"/>
+</div>
+<div>
+<label class="text-sm font-semibold text-gray-900">Batch Create</label>
+<p class="text-xs text-gray-500">Enable this to create multiple channels using a list of API keys separated by newlines.</p>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Organization (Optional)</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary" placeholder="org-xxx" type="text"/>
+</div>
+</div>
+</div>
+<!-- 2. API Configuration -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">settings_ethernet</span> API Configuration
+                        </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<div class="md:col-span-2">
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Base URL</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono text-gray-600" placeholder="https://api.minimax.io" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Proxy (Optional)</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono" placeholder="http://127.0.0.1:7890" type="text"/>
+</div>
+</div>
+</div>
+<!-- 3. Model Configuration -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">deployed_code</span> Model Configuration
+                            </h2>
+<div class="flex items-center gap-2">
+<label class="text-xs font-medium text-gray-500">Auto-detect updates</label>
+<button class="w-8 h-4 bg-primary rounded-full relative transition-colors">
+<span class="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></span>
+</button>
+</div>
+</div>
+<div class="space-y-6">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Select Models</label>
+<div class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg flex flex-wrap gap-2 min-h-[46px]">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-medium text-gray-700">
+                                        gpt-4o <button class="material-symbols-outlined text-xs hover:text-red-500">close</button>
+</span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-medium text-gray-700">
+                                        gpt-3.5-turbo <button class="material-symbols-outlined text-xs hover:text-red-500">close</button>
+</span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-medium text-gray-700">
+                                        dall-e-3 <button class="material-symbols-outlined text-xs hover:text-red-500">close</button>
+</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs py-1 flex-1 min-w-[120px]" placeholder="Add model..." type="text"/>
+</div>
+</div>
+<div class="flex flex-wrap gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">Fill Related</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">Fill All</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">cloud_download</span> Fetch from API
+                                </button>
+<button class="ml-auto px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors">Clear All</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Custom Model Name</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="model_id" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Test Model</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="gpt-3.5-turbo" type="text"/>
+</div>
+<div class="md:col-span-2">
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ignored Models</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="e.g., whisper-1, tts-1" type="text"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (40%) -->
+<div class="lg:col-span-2 space-y-6">
+<!-- 4. Model Routing -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">route</span> Model Routing
+                            </h2>
+<div class="flex p-1 bg-gray-100 rounded-lg">
+<button class="px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-indigo-600">Visual</button>
+<button class="px-3 py-1 text-xs font-bold text-gray-500 hover:text-gray-700">Manual Edit</button>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-2">
+<input class="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono" type="text" value="gpt-4o"/>
+<span class="material-symbols-outlined text-gray-400">arrow_forward</span>
+<input class="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono" type="text" value="abab6.5-chat"/>
+<button class="text-red-400 hover:text-red-600"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+<button class="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-xs font-bold text-gray-400 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">add</span> Add Mapping
+                            </button>
+</div>
+</div>
+<!-- 5. Channel Options -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">tune</span> Channel Options
+                        </h2>
+<div class="grid grid-cols-1 gap-6">
+<div class="flex items-start justify-between gap-4">
+<div>
+<div class="text-sm font-semibold text-gray-900">Force Format</div>
+<p class="text-xs text-gray-500">Ensure the output strictly follows the requested format schema.</p>
+</div>
+<button class="shrink-0 w-10 h-5 bg-gray-200 rounded-full relative transition-colors">
+<span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+<div class="flex items-start justify-between gap-4">
+<div>
+<div class="text-sm font-semibold text-gray-900">Convert Reasoning</div>
+<p class="text-xs text-gray-500">Extract reasoning process into a separate metadata field.</p>
+</div>
+<button class="shrink-0 w-10 h-5 bg-primary rounded-full relative transition-colors">
+<span class="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+<div class="flex items-start justify-between gap-4">
+<div>
+<div class="text-sm font-semibold text-gray-900">Image Base64</div>
+<p class="text-xs text-gray-500">Automatically encode image URLs to Base64 for upstream stability.</p>
+</div>
+<button class="shrink-0 w-10 h-5 bg-primary rounded-full relative transition-colors">
+<span class="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+</div>
+</div>
+<!-- 6. Prompt Override -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">edit_note</span> Prompt Override
+                        </h2>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">System Prompt</label>
+<textarea class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm resize-none" placeholder="Enter system instruction here..." rows="3"></textarea>
+</div>
+<div class="flex flex-wrap gap-4">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="w-4 h-4 text-primary border-gray-300 focus:ring-primary" name="override_mode" type="radio"/>
+<span class="text-sm text-gray-700">Prepend</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="w-4 h-4 text-primary border-gray-300 focus:ring-primary" name="override_mode" type="radio"/>
+<span class="text-sm text-gray-700">Append</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="w-4 h-4 text-primary border-gray-300 focus:ring-primary" name="override_mode" type="radio"/>
+<span class="text-sm text-gray-700">Replace</span>
+</label>
+</div>
+</div>
+</div>
+<!-- 7. Access Control -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+<h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600">lock_open</span> Access Control
+                        </h2>
+<div>
+<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">User Groups</label>
+<div class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg flex flex-wrap gap-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">
+                                    default
+                                </span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">
+                                    premium <button class="material-symbols-outlined text-xs">close</button>
+</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs py-1 w-24" placeholder="Add group..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Bottom Sticky Bar -->
+<div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-4 z-40">
+<div class="max-w-7xl mx-auto flex items-center justify-between">
+<button class="px-6 py-2.5 text-sm font-bold text-gray-600 hover:text-red-600 transition-colors">
+                Discard Changes
+            </button>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 text-sm font-bold text-primary bg-white border border-primary rounded-lg hover:bg-primary-container/10 transition-all">
+                    Create &amp; Add Another
+                </button>
+<button class="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-lg hover:bg-primary-dim shadow-lg shadow-primary/20 transition-all">
+                    Create Channel
+                </button>
+</div>
+</div>
+</div>
+</body></html>

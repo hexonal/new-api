@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Error Pages | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Public+Sans:wght@700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#05345c",
+                    "primary-fixed": "#7073ff",
+                    "tertiary-fixed": "#53ddfc",
+                    "on-error-container": "#6e0523",
+                    "error-container": "#f97386",
+                    "surface-bright": "#f8f9ff",
+                    "surface-variant": "#d2e4ff",
+                    "on-primary-fixed": "#000000",
+                    "on-secondary-container": "#6029c9",
+                    "on-secondary-fixed": "#4d00b7",
+                    "secondary-fixed": "#e9ddff",
+                    "inverse-on-surface": "#8e9eb7",
+                    "surface-container-high": "#dce9ff",
+                    "on-primary-container": "#000000",
+                    "background": "#f8f9ff",
+                    "inverse-primary": "#8083ff",
+                    "error-dim": "#6b0221",
+                    "on-primary": "#fbf7ff",
+                    "secondary-dim": "#622bcb",
+                    "surface-dim": "#c4dcff",
+                    "tertiary-fixed-dim": "#40ceed",
+                    "on-surface-variant": "#3d618c",
+                    "surface": "#f8f9ff",
+                    "primary": "#4a4bd7",
+                    "on-primary-fixed-variant": "#010028",
+                    "surface-container-highest": "#d2e4ff",
+                    "inverse-surface": "#000f21",
+                    "on-tertiary-fixed": "#003640",
+                    "tertiary-container": "#53ddfc",
+                    "outline": "#5a7da9",
+                    "on-secondary-fixed-variant": "#6a37d4",
+                    "on-tertiary-container": "#004b58",
+                    "on-error": "#fff7f7",
+                    "primary-dim": "#3d3dcb",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-container": "#7073ff",
+                    "on-background": "#05345c",
+                    "primary-fixed-dim": "#6366f1",
+                    "outline-variant": "#91b4e4",
+                    "secondary": "#6e3bd8",
+                    "tertiary": "#00687b",
+                    "surface-container": "#e5eeff",
+                    "surface-container-low": "#eff4ff",
+                    "tertiary-dim": "#005b6c",
+                    "secondary-fixed-dim": "#ddcdff",
+                    "secondary-container": "#e9ddff",
+                    "surface-tint": "#4a4bd7",
+                    "on-tertiary": "#effbff",
+                    "on-tertiary-fixed-variant": "#005564",
+                    "on-secondary": "#fdf7ff",
+                    "error": "#a8364b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+<div class="flex justify-between items-center h-16 px-6 max-w-7xl mx-auto w-full">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">ima-router</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Documentation</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Pricing</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="cursor-pointer active:opacity-80 transition-opacity text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-medium">Sign In</button>
+</div>
+</div>
+</header>
+<main class="flex-grow flex flex-col">
+<!-- 404 Section -->
+<section class="flex-1 flex flex-col items-center justify-center py-24 px-6 text-center bg-white">
+<div class="relative mb-8">
+<span class="text-[120px] font-extrabold text-indigo-500/10 select-none leading-none">404</span>
+<div class="absolute inset-0 flex items-center justify-center">
+<img alt="404 Illustration" class="h-48 object-contain mix-blend-multiply opacity-80" data-alt="Minimalist abstract vector illustration of a floating island with a single tree and a magnifying glass searching through digital clouds" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRNnl0j0EMKaW9FegjW6ucfjtelLkq2HyzOq34hqFTsPezRyE0iQYOejkNMyJdfv14322j8bD5xH3rIlSTtjwiMJFENam2Iypts2airb8voQEoJn38z4MhTEa5D8v41sVsSVtAUW44Dy3ZDb-WdfGprHZbu--ooadEgvkr-rW7mHotvElfyx5C6y4gRCf5mOmxcv4yXyhqIJysT2URIkmvPsV1StlenSW16x3_0XyE3OIMBKYnKBJ9TXs3xQAPnQCEi2cq3-6_sPg"/>
+</div>
+</div>
+<h1 class="text-4xl font-extrabold text-on-surface mb-3 tracking-tight">Page not found</h1>
+<p class="text-on-surface-variant max-w-md mx-auto mb-10 text-lg leading-relaxed">
+                The page you're looking for doesn't exist or has been moved.
+            </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-xl font-semibold hover:bg-primary-dim transition-all active:scale-[0.98]">
+                    Go Home
+                </button>
+<button class="border border-outline text-on-surface px-8 py-3 rounded-xl font-semibold hover:bg-surface-container transition-all active:scale-[0.98]">
+                    Go Back
+                </button>
+</div>
+</section>
+<!-- Divider -->
+<div class="w-full h-px bg-gray-100 max-w-4xl mx-auto"></div>
+<!-- 403 Section -->
+<section class="flex-1 flex flex-col items-center justify-center py-24 px-6 text-center bg-white">
+<div class="relative mb-8">
+<span class="text-[120px] font-extrabold text-error/10 select-none leading-none">403</span>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="p-6 bg-error/5 rounded-full">
+<span class="material-symbols-outlined text-error !text-7xl" data-weight="fill">lock</span>
+</div>
+</div>
+</div>
+<h2 class="text-4xl font-extrabold text-on-surface mb-3 tracking-tight">Access Denied</h2>
+<p class="text-on-surface-variant max-w-md mx-auto mb-10 text-lg leading-relaxed">
+                You don't have permission to access this page. Contact your administrator.
+            </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-xl font-semibold hover:bg-primary-dim transition-all active:scale-[0.98]">
+                    Go Home
+                </button>
+<button class="border border-outline text-on-surface px-8 py-3 rounded-xl font-semibold hover:bg-surface-container transition-all active:scale-[0.98]">
+                    Sign In
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
+<div class="flex flex-col md:flex-row justify-between items-center py-8 px-6 max-w-7xl mx-auto w-full">
+<p class="text-sm font-sans text-gray-500 dark:text-gray-400 mb-4 md:mb-0">
+                © 2024 ima-router AI. All rights reserved.
+            </p>
+<div class="flex flex-wrap justify-center gap-6">
+<a class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Status</a>
+<a class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Privacy Policy</a>
+<a class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Terms of Service</a>
+<a class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors" href="#">Contact Support</a>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Settings | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#6029c9",
+                        "on-error-container": "#6e0523",
+                        "on-secondary": "#fdf7ff",
+                        "surface-container-highest": "#d2e4ff",
+                        "secondary-container": "#e9ddff",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#f97386",
+                        "on-tertiary": "#effbff",
+                        "primary-dim": "#3d3dcb",
+                        "on-background": "#05345c",
+                        "on-primary-fixed": "#000000",
+                        "error-dim": "#6b0221",
+                        "surface-tint": "#4a4bd7",
+                        "secondary-fixed": "#e9ddff",
+                        "on-surface": "#05345c",
+                        "tertiary-fixed": "#53ddfc",
+                        "tertiary": "#00687b",
+                        "surface": "#f8f9ff",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "surface-bright": "#f8f9ff",
+                        "outline": "#5a7da9",
+                        "on-tertiary-container": "#004b58",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-tertiary-fixed": "#003640",
+                        "surface-container-low": "#eff4ff",
+                        "secondary": "#6e3bd8",
+                        "secondary-dim": "#622bcb",
+                        "inverse-surface": "#000f21",
+                        "primary": "#4a4bd7",
+                        "tertiary-dim": "#005b6c",
+                        "surface-container-high": "#dce9ff",
+                        "tertiary-container": "#53ddfc",
+                        "on-error": "#fff7f7",
+                        "on-primary-container": "#000000",
+                        "surface-container": "#e5eeff",
+                        "background": "#f8f9ff",
+                        "on-primary-fixed-variant": "#010028",
+                        "primary-fixed": "#7073ff",
+                        "outline-variant": "#91b4e4",
+                        "error": "#a8364b",
+                        "inverse-primary": "#8083ff",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "surface-dim": "#c4dcff",
+                        "primary-container": "#7073ff",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-surface-variant": "#3d618c",
+                        "surface-variant": "#d2e4ff",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-primary": "#fbf7ff",
+                        "inverse-on-surface": "#8e9eb7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- TopNavBar -->
+<nav class="flex justify-between items-center px-6 py-3 w-full sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-headline">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white">ima-router</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer" href="#">Docs</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer" href="#">Dashboard</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 pb-1 font-semibold cursor-pointer" href="#">Settings</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search system settings..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-gray-500 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="Portrait of a professional tech administrator with a friendly expression, soft studio lighting, clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4Cl-rSXYJ5cUttcMRjhN_Emq2VQ9kzcRfIOgjagut_hcpv2eTV26W13junrzkXvayJll4APVx7JdO74XxN8V0ZCHTfnSsG1gELonhb8FDd3DvFmzhK3UX-yISg1i-45gCcthqwb2XbT-AoRXexPQbBECNvx77CV1j0f8rzAZipIT_269-l9C9p2klLhg3LwZ7Oo8w04MeE5nK1KGBF-A9t0vJFhQei5HK7f66SZPPGiNum_8-u9K2sAS_Cr7rGhOUch2ZmyN6FvQ"/>
+</div>
+</div>
+</nav>
+<div class="flex">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-[calc(100vh-64px)] sticky left-0 top-16 bg-gray-50 dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 w-64 shrink-0 font-headline text-sm">
+<div class="p-4 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">router</span>
+</div>
+<div>
+<h2 class="text-lg font-black text-gray-900 dark:text-white leading-tight">ima-router</h2>
+<p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold">AI API Gateway</p>
+</div>
+</div>
+<nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-hide">
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">token</span>
+<span>Models</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">router</span>
+<span>Gateways</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-semibold" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span>Logs</span>
+</a>
+</nav>
+<div class="p-2 border-t border-gray-200 dark:border-gray-800">
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Help</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg m-2 text-red-500 hover:bg-red-50 transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 min-w-0 bg-background overflow-y-auto h-[calc(100vh-64px)] p-8">
+<div class="max-w-5xl mx-auto space-y-8">
+<!-- Page Header -->
+<header>
+<h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">System Settings</h1>
+<p class="mt-2 text-on-surface-variant font-body">Manage global configurations, user modules, and gateway policies for your enterprise instance.</p>
+</header>
+<!-- Horizontal Tabs -->
+<div class="flex items-center gap-2 border-b border-outline-variant overflow-x-auto scrollbar-hide pb-px">
+<button class="px-5 py-3 text-sm font-semibold border-b-2 border-primary text-primary transition-all whitespace-nowrap">General</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Auth</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Payment</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Rate Limiting</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Monitoring</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Branding</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Model</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Ratio</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Performance</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Drawing</button>
+<button class="px-5 py-3 text-sm font-medium text-on-surface-variant hover:text-primary transition-all whitespace-nowrap">Chat</button>
+</div>
+<!-- Settings Cards Container -->
+<div class="space-y-6 pb-20">
+<!-- 1. Basic Configuration -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">dns</span>
+                                Basic Configuration
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Server URL</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="text" value="https://api.imarouter.com"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Document URL</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" placeholder="https://docs.imarouter.com" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Retry Count</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="number" value="1"/>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+<span class="text-sm font-medium">Batch Update</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer">
+<div class="relative">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+<span class="text-sm font-medium">Error Log</span>
+</label>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors shadow-sm">Save Changes</button>
+</div>
+</div>
+</section>
+<!-- 2. Quota & Billing -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">payments</span>
+                                Quota &amp; Billing
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">USD Rate</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="text" value="7.31"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Currency</label>
+<select class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary">
+<option>USD</option>
+<option>CNY</option>
+<option>EUR</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Default Quota</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="text" value="10.00"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Threshold</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="text" value="0.50"/>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+<span class="text-sm font-medium text-on-surface-variant">Display Mode</span>
+<div class="flex p-1 bg-surface-container rounded-md">
+<button class="px-4 py-1.5 text-xs font-bold bg-white text-primary rounded shadow-sm">Full</button>
+<button class="px-4 py-1.5 text-xs font-semibold text-on-surface-variant">Lite</button>
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Quota Settings</button>
+</div>
+</div>
+</section>
+<!-- 3. Navigation Bar Control -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">menu</span>
+                                Navigation Bar Control
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+<!-- Home -->
+<div class="p-4 rounded-lg border border-outline-variant flex flex-col gap-3">
+<span class="text-sm font-bold">Home</span>
+<input checked="" class="w-5 h-5 text-primary rounded focus:ring-primary" type="checkbox"/>
+</div>
+<!-- Console -->
+<div class="p-4 rounded-lg border border-outline-variant flex flex-col gap-3">
+<span class="text-sm font-bold">Console</span>
+<input checked="" class="w-5 h-5 text-primary rounded focus:ring-primary" type="checkbox"/>
+</div>
+<!-- Models -->
+<div class="p-4 rounded-lg border border-outline-variant flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<span class="text-sm font-bold">Models</span>
+<input checked="" class="w-5 h-5 text-primary rounded focus:ring-primary" type="checkbox"/>
+</div>
+<label class="flex items-center gap-2 mt-auto">
+<input class="w-4 h-4 text-secondary rounded" type="checkbox"/>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">Req. Auth</span>
+</label>
+</div>
+<!-- Docs -->
+<div class="p-4 rounded-lg border border-outline-variant flex flex-col gap-3">
+<span class="text-sm font-bold">Docs</span>
+<input checked="" class="w-5 h-5 text-primary rounded focus:ring-primary" type="checkbox"/>
+</div>
+<!-- About -->
+<div class="p-4 rounded-lg border border-outline-variant flex flex-col gap-3">
+<span class="text-sm font-bold">About</span>
+<input checked="" class="w-5 h-5 text-primary rounded focus:ring-primary" type="checkbox"/>
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-between">
+<button class="px-4 py-2 text-primary font-bold text-sm hover:underline">Reset to Default</button>
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Layout</button>
+</div>
+</div>
+</section>
+<!-- 4. Sidebar Module Control -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">side_navigation</span>
+                                Sidebar Module Control
+                            </h2>
+</div>
+<div class="p-6 space-y-8">
+<!-- Workspace -->
+<div class="space-y-4">
+<h3 class="text-xs font-black text-on-surface-variant tracking-widest uppercase">Workspace</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Dashboard</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Token Mgmt</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Usage Logs</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Key Analytics</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Callback Logs</span>
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+</div>
+</div>
+<!-- Account -->
+<div class="space-y-4">
+<h3 class="text-xs font-black text-on-surface-variant tracking-widest uppercase">Account</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Wallet</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Personal Settings</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Subscriptions</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+</div>
+</div>
+<!-- Admin -->
+<div class="space-y-4">
+<h3 class="text-xs font-black text-on-surface-variant tracking-widest uppercase">Admin</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+<label class="flex items-center justify-between p-3 bg-indigo-50 border border-primary/20 rounded-lg">
+<span class="text-xs font-bold text-primary">System Settings</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Users</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Groups</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Channels</span>
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant/50">
+<span class="text-xs font-medium">Redemptions</span>
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+</label>
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-between">
+<button class="px-4 py-2 text-primary font-bold text-sm hover:underline">Reset to Default</button>
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Modules</button>
+</div>
+</div>
+</section>
+<!-- 5. Content Filtering -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">filter_alt</span>
+                                Content Filtering
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex gap-8">
+<label class="flex items-center gap-3 cursor-pointer">
+<input checked="" class="w-5 h-5 rounded text-primary border-outline-variant" type="checkbox"/>
+<span class="text-sm font-semibold">Enable keyword filtering</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer">
+<input class="w-5 h-5 rounded text-primary border-outline-variant" type="checkbox"/>
+<span class="text-sm font-semibold">Enable prompt filtering</span>
+</label>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-xs font-black text-on-surface-variant uppercase tracking-widest">Restricted Keywords</label>
+<textarea class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary text-sm" placeholder="Enter keywords separated by commas..." rows="4"></textarea>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-black text-on-surface-variant uppercase tracking-widest">Restricted Prompts</label>
+<textarea class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary text-sm" placeholder="Enter restricted prompt patterns..." rows="4"></textarea>
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Filter Rules</button>
+</div>
+</div>
+</section>
+<!-- 6. Credit & Checkin -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+                                Credit &amp; Checkin
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-end gap-6 max-w-lg">
+<div class="flex-1 space-y-2">
+<label class="text-sm font-semibold text-on-surface">Daily Reward (Credits)</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined text-sm">database</span>
+<input class="w-full pl-10 border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="number" value="100"/>
+</div>
+</div>
+<label class="flex items-center gap-3 h-10 px-4 bg-surface-container rounded-lg cursor-pointer">
+<input checked="" class="rounded text-primary" type="checkbox"/>
+<span class="text-sm font-medium">Checkin Enabled</span>
+</label>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Rewards</button>
+</div>
+</div>
+</section>
+<!-- 7. Logging -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                                Logging &amp; Retention
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface">Retention Period (Days)</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="number" value="30"/>
+<p class="text-[10px] text-on-surface-variant italic">Logs older than this will be permanently purged.</p>
+</div>
+<label class="flex items-center p-4 bg-surface rounded-xl border border-outline-variant cursor-pointer">
+<div class="flex-1">
+<div class="text-sm font-bold">Request Logging</div>
+<div class="text-xs text-on-surface-variant">Store full payload data for every API call</div>
+</div>
+<input checked="" class="w-6 h-6 text-primary rounded-md" type="checkbox"/>
+</label>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Log Policy</button>
+</div>
+</div>
+</section>
+<!-- 8. Channel Affinity -->
+<section class="bg-white rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h2 class="text-lg font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">link</span>
+                                Channel Affinity
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="space-y-4">
+<label class="flex items-center gap-3 cursor-pointer">
+<input checked="" class="w-5 h-5 rounded text-primary" type="checkbox"/>
+<span class="text-sm font-bold">Enable Affinity</span>
+</label>
+<div class="space-y-2">
+<label class="text-sm font-semibold">Affinity Duration (s)</label>
+<input class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary" type="number" value="3600"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold">Affinity Scope</label>
+<select class="w-full border-outline-variant rounded-lg focus:ring-primary focus:border-primary text-sm">
+<option>User</option>
+<option>Token</option>
+<option>IP Address</option>
+</select>
+</div>
+</div>
+<div class="md:col-span-2 space-y-2">
+<label class="text-xs font-black text-on-surface-variant uppercase tracking-widest">Active Cache Preview</label>
+<div class="border border-outline-variant rounded-lg overflow-hidden">
+<table class="w-full text-xs text-left">
+<thead class="bg-surface-container text-on-surface-variant font-bold">
+<tr>
+<th class="px-4 py-2 border-b">Scope ID</th>
+<th class="px-4 py-2 border-b">Channel</th>
+<th class="px-4 py-2 border-b">Expires In</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<tr>
+<td class="px-4 py-2 font-mono text-primary-dim">user_0921</td>
+<td class="px-4 py-2">OpenAI-4o-Main</td>
+<td class="px-4 py-2 text-on-surface-variant">42m 11s</td>
+</tr>
+<tr>
+<td class="px-4 py-2 font-mono text-primary-dim">user_4482</td>
+<td class="px-4 py-2">Anthropic-3.5</td>
+<td class="px-4 py-2 text-on-surface-variant">18m 05s</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-end">
+<button class="px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save Affinity Config</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</body></html>

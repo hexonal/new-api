@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Callback Logs - ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#6e3bd8",
+                        "error": "#a8364b",
+                        "on-primary-fixed-variant": "#010028",
+                        "primary-dim": "#3d3dcb",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "inverse-primary": "#8083ff",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "surface-bright": "#f8f9ff",
+                        "on-surface": "#05345c",
+                        "on-secondary": "#fdf7ff",
+                        "tertiary": "#00687b",
+                        "on-error": "#fff7f7",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-error-container": "#6e0523",
+                        "on-surface-variant": "#3d618c",
+                        "surface-variant": "#d2e4ff",
+                        "tertiary-container": "#53ddfc",
+                        "surface-tint": "#4a4bd7",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-primary": "#fbf7ff",
+                        "secondary-dim": "#622bcb",
+                        "outline-variant": "#91b4e4",
+                        "on-tertiary-fixed": "#003640",
+                        "inverse-surface": "#000f21",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-secondary-container": "#6029c9",
+                        "on-background": "#05345c",
+                        "tertiary-fixed": "#53ddfc",
+                        "surface": "#f8f9ff",
+                        "secondary-container": "#e9ddff",
+                        "on-primary-container": "#000000",
+                        "on-tertiary": "#effbff",
+                        "surface-container-low": "#eff4ff",
+                        "outline": "#5a7da9",
+                        "surface-container-high": "#dce9ff",
+                        "surface-dim": "#c4dcff",
+                        "surface-container": "#e5eeff",
+                        "error-dim": "#6b0221",
+                        "tertiary-dim": "#005b6c",
+                        "primary-fixed": "#7073ff",
+                        "background": "#f8f9ff",
+                        "primary-container": "#7073ff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#e9ddff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-tertiary-container": "#004b58",
+                        "on-primary-fixed": "#000000",
+                        "error-container": "#f97386",
+                        "on-secondary-fixed": "#4d00b7",
+                        "primary": "#4a4bd7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, .brand-font { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-public-sans text-sm antialiased docked full-width top-0 z-50 fixed flex justify-between items-center h-16 px-6 w-full">
+<div class="flex items-center gap-8">
+<div class="text-xl font-bold text-gray-900 dark:text-white brand-font">ima-router</div>
+<nav class="hidden md:flex gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer active:opacity-70" href="#">Documentation</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer active:opacity-70" href="#">Changelog</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer active:opacity-70" href="#">Support</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+<input class="bg-surface-container border-none rounded-lg pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-2 focus:ring-primary/20" placeholder="Search logs..." type="text"/>
+</div>
+<button class="p-2 text-gray-500 hover:text-indigo-500 transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="p-2 text-gray-500 hover:text-indigo-500 transition-colors"><span class="material-symbols-outlined">settings</span></button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBX25IOCViJY8FNEUedN6C3LAJuCsC97KdYgdYpBLPqe1nhjsIpJESOzrsVtb6sHFstEF85JKTf0lhor3QUow0W7tSFHDJcD8gHe5dWHPLSNP3KQrTg99ftxOoGnbzWyaQP1YJCRIvdnqDxm2UfkGrXuv0s4imY0V_kZYWY99mMylLjHTji3zGlasNq_lp42ieEPJBCrmC5jy6RkaO3yBcwtOzbaTKvNHSP7x9_UZhitXZbGRIsz04-3cVAJlF-6u5gp1GTXS0tz6w"/>
+</div>
+</header>
+<aside class="fixed left-0 top-16 bottom-0 w-64 overflow-y-auto flex flex-col bg-gray-50 dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 font-public-sans text-xs font-semibold uppercase tracking-wider z-40">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white"><span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">router</span></div>
+<div><div class="text-indigo-500 font-black text-lg leading-none">WORKSPACE</div><div class="text-[10px] text-gray-500 font-medium">Production Env</div></div>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">smart_toy</span> Models</a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">vpn_key</span> API Keys</a>
+<a class="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-r-2 border-indigo-500 px-4 py-3 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">terminal</span> Callback Logs</a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">analytics</span> Usage</a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all cursor-pointer active:opacity-70" href="#"><span class="material-symbols-outlined">payments</span> Billing</a>
+</nav>
+<div class="p-4 mt-auto space-y-4">
+<button class="w-full py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2 hover:bg-primary-dim transition-colors shadow-sm"><span class="material-symbols-outlined text-sm">add</span> New API Key</button>
+<div class="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-1">
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-2 hover:bg-gray-100 transition-all" href="#"><span class="material-symbols-outlined">menu_book</span> Docs</a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-4 py-2 hover:bg-gray-100 transition-all" href="#"><span class="material-symbols-outlined">help_outline</span> Help</a>
+</div>
+</div>
+</aside>
+<main class="pl-64 pt-16 min-h-screen">
+<div class="max-w-[1400px] mx-auto p-8">
+<div class="flex justify-between items-end mb-8">
+<div><h1 class="text-2xl font-bold text-on-surface">Callback Logs</h1><p class="text-on-surface-variant text-sm mt-1">Monitor webhook callback delivery status</p></div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-sm">refresh</span> Refresh</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:bg-primary-dim transition-colors shadow-sm"><span class="material-symbols-outlined text-sm">download</span> Export CSV</button>
+</div>
+</div>
+<div class="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm flex flex-wrap items-center gap-4">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Request ID</label>
+<div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input class="w-full bg-gray-50 border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-primary focus:border-primary" placeholder="Request ID..." type="text"/></div>
+</div>
+<div class="w-48"><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Status</label><select class="w-full bg-gray-50 border-gray-200 rounded-lg py-2 text-sm focus:ring-primary focus:border-primary"><option>All Status</option><option>Success</option><option>Failed</option><option>Pending</option></select></div>
+<div class="w-48"><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Source</label><select class="w-full bg-gray-50 border-gray-200 rounded-lg py-2 text-sm focus:ring-primary focus:border-primary"><option>All Sources</option><option>monitor.alert</option><option>channel.test</option></select></div>
+<div class="w-48"><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">User ID / Name</label><input class="w-full bg-gray-50 border-gray-200 rounded-lg py-2 text-sm focus:ring-primary focus:border-primary" placeholder="Search user..." type="text"/></div>
+</div>
+<div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm"><table class="w-full text-left border-collapse"><thead class="bg-gray-50 border-b border-gray-200"><tr><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Created Time</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Source</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Request ID</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Target SK</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Retry</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">HTTP</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Response</th><th class="px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider"></th></tr></thead><tbody class="divide-y divide-gray-100"><tr class="hover:bg-gray-50 transition-colors"><td class="px-4 py-4 text-xs text-gray-500">2 min ago</td><td class="px-4 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">monitor.alert</span></td><td class="px-4 py-4"><span class="px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Success</span></td><td class="px-4 py-4"><div class="flex items-center gap-2 font-mono text-[11px] text-gray-600">req_729...3a1<button class="text-gray-400 hover:text-primary"><span class="material-symbols-outlined text-sm">content_copy</span></button></div></td><td class="px-4 py-4 text-xs text-gray-500">sk_live_****9x2</td><td class="px-4 py-4 text-xs text-gray-700">alex_admin</td><td class="px-4 py-4 text-xs text-gray-500">1/4</td><td class="px-4 py-4"><span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[11px] font-bold">200</span></td><td class="px-4 py-4 text-xs text-gray-400 truncate max-w-[120px]">{"status": "ok", "message"...}</td><td class="px-4 py-4 text-right"><button class="px-3 py-1 border border-outline rounded text-[11px] font-semibold text-primary hover:bg-indigo-50 transition-colors">Retry</button></td></tr></tbody></table><div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between"><div class="text-xs text-gray-500">Showing <span class="font-semibold text-gray-900">1</span> to <span class="font-semibold text-gray-900">10</span> of <span class="font-semibold text-gray-900">1,240</span> logs</div><div class="flex items-center gap-2"><button class="p-2 border border-gray-200 rounded hover:bg-white transition-colors disabled:opacity-50" disabled=""><span class="material-symbols-outlined text-sm">chevron_left</span></button><button class="px-3 py-1 text-xs font-bold bg-white border border-indigo-500 text-indigo-600 rounded shadow-sm">1</button><button class="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-white rounded transition-colors">2</button><button class="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-white rounded transition-colors">3</button><span class="text-gray-400">...</span><button class="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-white rounded transition-colors">124</button><button class="p-2 border border-gray-200 rounded hover:bg-white transition-colors"><span class="material-symbols-outlined text-sm">chevron_right</span></button></div></div></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8"><div class="bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Success Rate</div><div class="flex items-end justify-between"><div class="text-2xl font-bold text-gray-900">98.4%</div><div class="text-[10px] font-bold text-emerald-500">+0.2%</div></div><div class="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width: 98.4%"></div></div></div><div class="bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Failures</div><div class="flex items-end justify-between"><div class="text-2xl font-bold text-gray-900">42</div><div class="text-[10px] font-bold text-red-500">-12%</div></div><div class="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-red-500" style="width: 15%"></div></div></div><div class="bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Avg Latency</div><div class="flex items-end justify-between"><div class="text-2xl font-bold text-gray-900">142ms</div><div class="text-[10px] font-bold text-gray-400">Stable</div></div><div class="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-indigo-500" style="width: 45%"></div></div></div><div class="bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Active Hooks</div><div class="flex items-end justify-between"><div class="text-2xl font-bold text-gray-900">12</div><div class="text-[10px] font-bold text-indigo-500">+1</div></div><div class="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-indigo-500" style="width: 60%"></div></div></div></div>
+</div></main></body></html>

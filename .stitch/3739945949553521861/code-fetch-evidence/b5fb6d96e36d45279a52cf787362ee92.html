@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Management - ima-router</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Public+Sans:wght@700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#53ddfc",
+                        "secondary-container": "#e9ddff",
+                        "on-secondary": "#fdf7ff",
+                        "error-dim": "#6b0221",
+                        "background": "#f8f9ff",
+                        "surface": "#f8f9ff",
+                        "secondary-fixed": "#e9ddff",
+                        "on-primary-container": "#000000",
+                        "surface-container-highest": "#d2e4ff",
+                        "tertiary": "#00687b",
+                        "primary": "#4a4bd7",
+                        "on-tertiary-container": "#004b58",
+                        "on-surface": "#05345c",
+                        "surface-dim": "#c4dcff",
+                        "primary-fixed": "#7073ff",
+                        "on-tertiary": "#effbff",
+                        "on-surface-variant": "#3d618c",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-error-container": "#6e0523",
+                        "outline-variant": "#91b4e4",
+                        "on-primary-fixed-variant": "#010028",
+                        "surface-bright": "#f8f9ff",
+                        "surface-container": "#e5eeff",
+                        "on-primary-fixed": "#000000",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "inverse-surface": "#000f21",
+                        "inverse-primary": "#8083ff",
+                        "surface-container-low": "#eff4ff",
+                        "surface-variant": "#d2e4ff",
+                        "tertiary-fixed": "#53ddfc",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "secondary-dim": "#622bcb",
+                        "on-secondary-container": "#6029c9",
+                        "on-primary": "#fbf7ff",
+                        "surface-container-high": "#dce9ff",
+                        "primary-fixed-dim": "#6366f1",
+                        "surface-tint": "#4a4bd7",
+                        "on-background": "#05345c",
+                        "primary-container": "#7073ff",
+                        "on-secondary-fixed": "#4d00b7",
+                        "outline": "#5a7da9",
+                        "on-error": "#fff7f7",
+                        "error-container": "#f97386",
+                        "secondary": "#6e3bd8",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "error": "#a8364b",
+                        "primary-dim": "#3d3dcb",
+                        "tertiary-dim": "#005b6c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-white text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (Predicted Component) -->
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col py-4 z-40 bg-gray-50 border-r border-gray-200">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm" data-icon="hub">hub</span>
+</div>
+<div>
+<h1 class="text-lg font-black text-indigo-600 font-public-sans tracking-tight">ima-router</h1>
+<p class="text-[10px] font-public-sans uppercase tracking-widest text-gray-400 font-semibold">Enterprise Admin</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+<div class="mb-4">
+<p class="px-4 text-[10px] font-public-sans uppercase tracking-widest text-gray-500 font-bold mb-2">Main</p>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="bar_chart">bar_chart</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="vpn_key">vpn_key</span>
+<span class="text-sm font-medium">API Keys</span>
+</a>
+</div>
+<div class="mb-4">
+<p class="px-4 text-[10px] font-public-sans uppercase tracking-widest text-gray-500 font-bold mb-2">Admin</p>
+<!-- Active Tab: Users -->
+<a class="flex items-center gap-3 px-4 py-2 bg-indigo-50 text-indigo-600 border-r-4 border-indigo-600 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="text-sm font-semibold">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="smart_toy">smart_toy</span>
+<span class="text-sm font-medium">Models</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="settings">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</div>
+</nav>
+<div class="mt-auto px-4 border-t border-gray-100 pt-4">
+<button class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors mb-4">
+                Upgrade Plan
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="help_outline">help_outline</span>
+<span class="text-sm font-medium">Help</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-gray-600 hover:bg-gray-100 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="logout">logout</span>
+<span class="text-sm font-medium">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopNavBar (Predicted Component) -->
+<header class="flex justify-between items-center px-8 h-16 w-full sticky top-0 z-50 bg-white border-b border-gray-200">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="Search documentation or settings..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6 ml-8">
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-gray-500 hover:text-gray-900 text-sm font-medium" href="#">Documentation</a>
+<a class="text-gray-500 hover:text-gray-900 text-sm font-medium" href="#">Changelog</a>
+<a class="text-gray-500 hover:text-gray-900 text-sm font-medium" href="#">Support</a>
+</nav>
+<div class="h-6 w-px bg-gray-200"></div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200 ml-2" data-alt="close-up portrait avatar of a professional developer in a minimal studio setting with soft neutral lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKgik5vwReQWK5sp0EUPZcmhngDb_-4NcV28ReFVrY55RkaC-CvHp3aYCTkTo--nDOMR96fkI2zAqkpFStFddZQTtiQ3GF0ufdJ4OBPr0kbyq2so8XXWraMBh0LhmA6o_CCom9MUmHd7mkZQ58vzFbVsvCI6fzC9jo6akQZBaTgT3MiDamG6jURxXer0LDIm94r9m67nlYR0ZDSsDjiPAQmrGVIHzLe4LDzAEWMxpvePU7D1E9NIJ_SSSFK5u_YrB0I_FcVy1CNHg"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-8 max-w-[1400px] w-full mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div>
+<h2 class="text-3xl font-black text-gray-900 font-public-sans tracking-tight">Users</h2>
+<p class="text-gray-500 text-sm mt-1">Manage platform users and permissions across your organization.</p>
+</div>
+<button class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm shadow-indigo-200">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                    Add User
+                </button>
+</div>
+<!-- Controls: Search & Filters -->
+<div class="bg-white border border-gray-200 rounded-xl p-4 mb-6 flex flex-col gap-4">
+<div class="flex flex-col lg:flex-row lg:items-center gap-4">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="Search by username, ID, email..." type="text"/>
+</div>
+<div class="flex items-center gap-3 overflow-x-auto pb-2 lg:pb-0">
+<div class="flex items-center gap-2 min-w-max">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Role:</span>
+<select class="text-sm border-gray-200 rounded-lg py-1.5 focus:ring-indigo-500 focus:border-indigo-500">
+<option>All</option>
+<option>Admin</option>
+<option>User</option>
+</select>
+</div>
+<div class="flex items-center gap-2 min-w-max">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Group:</span>
+<select class="text-sm border-gray-200 rounded-lg py-1.5 focus:ring-indigo-500 focus:border-indigo-500">
+<option>All Groups</option>
+<option>Default</option>
+<option>Enterprise</option>
+</select>
+</div>
+<div class="flex items-center gap-2 min-w-max">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Status:</span>
+<div class="flex gap-1.5">
+<button class="px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">All</button>
+<button class="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 rounded-full border border-gray-100">Active</button>
+<button class="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 rounded-full border border-gray-100">Disabled</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Users Table Container -->
+<div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 border-b border-gray-200">
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">ID</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Username</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Quota</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Group</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Last Active</th>
+<th class="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#001</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold">AL</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">alex.lambert</span>
+<span class="text-[11px] text-gray-400">alex@ima-router.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">4.2GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 84%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Enterprise</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-wide">Admin</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">2h ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#002</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">JW</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">jordan.white</span>
+<span class="text-[11px] text-gray-400">jordan@ima-router.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">1.2GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 24%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Default</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">5 min ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#003</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs font-bold">SC</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">sarah.chen</span>
+<span class="text-[11px] text-gray-400">sarah@gmail.com</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-400 border border-gray-200 uppercase tracking-wide">Disabled</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">0GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 0%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Default</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">2 days ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#004</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold">MK</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">mike.keller</span>
+<span class="text-[11px] text-gray-400">mike@fintech.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">4.9GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-error-container rounded-full" style="width: 98%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Enterprise</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">12h ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#005</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">EM</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">elisa.monroe</span>
+<span class="text-[11px] text-gray-400">elisa@ima-router.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">2.1GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 42%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Default</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-wide">Admin</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">1h ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#006</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 text-xs font-bold">DT</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">david.truong</span>
+<span class="text-[11px] text-gray-400">david.t@dev.com</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">3.5GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 70%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Enterprise</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">8h ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#007</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-bold">RB</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">robert.black</span>
+<span class="text-[11px] text-gray-400">rblack@corp.net</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-400 border border-gray-200 uppercase tracking-wide">Disabled</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">0.1GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 2%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Default</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">1 month ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#008</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold">HS</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">helena.smith</span>
+<span class="text-[11px] text-gray-400">h.smith@ai.com</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">3.2GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 64%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Enterprise</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">14 min ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 9 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#009</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 text-xs font-bold">KG</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">kevin.garcia</span>
+<span class="text-[11px] text-gray-400">kevin@web3.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">0.8GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 16%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Default</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wide">User</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">3h ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 10 -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-500 font-mono">#010</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-700 text-xs font-bold">LN</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-gray-900">lucy.nguyen</span>
+<span class="text-[11px] text-gray-400">lucy@ima-router.io</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wide">Active</span>
+</td>
+<td class="px-6 py-4">
+<div class="w-32">
+<span class="text-xs text-gray-600 font-medium">4.5GB / 5GB</span>
+<div class="h-1.5 w-full bg-gray-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-indigo-500 rounded-full" style="width: 90%"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-semibold rounded bg-gray-100 text-gray-600 border border-gray-200">Enterprise</span>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-wide">Admin</span>
+</td>
+<td class="px-6 py-4 text-xs text-gray-500">Just now</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-400 hover:text-gray-900 transition-colors p-1">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination Footer -->
+<div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<span class="text-sm text-gray-500">Showing <span class="font-semibold text-gray-900">1-10</span> of <span class="font-semibold text-gray-900">124</span> users</span>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-500 hover:bg-white transition-colors disabled:opacity-50" disabled="">Previous</button>
+<div class="flex gap-1">
+<button class="w-8 h-8 rounded-lg text-sm font-bold bg-indigo-600 text-white shadow-sm">1</button>
+<button class="w-8 h-8 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">2</button>
+<button class="w-8 h-8 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">3</button>
+<span class="px-1 text-gray-400">...</span>
+<button class="w-8 h-8 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">13</button>
+</div>
+<button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-white transition-colors">Next</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Footer Branding -->
+<footer class="mt-auto py-6 px-8 border-t border-gray-100 text-center">
+<p class="text-xs text-gray-400 font-public-sans uppercase tracking-[0.2em] font-semibold">Powered by ima-router Enterprise</p>
+</footer>
+</main>
+</body></html>

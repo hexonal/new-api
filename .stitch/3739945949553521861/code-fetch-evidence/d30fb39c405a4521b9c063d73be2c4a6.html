@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Personal Settings | ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#e9ddff",
+                      "surface-tint": "#4a4bd7",
+                      "tertiary-fixed-dim": "#40ceed",
+                      "secondary-fixed-dim": "#ddcdff",
+                      "on-tertiary": "#effbff",
+                      "background": "#f8f9ff",
+                      "on-primary": "#fbf7ff",
+                      "on-secondary-fixed-variant": "#6a37d4",
+                      "surface-bright": "#f8f9ff",
+                      "surface-dim": "#c4dcff",
+                      "secondary": "#6e3bd8",
+                      "on-tertiary-fixed-variant": "#005564",
+                      "on-surface": "#05345c",
+                      "surface-container-high": "#dce9ff",
+                      "outline-variant": "#91b4e4",
+                      "tertiary": "#00687b",
+                      "primary-fixed-dim": "#6366f1",
+                      "primary-container": "#7073ff",
+                      "error-container": "#f97386",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-highest": "#d2e4ff",
+                      "on-secondary-container": "#6029c9",
+                      "on-primary-fixed": "#000000",
+                      "tertiary-container": "#53ddfc",
+                      "on-tertiary-fixed": "#003640",
+                      "error-dim": "#6b0221",
+                      "tertiary-fixed": "#53ddfc",
+                      "inverse-surface": "#000f21",
+                      "on-error-container": "#6e0523",
+                      "on-background": "#05345c",
+                      "on-secondary-fixed": "#4d00b7",
+                      "on-secondary": "#fdf7ff",
+                      "surface": "#f8f9ff",
+                      "on-tertiary-container": "#004b58",
+                      "surface-container": "#e5eeff",
+                      "inverse-on-surface": "#8e9eb7",
+                      "surface-variant": "#d2e4ff",
+                      "outline": "#5a7da9",
+                      "on-primary-container": "#000000",
+                      "surface-container-low": "#eff4ff",
+                      "tertiary-dim": "#005b6c",
+                      "inverse-primary": "#8083ff",
+                      "primary": "#4a4bd7",
+                      "primary-dim": "#3d3dcb",
+                      "primary-fixed": "#7073ff",
+                      "on-primary-fixed-variant": "#010028",
+                      "error": "#a8364b",
+                      "secondary-dim": "#622bcb",
+                      "on-surface-variant": "#3d618c",
+                      "on-error": "#fff7f7",
+                      "secondary-container": "#e9ddff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Public Sans"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-white border-b border-gray-200 flex items-center justify-between px-6 h-16 w-full font-public-sans text-sm antialiased">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-gray-900">ima-router</span>
+<div class="hidden md:flex items-center space-x-6">
+<a class="text-gray-600 hover:text-gray-900 transition-colors" href="#">Docs</a>
+<a class="text-gray-600 hover:text-gray-900 transition-colors" href="#">Pricing</a>
+<a class="text-gray-600 hover:text-gray-900 transition-colors" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none w-64" placeholder="Search documentation..." type="text"/>
+</div>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-all">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs cursor-pointer">
+                RO
+            </div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 border-r border-gray-200 bg-gray-50 flex flex-col pt-4 pb-8 font-public-sans text-sm font-medium">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">hub</span>
+</div>
+<div>
+<h2 class="text-sm font-bold text-gray-900">ima-router</h2>
+<p class="text-[10px] text-gray-500 uppercase tracking-wider">AI API Gateway</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1 px-3">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">vpn_key</span>
+                API Keys
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">bar_chart</span>
+                Usage
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 text-indigo-600 border-r-4 border-indigo-600 rounded-l-lg transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+                Personal Settings
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">security</span>
+                Security
+            </a>
+</nav>
+<div class="px-3 pt-4 mt-4 border-t border-gray-200">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined text-gray-400">contact_support</span>
+                Help &amp; Support
+            </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 mt-16 p-8 max-w-7xl">
+<div class="mb-8">
+<h1 class="text-2xl font-bold font-headline text-on-surface">Personal Settings</h1>
+<p class="text-on-surface-variant mt-1">Manage your account profile, security, and global preferences.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- LEFT COLUMN -->
+<div class="lg:col-span-5 space-y-8">
+<!-- Profile Card -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+<div class="h-24 bg-gradient-to-r from-primary to-indigo-400 relative">
+<img class="w-full h-full object-cover opacity-20" data-alt="smooth gradient flowing from deep navy to soft indigo with subtle grain texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJlLqDQO1E5610gdX5tLbIv3FVwActznXqUFZ9ZQu2d9Xt8FhJ472uQFnTJjCvxb56YaUbjzroA1kQdRQY9haMRmpZRLNISZ5ZZscb7ayYJ1kJlCBn12T_tGCu5K02WtP-XG0WbJ0jI1Vr-GRZmi346cJN_WTj7iMR4JqCbHL28zwtG-s6z4nDq2erFYPrsfglzyiT70VYuQcjmnW51haR0-I8rVskCS4Wv4RRUmZUirguifnioPKp6kiZ4P5fi9hmlQI5u0iOV8I"/>
+</div>
+<div class="px-6 pb-6 -mt-10 relative">
+<div class="flex items-end justify-between mb-4">
+<div class="w-20 h-20 rounded-2xl bg-white p-1 border border-outline-variant">
+<div class="w-full h-full rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container text-2xl font-black">
+                                    RO
+                                </div>
+</div>
+<button class="mb-1 px-4 py-2 text-xs font-semibold border border-outline text-on-surface rounded-lg hover:bg-gray-50 transition-all">
+                                Edit Profile
+                            </button>
+</div>
+<div class="mb-6">
+<h2 class="text-xl font-bold text-on-surface">root</h2>
+<p class="text-sm text-on-surface-variant">Super Admin</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant">
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Total Balance</p>
+<p class="text-lg font-bold text-on-surface">$517,961.02</p>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant">
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mtd Usage</p>
+<p class="text-lg font-bold text-on-surface">$2,942.71</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Tabs Section -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+<div class="flex border-b border-outline-variant bg-surface-container-lowest">
+<button class="flex-1 py-4 text-sm font-semibold text-primary border-b-2 border-primary bg-white">Account</button>
+<button class="flex-1 py-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">Security</button>
+</div>
+<div class="p-6">
+<h3 class="text-sm font-bold text-on-surface mb-4">OAuth Bindings</h3>
+<div class="space-y-4">
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">mail</span>
+<div>
+<p class="text-sm font-semibold">Email</p>
+<p class="text-xs text-on-surface-variant">root@ima-router.ai</p>
+</div>
+</div>
+<button class="text-xs font-bold text-error hover:underline">Unbind</button>
+</div>
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-600">chat</span>
+<p class="text-sm font-semibold">WeChat</p>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-gray-900">code</span>
+<p class="text-sm font-semibold">GitHub</p>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-indigo-500">chat</span>
+<p class="text-sm font-semibold">Discord</p>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-500">fingerprint</span>
+<p class="text-sm font-semibold">OIDC</p>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Binding Item -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sky-500">send</span>
+<p class="text-sm font-semibold">Telegram</p>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN -->
+<div class="lg:col-span-7">
+<div class="bg-white border border-outline-variant rounded-xl flex flex-col h-full shadow-sm">
+<!-- Preferences Tab Bar -->
+<div class="flex border-b border-outline-variant px-6">
+<button class="py-4 px-4 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">Notification</button>
+<button class="py-4 px-4 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">Billing</button>
+<button class="py-4 px-4 text-sm font-semibold text-primary border-b-2 border-primary">Preferences</button>
+</div>
+<div class="p-8 flex-1">
+<div class="max-w-2xl space-y-8">
+<!-- Language -->
+<div class="space-y-2">
+<label class="text-sm font-bold text-on-surface">Language</label>
+<select class="w-full bg-white border border-outline rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none">
+<option selected="">简体中文</option>
+<option>English (US)</option>
+<option>日本語</option>
+</select>
+<p class="text-xs text-on-surface-variant">System-wide display language preference.</p>
+</div>
+<!-- Theme -->
+<div class="space-y-3">
+<label class="text-sm font-bold text-on-surface">Theme</label>
+<div class="grid grid-cols-3 gap-4">
+<label class="cursor-pointer">
+<input checked="" class="peer sr-only" name="theme" type="radio"/>
+<div class="border border-outline rounded-xl p-4 flex flex-col items-center gap-2 peer-checked:border-primary peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">settings_brightness</span>
+<span class="text-xs font-semibold">System</span>
+</div>
+</label>
+<label class="cursor-pointer">
+<input class="peer sr-only" name="theme" type="radio"/>
+<div class="border border-outline rounded-xl p-4 flex flex-col items-center gap-2 peer-checked:border-primary peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">light_mode</span>
+<span class="text-xs font-semibold">Light</span>
+</div>
+</label>
+<label class="cursor-pointer">
+<input class="peer sr-only" name="theme" type="radio"/>
+<div class="border border-outline rounded-xl p-4 flex flex-col items-center gap-2 peer-checked:border-primary peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">dark_mode</span>
+<span class="text-xs font-semibold">Dark</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Default Model -->
+<div class="space-y-2">
+<label class="text-sm font-bold text-on-surface">Default model for new chats</label>
+<select class="w-full bg-white border border-outline rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+<option selected="">gpt-4o-mini</option>
+<option>gpt-4o</option>
+<option>claude-3-5-sonnet</option>
+<option>gemini-1.5-pro</option>
+</select>
+</div>
+<!-- Grid Layout for Settings -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Page Size -->
+<div class="space-y-2">
+<label class="text-sm font-bold text-on-surface">Page size preference</label>
+<select class="w-full bg-white border border-outline rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+<option>10 per page</option>
+<option selected="">20 per page</option>
+<option>50 per page</option>
+<option>100 per page</option>
+</select>
+</div>
+<!-- Timezone -->
+<div class="space-y-2">
+<label class="text-sm font-bold text-on-surface">Timezone</label>
+<select class="w-full bg-white border border-outline rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+<option selected="">Asia/Shanghai</option>
+<option>UTC</option>
+<option>America/New_York</option>
+<option>Europe/London</option>
+</select>
+</div>
+<!-- Date Format -->
+<div class="space-y-2">
+<label class="text-sm font-bold text-on-surface">Date format</label>
+<select class="w-full bg-white border border-outline rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+<option selected="">YYYY-MM-DD</option>
+<option>MM/DD/YYYY</option>
+<option>DD/MM/YYYY</option>
+</select>
+</div>
+</div>
+<div class="pt-6 mt-6 border-t border-outline-variant flex justify-end">
+<button class="bg-primary hover:bg-primary-dim text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                                    Save Preferences
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Usage Logs - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-primary": "#8083ff",
+                        "error-dim": "#6b0221",
+                        "surface-bright": "#f8f9ff",
+                        "on-primary": "#fbf7ff",
+                        "error": "#a8364b",
+                        "tertiary-dim": "#005b6c",
+                        "primary-dim": "#3d3dcb",
+                        "secondary": "#6e3bd8",
+                        "secondary-fixed": "#e9ddff",
+                        "tertiary": "#00687b",
+                        "primary-container": "#7073ff",
+                        "on-tertiary-container": "#004b58",
+                        "secondary-container": "#e9ddff",
+                        "outline": "#5a7da9",
+                        "surface-container-low": "#eff4ff",
+                        "primary-fixed-dim": "#6366f1",
+                        "on-surface-variant": "#3d618c",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "surface-container": "#e5eeff",
+                        "inverse-surface": "#000f21",
+                        "secondary-dim": "#622bcb",
+                        "surface-tint": "#4a4bd7",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-error": "#fff7f7",
+                        "outline-variant": "#91b4e4",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-tertiary": "#effbff",
+                        "on-secondary": "#fdf7ff",
+                        "primary": "#4a4bd7",
+                        "surface-container-high": "#dce9ff",
+                        "primary-fixed": "#7073ff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#53ddfc",
+                        "error-container": "#f97386",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-tertiary-fixed": "#003640",
+                        "background": "#f8f9ff",
+                        "on-primary-fixed": "#000000",
+                        "on-surface": "#05345c",
+                        "surface": "#f8f9ff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-primary-container": "#000000",
+                        "on-error-container": "#6e0523",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "tertiary-fixed": "#53ddfc",
+                        "on-background": "#05345c",
+                        "surface-variant": "#d2e4ff",
+                        "surface-dim": "#c4dcff",
+                        "on-secondary-container": "#6029c9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .table-compact td { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-6 py-3 w-full sticky top-0 z-50 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 font-['Public_Sans'] text-sm antialiased">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white">ima-router</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer active:opacity-70" href="#">Docs</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer active:opacity-70" href="#">Support</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer active:opacity-70" href="#">Changelog</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="Search..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-gray-500 cursor-pointer hover:text-indigo-600">notifications</span>
+<span class="material-symbols-outlined text-gray-500 cursor-pointer hover:text-indigo-600">help_outline</span>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200" data-alt="close-up portrait of a professional woman with a friendly expression in a brightly lit modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSEWuP17oXhVH92Igb-CVVYLez5sb3JezQy9vTpAruxqsXtCS6QNIy3GbiwzpFZXwZlsZx9y4UWZPrJ2YEo6G0LMRd72nBZ1b_doB-4cRB6HO-U5zDiENm2BItdxa-I7QYpld-OJxMMzUTlJFnvN4H-5xxhAjBhwVo9GsLvopjjbBnbSm58dtitGwbHtwku7B6yS0QIUc02LgS9EE3M0M_cCN64MS9B_NEPxP6SHqsmjiXZF3RCVwhFM5oWNgkN7IdxwSFCX6BqRI"/>
+</div>
+</header>
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 w-64 z-40 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 font-['Public_Sans'] text-sm tracking-tight pt-20">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<div>
+<div class="font-bold text-gray-900 dark:text-white">Acme Corp</div>
+<div class="text-xs text-gray-500">Enterprise Plan</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 mb-2">Main</div>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+                </a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">vpn_key</span> API Keys
+                </a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">model_training</span> Models
+                </a>
+<a class="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium rounded-lg px-3 py-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span> Usage Logs
+                </a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span> Settings
+                </a>
+</nav>
+<div class="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-1">
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">contact_support</span> Support
+                </a>
+<a class="flex items-center gap-3 text-gray-600 dark:text-gray-400 px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span> Sign Out
+                </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-64 p-8 max-w-[1400px]">
+<header class="mb-8">
+<h1 class="text-3xl font-bold text-on-surface">Usage Logs</h1>
+<p class="text-on-surface-variant mt-1">Monitor API request history and token usage across your organization.</p>
+</header>
+<!-- Filter Bar -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 mb-6 shadow-sm">
+<div class="flex flex-wrap items-center gap-4">
+<div class="flex-1 min-w-[200px] relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Search by Request ID..." type="text"/>
+</div>
+<div class="flex items-center gap-2 bg-white border border-outline-variant rounded-lg px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-gray-400 text-lg">calendar_today</span>
+<span class="font-medium">Apr 1 - Apr 8, 2026</span>
+</div>
+<select class="bg-white border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[120px]">
+<option>All Models</option>
+<option>GPT-4o</option>
+<option>Claude 3.5 Sonnet</option>
+<option>Gemini 1.5 Pro</option>
+</select>
+<select class="bg-white border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[120px]">
+<option>All Users</option>
+<option>alex_dev</option>
+<option>sarah_m</option>
+<option>billing_bot</option>
+</select>
+<select class="bg-white border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[120px]">
+<option>All Channels</option>
+<option>Production</option>
+<option>Staging</option>
+<option>Local</option>
+</select>
+<select class="bg-white border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary min-w-[100px]">
+<option>All Status</option>
+<option>Success</option>
+<option>Error</option>
+</select>
+<button class="ml-auto flex items-center gap-2 px-4 py-2 border border-primary text-primary font-medium rounded-lg text-sm hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-lg">download</span>
+                        Export
+                    </button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse table-compact">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+<th class="px-6 py-3 w-10"></th>
+<th class="px-4 py-3">Time</th>
+<th class="px-4 py-3">Model</th>
+<th class="px-4 py-3">User</th>
+<th class="px-4 py-3">Tokens</th>
+<th class="px-4 py-3">Cost</th>
+<th class="px-4 py-3">Latency</th>
+<th class="px-4 py-3">Status</th>
+<th class="px-4 py-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="text-sm text-on-surface">
+<!-- Row 1: Active/Expanded -->
+<tr class="bg-primary/5 border-b border-outline-variant">
+<td class="px-6 py-3 text-primary">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_down</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">2 min ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">O</div>
+<span class="font-medium">GPT-4o</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">alex_dev</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑128</span> <span class="text-on-surface-variant">↓1,024</span>
+</td>
+<td class="px-4 py-3">$0.01524</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> 1.2s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Expanded Details -->
+<tr class="bg-surface-container-lowest border-b border-outline-variant">
+<td class="px-16 py-6" colspan="9">
+<div class="grid grid-cols-4 gap-8">
+<div>
+<div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Request ID</div>
+<div class="text-xs font-mono bg-gray-50 border border-gray-100 rounded p-2 flex items-center justify-between">
+                                            req_4x92mK0Lp
+                                            <span class="material-symbols-outlined text-sm cursor-pointer hover:text-primary">content_copy</span>
+</div>
+</div>
+<div>
+<div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Channel</div>
+<div class="text-xs text-on-surface">Production (US-East-1)</div>
+</div>
+<div>
+<div class="text-[10px] font-bold text-gray-400 uppercase mb-2">IP Address</div>
+<div class="text-xs text-on-surface">192.168.1.45</div>
+</div>
+<div>
+<div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Token Breakdown</div>
+<div class="flex items-center gap-4 text-xs">
+<div><span class="text-gray-400">Prompt:</span> 128</div>
+<div><span class="text-gray-400">Completion:</span> 1,024</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">15 min ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-orange-500 rounded flex items-center justify-center text-[10px] text-white font-bold">A</div>
+<span class="font-medium">Claude 3.5 Sonnet</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">sarah_m</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑84</span> <span class="text-on-surface-variant">↓212</span>
+</td>
+<td class="px-4 py-3">$0.00318</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-amber-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> 3.4s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 3: Error State -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">22 min ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-[10px] text-white font-bold">G</div>
+<span class="font-medium">Gemini 1.5 Pro</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">billing_bot</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑0</span> <span class="text-on-surface-variant">↓0</span>
+</td>
+<td class="px-4 py-3">$0.00000</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-error font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span> 0.1s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-error/10 text-error text-[11px] font-bold uppercase">Error</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">45 min ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">O</div>
+<span class="font-medium">GPT-4o</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">alex_dev</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑412</span> <span class="text-on-surface-variant">↓89</span>
+</td>
+<td class="px-4 py-3">$0.00512</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> 0.9s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">1 hour ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-[10px] text-white font-bold">L</div>
+<span class="font-medium">Llama 3 70B</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">sarah_m</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑1,024</span> <span class="text-on-surface-variant">↓4,096</span>
+</td>
+<td class="px-4 py-3">$0.00288</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-amber-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> 4.8s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">2 hours ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">O</div>
+<span class="font-medium">GPT-3.5 Turbo</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">alex_dev</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑45</span> <span class="text-on-surface-variant">↓12</span>
+</td>
+<td class="px-4 py-3">$0.00012</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> 0.4s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">2 hours ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-orange-500 rounded flex items-center justify-center text-[10px] text-white font-bold">A</div>
+<span class="font-medium">Claude 3.5 Sonnet</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">sarah_m</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑2,450</span> <span class="text-on-surface-variant">↓1,200</span>
+</td>
+<td class="px-4 py-3">$0.02410</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> 1.8s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">3 hours ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-[10px] text-white font-bold">G</div>
+<span class="font-medium">Gemini 1.5 Pro</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">billing_bot</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑890</span> <span class="text-on-surface-variant">↓1,102</span>
+</td>
+<td class="px-4 py-3">$0.00192</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-amber-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> 2.1s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 9: Latency High -->
+<tr class="hover:bg-surface-container border-b border-outline-variant transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">4 hours ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-[10px] text-white font-bold">L</div>
+<span class="font-medium">Llama 3 70B</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">alex_dev</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑56</span> <span class="text-on-surface-variant">↓124</span>
+</td>
+<td class="px-4 py-3">$0.00018</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-error font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span> 6.2s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+<!-- Row 10 -->
+<tr class="hover:bg-surface-container transition-colors group">
+<td class="px-6 py-3 text-gray-400 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">keyboard_arrow_right</span>
+</td>
+<td class="px-4 py-3 text-on-surface-variant whitespace-nowrap">5 hours ago</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-black rounded flex items-center justify-center text-[10px] text-white font-bold">O</div>
+<span class="font-medium">GPT-4o</span>
+</div>
+</td>
+<td class="px-4 py-3 font-medium">billing_bot</td>
+<td class="px-4 py-3 font-mono text-xs">
+<span class="text-secondary">↑231</span> <span class="text-on-surface-variant">↓76</span>
+</td>
+<td class="px-4 py-3">$0.00214</td>
+<td class="px-4 py-3">
+<span class="flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> 1.1s
+                                </span>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold uppercase">Success</span>
+</td>
+<td class="px-4 py-3 text-right">
+<span class="material-symbols-outlined text-gray-400 cursor-pointer hover:text-primary">more_horiz</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer / Pagination -->
+<footer class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-sm text-on-surface-variant">
+<span>Show</span>
+<select class="bg-white border border-outline-variant rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-primary/20">
+<option>10 per page</option>
+<option>25 per page</option>
+<option>50 per page</option>
+</select>
+<span>of 842 logs</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<button class="w-9 h-9 bg-primary text-white font-bold rounded-lg text-sm">1</button>
+<button class="w-9 h-9 border border-outline-variant text-on-surface-variant hover:bg-surface-container font-medium rounded-lg text-sm transition-colors">2</button>
+<button class="w-9 h-9 border border-outline-variant text-on-surface-variant hover:bg-surface-container font-medium rounded-lg text-sm transition-colors">3</button>
+<span class="px-2 text-on-surface-variant">...</span>
+<button class="w-9 h-9 border border-outline-variant text-on-surface-variant hover:bg-surface-container font-medium rounded-lg text-sm transition-colors">8</button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</footer>
+</main>
+</div>
+</body></html>

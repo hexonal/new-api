@@ -25,12 +25,15 @@ import ModelDetailSideSheet from '../modal/ModelDetailSideSheet';
 import { useModelPricingData } from '../../../../hooks/model-pricing/useModelPricingData';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
-const PricingPage = () => {
+const PricingPage = ({ defaultViewMode = 'card', layoutClassName = '' }) => {
   const pricingData = useModelPricingData();
   const { Sider, Content } = Layout;
   const isMobile = useIsMobile();
   const [showRatio, setShowRatio] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState('card');
+  const [viewMode, setViewMode] = React.useState(defaultViewMode);
+  const layoutClasses = ['pricing-layout', layoutClassName]
+    .filter(Boolean)
+    .join(' ');
   const allProps = {
     ...pricingData,
     showRatio,
@@ -41,7 +44,7 @@ const PricingPage = () => {
 
   return (
     <div className='bg-white'>
-      <Layout className='pricing-layout'>
+      <Layout className={layoutClasses}>
         {!isMobile && (
           <Sider className='pricing-scroll-hide pricing-sidebar'>
             <PricingSidebar {...allProps} />

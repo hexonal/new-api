@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Wallet &amp; Billing | ima-router</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Public+Sans:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#4a4bd7",
+                        "on-secondary-container": "#6029c9",
+                        "tertiary-container": "#53ddfc",
+                        "tertiary-dim": "#005b6c",
+                        "surface-bright": "#f8f9ff",
+                        "surface-tint": "#4a4bd7",
+                        "on-tertiary": "#effbff",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "secondary": "#6e3bd8",
+                        "primary-fixed-dim": "#6366f1",
+                        "surface-container-highest": "#d2e4ff",
+                        "on-surface-variant": "#3d618c",
+                        "on-error-container": "#6e0523",
+                        "on-secondary": "#fdf7ff",
+                        "tertiary": "#00687b",
+                        "error-container": "#f97386",
+                        "primary-container": "#7073ff",
+                        "on-tertiary-container": "#004b58",
+                        "on-secondary-fixed": "#4d00b7",
+                        "error": "#a8364b",
+                        "on-error": "#fff7f7",
+                        "error-dim": "#6b0221",
+                        "background": "#f8f9ff",
+                        "surface-variant": "#d2e4ff",
+                        "inverse-primary": "#8083ff",
+                        "surface-container-low": "#eff4ff",
+                        "inverse-surface": "#000f21",
+                        "surface-container": "#e5eeff",
+                        "primary-fixed": "#7073ff",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "on-tertiary-fixed": "#003640",
+                        "surface-container-lowest": "#ffffff",
+                        "on-background": "#05345c",
+                        "secondary-fixed": "#e9ddff",
+                        "on-primary": "#fbf7ff",
+                        "surface-container-high": "#dce9ff",
+                        "tertiary-fixed": "#53ddfc",
+                        "outline": "#5a7da9",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "outline-variant": "#91b4e4",
+                        "inverse-on-surface": "#8e9eb7",
+                        "on-primary-container": "#000000",
+                        "secondary-dim": "#622bcb",
+                        "on-surface": "#05345c",
+                        "primary-dim": "#3d3dcb",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-primary-fixed": "#000000",
+                        "surface-dim": "#c4dcff",
+                        "surface": "#f8f9ff",
+                        "secondary-container": "#e9ddff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body min-h-screen">
+<!-- SideNavBar -->
+<aside class="flex flex-col fixed left-0 top-0 h-full p-4 bg-gray-50 dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 w-64 z-50">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-black">i</div>
+<div>
+<h2 class="text-lg font-black text-gray-900 dark:text-white leading-tight">Enterprise Admin</h2>
+<p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Production Environment</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 ease-in-out font-public-sans text-sm uppercase tracking-wider font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Workspace
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg font-bold font-public-sans text-sm uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+                Wallet
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 ease-in-out font-public-sans text-sm uppercase tracking-wider font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 ease-in-out font-public-sans text-sm uppercase tracking-wider font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+                Users
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 ease-in-out font-public-sans text-sm uppercase tracking-wider font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+                Billing
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 ease-in-out font-public-sans text-sm uppercase tracking-wider font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span>
+                Support
+            </a>
+</nav>
+<div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800 space-y-1">
+<button class="w-full mb-4 py-2 px-4 bg-primary text-white font-bold rounded-xl text-sm hover:bg-primary-dim transition-colors">
+                Upgrade Plan
+            </button>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 font-public-sans text-xs uppercase tracking-widest font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+                Documentation
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 duration-200 font-public-sans text-xs uppercase tracking-widest font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                Log out
+            </a>
+</div>
+</aside>
+<!-- Main Wrapper -->
+<div class="ml-64 min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-6 py-3 w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-gray-900 dark:text-white font-public-sans">ima-router</span>
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Search resources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium" href="#">API Keys</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium" href="#">Docs</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium" href="#">Playground</a>
+</nav>
+<div class="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-gray-500 hover:text-primary transition-colors" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-gray-500 hover:text-primary transition-colors" data-icon="help_outline">help_outline</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-gray-200 cursor-pointer active:opacity-80 transition-all" data-alt="Professional headshot of a developer wearing a neutral colored shirt in a clean modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBffVm4cgjtJt6YKwJWnJE2vXcwqid_U_P-_abunUiI46QMiVNaG8iP9nyKCFmzMZbGNKtMXR6CAuDx6LFxwwb8Oj0gkNjRHEyiUex7N7l8oob-JhIkWWeSfM8Mlib_375-5p5b6nJNXkeu1j2LwVbtW2mX2yEX3BKattnFbH6kVzCG4Gq8q4KyUg6S8BG9DRiDxZ2aY2gqI5Pt9Ye2XHBTNghrefewG4D5UXHl3eajBhTuSG_Db0NIzlQQF80tvVM6qn4nlTuJXCY"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<main class="p-8 max-w-[1200px] w-full mx-auto flex-1">
+<div class="grid grid-cols-12 gap-8">
+<!-- LEFT COLUMN: Billing & Subscriptions -->
+<div class="col-span-12 lg:col-span-7">
+<div class="flex items-center justify-between mb-8">
+<h1 class="text-3xl font-extrabold text-gray-900">Billing</h1>
+<div class="relative">
+<select class="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2 pr-10 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-primary/20 focus:outline-none cursor-pointer">
+<option>USD ($)</option>
+<option>EUR (€)</option>
+<option>GBP (£)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex border-b border-gray-200 mb-8">
+<button class="px-6 py-3 text-sm font-bold text-primary border-b-2 border-primary">Subscription Plans</button>
+<button class="px-6 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">Top-up History</button>
+</div>
+<!-- Subscription Card (Pro) -->
+<div class="bg-white border border-gray-200 rounded-xl p-8 transition-shadow hover:shadow-sm">
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider rounded-full">Recommended</span>
+<h2 class="text-2xl font-bold mt-3 text-gray-900">Pro Plan</h2>
+<p class="text-gray-500 mt-1">Scale your AI applications with confidence.</p>
+</div>
+<div class="text-right">
+<div class="text-3xl font-black text-gray-900">$200</div>
+<div class="text-sm text-gray-500 font-medium">per month</div>
+</div>
+</div>
+<div class="space-y-4 mb-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-gray-700 font-medium">Higher Rate Limits (100k requests/min)</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-gray-700 font-medium">Priority 24/7 Enterprise Support</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-gray-700 font-medium">Custom Fine-tuned Model Access</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-gray-700 font-medium">Unlimited Team Seats &amp; RBAC</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-gray-700 font-medium">Advanced Real-time Analytics</span>
+</div>
+</div>
+<button class="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-dim active:opacity-90 transition-all shadow-lg shadow-primary/20">
+                            Subscribe Now
+                        </button>
+</div>
+<!-- Payment Methods Section Placeholder -->
+<div class="mt-8">
+<h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Saved Methods</h3>
+<div class="border border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+<span class="material-symbols-outlined text-3xl mb-2" data-icon="add_card">add_card</span>
+<span class="text-sm font-medium">No payment methods added yet</span>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Referral Program -->
+<div class="col-span-12 lg:col-span-5 space-y-6">
+<div class="bg-white border border-gray-200 rounded-xl p-6">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-bold text-gray-900">Referral Program</h3>
+<span class="material-symbols-outlined text-indigo-500" data-icon="stars">stars</span>
+</div>
+<div class="grid grid-cols-3 gap-4 mb-8">
+<div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+<p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Total Earnings</p>
+<p class="text-lg font-bold text-gray-900">$0.00</p>
+</div>
+<div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+<p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Monthly</p>
+<p class="text-lg font-bold text-gray-900">$0.00</p>
+</div>
+<div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+<p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Referrals</p>
+<p class="text-lg font-bold text-gray-900">0</p>
+</div>
+</div>
+<div class="mb-6">
+<label class="block text-sm font-semibold text-gray-700 mb-2">Your Unique Referral Link</label>
+<div class="flex gap-2">
+<input class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono text-gray-600 focus:outline-none" readonly="" type="text" value="https://ima-router.ai/ref/u8291x"/>
+<button class="p-2.5 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-colors">
+<span class="material-symbols-outlined text-gray-600 text-lg" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</div>
+<div class="pt-6 border-t border-gray-100">
+<h4 class="text-sm font-bold text-gray-900 mb-4">Program Rules</h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-3">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span class="text-sm text-gray-600">Earn 10% lifetime commission on all payments.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span class="text-sm text-gray-600">Credits applied automatically to your next bill.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span class="text-sm text-gray-600">No self-referrals allowed (subject to account review).</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Secondary Metric Card -->
+<div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl p-6 text-white overflow-hidden relative">
+<div class="relative z-10">
+<h4 class="text-sm font-bold opacity-80 uppercase tracking-widest mb-1">Available Credits</h4>
+<p class="text-3xl font-black mb-4">$50.00</p>
+<button class="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-bold transition-all">
+                                Add Credit
+                            </button>
+</div>
+<div class="absolute -right-8 -bottom-8 opacity-20 transform rotate-12">
+<span class="material-symbols-outlined text-9xl" data-icon="payments">payments</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

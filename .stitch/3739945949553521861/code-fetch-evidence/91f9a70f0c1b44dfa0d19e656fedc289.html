@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Settings - ima-router</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#7073ff",
+                        "on-secondary-fixed": "#4d00b7",
+                        "on-background": "#05345c",
+                        "secondary-container": "#e9ddff",
+                        "outline-variant": "#91b4e4",
+                        "surface-dim": "#c4dcff",
+                        "tertiary": "#00687b",
+                        "primary-container": "#7073ff",
+                        "inverse-surface": "#000f21",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-dim": "#005b6c",
+                        "on-error-container": "#6e0523",
+                        "secondary-dim": "#622bcb",
+                        "surface-container": "#e5eeff",
+                        "background": "#f8f9ff",
+                        "on-surface": "#05345c",
+                        "surface-container-low": "#eff4ff",
+                        "inverse-on-surface": "#8e9eb7",
+                        "error-dim": "#6b0221",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-variant": "#d2e4ff",
+                        "on-primary-fixed": "#000000",
+                        "on-tertiary-container": "#004b58",
+                        "on-secondary": "#fdf7ff",
+                        "surface": "#f8f9ff",
+                        "error-container": "#f97386",
+                        "primary-dim": "#3d3dcb",
+                        "on-tertiary-fixed-variant": "#005564",
+                        "on-primary-fixed-variant": "#010028",
+                        "on-surface-variant": "#3d618c",
+                        "surface-tint": "#4a4bd7",
+                        "on-secondary-fixed-variant": "#6a37d4",
+                        "surface-container-high": "#dce9ff",
+                        "secondary": "#6e3bd8",
+                        "primary": "#4a4bd7",
+                        "secondary-fixed-dim": "#ddcdff",
+                        "tertiary-fixed": "#53ddfc",
+                        "on-tertiary": "#effbff",
+                        "on-tertiary-fixed": "#003640",
+                        "on-error": "#fff7f7",
+                        "tertiary-container": "#53ddfc",
+                        "on-secondary-container": "#6029c9",
+                        "error": "#a8364b",
+                        "surface-container-highest": "#d2e4ff",
+                        "outline": "#5a7da9",
+                        "tertiary-fixed-dim": "#40ceed",
+                        "on-primary-container": "#000000",
+                        "inverse-primary": "#8083ff",
+                        "primary-fixed-dim": "#6366f1",
+                        "surface-bright": "#f8f9ff",
+                        "on-primary": "#fbf7ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-6 h-16 max-w-[1440px] mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-gray-900 dark:text-white font-headline">ima-router</span>
+<nav class="hidden md:flex gap-6 items-center h-16">
+<a class="text-gray-500 dark:text-gray-400 pb-4 mt-4 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-70 font-['Public_Sans'] text-sm antialiased" href="#">Dashboard</a>
+<a class="text-gray-500 dark:text-gray-400 pb-4 mt-4 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-70 font-['Public_Sans'] text-sm antialiased" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 pb-4 mt-4 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-70 font-['Public_Sans'] text-sm antialiased" href="#">Keys</a>
+<a class="text-gray-500 dark:text-gray-400 pb-4 mt-4 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors cursor-pointer active:opacity-70 font-['Public_Sans'] text-sm antialiased" href="#">Usage</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 pb-4 mt-4 font-['Public_Sans'] text-sm antialiased" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-primary-fixed" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
+<img alt="User Profile" data-alt="professional headshot of a software architect in a clean studio setting with neutral lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAv7i85OcArrMPsUHldOZAdIcLB2hqHiP3aTV5_2tU3sXLKT1iMFAh9T0GAscrYbeiI3b7dg4Ez1DmGUlr0cyMSRyMqPFupD9Nm9-cJAFENbqpSMIJzbTvQK6prXeNyvM0bvOkb0gxd3Lao4xK3U2IvXl9cs_WivEPrYCX-x2cOkkaygfiKynvmGwQQiDN8QBdNx5AFbFjXvOLJH4PYUZMJXdTcgWBJ7V3GeEa6VUtdHvxeRPIJjEy-UykngFaVuM2eWT3YAer5HCA"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<div class="flex max-w-[1440px] mx-auto">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col gap-1 p-4 h-[calc(100vh-64px)] w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 sticky top-16">
+<div class="mb-6 px-3">
+<p class="text-xs font-black uppercase tracking-widest text-gray-400 font-headline">CONFIGURATION</p>
+<p class="text-[13px] font-medium text-gray-600 dark:text-gray-400">System Settings</p>
+</div>
+<nav class="space-y-1">
+<a class="group flex items-center px-3 py-2 duration-200 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all text-gray-600 dark:text-gray-400 font-['Public_Sans'] text-[13px] font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">settings</span>
+                    General
+                </a>
+<a class="group flex items-center px-3 py-2 duration-200 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all text-gray-600 dark:text-gray-400 font-['Public_Sans'] text-[13px] font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">security</span>
+                    Auth
+                </a>
+<a class="group flex items-center px-3 py-2 duration-200 hover:bg-gray-100 dark:hover:bg-gray-900 transition-all text-gray-600 dark:text-gray-400 font-['Public_Sans'] text-[13px] font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">credit_card</span>
+                    Payment
+                </a>
+<a class="group flex items-center px-3 py-2 duration-200 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-['Public_Sans'] text-[13px] font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">monitoring</span>
+                    Rate Limiting &amp; Monitoring
+                </a>
+</nav>
+<div class="mt-auto p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-indigo-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-indigo-600 text-sm" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div>
+<p class="text-xs font-bold text-gray-900 dark:text-white">Admin Workspace</p>
+<p class="text-[10px] text-gray-500">Enterprise Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-8 max-w-[1200px]">
+<header class="mb-8">
+<h1 class="text-2xl font-bold text-on-surface font-headline tracking-tight">System Settings</h1>
+<p class="text-sm text-outline mt-1">Manage global thresholds and monitoring configurations.</p>
+</header>
+<!-- Rate Limiting Section -->
+<section class="space-y-6">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary-fixed">speed</span>
+<h2 class="text-lg font-bold font-headline">Rate Limiting</h2>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Global Rate Limiting Card -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 transition-all duration-200">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-bold text-on-surface">Global Rate Limiting</h3>
+<p class="text-xs text-outline">Set fallback limits for all traffic</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-semibold text-outline uppercase mb-1.5">Default request count</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none" type="number" value="60"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold text-outline uppercase mb-1.5">Duration (minutes)</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" type="number" value="1"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-outline uppercase mb-1.5">Success threshold</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" type="number" value="100"/>
+</div>
+</div>
+<div class="pt-4 flex justify-end">
+<button class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-colors active:opacity-70">Save</button>
+</div>
+</div>
+</div>
+<!-- Per-Model Rate Limits Card -->
+<div class="bg-white border border-gray-200 rounded-xl p-6 transition-all duration-200">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-bold text-on-surface">Per-Model Rate Limits</h3>
+<p class="text-xs text-outline">Override limits for specific LLM providers</p>
+</div>
+<button class="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dim transition-colors">
+<span class="material-symbols-outlined text-sm">add</span> Add Rule
+                            </button>
+</div>
+<div class="overflow-hidden border border-gray-100 rounded-lg mb-4">
+<table class="w-full text-sm text-left">
+<thead class="bg-gray-50 text-outline text-[11px] uppercase tracking-wider">
+<tr>
+<th class="px-4 py-2 font-semibold">Model name</th>
+<th class="px-4 py-2 font-semibold">Count</th>
+<th class="px-4 py-2 font-semibold">Duration</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-50">
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-4 py-3 font-medium">gpt-5.2</td>
+<td class="px-4 py-3">10</td>
+<td class="px-4 py-3">1m</td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-4 py-3 font-medium">gemini-2.5-pro</td>
+<td class="px-4 py-3">15</td>
+<td class="px-4 py-3">1m</td>
+</tr>
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-4 py-3 font-medium">gpt-5.1</td>
+<td class="px-4 py-3">10</td>
+<td class="px-4 py-3">1m</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex justify-end">
+<button class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save</button>
+</div>
+</div>
+</div>
+</section>
+<div class="my-10 border-t border-gray-200 dark:border-gray-800"></div>
+<!-- Monitoring Section -->
+<section class="space-y-6">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary-fixed">insights</span>
+<h2 class="text-lg font-bold font-headline">Monitoring</h2>
+</div>
+<!-- Bento Grid Layout for Monitoring -->
+<div class="grid grid-cols-1 md:grid-cols-6 gap-6">
+<!-- Channel Monitoring -->
+<div class="md:col-span-3 bg-white border border-gray-200 rounded-xl p-6">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-bold text-on-surface">Channel Monitoring</h3>
+<p class="text-xs text-outline">Automatic health checks for model routes</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold text-outline mb-1.5 uppercase">Interval (min)</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" type="number" value="5"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-outline mb-1.5 uppercase">Threshold</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" type="number" value="3"/>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+<span class="text-sm font-medium">Auto-enable recovery</span>
+<label class="relative inline-flex items-center cursor-pointer scale-90">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="pt-2 flex justify-end">
+<button class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save</button>
+</div>
+</div>
+</div>
+<!-- Uptime Monitoring -->
+<div class="md:col-span-3 bg-white border border-gray-200 rounded-xl p-6">
+<div class="mb-6">
+<h3 class="font-bold text-on-surface">Uptime Monitoring</h3>
+<p class="text-xs text-outline">External status page integration</p>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-semibold text-outline mb-1.5 uppercase">UptimeKuma URL</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" placeholder="https://status.yourdomain.com" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold text-outline mb-1.5 uppercase">API Key</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary" type="password" value="secret_key_********"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-outline mb-1.5 uppercase">Refresh Rate</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+<option>Every 60s</option>
+<option>Every 5m</option>
+<option>Every 15m</option>
+</select>
+</div>
+</div>
+<div class="pt-2 flex justify-end gap-3">
+<button class="px-5 py-2 border border-outline-variant text-on-surface text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors">Test Connection</button>
+<button class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-colors">Save</button>
+</div>
+</div>
+</div>
+<!-- Data Dashboard -->
+<div class="md:col-span-6 bg-white border border-gray-200 rounded-xl p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-indigo-50 rounded-xl">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface">Data Dashboard</h3>
+<p class="text-xs text-outline">Visual analytics for system performance</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="text-xs font-semibold text-outline uppercase">Enabled</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="h-10 w-px bg-gray-100"></div>
+<div class="flex items-center gap-3">
+<label class="text-xs font-semibold text-outline uppercase whitespace-nowrap">Data Source</label>
+<select class="min-w-[160px] bg-surface-container-low border border-outline-variant rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary">
+<option>Prometheus</option>
+<option>InfluxDB</option>
+<option>Grafana Cloud</option>
+<option>Datadog</option>
+</select>
+</div>
+<button class="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dim transition-colors whitespace-nowrap">Save Changes</button>
+</div>
+</div>
+<!-- Visual indicator/placeholder for dashboard preview -->
+<div class="h-24 bg-surface-container-low border border-dashed border-outline-variant rounded-xl flex items-center justify-center">
+<div class="flex items-center gap-4 text-outline">
+<div class="w-24 h-8 bg-gray-200/50 rounded-md"></div>
+<div class="w-16 h-8 bg-gray-200/50 rounded-md"></div>
+<div class="w-32 h-8 bg-gray-200/50 rounded-md"></div>
+<span class="text-xs italic">Live metrics stream visualization will render here</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Spacer -->
+<div class="h-20"></div>
+</main>
+</div>
+</body></html>

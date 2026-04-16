@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Personal Settings - ima-router</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#c4dcff",
+                    "primary": "#4a4bd7",
+                    "on-surface-variant": "#3d618c",
+                    "secondary": "#6e3bd8",
+                    "primary-container": "#7073ff",
+                    "error": "#a8364b",
+                    "on-primary-container": "#000000",
+                    "error-dim": "#6b0221",
+                    "secondary-dim": "#622bcb",
+                    "on-primary-fixed": "#000000",
+                    "tertiary-fixed": "#53ddfc",
+                    "inverse-on-surface": "#8e9eb7",
+                    "surface-bright": "#f8f9ff",
+                    "surface": "#f8f9ff",
+                    "background": "#f8f9ff",
+                    "error-container": "#f97386",
+                    "outline-variant": "#91b4e4",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#6a37d4",
+                    "secondary-fixed": "#e9ddff",
+                    "surface-container": "#e5eeff",
+                    "on-error-container": "#6e0523",
+                    "tertiary-container": "#53ddfc",
+                    "primary-dim": "#3d3dcb",
+                    "outline": "#5a7da9",
+                    "on-secondary": "#fdf7ff",
+                    "tertiary": "#00687b",
+                    "on-surface": "#05345c",
+                    "tertiary-fixed-dim": "#40ceed",
+                    "surface-variant": "#d2e4ff",
+                    "surface-tint": "#4a4bd7",
+                    "secondary-container": "#e9ddff",
+                    "on-tertiary": "#effbff",
+                    "surface-container-high": "#dce9ff",
+                    "on-background": "#05345c",
+                    "inverse-primary": "#8083ff",
+                    "on-error": "#fff7f7",
+                    "inverse-surface": "#000f21",
+                    "on-primary-fixed-variant": "#010028",
+                    "on-tertiary-container": "#004b58",
+                    "primary-fixed-dim": "#6366f1",
+                    "on-primary": "#fbf7ff",
+                    "on-secondary-container": "#6029c9",
+                    "surface-container-low": "#eff4ff",
+                    "on-tertiary-fixed": "#003640",
+                    "tertiary-dim": "#005b6c",
+                    "surface-container-highest": "#d2e4ff",
+                    "secondary-fixed-dim": "#ddcdff",
+                    "primary-fixed": "#7073ff",
+                    "on-tertiary-fixed-variant": "#005564",
+                    "on-secondary-fixed": "#4d00b7"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen">
+<!-- SideNavBar Shell -->
+<aside class="hidden md:flex flex-col h-screen w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 sticky top-0">
+<div class="flex flex-col h-full p-4 space-y-2">
+<div class="flex items-center gap-3 px-2 py-4 mb-4">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold">I</div>
+<div>
+<h1 class="text-lg font-black text-indigo-600 dark:text-indigo-400 font-public-sans leading-none">ima-router</h1>
+<p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Enterprise Gateway</p>
+</div>
+</div>
+<nav class="space-y-1 flex-1">
+<p class="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-wider">General</p>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
+                    Dashboard
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="vpn_key">vpn_key</span>
+                    API Keys
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="bar_chart">bar_chart</span>
+                    Usage
+                </a>
+<p class="text-[10px] font-bold text-gray-400 uppercase px-2 mt-6 mb-2 tracking-wider">Account</p>
+<a class="flex items-center gap-3 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md translate-x-1 transition-transform text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="person">person</span>
+                    Personal Settings
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="lock">lock</span>
+                    Security
+                </a>
+</nav>
+<div class="pt-4 border-t border-gray-200 dark:border-gray-800">
+<button class="w-full bg-primary text-white py-2 px-4 rounded text-sm font-semibold hover:bg-primary-dim transition-colors mb-4">
+                    Upgrade Plan
+                </button>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="contact_support">contact_support</span>
+                    Support
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="logout">logout</span>
+                    Logout
+                </a>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center px-6 py-3 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 z-50">
+<div class="flex items-center gap-8">
+<div class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans text-sm" href="#">Models</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans text-sm" href="#">Analytics</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans text-sm" href="#">Keys</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-public-sans text-sm" href="#">Docs</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-gray-50 border-gray-200 rounded-lg text-sm w-64 focus:ring-primary focus:border-primary" placeholder="Search resources..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center border border-gray-200 overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="minimalist professional user avatar with light purple background and geometric initials" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVRDIMHhx5_M9Wj1eP9TxcA9S24r1Y14sA3mcOOQ2bi1MP-ayfgh91YAfftVoAOdGA7VScR5bzvvpoAeiqE_O3SYZ7QL42zmqkuZG4PD0KEyctVQEOzodi713N1Wrs2ctCORuOjOxgrnz_g661rD2qb9cathAG1XwMYAQQt4lrjjvqK7sDia96WkzZYAbt4YNDgUjwiacYo0BJSK6-6Xn1sGKyq0k44BrU1-xbmVVUplgNBupSmB5GTQKm9tYYwjdWGta_7jqeoDs"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="p-8 max-w-[1400px] mx-auto w-full">
+<header class="mb-8">
+<h2 class="text-2xl font-bold font-public-sans text-on-surface">Personal Settings</h2>
+<p class="text-on-surface-variant text-sm mt-1">Manage your account preferences, connected identities, and notification triggers.</p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-10 gap-8">
+<!-- Left Column (60%) -->
+<div class="lg:col-span-6 space-y-6">
+<!-- Profile Card -->
+<section class="bg-white border border-gray-200 rounded-xl p-6 flex items-center gap-6">
+<div class="w-20 h-20 rounded-full bg-primary-container flex items-center justify-center text-white text-2xl font-bold font-public-sans shrink-0">
+                            RO
+                        </div>
+<div class="flex-1">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="text-xl font-bold text-on-surface">root</h3>
+<p class="text-primary font-medium text-sm">Super Admin</p>
+</div>
+<span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-mono rounded-full border border-gray-200">ID: 10001</span>
+</div>
+</div>
+</section>
+<!-- Balance Section -->
+<section class="bg-white border border-gray-200 rounded-xl p-6">
+<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Available Balance</p>
+<h4 class="text-4xl font-black text-on-surface font-public-sans">$517,961.02</h4>
+<div class="mt-4 flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="text-sm font-medium">Usage: $2,942.71</span>
+</div>
+</section>
+<!-- Account Tabs & Section -->
+<div class="space-y-6">
+<div class="flex border-b border-gray-200">
+<button class="px-6 py-3 border-b-2 border-primary text-primary font-semibold text-sm">Account</button>
+<button class="px-6 py-3 text-gray-500 hover:text-on-surface transition-colors font-medium text-sm">Security</button>
+</div>
+<!-- OAuth Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Email (Active) -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined" data-icon="mail">mail</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<p class="font-semibold text-sm">Email</p>
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+</div>
+<p class="text-xs text-gray-500">admin@ima-router.ai</p>
+</div>
+</div>
+<button class="text-xs font-bold text-error hover:underline">Unbind</button>
+</div>
+<!-- WeChat -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-gray-400">WeChat</p>
+<p class="text-xs text-gray-400">Not connected</p>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- GitHub -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-gray-400">GitHub</p>
+<p class="text-xs text-gray-400">Not connected</p>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Discord -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-gray-400">Discord</p>
+<p class="text-xs text-gray-400">Not connected</p>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- OIDC -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="key">key</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-gray-400">OIDC</p>
+<p class="text-xs text-gray-400">Not connected</p>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+<!-- Telegram -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-gray-400">Telegram</p>
+<p class="text-xs text-gray-400">Not connected</p>
+</div>
+</div>
+<button class="text-xs font-bold text-primary hover:underline">Bind</button>
+</div>
+</div>
+<!-- Language -->
+<div class="pt-6 border-t border-gray-100 flex items-center justify-between">
+<div>
+<p class="text-sm font-semibold text-on-surface">Language Settings</p>
+<p class="text-xs text-on-surface-variant">System-wide display language preference</p>
+</div>
+<div class="relative">
+<button class="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 transition-colors">
+                                    简体中文
+                                    <span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (40%) -->
+<div class="lg:col-span-4 space-y-6">
+<section class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+<div class="p-6 border-b border-gray-200">
+<h3 class="text-lg font-bold font-public-sans text-on-surface mb-4">Notification Settings</h3>
+<div class="flex gap-4 border-b border-gray-100">
+<button class="pb-2 border-b-2 border-primary text-primary text-xs font-bold uppercase tracking-wider">Notification</button>
+<button class="pb-2 text-gray-400 text-xs font-bold uppercase tracking-wider hover:text-on-surface transition-colors">Billing</button>
+<button class="pb-2 text-gray-400 text-xs font-bold uppercase tracking-wider hover:text-on-surface transition-colors">Advanced</button>
+</div>
+</div>
+<div class="p-6 space-y-8">
+<!-- Methods -->
+<div>
+<label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-4">Delivery Method</label>
+<div class="grid grid-cols-2 gap-3">
+<label class="relative flex items-center gap-3 p-3 border border-primary bg-indigo-50/30 rounded-lg cursor-pointer group">
+<input checked="" class="text-primary focus:ring-primary w-4 h-4" name="method" type="radio"/>
+<span class="text-sm font-medium">Email</span>
+</label>
+<label class="relative flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 group">
+<input class="text-primary focus:ring-primary w-4 h-4" name="method" type="radio"/>
+<span class="text-sm font-medium">Webhook</span>
+</label>
+<label class="relative flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 group">
+<input class="text-primary focus:ring-primary w-4 h-4" name="method" type="radio"/>
+<span class="text-sm font-medium">Bark</span>
+</label>
+<label class="relative flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 group">
+<input class="text-primary focus:ring-primary w-4 h-4" name="method" type="radio"/>
+<span class="text-sm font-medium">Gotify</span>
+</label>
+</div>
+</div>
+<!-- Spend Threshold -->
+<div class="space-y-2">
+<label class="text-xs font-bold text-gray-400 uppercase tracking-widest block">Spend Threshold</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+<input class="w-full pl-7 pr-4 py-2 bg-gray-50 border-gray-200 rounded-lg text-sm focus:ring-primary focus:border-primary font-medium" type="text" value="1.00"/>
+</div>
+<p class="text-xs text-on-surface-variant">Notify when daily spend exceeds this amount</p>
+</div>
+<!-- Auto Disable -->
+<div class="flex items-start gap-4">
+<div class="flex items-center h-5">
+<input checked="" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" type="checkbox"/>
+</div>
+<div class="text-sm">
+<label class="font-semibold text-on-surface">Auto-disable</label>
+<p class="text-xs text-on-surface-variant">Automatically disable keys if limit is reached</p>
+</div>
+</div>
+<!-- Callback URL -->
+<div class="space-y-2">
+<label class="text-xs font-bold text-gray-400 uppercase tracking-widest block">Callback URL</label>
+<input class="w-full px-4 py-2 bg-gray-50 border-gray-200 rounded-lg text-sm focus:ring-primary focus:border-primary" placeholder="https://api.example.com/webhook" type="url"/>
+</div>
+<button class="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary-dim transition-all shadow-lg shadow-primary/20 active:scale-[0.98]">
+                                Save Changes
+                            </button>
+</div>
+</section>
+<!-- Status Indicator (Decorative Bento Fragment) -->
+<div class="bg-emerald-50 border border-emerald-100 rounded-xl p-6">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<span class="text-emerald-700 text-sm font-bold uppercase tracking-wider">System Status: Optimal</span>
+</div>
+<p class="text-emerald-600/70 text-xs mt-2 font-medium">API latency is currently 12ms. All endpoints operational.</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
