@@ -1,10 +1,25 @@
 /*
 Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 const Select = SelectPrimitive.Root;
@@ -72,7 +87,7 @@ const SelectLabel = React.forwardRef(({ className, ...props }, ref) => (
 ));
 SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
-const SelectItem = React.forwardRef(({ className, ...props }, ref) => (
+const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -81,7 +96,14 @@ const SelectItem = React.forwardRef(({ className, ...props }, ref) => (
       className,
     )}
     {...props}
-  />
+  >
+    <span className='absolute left-2 flex h-3.5 w-3.5 items-center justify-center'>
+      <SelectPrimitive.ItemIndicator>
+        <Check className='h-4 w-4' />
+      </SelectPrimitive.ItemIndicator>
+    </span>
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
@@ -94,4 +116,3 @@ export {
   SelectLabel,
   SelectItem,
 };
-
