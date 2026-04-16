@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button, Progress, Tag, Typography } from '@douyinfe/semi-ui';
+import { Button, Progress, Tag } from '@douyinfe/semi-ui';
 import {
   Palette,
   ZoomIn,
@@ -354,6 +354,19 @@ function normalizeImageSource(value) {
   return [trimmed];
 }
 
+function renderTruncatedContent(value, onClick) {
+  return (
+    <button
+      type='button'
+      className='max-w-[100px] truncate text-left text-[var(--semi-color-text-0)] hover:underline'
+      title={value}
+      onClick={onClick}
+    >
+      {value}
+    </button>
+  );
+}
+
 export const getMjLogsColumns = ({
   t,
   COLUMN_KEYS,
@@ -498,17 +511,9 @@ export const getMjLogsColumns = ({
           return t('无');
         }
 
-        return (
-          <Typography.Text
-            ellipsis={{ showTooltip: true }}
-            style={{ width: 100 }}
-            onClick={() => {
-              openContentModal(text);
-            }}
-          >
-            {text}
-          </Typography.Text>
-        );
+        return renderTruncatedContent(text, () => {
+          openContentModal(text);
+        });
       },
     },
     {
@@ -520,17 +525,9 @@ export const getMjLogsColumns = ({
           return t('无');
         }
 
-        return (
-          <Typography.Text
-            ellipsis={{ showTooltip: true }}
-            style={{ width: 100 }}
-            onClick={() => {
-              openContentModal(text);
-            }}
-          >
-            {text}
-          </Typography.Text>
-        );
+        return renderTruncatedContent(text, () => {
+          openContentModal(text);
+        });
       },
     },
     {
@@ -543,17 +540,9 @@ export const getMjLogsColumns = ({
           return t('无');
         }
 
-        return (
-          <Typography.Text
-            ellipsis={{ showTooltip: true }}
-            style={{ width: 100 }}
-            onClick={() => {
-              openContentModal(text);
-            }}
-          >
-            {text}
-          </Typography.Text>
-        );
+        return renderTruncatedContent(text, () => {
+          openContentModal(text);
+        });
       },
     },
   ];

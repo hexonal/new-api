@@ -184,6 +184,7 @@ export default function ModelListPage() {
     compactMode,
     setCompactMode,
     syncUpstream,
+    setFormApi,
     t,
   } = modelsData;
 
@@ -195,14 +196,14 @@ export default function ModelListPage() {
   }, [searchKeyword, searchVendor]);
 
   useEffect(() => {
-    modelsData.setFormApi({
+    setFormApi({
       getValues: () => formValuesRef.current,
       reset: () => {
         setSearchKeyword('');
         setSearchVendor('');
       },
     });
-  }, [modelsData]);
+  }, [setFormApi]);
 
   const providerOptions = useMemo(() => {
     const dynamic = (vendors || []).map((item) => ({

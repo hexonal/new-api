@@ -1,8 +1,37 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, isAdmin, showError } from '../../helpers';
-import { GRANULARITY_OPTIONS, METRIC_COST } from '../../constants/key-cost.constants';
+import {
+  GRANULARITY_OPTIONS,
+  METRIC_COST,
+} from '../../constants/key-cost.constants';
 import { getDefaultDateRange } from '../../helpers/key-cost';
+
+const normalizeSummaryRecords = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.list)) return payload.list;
+  if (Array.isArray(payload?.records)) return payload.records;
+  return [];
+};
 
 /**
  * Primary data-fetching hook for the Key Cost Analysis dashboard.
@@ -48,7 +77,7 @@ export const useKeyCostData = () => {
       });
       const { success, message, data } = res.data;
       if (success) {
-        setTokens(Array.isArray(data) ? data : (data?.items || []));
+        setTokens(Array.isArray(data) ? data : data?.items || []);
       } else {
         showError(message);
       }
@@ -82,12 +111,14 @@ export const useKeyCostData = () => {
       const res = await API.get(basePath, { params });
       const { success, message, data } = res.data;
       if (success) {
-        setSummaryData(data || []);
+        setSummaryData(normalizeSummaryRecords(data));
       } else {
         showError(message);
+        setSummaryData([]);
       }
     } catch (err) {
       console.error('Failed to fetch token summary', err);
+      setSummaryData([]);
     } finally {
       setLoading(false);
     }

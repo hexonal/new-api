@@ -19,23 +19,73 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '../../../primitives/badge';
+import { FolderTree, PencilLine } from 'lucide-react';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../primitives/card';
-
-export default function GroupDetail({ data = {}, title }) {
+export default function GroupDetail({
+  groupName,
+  description,
+  memberCount,
+  channelCount,
+  isSystemGroup,
+  hasUnsavedChanges,
+}) {
   const { t } = useTranslation();
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className='text-base'>{title || t('分组详情')}</CardTitle>
-        <CardDescription>{data.name || data.username || t('未命名')}</CardDescription>
-      </CardHeader>
-      <CardContent className='space-y-1 text-sm'>
-        <p>{t('ID：')}{data.id || '-'}</p>
-        <p>{t('名称：')}{data.name || '-'}</p>
-        <p>{t('类型：')}{data.type || '-'}</p>
-        <p>{t('状态：')}{data.status || '-'}</p>
-      </CardContent>
-    </Card>
+    <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+      <div className='flex items-start gap-4'>
+        <div className='flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600'>
+          <FolderTree className='h-6 w-6' />
+        </div>
+        <div className='space-y-2'>
+          <div className='flex items-center gap-2'>
+            <h1 className='text-2xl font-black tracking-tight text-slate-900'>
+              {groupName}
+            </h1>
+            <button
+              type='button'
+              className='text-slate-400 transition-colors hover:text-indigo-600'
+            >
+              <PencilLine className='h-4 w-4' />
+            </button>
+          </div>
+          <p className='max-w-2xl text-sm font-medium text-slate-500'>
+            {description}
+          </p>
+          <div className='flex flex-wrap items-center gap-2'>
+            <Badge
+              variant='outline'
+              className='rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600'
+            >
+              {t('{{count}} 名成员', { count: memberCount })}
+            </Badge>
+            <Badge
+              variant='outline'
+              className='rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600'
+            >
+              {t('{{count}} 个通道', { count: channelCount })}
+            </Badge>
+            {hasUnsavedChanges ? (
+              <Badge className='rounded-full bg-amber-100 px-3 py-1 text-amber-800'>
+                {t('有未保存变更')}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className='flex gap-2'>
+        {isSystemGroup ? (
+          <span className='rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700'>
+            {t('SYSTEM')}
+          </span>
+        ) : (
+          <span className='rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600'>
+            {t('CUSTOM')}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

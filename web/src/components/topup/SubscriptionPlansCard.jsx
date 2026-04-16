@@ -24,7 +24,6 @@ import {
   Card,
   Divider,
   Select,
-  Skeleton,
   Space,
   Tag,
   Tooltip,
@@ -259,11 +258,12 @@ const SubscriptionPlansCard = ({
           {/* 我的订阅骨架屏 */}
           <Card className='!rounded-xl w-full' bodyStyle={{ padding: '12px' }}>
             <div className='flex items-center justify-between mb-3'>
-              <Skeleton.Title active style={{ width: 100, height: 20 }} />
-              <Skeleton.Button active style={{ width: 24, height: 24 }} />
+              <div className='h-5 w-24 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
+              <div className='h-6 w-6 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
             </div>
             <div className='space-y-2'>
-              <Skeleton.Paragraph active rows={2} />
+              <div className='h-4 w-4/5 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
+              <div className='h-4 w-3/5 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
             </div>
           </Card>
           {/* 套餐列表骨架屏 */}
@@ -274,26 +274,25 @@ const SubscriptionPlansCard = ({
                 className='!rounded-xl w-full h-full'
                 bodyStyle={{ padding: 16 }}
               >
-                <Skeleton.Title
-                  active
-                  style={{ width: '60%', height: 24, marginBottom: 8 }}
+                <div
+                  className='h-6 w-3/5 animate-pulse rounded bg-[var(--semi-color-fill-0)]'
+                  style={{ marginBottom: 8 }}
                 />
-                <Skeleton.Paragraph
-                  active
-                  rows={1}
+                <div
+                  className='h-4 w-1/2 animate-pulse rounded bg-[var(--semi-color-fill-0)]'
                   style={{ marginBottom: 12 }}
                 />
                 <div className='text-center py-4'>
-                  <Skeleton.Title
-                    active
-                    style={{ width: '40%', height: 32, margin: '0 auto' }}
-                  />
+                  <div className='mx-auto h-8 w-2/5 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
                 </div>
-                <Skeleton.Paragraph active rows={3} style={{ marginTop: 12 }} />
-                <Skeleton.Button
-                  active
-                  block
-                  style={{ marginTop: 16, height: 32 }}
+                <div className='mt-3 space-y-2'>
+                  <div className='h-4 w-5/6 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
+                  <div className='h-4 w-2/3 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
+                  <div className='h-4 w-3/4 animate-pulse rounded bg-[var(--semi-color-fill-0)]' />
+                </div>
+                <div
+                  className='mt-4 h-8 w-full animate-pulse rounded bg-[var(--semi-color-fill-0)]'
+                  aria-hidden='true'
                 />
               </Card>
             ))}

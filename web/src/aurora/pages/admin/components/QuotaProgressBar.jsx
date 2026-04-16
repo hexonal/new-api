@@ -28,18 +28,29 @@ export default function QuotaProgressBar({
   unit = '额度',
   title = '配额',
   className = '',
+  formatValue,
 }) {
   const { t } = useTranslation();
   const safeTotal = Number(total || 0);
   const safeUsed = Number(used || 0);
   const percent = safeTotal > 0 ? Math.min(100, Math.max(0, (safeUsed / safeTotal) * 100)) : 0;
+  const formatQuotaValue = (value) => {
+    const numericValue = Number(value || 0);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+    if (typeof formatValue === 'function') {
+      return formatValue(safeValue);
+    }
+    return safeValue.toLocaleString();
+  };
+  const suffixUnit = unit ? ` ${unit}` : '';
 
   return (
     <section className={`rounded-lg border border-border bg-card/70 p-4 ${className}`}>
       <div className='flex items-center justify-between text-sm'>
         <span className='text-muted-foreground'>{title}</span>
         <span className='text-xs text-muted-foreground'>
-          {safeUsed.toLocaleString()} / {safeTotal.toLocaleString()} {unit}
+          {formatQuotaValue(safeUsed)} / {formatQuotaValue(safeTotal)}
+          {suffixUnit}
         </span>
       </div>
       <Progress value={percent} className='mt-3' />

@@ -30,10 +30,14 @@ import { UserContext } from '../../context/User';
 import { API, setStatusData } from '../../helpers';
 import { getPreferredLanguage } from '../../i18n/preference';
 import { isPublicRoute, shouldShowMobileMenu } from './navigation-config';
+import {
+  shouldShowPageShellChrome,
+  shouldUseCompactConsoleLayout,
+} from './layout-shell-utils';
 
 const getCompactMode = () => {
   if (typeof window === 'undefined') return false;
-  return window.innerWidth < 1180;
+  return shouldUseCompactConsoleLayout(window.innerWidth);
 };
 
 const restoreStoredUser = (userDispatch) => {
@@ -107,12 +111,16 @@ const AuroraLayout = ({ children }) => {
   const mobileOpen = useSidebarStore((state) => state.mobileOpen);
   const setMobileOpen = useSidebarStore((state) => state.setMobileOpen);
   const pathname = location.pathname || '';
+  const isDashboardRoute = pathname === '/console';
 
   const publicRoute = isPublicRoute(pathname);
   const showNavigationShell = !publicRoute;
   const showMobileMenu =
     shouldShowMobileMenu({ isCompact, pathname }) || pathname === '/pricing';
-  const showPageChrome = showNavigationShell;
+  const showPageChrome = shouldShowPageShellChrome({
+    pathname,
+    showNavigationShell,
+  });
 
   useEffect(() => {
     const onResize = () => {
@@ -144,6 +152,7 @@ const AuroraLayout = ({ children }) => {
         className={[
           'aurora-body-shell',
           isCompact || !showNavigationShell ? 'compact' : '',
+          isDashboardRoute ? 'aurora-body-shell-dashboard' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -159,6 +168,7 @@ const AuroraLayout = ({ children }) => {
             'aurora-content',
             !isCompact && showNavigationShell && collapsed ? 'compact' : '',
             !showNavigationShell ? 'aurora-public-content' : '',
+            isDashboardRoute ? 'aurora-content-dashboard' : '',
           ]
             .filter(Boolean)
             .join(' ')}
