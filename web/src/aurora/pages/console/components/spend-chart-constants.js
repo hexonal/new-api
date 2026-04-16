@@ -17,34 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-export const QUICK_LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/console', label: 'Console' },
-  { href: '/pricing', label: 'Models' },
-  { href: '/about', label: 'Docs' },
+export const SPEND_CHART_TABS = [
+  { key: 'distribution', label: '消耗分布' },
+  { key: 'trend', label: '消耗趋势' },
+  { key: 'requestDist', label: '调用次数分布' },
+  { key: 'requestRank', label: '调用次数排行' },
 ];
-
-const PUBLIC_ROUTE_PATTERNS = [
-  /^\/$/,
-  /^\/login$/,
-  /^\/register$/,
-  /^\/reset$/,
-  /^\/user\/reset$/,
-  /^\/forbidden$/,
-  /^\/pricing$/,
-  /^\/about$/,
-  /^\/privacy-policy$/,
-  /^\/user-agreement$/,
-  /^\/oauth(?:\/.*)?$/,
-];
-
-export function isPublicRoute(pathname = '') {
-  return PUBLIC_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
-}
-
-export function shouldShowMobileMenu({
-  isCompact = false,
-  pathname = '',
-} = {}) {
-  return isCompact && !isPublicRoute(pathname);
-}
