@@ -21,6 +21,7 @@ import React from 'react';
 import { Tabs, TabPane, Tag } from '@douyinfe/semi-ui';
 import { CHANNEL_OPTIONS } from '../../../constants';
 import { getChannelIcon } from '../../../helpers';
+import cn from 'classnames';
 
 const ChannelsTabs = ({
   enableTagMode,
@@ -46,23 +47,23 @@ const ChannelsTabs = ({
   return (
     <Tabs
       activeKey={activeTypeKey}
-      type='card'
       collapsible
       onChange={handleTabChange}
-      className='mb-2'
+      className='channels-type-tabs mb-2'
     >
       <TabPane
         itemKey='all'
         tab={
-          <span className='flex items-center gap-2'>
-            {t('全部')}
-            <Tag
+          <div className={cn('flex items-center gap-1 px-4 text-[rgba(107,114,128,1)] text-sm font-bold hover:text-[rgba(79,70,229,1)]', activeTypeKey === 'all' ? 'text-[rgba(79,70,229,1)]' : '')}>
+            <div>{t('全部')}</div>
+            {/* <Tag
               color={activeTypeKey === 'all' ? 'red' : 'grey'}
               shape='circle'
             >
               {channelTypeCounts['all'] || 0}
-            </Tag>
-          </span>
+            </Tag> */}
+            <div>{channelTypeCounts['all'] || 0}</div>
+          </div>
         }
       />
 
@@ -76,16 +77,17 @@ const ChannelsTabs = ({
             key={key}
             itemKey={key}
             tab={
-              <span className='flex items-center gap-2'>
-                {getChannelIcon(option.value)}
-                {option.label}
-                <Tag
+              <div className={cn('flex items-center gap-1 px-4 text-[rgba(107,114,128,1)] text-sm font-bold hover:text-[rgba(79,70,229,1)]', activeTypeKey === key ? 'text-[rgba(79,70,229,1)]' : '')}>
+                {/* {getChannelIcon(option.value)} */}
+                <div>{option.label}</div>
+                {/* <Tag
                   color={activeTypeKey === key ? 'red' : 'grey'}
                   shape='circle'
                 >
                   {count}
-                </Tag>
-              </span>
+                </Tag> */}
+                <div>{count}</div>
+              </div>
             }
           />
         );

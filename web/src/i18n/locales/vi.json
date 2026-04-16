@@ -3845,6 +3845,21 @@
     "确认配置后提交，提交成功会自动刷新列表": "Xác nhận cấu hình trước khi gửi. Danh sách sẽ tự động làm mới sau khi thành công.",
     "创建模式": "Chế độ tạo",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "Hộp thoại này đã chuyển sang Aurora native để tránh chuỗi thành phần cũ gây cảnh báo StrictMode.",
+    "channels": {
+      "title": "Kênh",
+      "description": "Quản lý cấu hình nhà cung cấp AI upstream",
+      "refreshAbilities": "Làm mới khả năng",
+      "batchOperations": "Thao tác hàng loạt",
+      "addChannel": "Thêm kênh",
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa",
+      "globalHealth": "Sức khỏe tổng thể",
+      "totalBalance": "Tổng số dư",
+      "avgLatency": "Độ trễ trung bình",
+      "estimatedRemaining": "Ước tính còn lại 14 ngày",
+      "acrossActiveProviders": "Trên tất cả nhà cung cấp đang hoạt động",
+      "optimal": "Tối ưu"
+    },
     "home": {
       "hero": {
         "title": "Giao diện hợp nhất cho LLM",

@@ -97,6 +97,8 @@
   color: hsl(var(--foreground));
   position: relative;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .aurora-top-nav {
@@ -220,11 +222,14 @@
 .aurora-body-shell {
   width: 100%;
   margin: 0 auto;
-  padding: 16px 24px 24px;
+  /* padding: 16px 24px 24px; */
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  background-color: rgba(248, 249, 255, 1);
 }
 
 .aurora-body-shell-dashboard {
@@ -236,10 +241,11 @@
 }
 
 .aurora-side-pane {
-  border-radius: 14px;
-  border: 1px solid hsl(var(--border));
+  /* border-radius: 14px; */
+  /* border: 1px solid hsl(var(--border)); */
+  border-right: 1px solid hsl(var(--border));
   background: hsl(var(--card));
-  min-height: calc(100vh - 96px);
+  min-height: 100%;
   overflow: hidden;
   transition: width 180ms;
   width: 250px;
@@ -250,10 +256,10 @@
 }
 
 .aurora-content {
-  min-height: calc(100vh - 96px);
-  border-radius: 14px;
+  min-height: 100%;
+  /* border-radius: 14px;
   border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  background: hsl(var(--background)); */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -994,7 +1000,7 @@
   }
 
   .aurora-content {
-    min-height: calc(100vh - 86px);
+    min-height: 100%;
   }
 
   .aurora-side-pane {

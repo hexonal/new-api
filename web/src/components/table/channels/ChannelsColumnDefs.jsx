@@ -28,6 +28,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  Switch
 } from '@douyinfe/semi-ui';
 import {
   timestamp2string,
@@ -78,9 +79,15 @@ const renderType = (type, record = {}, t) => {
   }
 
   const typeTag = (
-    <Tag color={type2label[type]?.color} shape='circle' prefixIcon={icon}>
-      {type2label[type]?.label}
-    </Tag>
+    // <Tag color={type2label[type]?.color} shape='circle' prefixIcon={icon}>
+    //   {type2label[type]?.label}
+    // </Tag>
+    <div className='flex items-center gap-1'>
+      {icon}
+      <div className='text-[rgba(55,65,81,1)] text-sm font-medium'>
+        {type2label[type]?.label}
+      </div>
+    </div>
   );
 
   let ionetMeta = null;
@@ -163,27 +170,39 @@ const renderStatus = (status, channelInfo = undefined, t) => {
   switch (status) {
     case 1:
       return (
-        <Tag color='green' shape='circle'>
-          {t('已启用')}
-        </Tag>
+        // <Tag color='green' shape='circle'>
+        //   {t('已启用')}
+        // </Tag>
+        <Switch
+          checked={status === 1}
+        />
       );
     case 2:
       return (
-        <Tag color='red' shape='circle'>
-          {t('已禁用')}
-        </Tag>
+        // <Tag color='red' shape='circle'>
+        //   {t('已禁用')}
+        // </Tag>
+        <Switch
+          checked={status === 1}
+        />
       );
     case 3:
       return (
-        <Tag color='yellow' shape='circle'>
-          {t('自动禁用')}
-        </Tag>
+        // <Tag color='yellow' shape='circle'>
+        //   {t('自动禁用')}
+        // </Tag>
+        <Switch
+          checked={status === 1}
+        />
       );
     default:
       return (
-        <Tag color='grey' shape='circle'>
-          {t('未知状态')}
-        </Tag>
+        // <Tag color='grey' shape='circle'>
+        //   {t('未知状态')}
+        // </Tag>
+        <Switch
+          checked={status === 1}
+        />
       );
   }
 };
@@ -222,33 +241,29 @@ const renderResponseTime = (responseTime, t) => {
   time = time.toFixed(2) + t(' 秒');
   if (responseTime === 0) {
     return (
-      <Tag color='grey' shape='circle'>
-        {t('未测试')}
-      </Tag>
+      // <Tag color='grey' shape='circle'>
+      //   {t('未测试')}
+      // </Tag>
+      <div className='text-[rgba(156,163,175,1)] text-xs font-semibold'>{t('未测试')}</div>
     );
   } else if (responseTime <= 1000) {
     return (
-      <Tag color='green' shape='circle'>
-        {time}
-      </Tag>
+      // <Tag color='green' shape='circle'>
+      //   {time}
+      // </Tag>
+      <div className='text-[rgba(34,197,94,1)] text-xs font-semibold'>{time}</div>
     );
   } else if (responseTime <= 3000) {
     return (
-      <Tag color='lime' shape='circle'>
-        {time}
-      </Tag>
+      <div className='text-[rgba(132,204,22,1)] text-xs font-semibold'>{time}</div>
     );
   } else if (responseTime <= 5000) {
     return (
-      <Tag color='yellow' shape='circle'>
-        {time}
-      </Tag>
+      <div className='text-[rgba(250,204,21,1)] text-xs font-semibold'>{time}</div>
     );
   } else {
     return (
-      <Tag color='red' shape='circle'>
-        {time}
-      </Tag>
+      <div className='text-[rgba(239,68,68,1)] text-xs font-semibold'>{time}</div>
     );
   }
 };
@@ -333,11 +348,13 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.ID,
       title: t('ID'),
       dataIndex: 'id',
+      className: 'channels-col-id',
     },
     {
       key: COLUMN_KEYS.NAME,
       title: t('名称'),
       dataIndex: 'name',
+      className: 'channels-col-name',
       render: (text, record, index) => {
         const passThroughEnabled = isRequestPassThroughEnabled(record);
         const upstreamUpdateMeta = getUpstreamUpdateMeta(record);
@@ -530,7 +547,7 @@ export const getChannelsColumns = ({
         if (record.children === undefined) {
           return (
             <div>
-              <Space spacing={1}>
+              {/* <Space spacing={1}>
                 <Tooltip content={t('已用额度')}>
                   <Tag color='white' type='ghost' shape='circle'>
                     {renderQuota(record.used_quota)}
@@ -548,16 +565,20 @@ export const getChannelsColumns = ({
                     {renderQuotaWithAmount(record.balance)}
                   </Tag>
                 </Tooltip>
-              </Space>
+              </Space> */}
+              <div className='text-sm font-semibold'>{renderQuota(record.used_quota)}</div>
             </div>
           );
         } else {
           return (
-            <Tooltip content={t('已用额度')}>
-              <Tag color='white' type='ghost' shape='circle'>
-                {renderQuota(record.used_quota)}
-              </Tag>
-            </Tooltip>
+            // <Tooltip content={t('已用额度')}>
+            //   <Tag color='white' type='ghost' shape='circle'>
+            //     {renderQuota(record.used_quota)}
+            //   </Tag>
+            // </Tooltip>
+            <div>
+              {renderQuota(record.used_quota)}
+            </div>
           );
         }
       },
