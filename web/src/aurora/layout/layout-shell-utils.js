@@ -17,34 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-export const QUICK_LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/console', label: 'Console' },
-  { href: '/pricing', label: 'Models' },
-  { href: '/about', label: 'Docs' },
-];
+export const CONSOLE_COMPACT_BREAKPOINT = 960;
 
-const PUBLIC_ROUTE_PATTERNS = [
-  /^\/$/,
-  /^\/login$/,
-  /^\/register$/,
-  /^\/reset$/,
-  /^\/user\/reset$/,
-  /^\/forbidden$/,
-  /^\/pricing$/,
-  /^\/about$/,
-  /^\/privacy-policy$/,
-  /^\/user-agreement$/,
-  /^\/oauth(?:\/.*)?$/,
-];
+export const shouldUseCompactConsoleLayout = (width = 0) =>
+  width < CONSOLE_COMPACT_BREAKPOINT;
 
-export function isPublicRoute(pathname = '') {
-  return PUBLIC_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
-}
-
-export function shouldShowMobileMenu({
-  isCompact = false,
+export const shouldShowPageShellChrome = ({
   pathname = '',
-} = {}) {
-  return isCompact && !isPublicRoute(pathname);
-}
+  showNavigationShell = true,
+} = {}) => showNavigationShell && pathname !== '/console';
