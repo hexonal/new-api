@@ -474,6 +474,8 @@ paths:
 
                   - 参考视频最多 3 条，且总时长不超过 15 秒
 
+                  - 严重提醒：使用 `asset://...` 人像协议前，必须确认素材创建时的 `model` 与当前视频模型同渠道；国内视频模型配 `ima-pro-upload-cn`，海外视频模型配 `seedance-upload`，混用会导致协议调用失败
+
                   两张图片均按 `reference_image` 语义处理。
 
                   '
@@ -547,6 +549,8 @@ paths:
 
                   - 视频人像素材按参考视频语义处理，不放入 `images`
 
+                  - 严重提醒：使用 `asset://...` 人像协议前，必须确认素材创建时的 `model` 与当前视频模型同渠道；国内视频模型配 `ima-pro-upload-cn`，海外视频模型配 `seedance-upload`，混用会导致协议调用失败
+
                   - 素材协议仅用于提交时引用，请确认该 `asset://...` 属于当前调用 SK 对应用户且提交时可访问
 
                   '
@@ -572,6 +576,8 @@ paths:
                   - 注意：使用音频人像协议时，`images` 或 `metadata.reference_video_urls` 至少需要提供一个
 
                   - 该示例使用“文本+图片+音频”组合，避免纯文本+音频导致上游参数不合法
+
+                  - 严重提醒：使用 `asset://...` 人像协议前，必须确认素材创建时的 `model` 与当前视频模型同渠道；国内视频模型配 `ima-pro-upload-cn`，海外视频模型配 `seedance-upload`，混用会导致协议调用失败
 
                   - 素材协议仅用于提交时引用，请确认该 `asset://...` 属于当前调用 SK 对应用户且提交时可访问
 
@@ -1130,6 +1136,16 @@ paths:
 
         `asset_type=Audio` 时，音频时长由上游服务校验，需在 `1.8s` 到 `15.2s` 闭区间内，超限会报：
         `InvalidParameter.DurationTooLong: Duration must be between 1.8s and 15.2s`。
+
+        **严重提醒（必读）**
+
+        - 创建人像素材/素材协议时，务必显式传 `model` 区分国内与海外渠道。
+
+        - 国内视频模型（`seedance-2.0-cn`、`seedance-2.0-fast-cn`）应使用 `ima-pro-upload-cn`（或历史兼容 `ima-pro-upload`）创建素材。
+
+        - 海外视频模型（`seedance-2.0`、`seedance-2.0-fast`）应使用 `seedance-upload` 创建素材。
+
+        - 不要混用国内/海外素材协议；否则 `asset://...` 虽然创建成功，但后续视频任务可能因协议渠道不匹配而调用失败。
 
         **重要提示（必读）**
 
@@ -2844,13 +2860,15 @@ components:
           - ima-pro-upload
           - ima-pro-upload-cn
           - seedance-upload
-          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+          description: '可选，资产模型名。严重提醒：务必显式传 `model` 区分国内与海外人像协议，避免素材协议与视频模型渠道不匹配。
 
-            - `ima-pro-upload`：国内人像（默认）
+            - `ima-pro-upload`：国内人像（默认，历史兼容）
 
-            - `ima-pro-upload-cn`：国内人像
+            - `ima-pro-upload-cn`：国内人像，适配 `seedance-2.0-cn`、`seedance-2.0-fast-cn`
 
-            - `seedance-upload`：海外人像
+            - `seedance-upload`：海外人像，适配 `seedance-2.0`、`seedance-2.0-fast`
+
+            - 不要混用国内/海外素材协议；否则 `asset://...` 后续用于视频任务时可能调用失败。
 
             '
           example: ima-pro-upload-cn
@@ -2903,13 +2921,15 @@ components:
           - ima-pro-upload
           - ima-pro-upload-cn
           - seedance-upload
-          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+          description: '可选，资产模型名。严重提醒：务必显式传 `model` 区分国内与海外人像协议，避免素材协议与视频模型渠道不匹配。
 
-            - `ima-pro-upload`：国内人像（默认）
+            - `ima-pro-upload`：国内人像（默认，历史兼容）
 
-            - `ima-pro-upload-cn`：国内人像
+            - `ima-pro-upload-cn`：国内人像，适配 `seedance-2.0-cn`、`seedance-2.0-fast-cn`
 
-            - `seedance-upload`：海外人像
+            - `seedance-upload`：海外人像，适配 `seedance-2.0`、`seedance-2.0-fast`
+
+            - 不要混用国内/海外素材协议；否则 `asset://...` 后续用于视频任务时可能调用失败。
 
             '
           example: ima-pro-upload-cn
@@ -2965,15 +2985,17 @@ components:
           - ima-pro-upload
           - ima-pro-upload-cn
           - seedance-upload
-          description: '可选，资产模型名。
+          description: '可选，资产模型名。计费时优先使用该模型价格；未传时默认 `ima-pro-upload`。
 
-            计费时优先使用该模型价格；未传时默认 `ima-pro-upload`。
+            **严重提醒**：创建人像素材/素材协议时，务必显式传 `model` 区分国内与海外渠道，避免素材协议与视频模型渠道不匹配。
 
-            - `ima-pro-upload`：国内人像（默认）
+            - `ima-pro-upload`：国内人像（默认，历史兼容）
 
-            - `ima-pro-upload-cn`：国内人像
+            - `ima-pro-upload-cn`：国内人像，适配 `seedance-2.0-cn`、`seedance-2.0-fast-cn`
 
-            - `seedance-upload`：海外人像
+            - `seedance-upload`：海外人像，适配 `seedance-2.0`、`seedance-2.0-fast`
+
+            - 不要混用国内/海外素材协议；否则 `asset://...` 后续用于视频任务时可能调用失败。
 
             '
           example: ima-pro-upload-cn
@@ -3023,13 +3045,15 @@ components:
           - ima-pro-upload
           - ima-pro-upload-cn
           - seedance-upload
-          description: '可选，资产模型名。建议显式传，避免默认模型与当前分组权限不匹配。
+          description: '可选，资产模型名。严重提醒：务必显式传 `model` 区分国内与海外人像协议，避免素材协议与视频模型渠道不匹配。
 
-            - `ima-pro-upload`：国内人像（默认）
+            - `ima-pro-upload`：国内人像（默认，历史兼容）
 
-            - `ima-pro-upload-cn`：国内人像
+            - `ima-pro-upload-cn`：国内人像，适配 `seedance-2.0-cn`、`seedance-2.0-fast-cn`
 
-            - `seedance-upload`：海外人像
+            - `seedance-upload`：海外人像，适配 `seedance-2.0`、`seedance-2.0-fast`
+
+            - 不要混用国内/海外素材协议；否则 `asset://...` 后续用于视频任务时可能调用失败。
 
             '
           example: ima-pro-upload-cn
