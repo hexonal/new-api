@@ -325,6 +325,48 @@ func NotifyMonitorCallbackError(event *model.CallbackEvent, attemptNo int, statu
 	})
 }
 
+// NotifyMonitorMediaArchiveError 在媒体归档（下载/上传 OSS）重试耗尽后触发告警。
+// meta 中的 kind/model/channel_id/user_id 等字段帮助运维定位故障渠道与样本。
+// 复用 CallErrorEnabled 开关与全局冷却，避免节点级故障刷屏。
+func NotifyMonitorMediaArchiveError(phase string, ref string, errMsg string, meta map[string]interface{}) {
+	cfg := getMonitorAlertConfig()
+	if !cfg.Enabled || !cfg.CallErrorEnabled || strings.TrimSpace(cfg.CallbackURL) == "" {
+		return
+	}
+	phase = strings.TrimSpace(phase)
+	if phase == "" {
+		phase = "media_archive"
+	}
+	cooldownKey := fmt.Sprintf("media_archive:%s", phase)
+	if !allowMonitorAlertByCooldown(cooldownKey, time.Now(), cfg.CooldownMinutes) {
+		return
+	}
+
+	data := map[string]interface{}{
+		"kind":         "media_archive_error",
+		"site_domain":  monitorAlertSiteDomain(),
+		"node":         monitorAlertNodeName(),
+		"phase":        phase,
+		"ref":          strings.TrimSpace(ref),
+		"error":        strings.TrimSpace(errMsg),
+		"request_path": "",
+	}
+	for key, value := range meta {
+		if _, exists := data[key]; exists {
+			continue
+		}
+		data[key] = value
+	}
+
+	idempotencyKey := fmt.Sprintf("monitor_alert:media_archive:%s:%d", phase, time.Now().Unix()/60)
+	title := fmt.Sprintf("Media archive %s failed", phase)
+	gopool.Go(func() {
+		if enqueueErr := enqueueMonitorAlert(cfg, title, "", data, idempotencyKey); enqueueErr != nil {
+			common.SysError("enqueue monitor media archive alert failed: " + enqueueErr.Error())
+		}
+	})
+}
+
 func checkMonitorDiskAlert(now time.Time) {
 	cfg := getMonitorAlertConfig()
 	if !cfg.Enabled || !cfg.DiskEnabled || strings.TrimSpace(cfg.CallbackURL) == "" {

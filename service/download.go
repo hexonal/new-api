@@ -67,21 +67,34 @@ func DoWorkerRequestWithContext(ctx context.Context, req *WorkerRequest) (*http.
 }
 
 func DoDownloadRequest(originUrl string, reason ...string) (resp *http.Response, err error) {
-	if system_setting.EnableWorker() {
-		common.SysLog(fmt.Sprintf("downloading file from worker: %s, reason: %s", originUrl, strings.Join(reason, ", ")))
-		req := &WorkerRequest{
-			URL: originUrl,
-			Key: system_setting.WorkerValidKey,
-		}
-		return DoWorkerRequest(req)
-	} else {
-		// SSRF防护：验证请求URL（非Worker模式）
-		fetchSetting := system_setting.GetFetchSetting()
-		if err := common.ValidateURLWithFetchSetting(originUrl, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
-			return nil, fmt.Errorf("request reject: %v", err)
-		}
-
-		common.SysLog(fmt.Sprintf("downloading from origin: %s, reason: %s", common.MaskSensitiveInfo(originUrl), strings.Join(reason, ", ")))
-		return GetHttpClient().Get(originUrl)
-	}
+	return DoDownloadRequestWithContext(context.Background(), originUrl, "", reason...)
 }
+
+// DoDownloadRequestWithContext 下载远端资源，统一走 Worker / SSRF / 代理 / User-Agent 路径。
+// ctx 支持单次尝试的超时或取消；proxyURL 为空时走全局 http client。
+func DoDownloadRequestWithContext(ctx context.Context, originURL string, proxyURL string, reason ...string) (*http.Response, error) {
+	if system_setting.EnableWorker() {
+		common.SysLog(fmt.Sprintf("downloading file from worker: %s, reason: %s", common.MaskSensitiveInfo(originURL), strings.Join(reason, ", ")))
+		return DoWorkerRequestWithContext(ctx, &WorkerRequest{
+			URL: originURL,
+			Key: system_setting.WorkerValidKey,
+		})
+	}
+	fetchSetting := system_setting.GetFetchSetting()
+	if err := common.ValidateURLWithFetchSetting(originURL, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
+		return nil, fmt.Errorf("request reject: %v", err)
+	}
+	client, err := GetHttpClientWithProxy(proxyURL)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, originURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", defaultDownloadUserAgent)
+	common.SysLog(fmt.Sprintf("downloading from origin: %s, reason: %s", common.MaskSensitiveInfo(originURL), strings.Join(reason, ", ")))
+	return client.Do(req)
+}
+
+const defaultDownloadUserAgent = "new-api-downloader/1.0"

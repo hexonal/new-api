@@ -1,19 +1,11 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
-	"io"
-	"mime"
 	"net/http"
-	"net/url"
-	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,19 +14,13 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service/archiver"
 	"github.com/QuantumNous/new-api/setting/media_archive_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
-
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 )
 
-type mediaArchiveKind string
-
 const (
-	mediaArchiveKindImage mediaArchiveKind = "image"
-	mediaArchiveKindVideo mediaArchiveKind = "video"
-	mediaArchiveTimeout                    = 2 * time.Minute
+	// mediaArchiveTimeout 控制整个归档链路的最大耗时。
+	mediaArchiveTimeout = 2 * time.Minute
 )
 
 var (
@@ -42,17 +28,15 @@ var (
 	rawURLPattern            = regexp.MustCompile(`https?://[^\s<>"')]+`)
 )
 
-type mediaArchiveMeta struct {
-	Kind      mediaArchiveKind
-	Model     string
-	RequestID string
-	TaskID    string
-	ChannelID int
-	UserID    int
-	Index     int
-	Proxy     string
+// init 向 archiver 注入依赖，避免 archiver 反向 import service 导致循环。
+func init() {
+	archiver.SetHTTPClientProvider(GetHttpClientWithProxy)
+	archiver.SetWorkerDownloader(func(ctx context.Context, sourceURL string, key string, purpose string) (*http.Response, error) {
+		return DoDownloadRequestWithContext(ctx, sourceURL, key, purpose)
+	})
 }
 
+// MaybeArchiveImageResponse 归档图片响应内的 URL / base64 数据。
 func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo, imageResponse *dto.ImageResponse) {
 	if imageResponse == nil || info == nil {
 		return
@@ -61,29 +45,37 @@ func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo,
 	if !cfg.IsReady() {
 		return
 	}
-
-	meta := mediaArchiveMeta{
-		Kind:      mediaArchiveKindImage,
-		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
-		RequestID: strings.TrimSpace(info.RequestId),
-		ChannelID: info.ChannelId,
-		UserID:    info.UserId,
-	}
-	if info.ChannelMeta != nil {
-		meta.Proxy = strings.TrimSpace(info.ChannelSetting.Proxy)
-	}
+	a := archiver.GetDefault()
 	archiveCtx, cancel := newMediaArchiveContext(ctx)
 	defer cancel()
 
 	for i := range imageResponse.Data {
-		meta.Index = i
-		if archivedURL, ok := maybeArchiveImageData(archiveCtx, imageResponse.Data[i], meta, cfg); ok {
-			imageResponse.Data[i].Url = archivedURL
-			imageResponse.Data[i].B64Json = ""
+		src := archiver.Source{
+			URL:   strings.TrimSpace(imageResponse.Data[i].Url),
+			Proxy: mediaArchiveProxyFromInfo(info),
 		}
+		if src.URL == "" && strings.TrimSpace(imageResponse.Data[i].B64Json) != "" {
+			bytesData := decodeImageB64(imageResponse.Data[i].B64Json)
+			if len(bytesData) == 0 {
+				continue
+			}
+			src.Bytes = bytesData
+		}
+		if src.URL == "" && len(src.Bytes) == 0 {
+			continue
+		}
+		meta := mediaArchiveMetaFromInfo(info, archiver.KindImage, i)
+		archivedURL, err := a.Archive(archiveCtx, src, meta)
+		if err != nil {
+			reportMediaArchiveFinalFailure(archiveCtx, "archive_image", firstNonEmpty(src.URL, "bytes"), err, meta)
+			continue
+		}
+		imageResponse.Data[i].Url = archivedURL
+		imageResponse.Data[i].B64Json = ""
 	}
 }
 
+// MaybeArchiveTextResponse 归档文本响应内嵌的媒体链接。
 func MaybeArchiveTextResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.OpenAITextResponse) bool {
 	if response == nil || info == nil {
 		return false
@@ -104,6 +96,7 @@ func MaybeArchiveTextResponse(ctx context.Context, info *relaycommon.RelayInfo, 
 	return changed
 }
 
+// MaybeArchiveStreamResponse 归档流式响应内嵌的媒体链接。
 func MaybeArchiveStreamResponse(ctx context.Context, info *relaycommon.RelayInfo, response *dto.ChatCompletionsStreamResponse) bool {
 	if response == nil || info == nil {
 		return false
@@ -124,6 +117,7 @@ func MaybeArchiveStreamResponse(ctx context.Context, info *relaycommon.RelayInfo
 	return changed
 }
 
+// MaybeArchiveTaskResult 归档异步任务结果里的媒体链接。
 func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL string, responseBody []byte) (string, bool) {
 	if task == nil {
 		return "", false
@@ -132,34 +126,39 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 	if !cfg.IsReady() {
 		return "", false
 	}
+	a := archiver.GetDefault()
+	archiveCtx, cancel := newMediaArchiveContext(ctx)
+	defer cancel()
 
-	meta := mediaArchiveMeta{
-		Kind:      mediaArchiveKindVideo,
+	meta := archiver.Meta{
+		Kind:      archiver.KindVideo,
 		Model:     firstNonEmpty(strings.TrimSpace(task.Properties.OriginModelName), strings.TrimSpace(task.Properties.UpstreamModelName)),
 		TaskID:    strings.TrimSpace(task.TaskID),
 		ChannelID: task.ChannelId,
 		UserID:    task.UserId,
 	}
-	archiveCtx, cancel := newMediaArchiveContext(ctx)
-	defer cancel()
 
-	if archivedURL, ok := maybeArchiveMediaReference(archiveCtx, strings.TrimSpace(sourceURL), meta, cfg); ok {
-		return archivedURL, true
+	ref := strings.TrimSpace(sourceURL)
+	if ref != "" {
+		if url, err := a.Archive(archiveCtx, archiver.Source{URL: ref}, meta); err == nil {
+			return url, true
+		} else {
+			reportMediaArchiveFinalFailure(archiveCtx, "archive_task", ref, err, meta)
+		}
 	}
 	payloadURL := extractTaskPayloadMediaURL(responseBody)
 	if payloadURL == "" {
 		return "", false
 	}
-	return maybeArchiveMediaReference(archiveCtx, payloadURL, meta, cfg)
-}
-
-func newMediaArchiveContext(parent context.Context) (context.Context, context.CancelFunc) {
-	if parent == nil {
-		return context.WithTimeout(context.Background(), mediaArchiveTimeout)
+	url, err := a.Archive(archiveCtx, archiver.Source{URL: payloadURL}, meta)
+	if err != nil {
+		reportMediaArchiveFinalFailure(archiveCtx, "archive_task", payloadURL, err, meta)
+		return "", false
 	}
-	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
+	return url, true
 }
 
+// MaybeArchiveTaskStoredResult 从 task.Data 提取媒体链接并归档。
 func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string, bool) {
 	if task == nil || len(task.Data) == 0 {
 		return "", false
@@ -186,47 +185,7 @@ func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string
 	return archivedURL, ok
 }
 
-func maybeArchiveImageData(ctx context.Context, imageData dto.ImageData, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
-	if ref := strings.TrimSpace(imageData.Url); ref != "" {
-		return maybeArchiveMediaReference(ctx, ref, meta, cfg)
-	}
-	if b64 := strings.TrimSpace(imageData.B64Json); b64 != "" {
-		return maybeArchiveMediaReference(ctx, b64, meta, cfg)
-	}
-	return "", false
-}
-
-func maybeArchiveMediaReference(ctx context.Context, ref string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
-	ref = strings.TrimSpace(ref)
-	if ref == "" || isMediaArchiveURL(ref, cfg) {
-		return "", false
-	}
-
-	switch {
-	case strings.HasPrefix(ref, "data:"):
-		mimeType, payload, err := DecodeBase64FileData(ref)
-		if err != nil {
-			logMediaArchiveFailure(ctx, "decode media data url", err)
-			return "", false
-		}
-		data, err := decodeBase64Payload(payload)
-		if err != nil {
-			logMediaArchiveFailure(ctx, "decode media base64 payload", err)
-			return "", false
-		}
-		return uploadArchivedBytes(ctx, data, firstNonEmpty(strings.TrimSpace(mimeType), detectMediaMimeType(data, meta.Kind)), meta, cfg)
-	case strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://"):
-		return archiveURLToOSS(ctx, ref, meta, cfg)
-	default:
-		data, err := decodeBase64Payload(ref)
-		if err != nil {
-			logMediaArchiveFailure(ctx, "decode raw base64 media", err)
-			return "", false
-		}
-		return uploadArchivedBytes(ctx, data, detectMediaMimeType(data, meta.Kind), meta, cfg)
-	}
-}
-
+// rewriteTextMediaReferences 扫描文本中 markdown 图链接与裸 URL，并替换成归档后地址。
 func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo, text string) string {
 	if strings.TrimSpace(text) == "" || info == nil {
 		return text
@@ -235,20 +194,21 @@ func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo
 	if !cfg.IsReady() {
 		return text
 	}
-
-	meta := mediaArchiveMeta{
-		Kind:      mediaArchiveKindImage,
-		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
-		RequestID: strings.TrimSpace(info.RequestId),
-		ChannelID: info.ChannelId,
-		UserID:    info.UserId,
-		Proxy:     strings.TrimSpace(info.ChannelSetting.Proxy),
-	}
+	a := archiver.GetDefault()
 	archiveCtx, cancel := newMediaArchiveContext(ctx)
 	defer cancel()
 
 	seen := make(map[string]string)
 	nextIndex := 0
+	proxy := mediaArchiveProxyFromInfo(info)
+	baseMeta := archiver.Meta{
+		Kind:      archiver.KindImage,
+		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+		RequestID: strings.TrimSpace(info.RequestId),
+		ChannelID: info.ChannelId,
+		UserID:    info.UserId,
+	}
+
 	replaceURL := func(raw string) string {
 		if raw == "" || isMediaArchiveURL(raw, cfg) || !looksLikeMediaReference(raw) {
 			return raw
@@ -256,10 +216,12 @@ func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo
 		if archived, ok := seen[raw]; ok {
 			return archived
 		}
+		meta := baseMeta
 		meta.Index = nextIndex
 		nextIndex++
-		archived, ok := maybeArchiveMediaReference(archiveCtx, raw, meta, cfg)
-		if !ok || archived == "" {
+		archived, err := a.Archive(archiveCtx, archiver.Source{URL: raw, Proxy: proxy}, meta)
+		if err != nil || archived == "" {
+			logMediaArchiveFailure(archiveCtx, "archive_text_ref", err)
 			return raw
 		}
 		seen[raw] = archived
@@ -281,106 +243,11 @@ func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo
 	return rewritten
 }
 
-func archiveURLToOSS(ctx context.Context, sourceURL string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
-	fetchSetting := system_setting.GetFetchSetting()
-	if err := common.ValidateURLWithFetchSetting(sourceURL, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
-		logMediaArchiveFailure(ctx, "validate archive source url", err)
-		return "", false
-	}
-
-	client, err := GetHttpClientWithProxy(meta.Proxy)
-	if err != nil {
-		logMediaArchiveFailure(ctx, "create archive http client", err)
-		return "", false
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
-	if err != nil {
-		logMediaArchiveFailure(ctx, "create archive request", err)
-		return "", false
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		logMediaArchiveFailure(ctx, "download media for archive", err)
-		return "", false
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		logMediaArchiveFailure(ctx, "download media for archive", fmt.Errorf("status %d", resp.StatusCode))
-		return "", false
-	}
-
-	reader := io.LimitReader(resp.Body, cfg.MaxDownloadBytes+1)
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		logMediaArchiveFailure(ctx, "read media for archive", err)
-		return "", false
-	}
-	if int64(len(data)) > cfg.MaxDownloadBytes {
-		logMediaArchiveFailure(ctx, "read media for archive", fmt.Errorf("payload exceeds limit %d", cfg.MaxDownloadBytes))
-		return "", false
-	}
-
-	mimeType := strings.TrimSpace(resp.Header.Get("Content-Type"))
-	if idx := strings.Index(mimeType, ";"); idx >= 0 {
-		mimeType = strings.TrimSpace(mimeType[:idx])
-	}
-	if mimeType == "" || mimeType == "application/octet-stream" {
-		mimeType = detectMediaMimeType(data, meta.Kind)
-	}
-	return uploadArchivedBytes(ctx, data, mimeType, meta, cfg)
-}
-
-func uploadArchivedBytes(ctx context.Context, data []byte, mimeType string, meta mediaArchiveMeta, cfg media_archive_setting.Config) (string, bool) {
-	objectKey := buildMediaArchiveObjectKey(meta, mimeType, cfg.PathPrefix)
-	archivedURL, err := uploadArchivedBytesToOSS(ctx, data, mimeType, objectKey, cfg)
-	if err != nil {
-		logMediaArchiveFailure(ctx, "upload media to oss", err)
-		return "", false
-	}
-	return archivedURL, true
-}
-
-func uploadArchivedBytesToOSS(ctx context.Context, data []byte, mimeType string, objectKey string, cfg media_archive_setting.Config) (string, error) {
-	requestURL, err := buildMediaArchiveUploadURL(cfg, objectKey)
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewReader(data))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", mimeType)
-
-	hash := sha256.Sum256(data)
-	payloadHash := hex.EncodeToString(hash[:])
-	req.Header.Set("x-amz-content-sha256", payloadHash)
-
-	creds, err := credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "").Retrieve(ctx)
-	if err != nil {
-		return "", err
-	}
-	signer := v4.NewSigner()
-	if err = signer.SignHTTP(ctx, creds, req, payloadHash, "s3", firstNonEmpty(cfg.Region, "us-east-1"), time.Now().UTC()); err != nil {
-		return "", err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return "", fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	return buildMediaArchivePublicURL(cfg, objectKey), nil
-}
-
+// RewriteTaskResultData 将任务结果 JSON 中的媒体链接节点改写为归档 URL。
 func RewriteTaskResultData(body []byte, archivedURL string) []byte {
 	if len(body) == 0 || strings.TrimSpace(archivedURL) == "" {
 		return body
 	}
-
 	var payload map[string]any
 	if err := common.Unmarshal(body, &payload); err != nil {
 		return body
@@ -395,21 +262,15 @@ func RewriteTaskResultData(body []byte, archivedURL string) []byte {
 	return encoded
 }
 
-func buildMediaArchiveUploadURL(cfg media_archive_setting.Config, objectKey string) (string, error) {
-	endpoint, err := url.Parse(cfg.Endpoint)
-	if err != nil {
-		return "", err
+// newMediaArchiveContext 为归档链路创建带超时、与父 ctx 取消解耦的上下文。
+func newMediaArchiveContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		return context.WithTimeout(context.Background(), mediaArchiveTimeout)
 	}
-	cleanKey := strings.TrimPrefix(objectKey, "/")
-	if cfg.UsePathStyle {
-		endpoint.Path = path.Join(endpoint.Path, cfg.Bucket, cleanKey)
-		return endpoint.String(), nil
-	}
-	endpoint.Host = cfg.Bucket + "." + endpoint.Host
-	endpoint.Path = path.Join(endpoint.Path, cleanKey)
-	return endpoint.String(), nil
+	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
 }
 
+// extractTaskPayloadMediaURL 从任务 JSON 提取主媒体 URL，支持 base64 内嵌视频。
 func extractTaskPayloadMediaURL(body []byte) string {
 	var payload map[string]any
 	if err := common.Unmarshal(body, &payload); err != nil {
@@ -466,6 +327,7 @@ func extractMapString(payload map[string]any, pathSegments ...string) string {
 	return strings.TrimSpace(value)
 }
 
+// decodeBase64Payload 解码 StdEncoding 或 RawStdEncoding base64 文本。
 func decodeBase64Payload(payload string) ([]byte, error) {
 	payload = strings.TrimSpace(payload)
 	if payload == "" {
@@ -477,60 +339,7 @@ func decodeBase64Payload(payload string) ([]byte, error) {
 	return base64.RawStdEncoding.DecodeString(payload)
 }
 
-func detectMediaMimeType(data []byte, kind mediaArchiveKind) string {
-	if detected := http.DetectContentType(data); detected != "" && detected != "application/octet-stream" {
-		return detected
-	}
-	if kind == mediaArchiveKindVideo {
-		return "video/mp4"
-	}
-	return "image/png"
-}
-
-func buildMediaArchiveObjectKey(meta mediaArchiveMeta, mimeType string, prefix string) string {
-	now := time.Now().UTC()
-	identity := sanitizePathSegment(firstNonEmpty(meta.TaskID, meta.RequestID, common.GetUUID()))
-	parts := []string{
-		sanitizePathSegment(firstNonEmpty(prefix, "media")),
-		now.Format("2006"),
-		now.Format("01"),
-		now.Format("02"),
-		sanitizePathSegment(string(meta.Kind)),
-		sanitizePathSegment(firstNonEmpty(meta.Model, "unknown-model")),
-	}
-	if meta.ChannelID > 0 {
-		parts = append(parts, "channel-"+strconv.Itoa(meta.ChannelID))
-	}
-	if meta.UserID > 0 {
-		parts = append(parts, "user-"+strconv.Itoa(meta.UserID))
-	}
-	filename := identity
-	if meta.Index > 0 {
-		filename += "-" + strconv.Itoa(meta.Index)
-	}
-	if ext := extensionFromMimeType(mimeType); ext != "" {
-		filename += ext
-	}
-	parts = append(parts, filename)
-	return path.Join(parts...)
-}
-
-func buildMediaArchivePublicURL(cfg media_archive_setting.Config, objectKey string) string {
-	objectKey = strings.TrimLeft(strings.TrimSpace(objectKey), "/")
-	if cfg.PublicBaseURL != "" {
-		return strings.TrimRight(cfg.PublicBaseURL, "/") + "/" + objectKey
-	}
-	base := strings.TrimRight(cfg.Endpoint, "/")
-	if cfg.UsePathStyle {
-		return base + "/" + path.Join(cfg.Bucket, objectKey)
-	}
-	parsed, err := url.Parse(base)
-	if err != nil || parsed.Host == "" {
-		return base + "/" + path.Join(cfg.Bucket, objectKey)
-	}
-	return parsed.Scheme + "://" + cfg.Bucket + "." + parsed.Host + "/" + objectKey
-}
-
+// looksLikeMediaReference 粗判 URL / data URL 是否指向图片/视频资源。
 func looksLikeMediaReference(raw string) bool {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -539,19 +348,20 @@ func looksLikeMediaReference(raw string) bool {
 	if strings.HasPrefix(raw, "data:image/") || strings.HasPrefix(raw, "data:video/") {
 		return true
 	}
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return false
+	lower := strings.ToLower(raw)
+	// 去掉 query string 后取扩展名
+	if idx := strings.IndexAny(lower, "?#"); idx >= 0 {
+		lower = lower[:idx]
 	}
-	ext := strings.ToLower(path.Ext(parsed.Path))
-	switch ext {
-	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".mp4", ".mov", ".webm", ".mkv":
-		return true
-	default:
-		return false
+	for _, ext := range []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".mp4", ".mov", ".webm", ".mkv"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
 	}
+	return false
 }
 
+// isMediaArchiveURL 判断 URL 是否已经是归档桶域名，避免循环归档。
 func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
@@ -566,54 +376,7 @@ func isMediaArchiveURL(rawURL string, cfg media_archive_setting.Config) bool {
 	return strings.HasPrefix(rawURL, strings.TrimRight(cfg.Endpoint, "/")+"/"+strings.Trim(cfg.Bucket, "/")+"/")
 }
 
-func extensionFromMimeType(mimeType string) string {
-	switch mimeType {
-	case "image/jpeg", "image/jpg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	case "image/gif":
-		return ".gif"
-	case "image/webp":
-		return ".webp"
-	case "video/mp4":
-		return ".mp4"
-	}
-	exts, err := mime.ExtensionsByType(mimeType)
-	if err != nil || len(exts) == 0 {
-		return ""
-	}
-	return exts[0]
-}
-
-func sanitizePathSegment(value string) string {
-	value = strings.TrimSpace(strings.ToLower(value))
-	if value == "" {
-		return common.GetUUID()
-	}
-	var out strings.Builder
-	lastDash := false
-	for _, r := range value {
-		switch {
-		case r >= 'a' && r <= 'z':
-			out.WriteRune(r)
-			lastDash = false
-		case r >= '0' && r <= '9':
-			out.WriteRune(r)
-			lastDash = false
-		case r == '.' || r == '_' || r == '-':
-			out.WriteRune(r)
-			lastDash = false
-		default:
-			if !lastDash {
-				out.WriteByte('-')
-				lastDash = true
-			}
-		}
-	}
-	return strings.Trim(out.String(), "-")
-}
-
+// firstNonEmpty 返回第一个非空字符串（trim 后）。
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -623,6 +386,7 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+// logMediaArchiveFailure 记录非终态归档失败的 Warn 日志。
 func logMediaArchiveFailure(ctx context.Context, action string, err error) {
 	if err == nil {
 		return
@@ -634,6 +398,51 @@ func logMediaArchiveFailure(ctx context.Context, action string, err error) {
 	logger.LogWarn(ctx, action+": "+err.Error())
 }
 
+// logMediaArchiveFinalFailure 记录终态失败 Error 日志，供监控告警使用。
+func logMediaArchiveFinalFailure(ctx context.Context, action string, ref string, err error) {
+	if err == nil {
+		return
+	}
+	msg := fmt.Sprintf("%s: %s (ref=%s)", action, err.Error(), ref)
+	if ctx == nil {
+		common.SysError(msg)
+		return
+	}
+	logger.LogError(ctx, msg)
+}
+
+// reportMediaArchiveFinalFailure 把日志与监控告警合并，供所有最终失败点统一调用。
+func reportMediaArchiveFinalFailure(ctx context.Context, phase string, ref string, err error, meta archiver.Meta) {
+	if err == nil {
+		return
+	}
+	logMediaArchiveFinalFailure(ctx, phase, ref, err)
+	NotifyMonitorMediaArchiveError(phase, ref, err.Error(), mediaArchiveMetaToAlertData(meta))
+}
+
+func mediaArchiveMetaToAlertData(meta archiver.Meta) map[string]interface{} {
+	data := map[string]interface{}{
+		"archive_kind": string(meta.Kind),
+	}
+	if meta.Model != "" {
+		data["model_name"] = meta.Model
+	}
+	if meta.ChannelID > 0 {
+		data["channel_id"] = meta.ChannelID
+	}
+	if meta.UserID > 0 {
+		data["user_id"] = meta.UserID
+	}
+	if meta.RequestID != "" {
+		data["request_id"] = meta.RequestID
+	}
+	if meta.TaskID != "" {
+		data["task_id"] = meta.TaskID
+	}
+	return data
+}
+
+// rewriteTaskPayloadMediaNode 递归改写 JSON 中典型的 video_url/url/videos 节点为归档 URL。
 func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) bool {
 	changed := false
 	if value, ok := payload["video_url"].(string); ok && strings.TrimSpace(value) != "" {
@@ -680,4 +489,49 @@ func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) boo
 		payload["archived_url"] = archivedURL
 	}
 	return changed
+}
+
+// mediaArchiveMetaFromInfo 从 RelayInfo 抽取归档 meta。
+func mediaArchiveMetaFromInfo(info *relaycommon.RelayInfo, kind archiver.Kind, index int) archiver.Meta {
+	return archiver.Meta{
+		Kind:      kind,
+		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+		RequestID: strings.TrimSpace(info.RequestId),
+		ChannelID: info.ChannelId,
+		UserID:    info.UserId,
+		Index:     index,
+	}
+}
+
+// mediaArchiveProxyFromInfo 抽取渠道代理地址。
+func mediaArchiveProxyFromInfo(info *relaycommon.RelayInfo) string {
+	if info == nil || info.ChannelMeta == nil {
+		return ""
+	}
+	return strings.TrimSpace(info.ChannelSetting.Proxy)
+}
+
+// decodeImageB64 解码 data:URL 或裸 base64 字符串为字节。
+// MIME 不返回：archiver.Archive 内部基于字节魔数 DetectMime 兜底。
+func decodeImageB64(b64 string) []byte {
+	b64 = strings.TrimSpace(b64)
+	if b64 == "" {
+		return nil
+	}
+	if strings.HasPrefix(b64, "data:") {
+		_, payload, err := DecodeBase64FileData(b64)
+		if err != nil {
+			return nil
+		}
+		data, err := decodeBase64Payload(payload)
+		if err != nil {
+			return nil
+		}
+		return data
+	}
+	data, err := decodeBase64Payload(b64)
+	if err != nil {
+		return nil
+	}
+	return data
 }
