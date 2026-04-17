@@ -45,7 +45,7 @@ paths:
       summary: 生成图片
       description: "OpenAI Images 兼容端点（当前按异步任务提交）。\n\n当前支持模型：\n- `gemini-3-pro-image-preview`\n- `gemini-3.1-flash-image-preview`\n- 不支持 `gemini-3-pro-preview`（text_to_text）\n\n参数说明（按上游 `gemini-3` 参数原名对齐）：\n\
         - `prompt`：必填\n- `aspect_ratio`：可选\n- `size`：可选\n- `image` / `images`：可选（用于 image-to-image）\n- `image_to_image` 输入数量：`1~14`\n- `image_to_image` 文件类型：`jpg/png`\n- 参数处理规则（重要）：\n  - 图片模型请求仅使用上游图片参数：`prompt`、`image/images`、`aspect_ratio`、`size`\n\
-        \  - 不执行 `size -> resolution` 映射\n  - 不自动补 `duration`\n  - 不注入视频参数 `resolution`\n- 返回值中的 `id/task_id` 为任务 ID，需再调用 `GET /v1/images/generations/{task_id}` 轮询获取结果。\n\n**重要提示（必读）**\n- 图片接口返回的资源地址为平台托管短期链接，建议客户端在消费后立即下载保存。\n- 平台托管资源默认约 30 天后失效，请务必在 30 天内完成持久化归档。\n"
+        \  - 不执行 `size -> resolution` 映射\n  - 不自动补 `duration`\n  - 不注入视频参数 `resolution`\n- 返回值中的 `id/task_id` 为任务 ID，需再调用 `GET /v1/images/generations/{task_id}` 轮询获取结果。\n\n**重要提示（必读）**\n- 30 天失效规则仅适用于接口返回的图片结果 URL，不代表输入的 `image` / `images` 会被平台主动过期。\n- 图片接口返回的结果 URL 为平台托管短期链接，建议客户端在接收后立即下载保存，默认约 30 天后失效。\n"
       operationId: createImageGenerationTask
       requestBody:
         required: true
@@ -133,11 +133,11 @@ paths:
       summary: 查询图片任务状态与结果
       description: '查询 `POST /v1/images/generations` 提交后的异步任务。
 
-        **重要提示（必读）**
+        **严重告知（必读）**
 
-        - 图片返回链接为平台短期托管资源，建议接收后立即下载保存。
+        - 30 天失效规则仅适用于接口返回的图片结果 URL，不代表输入的 `image` / `images` 会被平台主动过期。
 
-        - 平台托管资源默认约 30 天后失效，请务必在 30 天内完成持久化归档。
+        - 查询成功后如返回图片结果 URL，请立即下载并自行持久化保存；平台不保证结果 URL 长期可访问，默认约 30 天后失效。
 
         '
       operationId: fetchImageGenerationTask
@@ -234,18 +234,13 @@ paths:
 
         - ~~`ima-pro-fast`~~（海外渠道历史别名，已过期；向后兼容，请改用 `seedance-2.0-fast` / `seedance-2.0-fast-cn`）
 
-        MiniMax Hailuo 视频模型也支持此端点，详见「MiniMax 视频」分类。
-
         鉴权：请求头必须包含 `Authorization: Bearer sk-...`。
 
         端点约束：`/v1/videos` 为视频任务端点，不支持图片模型（例如 `gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview`）。
 
         **重要提示（必读）**
 
-        - `images`、`metadata.reference_video_urls`、`metadata.reference_audio_urls`、`metadata.first_frame_image` 等输入 URL（含公网 URL 或 `asset://...`）建议在调用前确认可长期访问，并主动持久化。
-
-        - 平台托管的输入/中间 URL 资源为短期链接，默认约 30 天后失效；请务必在 30 天内完成下载归档。
-
+        - `images`、`metadata.reference_video_urls`、`metadata.reference_audio_urls`、`metadata.first_frame_image` 等输入 URL（含公网 URL 或 `asset://...`）是任务输入引用，请在提交时确认可访问。
 
         常用字段：
 
@@ -322,16 +317,27 @@ paths:
         content:
           application/json:
             schema:
-              oneOf:
-              - $ref: '#/components/schemas/ImaProVideoCreateRequest'
-              - $ref: '#/components/schemas/MiniMaxVideosCreateRequest'
+              $ref: '#/components/schemas/ImaProVideoCreateRequest'
             examples:
               C01_text_fast:
                 summary: C01 文本（ima-pro-fast）
+                description: '`ima-pro-fast` 文生视频显式分辨率示例。实测 `metadata.resolution=1080p`
+                  会被上游返回 `Invalid parameters`，文生视频建议使用 `720p` 或 `480p`。'
                 value:
                   model: ima-pro-fast
                   prompt: 清晨城市延时摄影，暖色调，电影感。
                   duration: 5
+                  metadata:
+                    resolution: 720p
+              C01b_text_pro_1080p:
+                summary: C01b 文本 1080p（ima-pro）
+                description: '`ima-pro` 文生视频显式 1080p 分辨率示例。实测创建成功并进入 `in_progress`。'
+                value:
+                  model: ima-pro
+                  prompt: 清晨城市延时摄影，暖色调，电影感。
+                  duration: 5
+                  metadata:
+                    resolution: 1080p
               C02_text_image_pro:
                 summary: C02 文本+图片(1图)（ima-pro）
                 value:
@@ -541,7 +547,7 @@ paths:
 
                   - 视频人像素材按参考视频语义处理，不放入 `images`
 
-                  - 资源 URL/素材协议仍建议自行持久化；平台托管资源默认约 30 天后失效
+                  - 素材协议仅用于提交时引用，请确认该 `asset://...` 属于当前调用 SK 对应用户且提交时可访问
 
                   '
                 value:
@@ -567,7 +573,7 @@ paths:
 
                   - 该示例使用“文本+图片+音频”组合，避免纯文本+音频导致上游参数不合法
 
-                  - 资源 URL/素材协议仍建议自行持久化；平台托管资源默认约 30 天后失效
+                  - 素材协议仅用于提交时引用，请确认该 `asset://...` 属于当前调用 SK 对应用户且提交时可访问
 
                   '
                 value:
@@ -581,7 +587,6 @@ paths:
                     audio: true
                     reference_audio_urls:
                     - asset://asset-20260409133902-bz4kq
-              # MiniMax Hailuo 示例见「MiniMax 视频」分类下的 /v1/video/generations 端点
       responses:
         '200':
           description: 任务提交成功
@@ -742,7 +747,11 @@ paths:
 
         - `error`（失败时的错误对象）
 
-        结果中的 `results.url` 为平台托管链接，建议接收后立即下载并持久化。平台托管资源默认约 30 天后失效。
+        **严重告知（必读）**
+
+        - 查询成功后如返回 `results.url`、`metadata.url` 等结果资源 URL，请立即下载并自行持久化保存。
+
+        - 平台不保证结果资源 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。
 
         '
       operationId: getImaProVideoTask
@@ -1126,7 +1135,7 @@ paths:
 
         - `url` 为素材上传源地址，调用前请确认可访问，并建议自行持久化原始素材。
 
-        - 平台托管的素材/中间资源默认约 30 天后失效；请务必在 30 天内完成下载归档。
+        - 30 天失效规则仅适用于接口返回的结果资源 URL；上传源素材请自行长期保存。
 
         '
       operationId: createAsset
@@ -1454,7 +1463,7 @@ paths:
                   maxItems: 5
                   description: '2-5 张图片 URL 数组（当前实现按 URL 输入处理）。
 
-                    **重要提示**：输入 URL 可能过期，建议在调用前确认可访问，并在 30 天内持久化归档。
+                    **重要提示**：请在调用前确认输入 URL 可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
                     '
                   items:
@@ -1651,11 +1660,11 @@ paths:
 
         成功时推荐读取 `urls`（完整图片列表）；`imageUrl` 为兼容字段（首图）。
 
-        **重要提示（必读）**
+        **严重告知（必读）**
 
-        - `imageUrl` / `urls` 为平台托管短期链接，建议接收后立即下载并持久化。
+        - 查询成功后如返回 `imageUrl` / `urls`，请立即下载并自行持久化保存。
 
-        - 平台托管资源默认约 30 天后失效，请务必在 30 天内完成下载归档。
+        - 平台不保证结果图片 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。
 
         '
       operationId: fetchMidjourneyTask
@@ -1697,11 +1706,11 @@ paths:
 
         若需完整图集，请优先读取 `/mj/task/{task_id}/fetch` 的 `urls`。
 
-        **重要提示（必读）**
+        **严重告知（必读）**
 
-        - 代理图片仍来自平台托管短期资源，建议接收后立即下载并持久化。
+        - 代理图片仍来自查询结果资源，请立即下载并自行持久化保存。
 
-        - 平台托管资源默认约 30 天后失效，请务必在 30 天内完成下载归档。
+        - 平台不保证代理图片 URL 长期可访问，默认约 30 天后失效；不要把该 URL 当作永久存储地址。
 
         '
       operationId: fetchMidjourneyImage
@@ -2040,7 +2049,7 @@ paths:
         - `image_tail`：可选，尾帧图片 URL（首尾帧模式）。\n\
         - 其他参数同文生视频。\n\n\
         **重要提示（必读）**\n\
-        - `image`、`image_tail` 等输入 URL 建议在调用前确认可长期访问，并主动持久化。\n\
+        - `image`、`image_tail` 等输入 URL 是任务输入引用，请在提交时确认可访问。\n\
         - 任务完成后返回的视频 URL 为平台托管短期链接，默认约 30 天后失效；请务必在 30 天内完成下载归档。\n"
       requestBody:
         required: true
@@ -2103,7 +2112,7 @@ paths:
         - `kling-v2-6`\n\
         - `kling-video-o1`\n\n\
         **重要提示（必读）**\n\
-        - `image`、`images`、`metadata.image_tail` 等输入 URL 建议在调用前确认可长期访问，并主动持久化。\n\
+        - `image`、`images`、`metadata.image_tail` 等输入 URL 是任务输入引用，请在提交时确认可访问。\n\
         - 任务完成后返回的视频 URL 为平台托管短期链接，默认约 30 天后失效；请务必在 30 天内完成下载归档。\n"
       requestBody:
         required: true
@@ -2174,7 +2183,10 @@ paths:
       description: "使用 Kling 提交接口（文生/图生）返回的 `task_id` 轮询任务结果。\n\n\
         **也可通过以下端点查询（通用）：**\n\
         - `GET /v1/video/generations/{task_id}`\n\
-        - `GET /v1/videos/{task_id}`\n"
+        - `GET /v1/videos/{task_id}`\n\n\
+        **严重告知（必读）**\n\
+        - 查询成功后如返回 `results.url`、`metadata.url` 等结果资源 URL，请立即下载并自行持久化保存。\n\
+        - 平台不保证结果资源 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。\n"
       parameters:
       - name: task_id
         in: path
@@ -2288,9 +2300,9 @@ paths:
       operationId: getPixVerseVideoTaskStatus
       description: "使用提交接口返回的 `task_id` 轮询任务结果。\n\n\
         也可通过 `GET /v1/videos/{task_id}` 查询。\n\n\
-        **重要提示（必读）**\n\
-        - 查询结果中的 `metadata.url` 为平台托管短期链接，建议接收后立即下载并持久化。\n\
-        - 平台托管资源默认约 30 天后失效，请务必在 30 天内完成下载归档。\n"
+        **严重告知（必读）**\n\
+        - 查询成功后如返回 `results.url`、`metadata.url` 等结果资源 URL，请立即下载并自行持久化保存。\n\
+        - 平台不保证结果资源 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。\n"
       parameters:
       - name: task_id
         in: path
@@ -2366,7 +2378,7 @@ paths:
         - 延迟结算模式：提交时不扣费，任务完成后按上游实际消耗的 credits 精确结算。\n\
         - 1 credit = $0.005。\n\n\
         **重要提示（必读）**\n\
-        - `images` 等输入 URL 建议在调用前确认可长期访问，并主动持久化。\n\
+        - `images` 等输入 URL 是任务输入引用，请在提交时确认可访问。\n\
         - 任务完成后返回的视频 URL 为平台托管短期链接，默认约 30 天后失效；请务必在 30 天内完成下载归档。\n"
       requestBody:
         required: true
@@ -2488,9 +2500,9 @@ paths:
       description: "使用提交接口返回的 `task_id` 轮询任务结果。\n\n\
         也可通过 `GET /v1/videos/{task_id}` 查询。\n\n\
         当 `status` 为 `completed` 时，`metadata.url` 包含视频下载链接。\n\n\
-        **重要提示（必读）**\n\
-        - `metadata.url` 为平台托管短期链接，建议接收后立即下载并持久化。\n\
-        - 平台托管资源默认约 30 天后失效，请务必在 30 天内完成下载归档。\n"
+        **严重告知（必读）**\n\
+        - 查询成功后如返回 `results.url`、`metadata.url` 等结果资源 URL，请立即下载并自行持久化保存。\n\
+        - 平台不保证结果资源 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。\n"
       parameters:
       - name: task_id
         in: path
@@ -2556,11 +2568,7 @@ paths:
       - MiniMax 视频
       summary: 提交视频生成任务
       description: "MiniMax 视频生成（异步任务制）。提交后返回 `task_id`，通过 `GET /v1/video/generations/{task_id}` 轮询结果。\n\n\
-        **可用端点（二选一，参数和行为完全相同）：**\n\
-        | 端点 | 说明 |\n\
-        |------|------|\n\
-        | `POST /v1/video/generations` | MiniMax 专用端点（本文档） |\n\
-        | `POST /v1/videos` | 通用视频端点（也支持 MiniMax 模型） |\n\n\
+        **提交端点：** `POST /v1/video/generations`\n\n\
         **支持模型：**\n\
         - `MiniMax-Hailuo-02`\n\
         - `MiniMax-Hailuo-2.3`\n\
@@ -2580,11 +2588,10 @@ paths:
           - `1080p`: `仅 6s`\n\
           - 且必须传 `metadata.first_frame_image`\n\n\
         **重要提示（必读）**\n\
-        - `metadata.first_frame_image` 等输入 URL 建议在调用前确认可长期访问，并主动持久化。\n\
-        - 平台托管的输入/中间 URL 资源为短期链接，默认约 30 天后失效；请务必在 30 天内完成下载归档。\n\n\
-        **`/v1/videos` 调用示例（与本端点参数完全相同）：**\n\
+        - `metadata.first_frame_image` 等输入 URL 是任务输入引用，请在提交时确认可访问。\n\n\
+        **调用示例：**\n\
         ```bash\n\
-        curl -X POST https://open-route.fashionlabs.cn/v1/videos \\\n\
+        curl -X POST https://open-route.fashionlabs.cn/v1/video/generations \\\n\
         \  -H \"Authorization: Bearer sk-xxxx\" \\\n\
         \  -H \"Content-Type: application/json\" \\\n\
         \  -d '{\"model\":\"MiniMax-Hailuo-2.3\",\"prompt\":\"A cat playing\",\"duration\":6,\"size\":\"1080p\"}'\n\
@@ -2659,6 +2666,68 @@ paths:
                     data: null
       x-apifox-folder: MiniMax 视频
       x-apifox-status: released
+  /v1/videos#minimax:
+    post:
+      tags:
+      - MiniMax 视频
+      summary: 提交视频生成任务（OpenAI 兼容端点）
+      description: "MiniMax 视频生成的 OpenAI 兼容提交端点。本文档用于在 MiniMax 视频分类下展示 `POST /v1/videos` 的 MiniMax 请求体。\n\n\
+        **实际请求路径：** `POST /v1/videos`\n\n\
+        **支持模型：**\n\
+        - `MiniMax-Hailuo-02`\n\
+        - `MiniMax-Hailuo-2.3`\n\
+        - `MiniMax-Hailuo-2.3-Fast`\n\n\
+        **约束：**\n\
+        - `MiniMax-Hailuo-2.3-Fast` 仅图生视频，必须传 `metadata.first_frame_image`\n\
+        - `duration` 仅支持 `6` 或 `10`\n\
+        - `size` 按模型能力校验：`512p`、`768p`、`1080p`\n\n\
+        **重要提示（必读）**\n\
+        - `metadata.first_frame_image` 等输入 URL 是任务输入引用，请在提交时确认可访问。\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MiniMaxVideosCreateRequest'
+            examples:
+              hailuo_02_text2video:
+                summary: MiniMax-Hailuo-02 文生视频
+                value:
+                  model: MiniMax-Hailuo-02
+                  prompt: A cat playing with a ball of yarn
+                  duration: 6
+                  size: 1080p
+              hailuo_23_text2video:
+                summary: MiniMax-Hailuo-2.3 文生视频
+                value:
+                  model: MiniMax-Hailuo-2.3
+                  prompt: A cinematic drone shot above a quiet lake at sunrise
+                  duration: 6
+                  size: 1080p
+              hailuo_fast_img2video:
+                summary: MiniMax-Hailuo-2.3-Fast 图生视频
+                value:
+                  model: MiniMax-Hailuo-2.3-Fast
+                  prompt: A gentle camera movement over a cup of tea
+                  duration: 6
+                  size: 1080p
+                  metadata:
+                    first_frame_image: https://example.com/photo.jpeg
+      responses:
+        '200':
+          description: 任务已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTaskResponse'
+        '400':
+          description: 参数错误（例如模型能力或分辨率不匹配）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-apifox-folder: MiniMax 视频
+      x-apifox-status: released
   /v1/video/generations/{task_id}:
     get:
       tags:
@@ -2670,7 +2739,11 @@ paths:
 
         当任务完成时，响应中 `status` 为 `succeeded`，`results` 数组包含视频 URL。
 
-        结果 URL 为平台托管短期链接，建议接收后立即下载并持久化，默认约 30 天后失效。
+        **严重告知（必读）**
+
+        - 查询成功后如返回 `results.url`、`metadata.url` 等结果资源 URL，请立即下载并自行持久化保存。
+
+        - 平台不保证结果资源 URL 长期可访问，默认约 30 天后失效；不要把查询结果中的 URL 当作永久存储地址。
         '
       operationId: getMiniMaxVideoTaskStatus
       parameters:
@@ -2853,7 +2926,7 @@ components:
         url:
           type: string
           format: uri
-          description: 公开可访问的素材 URL。调用前请确认可访问，并建议自行持久化原始素材；平台托管素材/中间资源默认约 30 天后失效。
+          description: 公开可访问的素材 URL。调用前请确认可访问，并建议自行持久化原始素材；30 天失效规则仅适用于接口返回的结果资源 URL。
           example: https://example.com/image.png
         name:
           type: string
@@ -3159,7 +3232,7 @@ components:
           type: array
           description: '图片 URL 数组（支持多图）。
 
-            **重要提示**：上传前请确保 URL 在调用时可持续访问，平台托管的输入/中间资源为短期链接，建议在 30 天内持久化归档。
+            **重要提示**：上传前请确保 URL 在调用时可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
             支持两类 URL：
 
@@ -3190,7 +3263,7 @@ components:
           format: uri
           description: '兜底图片 URL（仅在未传 `images` 时生效）。
 
-            **重要提示**：该链接用于任务提交，请在提交前确认可访问；输出资源和提交时引用的 URL 默认约 30 天后失效，建议接收后及时持久化。
+            **重要提示**：该链接用于任务提交，请在提交前确认可访问；30 天失效规则仅适用于接口返回的结果资源 URL，输出资源建议接收后及时持久化。
 
             支持 `https://...` 与 `asset://asset-...`。
 
@@ -3245,8 +3318,18 @@ components:
               - 480p
               - 720p
               - 1080p
-              description: 分辨率档位（支持 `480p`、`720p`、`1080p`）。
-              example: 1080p
+              description: '分辨率档位（可选）。
+
+                **按模型区分：**
+
+                - `ima-pro` / `seedance-2.0`：支持 `480p`、`720p`、`1080p`；实测文本生成 `1080p` 可提交并进入处理中。
+
+                - `ima-pro-fast` / `seedance-2.0-fast`：文生视频建议使用 `480p` 或 `720p`；实测文本生成显式传 `1080p` 会被上游返回 `Invalid parameters`。
+
+                - 若不确定，优先不传该字段或使用 `720p`。
+
+                '
+              example: 720p
             audio:
               oneOf:
               - type: boolean
@@ -3283,7 +3366,7 @@ components:
               type: array
               minItems: 1
               maxItems: 3
-              description: "**重要：参考视频 URL 数组（最多 3 条）。平台托管输入 URL 可能过期，建议在 30 天内持久化。**\n\n传入单个参考视频要求：\n- 格式：`mp4`、`mov`\n- 分辨率：`480p`、`720p`\n- 单个视频时长：`[2,15]s`\n- 所有参考视频总时长：`<=15s`\n- 宽高比（宽/高）：`(0.4,2.5)`\n- 宽高像素（宽、高）：`(300,6000)`\n- 画面像素（宽×高）：`[409600,927408]`\n\
+              description: "**重要：参考视频 URL 数组（最多 3 条）。请自行保证输入 URL 在提交时可访问。**\n\n传入单个参考视频要求：\n- 格式：`mp4`、`mov`\n- 分辨率：`480p`、`720p`\n- 单个视频时长：`[2,15]s`\n- 所有参考视频总时长：`<=15s`\n- 宽高比（宽/高）：`(0.4,2.5)`\n- 宽高像素（宽、高）：`(300,6000)`\n- 画面像素（宽×高）：`[409600,927408]`\n\
                 \  - 例如：`640x640=409600`（最小值）\n  - 例如：`834x1112=927408`（最大值）\n- 单个视频大小：`<=50MB`\n- 帧率（FPS）：`[24,60]`\n"
               items:
                 type: string
@@ -3292,7 +3375,7 @@ components:
               type: array
               minItems: 1
               maxItems: 3
-              description: '**重要：参考音频 URL 数组（最多 3 条）。平台托管输入 URL 可能过期，建议在 30 天内持久化。**
+              description: '**重要：参考音频 URL 数组（最多 3 条）。请自行保证输入 URL 在提交时可访问。**
 
                 传入单个参考音频要求：
 
@@ -3497,7 +3580,7 @@ components:
           format: uri
           description: '单图输入（可选，image-to-image）。
 
-            **重要提示**：输入 URL 可能过期，建议在调用前确认可访问，并在 30 天内持久化归档。
+            **重要提示**：请在调用前确认输入 URL 可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
             文件类型要求：`jpg/png`（上游约束）。
 
@@ -3506,7 +3589,7 @@ components:
           type: array
           description: '多图输入（可选，image-to-image）。
 
-            **重要提示**：输入 URL 可能过期，建议在调用前确认可访问，并在 30 天内持久化归档。
+            **重要提示**：请在调用前确认输入 URL 可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
             文件类型要求：`jpg/png`（上游约束）。
 
@@ -3565,7 +3648,7 @@ components:
           format: uri
           description: '单图输入（可选，image-to-image）。
 
-            **重要提示**：输入 URL 可能过期，建议在调用前确认可访问，并在 30 天内持久化归档。
+            **重要提示**：请在调用前确认输入 URL 可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
             文件类型要求：`jpg/png`（上游约束）。
 
@@ -3574,7 +3657,7 @@ components:
           type: array
           description: '多图输入（可选，image-to-image）。
 
-            **重要提示**：输入 URL 可能过期，建议在调用前确认可访问，并在 30 天内持久化归档。
+            **重要提示**：请在调用前确认输入 URL 可访问；30 天失效规则仅适用于接口返回的结果资源 URL。
 
             文件类型要求：`jpg/png`（上游约束）。
 
@@ -4312,10 +4395,10 @@ components:
           type: array
           items:
             type: string
-          description: 图生视频：图片 URL 数组（Vidu 模型使用此字段）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 图生视频：图片 URL 数组（Vidu 模型使用此字段）。请自行保证输入 URL 在提交时可访问。
         image:
           type: string
-          description: 图生视频：单张图片 URL。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 图生视频：单张图片 URL。请自行保证输入 URL 在提交时可访问。
         duration:
           type: integer
           description: 视频时长（秒）
@@ -4334,7 +4417,7 @@ components:
           properties:
             first_frame_image:
               type: string
-              description: 图生视频首帧图片 URL。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+              description: 图生视频首帧图片 URL。请自行保证输入 URL 在提交时可访问。
             img_id:
               type: string
               description: PixVerse 已上传的图片 ID
@@ -4366,7 +4449,7 @@ components:
           type: array
           items:
             type: string
-          description: "**重要：图生视频的参考图片 URL 数组。平台托管输入 URL 可能过期，建议在 30 天内持久化。**\n\n\
+          description: "**重要：图生视频的参考图片 URL 数组。请自行保证输入 URL 在提交时可访问。**\n\n\
             - 单图：参考图生视频\n\
             - 双图：首尾帧生视频（第一张=首帧，第二张=尾帧）\n\
             - `viduq2-pro`、`viduq2-turbo` 仅支持图生视频（必须传 images）"
@@ -4468,10 +4551,10 @@ components:
           description: 反向提示词（可选），描述不希望出现的内容。
         image:
           type: string
-          description: 参考图片 URL（图生视频时必填）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 参考图片 URL（图生视频时必填）。请自行保证输入 URL 在提交时可访问。
         image_tail:
           type: string
-          description: 尾帧图片 URL（首尾帧模式，可选）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 尾帧图片 URL（首尾帧模式，可选）。请自行保证输入 URL 在提交时可访问。
         mode:
           type: string
           enum:
@@ -4588,10 +4671,10 @@ components:
           description: Kling 视频模型名称。
         image:
           type: string
-          description: 参考图片 URL（图生视频必填）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 参考图片 URL（图生视频必填）。请自行保证输入 URL 在提交时可访问。
         image_tail:
           type: string
-          description: 尾帧图片 URL（首尾帧模式，可选）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 尾帧图片 URL（首尾帧模式，可选）。请自行保证输入 URL 在提交时可访问。
         prompt:
           type: string
           description: 视频描述提示词。图生视频时可选。
@@ -4656,12 +4739,12 @@ components:
           description: 视频描述提示词。文生视频时必填；图生视频时可选。
         image:
           type: string
-          description: 图生视频参考图片 URL。单图图生视频推荐使用该字段；平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 图生视频参考图片 URL。单图图生视频推荐使用该字段；请自行保证输入 URL 在提交时可访问。
         images:
           type: array
           items:
             type: string
-          description: 图生视频参考图片 URL 数组。需要多图输入时使用；Kling 首尾帧更推荐将尾帧放入 `metadata.image_tail`。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+          description: 图生视频参考图片 URL 数组。需要多图输入时使用；Kling 首尾帧更推荐将尾帧放入 `metadata.image_tail`。请自行保证输入 URL 在提交时可访问。
         duration:
           type: integer
           enum:
@@ -4690,7 +4773,7 @@ components:
               description: 品质模式。`std`（标准，默认）或 `pro`（高品质）。
             image_tail:
               type: string
-              description: 尾帧图片 URL（首尾帧模式）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+              description: 尾帧图片 URL（首尾帧模式）。请自行保证输入 URL 在提交时可访问。
             negative_prompt:
               type: string
               description: 反向提示词。
@@ -4742,7 +4825,7 @@ components:
           properties:
             first_frame_image:
               type: string
-              description: Hailuo 图生视频首帧图片 URL（`MiniMax-Hailuo-2.3-Fast` 必填）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+              description: Hailuo 图生视频首帧图片 URL（`MiniMax-Hailuo-2.3-Fast` 必填）。请自行保证输入 URL 在提交时可访问。
       allOf:
       - if:
           properties:
@@ -5045,7 +5128,7 @@ components:
             first_frame_image:
               type: string
               format: uri
-              description: 图生视频首帧图 URL（必填）。平台托管输入 URL 可能过期，建议在 30 天内持久化。
+              description: 图生视频首帧图 URL（必填）。请自行保证输入 URL 在提交时可访问。
       allOf:
       - if:
           properties:
