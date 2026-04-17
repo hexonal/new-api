@@ -308,6 +308,9 @@ func migrateDB() error {
 	if err := migrateAssetIndexCompatibility(); err != nil {
 		return err
 	}
+	if err := ensureModelSortOrderDefault(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -389,8 +392,15 @@ func migrateDBFast() error {
 	if err := migrateAssetIndexCompatibility(); err != nil {
 		return err
 	}
+	if err := ensureModelSortOrderDefault(); err != nil {
+		return err
+	}
 	common.SysLog("database migrated")
 	return nil
+}
+
+func ensureModelSortOrderDefault() error {
+	return DB.Exec("UPDATE models SET sort_order = 0 WHERE sort_order IS NULL").Error
 }
 
 func migrateLOGDB() error {

@@ -41,6 +41,7 @@ const FilterModalContent = ({ sidebarProps, t }) => {
     setViewMode,
     filterGroup,
     setFilterGroup,
+    handleGroupClick,
     filterQuotaType,
     setFilterQuotaType,
     filterEndpointType,
@@ -100,7 +101,7 @@ const FilterModalContent = ({ sidebarProps, t }) => {
 
       <PricingGroups
         filterGroup={filterGroup}
-        setFilterGroup={setFilterGroup}
+        setFilterGroup={handleGroupClick || setFilterGroup}
         usableGroup={categoryProps.usableGroup}
         groupRatio={categoryProps.groupRatio}
         models={groupCountModels}

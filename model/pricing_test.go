@@ -79,3 +79,86 @@ func TestGetPricingAddsHailuoSKUPrices(t *testing.T) {
 	assert.InDelta(t, 6.7, sku1080.OfficialPoints, 0.05) // 0.588236/0.088235 ≈ 6.7
 	assert.InDelta(t, 0.588236, sku1080.ModelPrice, 1e-9)
 }
+
+func TestGetPricingRespectsSortOrder(t *testing.T) {
+	truncateTables(t)
+	t.Cleanup(func() {
+		DB.Exec("DELETE FROM abilities")
+		DB.Exec("DELETE FROM models")
+		DB.Exec("DELETE FROM channels")
+	})
+	require.NoError(t, DB.AutoMigrate(&Ability{}, &Model{}, &Channel{}))
+
+	require.NoError(t, DB.Create(&Channel{
+		Id:     1001,
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "test-key-1",
+		Status: common.ChannelStatusEnabled,
+		Name:   "sort-test-1",
+		Group:  "default",
+		Models: "gpt-4o-mini",
+	}).Error)
+	require.NoError(t, DB.Create(&Channel{
+		Id:     1002,
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "test-key-2",
+		Status: common.ChannelStatusEnabled,
+		Name:   "sort-test-2",
+		Group:  "default",
+		Models: "gpt-4o",
+	}).Error)
+	require.NoError(t, DB.Create(&Channel{
+		Id:     1003,
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "test-key-3",
+		Status: common.ChannelStatusEnabled,
+		Name:   "sort-test-3",
+		Group:  "default",
+		Models: "claude-3-5-sonnet",
+	}).Error)
+
+	require.NoError(t, DB.Create(&Ability{
+		Group:     "default",
+		Model:     "gpt-4o-mini",
+		ChannelId: 1001,
+		Enabled:   true,
+	}).Error)
+	require.NoError(t, DB.Create(&Ability{
+		Group:     "default",
+		Model:     "gpt-4o",
+		ChannelId: 1002,
+		Enabled:   true,
+	}).Error)
+	require.NoError(t, DB.Create(&Ability{
+		Group:     "default",
+		Model:     "claude-3-5-sonnet",
+		ChannelId: 1003,
+		Enabled:   true,
+	}).Error)
+
+	require.NoError(t, DB.Create(&Model{
+		ModelName: "gpt-4o-mini",
+		Status:    1,
+		SortOrder: 100,
+	}).Error)
+	require.NoError(t, DB.Create(&Model{
+		ModelName: "gpt-4o",
+		Status:    1,
+		SortOrder: 0,
+	}).Error)
+	require.NoError(t, DB.Create(&Model{
+		ModelName: "claude-3-5-sonnet",
+		Status:    1,
+		SortOrder: 0,
+	}).Error)
+
+	lastGetPricingTime = time.Time{}
+	RefreshPricing()
+
+	pricing := GetPricing()
+	require.Len(t, pricing, 3)
+	assert.Equal(t, "gpt-4o-mini", pricing[0].ModelName)
+	assert.Equal(t, 100, pricing[0].SortOrder)
+	assert.Equal(t, "gpt-4o", pricing[1].ModelName)
+	assert.Equal(t, "claude-3-5-sonnet", pricing[2].ModelName)
+}

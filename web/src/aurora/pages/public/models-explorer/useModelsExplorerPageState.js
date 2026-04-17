@@ -227,8 +227,18 @@ const modelPassesFilters = ({
   return !(selectedProviderSet.size > 0 && !selectedProviderSet.has(model.provider));
 };
 
+const getSortOrder = (model) => {
+  const value = Number(model?.sort_order ?? 0);
+  return Number.isFinite(value) ? value : 0;
+};
+
 const sortModels = (models, sortBy) => {
   models.sort((a, b) => {
+    const orderDiff = getSortOrder(b) - getSortOrder(a);
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+
     if (sortBy === 'name') {
       return String(a.model_name || '').localeCompare(String(b.model_name || ''));
     }

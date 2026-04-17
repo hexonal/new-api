@@ -44,6 +44,32 @@ const filterUsableGroupByModelAccess = (usableGroup, models) => {
   );
 };
 
+const getSortOrder = (model) => {
+  const value = Number(model?.sort_order ?? 0);
+  return Number.isFinite(value) ? value : 0;
+};
+
+const compareModelByDisplayPriority = (a, b) => {
+  const orderDiff = getSortOrder(b) - getSortOrder(a);
+  if (orderDiff !== 0) {
+    return orderDiff;
+  }
+
+  const aName = String(a?.model_name || '');
+  const bName = String(b?.model_name || '');
+  const aIsGpt = aName.toLowerCase().startsWith('gpt');
+  const bIsGpt = bName.toLowerCase().startsWith('gpt');
+  if (aIsGpt !== bIsGpt) {
+    return aIsGpt ? -1 : 1;
+  }
+
+  if (a?.quota_type !== b?.quota_type) {
+    return Number(a?.quota_type || 0) - Number(b?.quota_type || 0);
+  }
+
+  return aName.localeCompare(bName);
+};
+
 export const useModelPricingData = () => {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
@@ -240,22 +266,7 @@ export const useModelPricingData = () => {
         m.vendor_description = vendor.description;
       }
     }
-    models.sort((a, b) => {
-      return a.quota_type - b.quota_type;
-    });
-
-    models.sort((a, b) => {
-      if (a.model_name.startsWith('gpt') && !b.model_name.startsWith('gpt')) {
-        return -1;
-      } else if (
-        !a.model_name.startsWith('gpt') &&
-        b.model_name.startsWith('gpt')
-      ) {
-        return 1;
-      } else {
-        return a.model_name.localeCompare(b.model_name);
-      }
-    });
+    models.sort(compareModelByDisplayPriority);
 
     setModels(models);
   };
@@ -274,9 +285,16 @@ export const useModelPricingData = () => {
       usable_group,
       supported_endpoint,
       auto_groups,
+      marketplace_default_pricing_group,
     } = res.data;
     if (success) {
-      const currentUserGroup = userState?.user?.group || '';
+      const currentUserGroup = String(userState?.user?.group || '').trim();
+      const currentUserRole = Number(userState?.user?.role ?? 0);
+      const isAdminUser =
+        Number.isFinite(currentUserRole) && currentUserRole >= 10;
+      const marketplaceDefaultGroup = String(
+        marketplace_default_pricing_group || '',
+      ).trim();
       const visibleModels = Array.isArray(data) ? data : [];
       setGroupRatio(group_ratio);
       setGroupModelRatio(group_model_ratio || {});
@@ -286,9 +304,24 @@ export const useModelPricingData = () => {
       );
       setUsableGroup(scopedUsableGroup);
       const availableGroups = Object.keys(scopedUsableGroup);
-      const defaultGroup = availableGroups.includes(currentUserGroup)
+      const treatUserGroupAsUnset =
+        currentUserGroup === '' ||
+        (!isAdminUser && currentUserGroup === 'default');
+      const hasCurrentUserGroup =
+        !treatUserGroupAsUnset &&
+        availableGroups.includes(currentUserGroup);
+      const hasMarketplaceDefaultGroup =
+        !isAdminUser &&
+        marketplaceDefaultGroup !== '' &&
+        availableGroups.includes(marketplaceDefaultGroup);
+      const fallbackUserGroup = availableGroups.includes(currentUserGroup)
         ? currentUserGroup
-        : availableGroups[0] || '';
+        : '';
+      const defaultGroup = hasCurrentUserGroup
+        ? currentUserGroup
+        : hasMarketplaceDefaultGroup
+          ? marketplaceDefaultGroup
+          : fallbackUserGroup || availableGroups[0] || '';
       setSelectedGroup(defaultGroup);
       setFilterGroup(defaultGroup);
       // 构建供应商 Map 方便查找
@@ -361,7 +394,7 @@ export const useModelPricingData = () => {
 
   useEffect(() => {
     refresh().then();
-  }, []);
+  }, [userState?.user?.group, userState?.user?.role]);
 
   // 当筛选条件变化时重置到第一页
   useEffect(() => {

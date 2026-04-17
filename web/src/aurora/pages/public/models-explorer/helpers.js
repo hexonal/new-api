@@ -123,7 +123,7 @@ const resolveTargetGroup = ({ enabledGroups, selectedGroup, usableGroup }) => {
     usableGroups.find((group) => enabledGroups.includes(group)) ||
     enabledGroups[0] ||
     selectedGroup ||
-    'default'
+    ''
   );
 };
 

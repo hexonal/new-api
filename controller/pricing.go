@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"strings"
+
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -8,12 +11,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func resolveMarketplaceDefaultPricingGroup(configured string, usableGroup map[string]string, isAdminUser bool) string {
+	if isAdminUser {
+		return ""
+	}
+	group := strings.TrimSpace(configured)
+	if group == "" {
+		return ""
+	}
+	if _, ok := usableGroup[group]; !ok {
+		return ""
+	}
+	return group
+}
+
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
-	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
 	groupModelRatio := map[string]map[string]float64{}
+	userRole := c.GetInt("role")
+	isAdminUser := userRole >= common.RoleAdminUser
 	for s, f := range ratio_setting.GetGroupRatioCopy() {
 		groupRatio[s] = f
 	}
@@ -21,8 +39,9 @@ func GetPricing(c *gin.Context) {
 		groupModelRatio[group] = modelRatios
 	}
 	var group string
-	if exists {
-		user, err := model.GetUserCache(userId.(int))
+	userID := c.GetInt("id")
+	if userID > 0 {
+		user, err := model.GetUserCache(userID)
 		if err == nil {
 			group = user.Group
 			for g := range groupRatio {
@@ -55,6 +74,16 @@ func GetPricing(c *gin.Context) {
 			delete(groupModelRatio, g)
 		}
 	}
+
+	common.OptionMapRWMutex.RLock()
+	configuredMarketplaceDefaultGroup := common.OptionMap["MarketplaceDefaultPricingGroup"]
+	common.OptionMapRWMutex.RUnlock()
+	marketplaceDefaultPricingGroup := resolveMarketplaceDefaultPricingGroup(
+		configuredMarketplaceDefaultGroup,
+		usableGroup,
+		isAdminUser,
+	)
+
 	// For logged-in users, expose models that intersect with user's usable groups.
 	filteredPricing := pricing
 	if group != "" {
@@ -79,15 +108,16 @@ func GetPricing(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"success":            true,
-		"data":               filteredPricing,
-		"vendors":            model.GetVendors(),
-		"group_ratio":        groupRatio,
-		"group_model_ratio":  groupModelRatio,
-		"usable_group":       usableGroup,
-		"supported_endpoint": model.GetSupportedEndpointMap(),
-		"auto_groups":        service.GetUserAutoGroup(group),
-		"_":                  "a42d372ccf0b5dd13ecf71203521f9d2",
+		"success":                           true,
+		"data":                              filteredPricing,
+		"vendors":                           model.GetVendors(),
+		"group_ratio":                       groupRatio,
+		"group_model_ratio":                 groupModelRatio,
+		"usable_group":                      usableGroup,
+		"supported_endpoint":                model.GetSupportedEndpointMap(),
+		"auto_groups":                       service.GetUserAutoGroup(group),
+		"marketplace_default_pricing_group": marketplaceDefaultPricingGroup,
+		"_":                                 "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
 }
 

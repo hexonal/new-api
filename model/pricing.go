@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"sync"
@@ -20,6 +21,7 @@ type Pricing struct {
 	Icon                   string                  `json:"icon,omitempty"`
 	Tags                   string                  `json:"tags,omitempty"`
 	VendorID               int                     `json:"vendor_id,omitempty"`
+	SortOrder              int                     `json:"sort_order,omitempty"`
 	QuotaType              int                     `json:"quota_type"`
 	ModelRatio             float64                 `json:"model_ratio"`
 	ModelPrice             float64                 `json:"model_price"`
@@ -294,6 +296,7 @@ func updatePricing() {
 			pricing.Icon = meta.Icon
 			pricing.Tags = meta.Tags
 			pricing.VendorID = meta.VendorID
+			pricing.SortOrder = meta.SortOrder
 		}
 		// Special case: asset upload model is charged per call, and price should come
 		// from configurable settings (ModelPrice first, then ModelRatio fallback).
@@ -348,6 +351,23 @@ func updatePricing() {
 		}
 		pricingMap = append(pricingMap, pricing)
 	}
+
+	sort.SliceStable(pricingMap, func(i, j int) bool {
+		left := pricingMap[i]
+		right := pricingMap[j]
+		if left.SortOrder != right.SortOrder {
+			return left.SortOrder > right.SortOrder
+		}
+		leftIsGPT := strings.HasPrefix(strings.ToLower(left.ModelName), "gpt")
+		rightIsGPT := strings.HasPrefix(strings.ToLower(right.ModelName), "gpt")
+		if leftIsGPT != rightIsGPT {
+			return leftIsGPT
+		}
+		if left.QuotaType != right.QuotaType {
+			return left.QuotaType < right.QuotaType
+		}
+		return strings.Compare(left.ModelName, right.ModelName) < 0
+	})
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {

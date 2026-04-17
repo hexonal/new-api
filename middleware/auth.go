@@ -173,9 +173,15 @@ func authHelper(c *gin.Context, minRole int) {
 func TryUserAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		id := session.Get("id")
-		if id != nil {
+		if id, ok := anyToInt(session.Get("id")); ok {
 			c.Set("id", id)
+		}
+		if role, ok := anyToInt(session.Get("role")); ok {
+			c.Set("role", role)
+		}
+		if group, ok := session.Get("group").(string); ok {
+			c.Set("group", group)
+			c.Set("user_group", group)
 		}
 		c.Next()
 	}

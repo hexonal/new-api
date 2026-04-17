@@ -552,6 +552,19 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "MarketplaceDefaultPricingGroup":
+		group := strings.TrimSpace(option.Value.(string))
+		option.Value = group
+		if group != "" {
+			groupRatio := ratio_setting.GetGroupRatioCopy()
+			if _, ok := groupRatio[group]; !ok {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": fmt.Sprintf("默认价格分组不存在: %s", group),
+				})
+				return
+			}
+		}
 	case "ImageRatio":
 		err = ratio_setting.UpdateImageRatioByJSONString(option.Value.(string))
 		if err != nil {

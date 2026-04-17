@@ -127,6 +127,7 @@ const defaultInputs = {
   UserLogsShowGroupForNonAdminEnabled: false,
   UserLogsShowPricingGroupForNonAdminEnabled: false,
   PersonalSettingShowUserGroupForNonAdminEnabled: false,
+  MarketplaceDefaultPricingGroup: '',
 };
 
 const SystemSetting = () => {
@@ -351,6 +352,16 @@ const SystemSetting = () => {
   const submitServerAddress = async () => {
     let ServerAddress = removeTrailingSlash(inputs.ServerAddress);
     await updateOptions([{ key: 'ServerAddress', value: ServerAddress }]);
+  };
+
+  const submitMarketplaceDefaultPricingGroup = async () => {
+    const group = (inputs.MarketplaceDefaultPricingGroup || '').trim();
+    await updateOptions([
+      {
+        key: 'MarketplaceDefaultPricingGroup',
+        value: group,
+      },
+    ]);
   };
 
   const submitSMTP = async () => {
@@ -930,6 +941,24 @@ const SystemSetting = () => {
                       </Form.Checkbox>
                     </Col>
                   </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                    style={{ marginTop: 16 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Input
+                        field='MarketplaceDefaultPricingGroup'
+                        label={t('模型广场默认价格分组')}
+                        placeholder={t('例如：default，留空表示关闭')}
+                        extraText={t(
+                          '仅对非管理员且未设置用户分组时生效；管理员进入模型广场时该配置自动失效。',
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                  <Button onClick={submitMarketplaceDefaultPricingGroup}>
+                    {t('更新模型广场默认价格分组')}
+                  </Button>
                 </Form.Section>
               </Card>
 

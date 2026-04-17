@@ -1,3 +1,22 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +41,7 @@ const EMPTY_FORM = {
   prompt_price: '',
   completion_price: '',
   ratio: '',
+  sort_order: 0,
   status: 1,
   tags: [],
   channels: [],
@@ -155,6 +175,7 @@ export default function ModelFormPage() {
 
     setSubmitting(true);
     try {
+      const sortOrder = Number(form.sort_order ?? 0);
       const payload = {
         model_name: form.model_name.trim(),
         description: form.description || '',
@@ -166,6 +187,7 @@ export default function ModelFormPage() {
         model_ratio: form.prompt_price,
         model_price: form.completion_price,
         completion_ratio: form.ratio,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
         endpoints: form.endpoints || '',
         sync_official: form.sync_official ?? 1,
       };
@@ -246,10 +268,15 @@ export default function ModelFormPage() {
               provider: form.provider,
               max_tokens: String(form.max_tokens ?? ''),
               support: form.support,
+              sort_order: String(form.sort_order ?? 0),
             }}
             onChange={(key, value) => {
               if (key === 'name') {
                 updateField('model_name', value);
+                return;
+              }
+              if (key === 'sort_order') {
+                updateField('sort_order', value);
                 return;
               }
               updateField(key, value);
