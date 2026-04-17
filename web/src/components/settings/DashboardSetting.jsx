@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Card, Spin, Button, Modal } from '@douyinfe/semi-ui';
+import { Card, Spin, Modal } from '@douyinfe/semi-ui';
+import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess, toBoolean } from '../../helpers';
 import SettingsAPIInfo from '../../pages/Setting/Dashboard/SettingsAPIInfo';
 import SettingsAnnouncements from '../../pages/Setting/Dashboard/SettingsAnnouncements';
@@ -27,6 +28,7 @@ import SettingsUptimeKuma from '../../pages/Setting/Dashboard/SettingsUptimeKuma
 import SettingsDataDashboard from '../../pages/Setting/Dashboard/SettingsDataDashboard';
 
 const DashboardSetting = () => {
+  const { t } = useTranslation();
   let [inputs, setInputs] = useState({
     'console_setting.api_info': '',
     'console_setting.announcements': '',

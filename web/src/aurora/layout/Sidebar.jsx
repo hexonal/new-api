@@ -38,7 +38,8 @@ import {
   Gem,
   Building2,
 } from 'lucide-react';
-import { isAdmin } from '../../helpers/utils';
+import { isAdmin, isRoot } from '../../helpers/utils';
+import { useSidebar } from '../../hooks/common/useSidebar';
 import SidebarItem from './SidebarItem';
 import SidebarSection from './SidebarSection';
 import { useSidebarStore } from '../store/sidebar-store';
@@ -65,6 +66,63 @@ const SECTION_NAMES = {
   WORKSPACE: 'WORKSPACE',
   ACCOUNT: 'ACCOUNT',
   ADMIN: 'ADMIN',
+};
+
+const toBooleanWithTrueFallback = (value) => {
+  if (value === null) return true;
+  return value === 'true';
+};
+
+const isSidebarItemVisible = ({
+  sectionKey,
+  itemKey,
+  isAdminUser,
+  isRootUser,
+  isModuleVisible,
+  legacyFlags,
+}) => {
+  if (sectionKey === 'workspace') {
+    if (itemKey === 'dashboard') {
+      return (
+        isModuleVisible('console', 'detail') && legacyFlags.enableDataExport
+      );
+    }
+    if (itemKey === 'api-keys') return isModuleVisible('console', 'token');
+    if (itemKey === 'usage-logs') return isModuleVisible('console', 'log');
+    if (itemKey === 'key-cost') return isModuleVisible('console', 'key-cost');
+    if (itemKey === 'callback-logs') {
+      return isAdminUser && isModuleVisible('console', 'callback');
+    }
+    if (itemKey === 'midjourney') {
+      return isModuleVisible('console', 'midjourney') && legacyFlags.enableDrawing;
+    }
+    if (itemKey === 'task-logs') {
+      return isModuleVisible('console', 'task') && legacyFlags.enableTask;
+    }
+    return false;
+  }
+
+  if (sectionKey === 'account') {
+    if (itemKey === 'wallet') return isModuleVisible('personal', 'topup');
+    if (itemKey === 'personal') return isModuleVisible('personal', 'personal');
+    return false;
+  }
+
+  if (sectionKey === 'admin') {
+    if (!isAdminUser) return false;
+    if (itemKey === 'channel') return isModuleVisible('admin', 'channel');
+    if (itemKey === 'subscription') return isModuleVisible('admin', 'subscription');
+    if (itemKey === 'models') return isModuleVisible('admin', 'models');
+    if (itemKey === 'deployment') return isModuleVisible('admin', 'deployment');
+    if (itemKey === 'redemption') return isModuleVisible('admin', 'redemption');
+    if (itemKey === 'users') return isModuleVisible('admin', 'user');
+    if (itemKey === 'groups') {
+      return isRootUser && isModuleVisible('admin', 'group-management');
+    }
+    return false;
+  }
+
+  return false;
 };
 
 const getNavIcon = (key) => {
@@ -114,30 +172,86 @@ const Sidebar = ({ onNavigate = () => {} }) => {
   const setActiveSection = useSidebarStore((state) => state.setActiveSection);
   const location = useLocation();
   const isAdminUser = isAdmin();
+  const isRootUser = isRoot();
+  const { isModuleVisible } = useSidebar();
   const { t } = useTranslation();
   const sectionLabels = useMemo(() => getConsoleSectionLabels(t), [t]);
   const sidebarGroups = useMemo(() => getConsoleSidebarGroups(t), [t]);
   const isPricingRoute = location.pathname === '/pricing';
+  const legacyFlags = useMemo(
+    () => ({
+      enableDataExport: toBooleanWithTrueFallback(
+        localStorage.getItem('enable_data_export'),
+      ),
+      enableDrawing: toBooleanWithTrueFallback(
+        localStorage.getItem('enable_drawing'),
+      ),
+      enableTask: toBooleanWithTrueFallback(localStorage.getItem('enable_task')),
+    }),
+    [location.pathname],
+  );
+
+  const filteredSidebarGroups = useMemo(
+    () => ({
+      workspace: sidebarGroups.workspace.filter((item) =>
+        isSidebarItemVisible({
+          sectionKey: 'workspace',
+          itemKey: item.key,
+          isAdminUser,
+          isRootUser,
+          isModuleVisible,
+          legacyFlags,
+        }),
+      ),
+      account: sidebarGroups.account.filter((item) =>
+        isSidebarItemVisible({
+          sectionKey: 'account',
+          itemKey: item.key,
+          isAdminUser,
+          isRootUser,
+          isModuleVisible,
+          legacyFlags,
+        }),
+      ),
+      admin: sidebarGroups.admin.filter((item) =>
+        isSidebarItemVisible({
+          sectionKey: 'admin',
+          itemKey: item.key,
+          isAdminUser,
+          isRootUser,
+          isModuleVisible,
+          legacyFlags,
+        }),
+      ),
+    }),
+    [
+      sidebarGroups,
+      isAdminUser,
+      isRootUser,
+      isModuleVisible,
+      legacyFlags,
+    ],
+  );
 
   useEffect(() => {
-    if (isSectionPath(sidebarGroups.workspace, location.pathname)) {
+    if (isSectionPath(filteredSidebarGroups.workspace, location.pathname)) {
       setActiveSection(SECTION_NAMES.WORKSPACE);
       return;
     }
 
-    if (isSectionPath(sidebarGroups.account, location.pathname)) {
+    if (isSectionPath(filteredSidebarGroups.account, location.pathname)) {
       setActiveSection(SECTION_NAMES.ACCOUNT);
       return;
     }
 
-    if (isSectionPath(sidebarGroups.admin, location.pathname)) {
+    if (isSectionPath(filteredSidebarGroups.admin, location.pathname)) {
       setActiveSection(SECTION_NAMES.ADMIN);
     }
-  }, [location.pathname, setActiveSection, sidebarGroups]);
+  }, [location.pathname, setActiveSection, filteredSidebarGroups]);
 
   const workspaceNodes = useMemo(
     () =>
-      sidebarGroups.workspace.map((item) => (
+      filteredSidebarGroups.workspace.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
@@ -147,12 +261,12 @@ const Sidebar = ({ onNavigate = () => {} }) => {
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, sidebarGroups],
+    [collapsed, onNavigate, filteredSidebarGroups],
   );
 
   const accountNodes = useMemo(
     () =>
-      sidebarGroups.account.map((item) => (
+      filteredSidebarGroups.account.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
@@ -162,12 +276,12 @@ const Sidebar = ({ onNavigate = () => {} }) => {
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, sidebarGroups],
+    [collapsed, onNavigate, filteredSidebarGroups],
   );
 
   const adminNodes = useMemo(
     () =>
-      sidebarGroups.admin.map((item) => (
+      filteredSidebarGroups.admin.map((item) => (
         <SidebarItem
           key={item.key}
           collapsed={collapsed}
@@ -177,7 +291,7 @@ const Sidebar = ({ onNavigate = () => {} }) => {
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, sidebarGroups],
+    [collapsed, onNavigate, filteredSidebarGroups],
   );
 
   if (isPricingRoute) {
@@ -278,15 +392,19 @@ const Sidebar = ({ onNavigate = () => {} }) => {
 
   return (
     <nav className='aurora-sidebar' aria-label={t('控制台导航')}>
-      <SidebarSection title={sectionLabels.WORKSPACE} collapsed={collapsed}>
-        {workspaceNodes}
-      </SidebarSection>
+      {workspaceNodes.length > 0 && (
+        <SidebarSection title={sectionLabels.WORKSPACE} collapsed={collapsed}>
+          {workspaceNodes}
+        </SidebarSection>
+      )}
 
-      <SidebarSection title={sectionLabels.ACCOUNT} collapsed={collapsed}>
-        {accountNodes}
-      </SidebarSection>
+      {accountNodes.length > 0 && (
+        <SidebarSection title={sectionLabels.ACCOUNT} collapsed={collapsed}>
+          {accountNodes}
+        </SidebarSection>
+      )}
 
-      {isAdminUser && (
+      {isAdminUser && adminNodes.length > 0 && (
         <SidebarSection title={sectionLabels.ADMIN} collapsed={collapsed}>
           {adminNodes}
         </SidebarSection>

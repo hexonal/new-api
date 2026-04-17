@@ -35,12 +35,6 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { isRoot } from '../../../helpers';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '../../primitives/tabs';
 import OperationSetting from '../../../components/settings/OperationSetting';
 import DashboardSetting from '../../../components/settings/DashboardSetting';
 import ChatsSetting from '../../../components/settings/ChatsSetting';
@@ -59,6 +53,7 @@ const TAB_META = [
     key: 'operation',
     label: '运营设置',
     caption: 'General',
+    description: '站点开关、模块可见性、敏感词与监控告警策略。',
     icon: Settings,
     Component: OperationSetting,
   },
@@ -66,6 +61,7 @@ const TAB_META = [
     key: 'dashboard',
     label: '仪表盘设置',
     caption: 'Dashboard',
+    description: '控制台公告、API 信息、FAQ 与 Uptime 数据配置。',
     icon: LayoutDashboard,
     Component: DashboardSetting,
   },
@@ -73,6 +69,7 @@ const TAB_META = [
     key: 'chats',
     label: '聊天设置',
     caption: 'Chat',
+    description: '聊天模板、默认行为与展示策略配置。',
     icon: MessageSquare,
     Component: ChatsSetting,
   },
@@ -80,6 +77,7 @@ const TAB_META = [
     key: 'drawing',
     label: '绘图设置',
     caption: 'Drawing',
+    description: '绘图通道与 Midjourney 等相关参数设置。',
     icon: Brush,
     Component: DrawingSetting,
   },
@@ -87,6 +85,7 @@ const TAB_META = [
     key: 'payment',
     label: '支付设置',
     caption: 'Payment',
+    description: '充值通道、价格项与第三方支付网关配置。',
     icon: CreditCard,
     Component: PaymentSetting,
   },
@@ -94,6 +93,7 @@ const TAB_META = [
     key: 'ratio',
     label: '分组与模型定价设置',
     caption: 'Ratio',
+    description: '模型倍率、分组倍率及上游比率同步能力。',
     icon: Calculator,
     Component: RatioSetting,
   },
@@ -101,6 +101,7 @@ const TAB_META = [
     key: 'ratelimit',
     label: '速率限制设置',
     caption: 'Rate Limit',
+    description: '请求节流与速率门限规则配置。',
     icon: Gauge,
     Component: RateLimitSetting,
   },
@@ -108,6 +109,7 @@ const TAB_META = [
     key: 'models',
     label: '模型相关设置',
     caption: 'Model',
+    description: '全局模型参数、厂商兼容参数与特性开关。',
     icon: Shapes,
     Component: ModelSetting,
   },
@@ -115,6 +117,7 @@ const TAB_META = [
     key: 'model-deployment',
     label: '模型部署设置',
     caption: 'Deployment',
+    description: '模型部署参数与联通性校验配置。',
     icon: Server,
     Component: ModelDeploymentSetting,
   },
@@ -122,6 +125,7 @@ const TAB_META = [
     key: 'performance',
     label: '性能设置',
     caption: 'Performance',
+    description: '缓存、资源阈值与性能监控相关配置。',
     icon: Timer,
     Component: PerformanceSetting,
   },
@@ -129,6 +133,7 @@ const TAB_META = [
     key: 'system',
     label: '系统设置',
     caption: 'System',
+    description: '认证、邮件、OAuth、域名策略等系统级配置。',
     icon: Cog,
     Component: SystemSetting,
   },
@@ -136,6 +141,7 @@ const TAB_META = [
     key: 'other',
     label: '其他设置',
     caption: 'Other',
+    description: '导入导出、系统信息与补充功能配置。',
     icon: MoreHorizontal,
     Component: OtherSetting,
   },
@@ -148,6 +154,124 @@ const parseInitialTab = (search, tabKeys = []) => {
     return rawTab;
   }
   return tabKeys[0] || 'operation';
+};
+
+const getUpdatedSearch = (search, nextTab) => {
+  const params = new URLSearchParams(search);
+  params.set('tab', nextTab);
+  return params.toString();
+};
+
+const SettingsHero = ({ activeMeta, tabs, t }) => {
+  return (
+    <div className='grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]'>
+      <div className='rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-sm'>
+        <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500'>
+          {t('System Settings')}
+        </div>
+        <h1 className='mt-3 text-4xl font-semibold tracking-tight text-slate-900'>
+          {t('系统设置')}
+        </h1>
+        <p className='mt-2 max-w-3xl text-sm text-slate-600'>
+          {t('统一管理平台能力、渠道运营、模型部署、价格策略与系统治理配置。')}
+        </p>
+      </div>
+
+      <div className='rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 px-6 py-6 shadow-sm'>
+        <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500'>
+          {t('当前配置域')}
+        </div>
+        <div className='mt-3 text-2xl font-semibold text-slate-900'>
+          {activeMeta.label}
+        </div>
+        <div className='mt-1 text-sm text-slate-600'>{activeMeta.caption}</div>
+        <div className='mt-6 grid grid-cols-2 gap-3'>
+          <div className='rounded-xl border border-slate-200 bg-white/80 p-4'>
+            <div className='text-xs text-slate-500'>{t('配置分区')}</div>
+            <div className='mt-2 text-xl font-semibold text-slate-900'>
+              {tabs.length}
+            </div>
+          </div>
+          <div className='rounded-xl border border-slate-200 bg-white/80 p-4'>
+            <div className='text-xs text-slate-500'>{t('当前标签')}</div>
+            <div className='mt-2 text-xl font-semibold text-slate-900'>
+              {activeMeta.caption}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SettingsNav = ({ tabs, activeTab, onTabChange, t }) => {
+  return (
+    <aside className='sticky top-24 h-fit rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm'>
+      <div className='mb-4 px-2'>
+        <p className='text-lg font-semibold tracking-tight text-slate-900'>
+          {t('系统设置')}
+        </p>
+        <p className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500'>
+          {t('全局配置')}
+        </p>
+      </div>
+      <nav className='space-y-1' aria-label={t('系统设置导航')}>
+        {tabs.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <button
+              key={tab.key}
+              type='button'
+              onClick={() => onTabChange(tab.key)}
+              className={[
+                'group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-all',
+                isActive
+                  ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
+                  : 'text-slate-600 hover:bg-white hover:text-slate-900',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'mt-0.5 inline-flex rounded-lg p-1.5',
+                  isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100',
+                ].join(' ')}
+              >
+                <tab.icon size={15} />
+              </span>
+              <span className='min-w-0 flex-1'>
+                <span className='block text-sm font-semibold'>{tab.label}</span>
+                <span className='mt-0.5 block text-[11px] uppercase tracking-[0.12em] text-slate-500'>
+                  {tab.caption}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+};
+
+const SettingsContent = ({ activeMeta, t }) => {
+  return (
+    <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5'>
+      <div className='mb-4 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3'>
+        <div className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500'>
+          {t('当前模块')}
+        </div>
+        <div className='mt-1 flex flex-wrap items-center gap-2'>
+          <span className='text-base font-semibold text-slate-900'>
+            {activeMeta.label}
+          </span>
+          <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600'>
+            {activeMeta.caption}
+          </span>
+        </div>
+        <p className='mt-2 text-sm text-slate-600'>{activeMeta.description}</p>
+      </div>
+      <activeMeta.Component />
+    </section>
+  );
 };
 
 export default function SettingsPage() {
@@ -173,9 +297,9 @@ export default function SettingsPage() {
 
   const onTabChange = (tab) => {
     setActiveTab(tab);
-    const search = new URLSearchParams(location.search);
-    search.set('tab', tab);
-    navigate(`${location.pathname}?${search.toString()}`, { replace: true });
+    navigate(`${location.pathname}?${getUpdatedSearch(location.search, tab)}`, {
+      replace: true,
+    });
   };
 
   if (!isRoot()) {
@@ -184,73 +308,17 @@ export default function SettingsPage() {
 
   return (
     <div className='space-y-5'>
-      <div className='grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]'>
-        <div className='rounded-[28px] border border-border/70 bg-card px-6 py-6 shadow-sm'>
-          <div className='text-xs uppercase tracking-[0.16em] text-muted-foreground'>
-            {t('System Settings')}
-          </div>
-          <h1 className='mt-3 text-4xl font-semibold tracking-tight text-foreground'>
-            {t('系统设置')}
-          </h1>
-          <p className='mt-2 max-w-3xl text-sm text-muted-foreground'>
-            {t(
-              '统一管理平台能力、渠道运营、模型部署、价格策略与系统治理配置。',
-            )}
-          </p>
-        </div>
+      <SettingsHero activeMeta={activeMeta} tabs={tabs} t={t} />
 
-        <div className='rounded-[28px] border border-primary/15 bg-gradient-to-br from-primary/10 via-card to-secondary/10 px-6 py-6 shadow-sm'>
-          <div className='text-xs uppercase tracking-[0.16em] text-muted-foreground'>
-            {t('当前配置域')}
-          </div>
-          <div className='mt-3 text-2xl font-semibold'>{activeMeta.label}</div>
-          <div className='mt-1 text-sm text-muted-foreground'>
-            {activeMeta.caption}
-          </div>
-          <div className='mt-6 grid grid-cols-2 gap-3'>
-            <div className='rounded-2xl border border-border/60 bg-background/75 p-4'>
-              <div className='text-xs text-muted-foreground'>
-                {t('配置分区')}
-              </div>
-              <div className='mt-2 text-xl font-semibold'>{tabs.length}</div>
-            </div>
-            <div className='rounded-2xl border border-border/60 bg-background/75 p-4'>
-              <div className='text-xs text-muted-foreground'>
-                {t('当前标签')}
-              </div>
-              <div className='mt-2 text-xl font-semibold'>
-                {activeMeta.caption}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className='grid gap-5 xl:grid-cols-[290px_minmax(0,1fr)]'>
+        <SettingsNav
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          t={t}
+        />
+        <SettingsContent activeMeta={activeMeta} t={t} />
       </div>
-
-      <Tabs value={activeTab} onValueChange={onTabChange} className='w-full'>
-        <TabsList className='grid h-auto w-full grid-cols-2 gap-2 rounded-[24px] border border-border/70 bg-muted/20 p-2 md:grid-cols-3 xl:grid-cols-4'>
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.key}
-              value={tab.key}
-              className='flex min-h-[72px] flex-col items-start gap-1 rounded-2xl px-4 py-3 text-left'
-            >
-              <div className='flex items-center gap-2'>
-                <tab.icon size={16} />
-                <span className='text-sm font-semibold'>{tab.caption}</span>
-              </div>
-              <span className='text-xs text-muted-foreground'>{tab.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {tabs.map((tab) => (
-          <TabsContent key={`${tab.key}-panel`} value={tab.key}>
-            <div className='rounded-[28px] border border-border/70 bg-card p-4 shadow-sm md:p-5'>
-              <tab.Component />
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
     </div>
   );
 }
