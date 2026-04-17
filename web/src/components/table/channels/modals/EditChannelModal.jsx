@@ -190,6 +190,34 @@ function safeParseJsonObject(raw) {
   }
 }
 
+function normalizeStringList(value, fallbackKey) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item.trim();
+        }
+        if (
+          fallbackKey &&
+          item &&
+          typeof item === 'object' &&
+          typeof item[fallbackKey] === 'string'
+        ) {
+          return item[fallbackKey].trim();
+        }
+        return String(item ?? '').trim();
+      })
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function normalizeBreakerErrorTypes(value) {
   const allowedValues = new Set(
     BREAKER_ERROR_TYPE_OPTIONS.map((option) => option.value),
@@ -309,6 +337,11 @@ const EditChannelModal = (props) => {
   const isEdit = channelId !== undefined;
   const [loading, setLoading] = useState(isEdit);
   const isMobile = useIsMobile();
+  const isRouteMode = props.routeMode === true;
+  const sheetPlacement = props.placement || (isEdit ? 'right' : 'left');
+  const sheetWidth =
+    props.width || (isMobile ? '100%' : isRouteMode ? 640 : 600);
+  const sheetMask = props.mask ?? true;
   const handleCancel = () => {
     props.handleClose();
   };
@@ -324,7 +357,7 @@ const EditChannelModal = (props) => {
     param_override: '',
     status_code_mapping: '',
     models: [],
-    auto_ban: 1,
+    auto_ban: true,
     test_model: '',
     groups: ['default'],
     priority: 0,
@@ -1002,16 +1035,8 @@ const EditChannelModal = (props) => {
     }
     const { success, message, data } = res.data;
     if (success) {
-      if (data.models === '') {
-        data.models = [];
-      } else {
-        data.models = data.models.split(',');
-      }
-      if (data.group === '') {
-        data.groups = [];
-      } else {
-        data.groups = data.group.split(',');
-      }
+      data.models = normalizeStringList(data.models, 'id');
+      data.groups = normalizeStringList(data.group);
       if (data.model_mapping !== '') {
         data.model_mapping = JSON.stringify(
           JSON.parse(data.model_mapping),
@@ -1273,7 +1298,7 @@ const EditChannelModal = (props) => {
       if (formApiRef.current) {
         formApiRef.current.setValues(data);
       }
-      if (data.auto_ban === 0) {
+      if (data.auto_ban === false) {
         setAutoBan(false);
       } else {
         setAutoBan(true);
@@ -2652,7 +2677,7 @@ const EditChannelModal = (props) => {
   return (
     <>
       <SideSheet
-        placement={isEdit ? 'right' : 'left'}
+        placement={sheetPlacement}
         title={
           <Space>
             <Tag color='blue' shape='circle'>
@@ -2665,7 +2690,8 @@ const EditChannelModal = (props) => {
         }
         bodyStyle={{ padding: '0' }}
         visible={props.visible}
-        width={isMobile ? '100%' : 600}
+        width={sheetWidth}
+        mask={sheetMask}
         footer={
           <div className='flex justify-between items-center bg-white'>
             <div className='flex gap-2'>
