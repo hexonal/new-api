@@ -2956,6 +2956,21 @@
     "确认配置后提交，提交成功会自动刷新列表": "確認配置後提交，提交成功會自動重新整理列表",
     "创建模式": "建立模式",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "目前彈層已切換到 Aurora 原生實作，避免使用會觸發 StrictMode 警告的舊版元件鏈。",
+    "channels": {
+      "title": "管道",
+      "description": "管理上游 AI 供應商配置",
+      "refreshAbilities": "刷新能力",
+      "batchOperations": "批量操作",
+      "addChannel": "添加管道",
+      "edit": "編輯",
+      "delete": "刪除",
+      "globalHealth": "全域健康度",
+      "totalBalance": "總餘額",
+      "avgLatency": "平均延遲",
+      "estimatedRemaining": "預計剩餘 14 天",
+      "acrossActiveProviders": "覆蓋所有活躍供應商",
+      "optimal": "最佳"
+    },
     "home": {
       "hero": {
         "title": "面向 LLM 的統一介面",

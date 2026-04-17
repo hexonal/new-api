@@ -1033,7 +1033,7 @@ export const createCardProPagination = ({
         onPageChange={onPageChange}
         size={isMobile ? 'small' : 'default'}
         showQuickJumper={isMobile}
-        showTotal
+        // showTotal
       />
     </>
   );

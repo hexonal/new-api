@@ -3277,6 +3277,21 @@
     "确认配置后提交，提交成功会自动刷新列表": "設定を確認してから送信してください。成功すると一覧が自動で更新されます。",
     "创建模式": "作成モード",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "このダイアログは StrictMode 警告を引き起こす旧コンポーネント連鎖を避けるため、Aurora ネイティブ実装に切り替えられました。",
+    "channels": {
+      "title": "チャネル",
+      "description": "上流AIプロバイダー設定を管理",
+      "refreshAbilities": "能力を更新",
+      "batchOperations": "一括操作",
+      "addChannel": "チャネル追加",
+      "edit": "編集",
+      "delete": "削除",
+      "globalHealth": "全体ヘルス",
+      "totalBalance": "合計残高",
+      "avgLatency": "平均レイテンシ",
+      "estimatedRemaining": "残り14日（推定）",
+      "acrossActiveProviders": "有効な全プロバイダー全体",
+      "optimal": "最適"
+    },
     "home": {
       "hero": {
         "title": "LLMのための統一インターフェース",
