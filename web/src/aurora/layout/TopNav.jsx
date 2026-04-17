@@ -18,12 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Search as SearchIcon,
   LayoutDashboard,
   Globe,
+  Boxes,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
@@ -73,8 +74,10 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
   const [statusState] = useContext(StatusContext);
   const [userState, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
   const displayState = getTopNavDisplayState(isMobile);
+  const isPricingRoute = location.pathname === '/pricing';
   const docsLink = useMemo(
     () => getResolvedDocsLink(statusState?.status),
     [statusState?.status],
@@ -171,7 +174,7 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
         ) : null}
 
         <nav className='aurora-top-nav-links' aria-label={t('主导航')}>
-          {quickLinks.map((link) => (
+          {quickLinks.map((link) =>
             link.external ? (
               <a
                 key={link.href}
@@ -190,9 +193,24 @@ const TopNav = ({ onMobileMenu, showMobileMenu = true }) => {
               >
                 {link.label}
               </Link>
-            )
-          ))}
+            ),
+          )}
         </nav>
+
+        {!displayState.showSearch ? (
+          <Link to='/pricing' className='aurora-top-nav-primary-link'>
+            <Button
+              variant={isPricingRoute ? 'secondary' : 'outline'}
+              size='sm'
+              className='aurora-top-nav-primary-btn'
+            >
+              <Boxes size={14} />
+              <span className='aurora-top-nav-primary-text'>
+                {t('模型广场')}
+              </span>
+            </Button>
+          </Link>
+        ) : null}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

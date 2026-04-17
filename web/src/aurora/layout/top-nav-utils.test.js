@@ -22,6 +22,7 @@ import {
   getLanguageSwitcherLabel,
   getResolvedDocsLink,
   getTopNavLinks,
+  isLandingPageEnabled,
   parseHeaderNavModulesConfig,
 } from './top-nav-utils';
 
@@ -122,5 +123,19 @@ describe('top-nav-utils', () => {
 
   test('uses translation key for language switcher label', () => {
     expect(getLanguageSwitcherLabel((key) => `t:${key}`)).toBe('t:切换语言');
+  });
+
+  test('enables landing page by default and disables only when explicitly false', () => {
+    expect(isLandingPageEnabled()).toBe(true);
+    expect(isLandingPageEnabled('')).toBe(true);
+    expect(isLandingPageEnabled(JSON.stringify({}))).toBe(true);
+    expect(
+      isLandingPageEnabled(
+        JSON.stringify({
+          landing: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(isLandingPageEnabled('{invalid-json')).toBe(true);
   });
 });

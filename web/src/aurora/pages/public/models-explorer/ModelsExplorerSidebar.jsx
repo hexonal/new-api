@@ -18,303 +18,220 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
+import { getLobeHubIcon } from '../../../../helpers';
 import { MODALITY_OPTIONS } from './constants';
 
 const ExplorerSectionTitle = ({ children }) => (
   <h3
-    className='text-[13px] font-extrabold uppercase tracking-[0.20em] text-[#182238]'
+    className='text-[12px] font-bold uppercase tracking-[0.16em] text-[#667084]'
     style={{ fontFamily: 'Public Sans, sans-serif' }}
   >
     {children}
   </h3>
 );
 
-const SectionToggleButton = ({ expanded, onClick, title }) => (
-  <button type='button' className='flex w-full items-center justify-between' onClick={onClick}>
-    <ExplorerSectionTitle>{title}</ExplorerSectionTitle>
+const SectionCounter = ({ count }) => {
+  if (count <= 0) {
+    return null;
+  }
+
+  return (
+    <span className='inline-flex min-w-6 items-center justify-center rounded-full bg-[#e9f0ff] px-2 py-1 text-[11px] font-semibold text-[#2f63d8]'>
+      {count}
+    </span>
+  );
+};
+
+const SectionToggleButton = ({ expanded, onClick, selectedCount, title }) => (
+  <button
+    type='button'
+    className='flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-1 py-1'
+    onClick={onClick}
+  >
+    <div className='flex items-center gap-2'>
+      <ExplorerSectionTitle>{title}</ExplorerSectionTitle>
+      <SectionCounter count={selectedCount} />
+    </div>
     <ChevronDown
-      className={`h-5 w-5 text-[#97a0af] transition-transform ${
+      className={`h-[18px] w-[18px] text-[#9aa4b5] transition-transform ${
         expanded ? 'rotate-180' : ''
       }`}
     />
   </button>
 );
 
-const ModalityPanel = ({ selectedModalities, t, toggleModality }) => (
-  <div className='mb-8'>
-    <h3
-      className='mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#98a0af]'
-      style={{ fontFamily: 'Public Sans, sans-serif' }}
-    >
-      {t('输入类型')}
-    </h3>
-    <div className='space-y-3'>
-      {MODALITY_OPTIONS.map((item) => (
-        <label key={item.key} className='group flex cursor-pointer items-center gap-3'>
-          <input
-            type='checkbox'
-            checked={selectedModalities.includes(item.key)}
-            onChange={() => toggleModality(item.key)}
-            className='h-6 w-6 rounded-md border-gray-300 text-[#3b74e6] focus:ring-[#3b74e6]'
+const FilterTagButton = ({ active, icon, label, onClick }) => (
+  <button
+    type='button'
+    onClick={onClick}
+    className={`group inline-flex min-h-10 items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-all ${
+      active
+        ? 'border-[#89aaf2] bg-[#edf3ff] text-[#2f63d8] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
+        : 'border-[#d7dde7] bg-white text-[#455062] hover:border-[#9fb7ea] hover:text-[#2f63d8]'
+    }`}
+  >
+    {active ? <Check className='h-3.5 w-3.5 flex-shrink-0' /> : null}
+    {icon ? <span className='inline-flex items-center'>{icon}</span> : null}
+    <span className='truncate'>{label}</span>
+  </button>
+);
+
+const FilterOptionCloud = ({
+  emptyText = '-',
+  options,
+  selectedOptions,
+  toggleOption,
+}) => {
+  if (options.length === 0) {
+    return <span className='text-xs text-[#9aa4b5]'>{emptyText}</span>;
+  }
+
+  return (
+    <div className='max-h-56 overflow-y-auto pr-1'>
+      <div className='flex flex-wrap gap-2'>
+        {options.map((option) => (
+          <FilterTagButton
+            key={option}
+            active={selectedOptions.includes(option)}
+            label={option}
+            onClick={() => toggleOption(option)}
           />
-          <span className='text-[15px] font-semibold text-[#414c5e] transition-colors group-hover:text-[#355fc8]'>
-            {t(item.labelKey)}
-          </span>
-        </label>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SectionDivider = () => (
+  <div
+    className='h-px w-full bg-gradient-to-r from-transparent via-[#d8e0ec] to-transparent'
+    aria-hidden={true}
+  />
+);
+
+const ModalityPanel = ({ selectedModalities, t, toggleModality }) => (
+  <div className='space-y-3'>
+    <ExplorerSectionTitle>{t('输入类型')}</ExplorerSectionTitle>
+    <div className='flex flex-wrap gap-2'>
+      {MODALITY_OPTIONS.map((item) => (
+        <FilterTagButton
+          key={item.key}
+          active={selectedModalities.includes(item.key)}
+          label={t(item.labelKey)}
+          onClick={() => toggleModality(item.key)}
+        />
       ))}
     </div>
   </div>
 );
 
-const HiddenSectionDivider = () => (
-  <div className='hidden border-t border-gray-200 pt-4' aria-hidden={true} />
-);
-
-const SeriesOptionButtons = ({ selectedSeries, toggleSeries, visibleSeries }) => (
-  <div className='max-h-56 space-y-1 overflow-y-auto pr-1'>
-    {visibleSeries.map((series) => {
-      const active = selectedSeries.includes(series);
-      return (
-        <button
-          type='button'
-          key={series}
-          onClick={() => toggleSeries(series)}
-          className={`block w-full rounded-[10px] border px-4 py-2 text-left text-[15px] transition-colors ${
-            active
-              ? 'border-[#9db6ea] bg-[#eaf1ff] font-semibold text-[#355fc8]'
-              : 'border-[#cfd4dd] bg-transparent text-[#4a5568] hover:border-[#9db6ea]'
-          }`}
-        >
-          {series}
-        </button>
-      );
-    })}
-  </div>
-);
-
-const SeriesToggleButtons = ({
-  hiddenSeriesCount,
-  seriesOptions,
-  setShowAllSeries,
-  showAllSeries,
-  t,
-}) => (
-  <>
-    {hiddenSeriesCount > 0 && !showAllSeries && (
-      <button
-        type='button'
-        className='text-left text-sm italic text-gray-500 transition-colors hover:text-indigo-600'
-        onClick={() => setShowAllSeries(true)}
-      >
-        + {hiddenSeriesCount} {t('更多')}
-      </button>
-    )}
-    {showAllSeries && seriesOptions.length > 6 && (
-      <button
-        type='button'
-        className='text-left text-sm italic text-gray-500 transition-colors hover:text-indigo-600'
-        onClick={() => setShowAllSeries(false)}
-      >
-        {t('收起')}
-      </button>
-    )}
-  </>
-);
-
-const SeriesOptions = ({
-  hiddenSeriesCount,
-  selectedSeries,
-  seriesOptions,
-  setShowAllSeries,
-  showAllSeries,
-  t,
-  toggleSeries,
-  visibleSeries,
-}) => (
-  <div className='mt-1 space-y-2'>
-    <SeriesOptionButtons
-      selectedSeries={selectedSeries}
-      toggleSeries={toggleSeries}
-      visibleSeries={visibleSeries}
-    />
-    <SeriesToggleButtons
-      hiddenSeriesCount={hiddenSeriesCount}
-      seriesOptions={seriesOptions}
-      setShowAllSeries={setShowAllSeries}
-      showAllSeries={showAllSeries}
-      t={t}
-    />
-    {seriesOptions.length === 0 && <span className='text-xs text-gray-400'>-</span>}
-  </div>
-);
-
 const SeriesSection = ({
   expanded,
-  hiddenSeriesCount,
   selectedSeries,
-  seriesOptions,
   setExpanded,
-  setShowAllSeries,
-  showAllSeries,
   t,
   toggleSeries,
   visibleSeries,
 }) => (
-  <div className='border-t border-[#d7dbe2] pt-6'>
-    <div className='mb-4'>
-      <SectionToggleButton
-        expanded={expanded.series}
-        onClick={() => setExpanded((prev) => ({ ...prev, series: !prev.series }))}
-        title={t('系列')}
+  <div className='space-y-3'>
+    <SectionToggleButton
+      expanded={expanded.series}
+      onClick={() => setExpanded((prev) => ({ ...prev, series: !prev.series }))}
+      selectedCount={selectedSeries.length}
+      title={t('系列')}
+    />
+    {expanded.series ? (
+      <FilterOptionCloud
+        options={visibleSeries}
+        selectedOptions={selectedSeries}
+        toggleOption={toggleSeries}
       />
-    </div>
-    {expanded.series && (
-      <SeriesOptions
-        hiddenSeriesCount={hiddenSeriesCount}
-        selectedSeries={selectedSeries}
-        seriesOptions={seriesOptions}
-        setShowAllSeries={setShowAllSeries}
-        showAllSeries={showAllSeries}
-        t={t}
-        toggleSeries={toggleSeries}
-        visibleSeries={visibleSeries}
-      />
-    )}
-  </div>
-);
-
-const ProviderOptions = ({
-  hiddenProviderCount,
-  providerOptions,
-  selectedProviders,
-  setShowAllProviders,
-  showAllProviders,
-  t,
-  toggleProvider,
-  visibleProviders,
-}) => (
-  <div className='mt-4 space-y-2'>
-    {visibleProviders.map((provider) => {
-      const active = selectedProviders.includes(provider);
-      return (
-        <button
-          type='button'
-          key={provider}
-          onClick={() => toggleProvider(provider)}
-          className={`block text-left text-[18px] leading-9 transition-colors ${
-            active ? 'font-semibold text-[#355fc8]' : 'text-[#4a5568] hover:text-[#355fc8]'
-          }`}
-        >
-          {provider}
-        </button>
-      );
-    })}
-    {hiddenProviderCount > 0 && !showAllProviders && (
-      <button
-        type='button'
-        className='text-left text-[18px] italic text-[#6b7688] transition-colors hover:text-[#355fc8]'
-        onClick={() => setShowAllProviders(true)}
-      >
-        + {hiddenProviderCount} {t('更多')}
-      </button>
-    )}
-    {showAllProviders && providerOptions.length > 3 && (
-      <button
-        type='button'
-        className='text-left text-[18px] italic text-[#6b7688] transition-colors hover:text-[#355fc8]'
-        onClick={() => setShowAllProviders(false)}
-      >
-        {t('收起')}
-      </button>
-    )}
+    ) : null}
   </div>
 );
 
 const ProviderSection = ({
   expanded,
-  hiddenProviderCount,
-  providerOptions,
   selectedProviders,
   setExpanded,
-  setShowAllProviders,
-  showAllProviders,
   t,
   toggleProvider,
   visibleProviders,
 }) => (
-  <div className='border-t border-[#d7dbe2] pt-6'>
+  <div className='space-y-3'>
     <SectionToggleButton
       expanded={expanded.providers}
-      onClick={() => setExpanded((prev) => ({ ...prev, providers: !prev.providers }))}
+      onClick={() =>
+        setExpanded((prev) => ({ ...prev, providers: !prev.providers }))
+      }
+      selectedCount={selectedProviders.length}
       title={t('供应商')}
     />
-    {expanded.providers && (
-      <ProviderOptions
-        hiddenProviderCount={hiddenProviderCount}
-        providerOptions={providerOptions}
-        selectedProviders={selectedProviders}
-        setShowAllProviders={setShowAllProviders}
-        showAllProviders={showAllProviders}
-        t={t}
-        toggleProvider={toggleProvider}
-        visibleProviders={visibleProviders}
-      />
-    )}
+    {expanded.providers ? (
+      <div className='max-h-56 overflow-y-auto pr-1'>
+        <div className='flex flex-wrap gap-2'>
+          {visibleProviders.map((provider) => (
+            <FilterTagButton
+              key={provider}
+              active={selectedProviders.includes(provider)}
+              icon={
+                <span className='inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'>
+                  {getLobeHubIcon(provider, 14)}
+                </span>
+              }
+              label={provider}
+              onClick={() => toggleProvider(provider)}
+            />
+          ))}
+        </div>
+      </div>
+    ) : null}
   </div>
 );
 
-const ExpandablePanels = (props) => (
-  <div className='space-y-6'>
-    <HiddenSectionDivider />
-    <HiddenSectionDivider />
-    <SeriesSection {...props} />
-    <ProviderSection {...props} />
-  </div>
-);
+const ModelsExplorerSidebar = ({
+  className = '',
+  isMobile = false,
+  optionPanels,
+  selectedModalities,
+  selections,
+  t,
+}) => {
+  const { expanded, setExpanded, visibleProviders, visibleSeries } =
+    optionPanels;
 
-const ModelsExplorerSidebar = ({ optionPanels, selectedModalities, selections, t }) => {
-  const {
-    expanded,
-    hiddenProviderCount,
-    hiddenSeriesCount,
-    providerOptions,
-    setExpanded,
-    setShowAllProviders,
-    setShowAllSeries,
-    showAllProviders,
-    showAllSeries,
-    seriesOptions,
-    visibleProviders,
-    visibleSeries,
-  } = optionPanels;
+  const sidebarClassName = isMobile
+    ? 'w-full rounded-[22px] border border-[#dbe2ea] bg-white px-4 py-5 shadow-[0_14px_32px_rgba(25,39,73,0.08)]'
+    : 'my-4 ml-4 w-[276px] flex-shrink-0 self-start rounded-[28px] border border-[#d8e0ec] bg-gradient-to-b from-[#fcfdff] to-[#f4f7fc] px-5 py-6 shadow-[0_18px_42px_rgba(22,34,60,0.08)]';
 
   return (
-    <aside className='my-4 ml-4 w-[252px] flex-shrink-0 self-start rounded-[30px] border border-[#d8dde5] border-r-[#cfd5de] bg-[#f1f3f6] px-6 py-7'>
-      <ModalityPanel
-        selectedModalities={selectedModalities}
-        t={t}
-        toggleModality={selections.toggleModality}
-      />
-      <ExpandablePanels
-        expanded={expanded}
-        hiddenProviderCount={hiddenProviderCount}
-        hiddenSeriesCount={hiddenSeriesCount}
-        providerOptions={providerOptions}
-        selectedProviders={selections.selectedProviders}
-        selectedSeries={selections.selectedSeries}
-        setExpanded={setExpanded}
-        setShowAllProviders={setShowAllProviders}
-        setShowAllSeries={setShowAllSeries}
-        showAllProviders={showAllProviders}
-        showAllSeries={showAllSeries}
-        seriesOptions={seriesOptions}
-        t={t}
-        toggleProvider={selections.toggleProvider}
-        toggleSeries={selections.toggleSeries}
-        visibleProviders={visibleProviders}
-        visibleSeries={visibleSeries}
-      />
+    <aside className={`${sidebarClassName} ${className}`.trim()}>
+      <div className='space-y-5'>
+        <ProviderSection
+          expanded={expanded}
+          selectedProviders={selections.selectedProviders}
+          setExpanded={setExpanded}
+          t={t}
+          toggleProvider={selections.toggleProvider}
+          visibleProviders={visibleProviders}
+        />
+        <SectionDivider />
+        <SeriesSection
+          expanded={expanded}
+          selectedSeries={selections.selectedSeries}
+          setExpanded={setExpanded}
+          t={t}
+          toggleSeries={selections.toggleSeries}
+          visibleSeries={visibleSeries}
+        />
+        <SectionDivider />
+        <ModalityPanel
+          selectedModalities={selectedModalities}
+          t={t}
+          toggleModality={selections.toggleModality}
+        />
+      </div>
     </aside>
   );
 };

@@ -578,7 +578,7 @@ export const useChannelsData = () => {
     try {
       const res = await API.post(`/api/channel/copy/${record.id}`);
       if (res?.data?.success) {
-        showSuccess(t('渠道复制成功'));
+        console.info(t('渠道复制成功'));
         await refresh();
       } else {
         showError(res?.data?.message || t('渠道复制失败'));

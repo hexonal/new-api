@@ -442,6 +442,56 @@ export function getChannelIcon(channelType) {
   }
 }
 
+const normalizeLobeIconToken = (value) =>
+  String(value || '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+
+const lobeIconKeyLookup = (() => {
+  const map = new Map();
+  Object.keys(LobeIcons).forEach((key) => {
+    const normalized = normalizeLobeIconToken(key);
+    if (normalized && !map.has(normalized)) {
+      map.set(normalized, key);
+    }
+  });
+  return map;
+})();
+
+const LOBE_ICON_ALIASES = {
+  anthropic: 'Claude',
+  google: 'Gemini',
+  googleai: 'Gemini',
+  googlegemini: 'Gemini',
+  x: 'XAI',
+  xaiapi: 'XAI',
+};
+
+const resolveLobeIconBaseKey = (baseKey) => {
+  if (!baseKey) {
+    return '';
+  }
+  if (LobeIcons[baseKey]) {
+    return baseKey;
+  }
+
+  const normalized = normalizeLobeIconToken(baseKey);
+  if (!normalized) {
+    return baseKey;
+  }
+
+  const alias = LOBE_ICON_ALIASES[normalized];
+  if (alias) {
+    const aliasResolved =
+      lobeIconKeyLookup.get(normalizeLobeIconToken(alias)) || alias;
+    if (LobeIcons[aliasResolved]) {
+      return aliasResolved;
+    }
+  }
+
+  return lobeIconKeyLookup.get(normalized) || baseKey;
+};
+
 /**
  * 根据图标名称动态获取 LobeHub 图标组件
  * 支持：
@@ -459,26 +509,42 @@ export function getLobeHubIcon(iconName, size = 14) {
     return <Avatar size='extra-extra-small'>?</Avatar>;
   }
 
-  // 支持本地静态资源图标（如 /ima-pro-logo.png）
-  if (typeof iconName === 'string' && iconName.startsWith('/')) {
+  // 支持图片 URL 图标（本地/远程/data URL）
+  if (
+    typeof iconName === 'string' &&
+    (iconName.startsWith('/') ||
+      /^https?:\/\//i.test(iconName) ||
+      iconName.startsWith('data:image/'))
+  ) {
     return (
       <img
         src={iconName}
-        alt={String.fromCharCode(109, 111, 100, 101, 108, 32, 105, 99, 111, 110)}
+        alt={String.fromCharCode(
+          109,
+          111,
+          100,
+          101,
+          108,
+          32,
+          105,
+          99,
+          111,
+          110,
+        )}
         onError={(e) => {
           e.currentTarget.onerror = null;
           e.currentTarget.src = '/logo.png';
         }}
         width={size}
         height={size}
-        style={{ borderRadius: 4, objectFit: 'cover' }}
+        style={{ borderRadius: 4, objectFit: 'contain' }}
       />
     );
   }
 
   // 解析组件路径与点号链式属性
   const segments = String(iconName).split('.');
-  const baseKey = segments[0];
+  const baseKey = resolveLobeIconBaseKey(segments[0]);
   const BaseIcon = LobeIcons[baseKey];
 
   let IconComponent = undefined;
@@ -614,7 +680,21 @@ export function getOAuthProviderIcon(iconName, size = 20) {
     return (
       <img
         src={raw}
-        alt={String.fromCharCode(112, 114, 111, 118, 105, 100, 101, 114, 32, 105, 99, 111, 110)}
+        alt={String.fromCharCode(
+          112,
+          114,
+          111,
+          118,
+          105,
+          100,
+          101,
+          114,
+          32,
+          105,
+          99,
+          111,
+          110,
+        )}
         onError={(e) => {
           e.currentTarget.onerror = null;
           e.currentTarget.src = '/logo.png';

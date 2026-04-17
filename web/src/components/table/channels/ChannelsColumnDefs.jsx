@@ -20,7 +20,6 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import {
   Button,
-  Dropdown,
   InputNumber,
   Modal,
   Space,
@@ -28,7 +27,7 @@ import {
   Tag,
   Tooltip,
   Typography,
-  Switch
+  Switch,
 } from '@douyinfe/semi-ui';
 import {
   timestamp2string,
@@ -45,11 +44,7 @@ import {
   MODEL_FETCHABLE_CHANNEL_TYPES,
 } from '../../../constants';
 import { parseUpstreamUpdateMeta } from '../../../hooks/channels/upstreamUpdateUtils';
-import {
-  IconTreeTriangleDown,
-  IconMore,
-  IconAlertTriangle,
-} from '@douyinfe/semi-icons';
+import { IconTreeTriangleDown, IconAlertTriangle } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
 
 // Render functions
@@ -173,36 +168,28 @@ const renderStatus = (status, channelInfo = undefined, t) => {
         // <Tag color='green' shape='circle'>
         //   {t('已启用')}
         // </Tag>
-        <Switch
-          checked={status === 1}
-        />
+        <Switch checked={status === 1} />
       );
     case 2:
       return (
         // <Tag color='red' shape='circle'>
         //   {t('已禁用')}
         // </Tag>
-        <Switch
-          checked={status === 1}
-        />
+        <Switch checked={status === 1} />
       );
     case 3:
       return (
         // <Tag color='yellow' shape='circle'>
         //   {t('自动禁用')}
         // </Tag>
-        <Switch
-          checked={status === 1}
-        />
+        <Switch checked={status === 1} />
       );
     default:
       return (
         // <Tag color='grey' shape='circle'>
         //   {t('未知状态')}
         // </Tag>
-        <Switch
-          checked={status === 1}
-        />
+        <Switch checked={status === 1} />
       );
   }
 };
@@ -244,26 +231,36 @@ const renderResponseTime = (responseTime, t) => {
       // <Tag color='grey' shape='circle'>
       //   {t('未测试')}
       // </Tag>
-      <div className='text-[rgba(156,163,175,1)] text-xs font-semibold'>{t('未测试')}</div>
+      <div className='text-[rgba(156,163,175,1)] text-xs font-semibold'>
+        {t('未测试')}
+      </div>
     );
   } else if (responseTime <= 1000) {
     return (
       // <Tag color='green' shape='circle'>
       //   {time}
       // </Tag>
-      <div className='text-[rgba(34,197,94,1)] text-xs font-semibold'>{time}</div>
+      <div className='text-[rgba(34,197,94,1)] text-xs font-semibold'>
+        {time}
+      </div>
     );
   } else if (responseTime <= 3000) {
     return (
-      <div className='text-[rgba(132,204,22,1)] text-xs font-semibold'>{time}</div>
+      <div className='text-[rgba(132,204,22,1)] text-xs font-semibold'>
+        {time}
+      </div>
     );
   } else if (responseTime <= 5000) {
     return (
-      <div className='text-[rgba(250,204,21,1)] text-xs font-semibold'>{time}</div>
+      <div className='text-[rgba(250,204,21,1)] text-xs font-semibold'>
+        {time}
+      </div>
     );
   } else {
     return (
-      <div className='text-[rgba(239,68,68,1)] text-xs font-semibold'>{time}</div>
+      <div className='text-[rgba(239,68,68,1)] text-xs font-semibold'>
+        {time}
+      </div>
     );
   }
 };
@@ -566,7 +563,9 @@ export const getChannelsColumns = ({
                   </Tag>
                 </Tooltip>
               </Space> */}
-              <div className='text-sm font-semibold'>{renderQuota(record.used_quota)}</div>
+              <div className='text-sm font-semibold'>
+                {renderQuota(record.used_quota)}
+              </div>
             </div>
           );
         } else {
@@ -576,9 +575,7 @@ export const getChannelsColumns = ({
             //     {renderQuota(record.used_quota)}
             //   </Tag>
             // </Tooltip>
-            <div>
-              {renderQuota(record.used_quota)}
-            </div>
+            <div>{renderQuota(record.used_quota)}</div>
           );
         }
       },
@@ -707,21 +704,19 @@ export const getChannelsColumns = ({
               name: t('删除'),
               type: 'danger',
               onClick: () => {
-                Modal.confirm({
-                  title: t('确定是否要删除此渠道？'),
-                  content: t('此修改将不可逆'),
-                  onOk: () => {
-                    (async () => {
-                      await manageChannel(record.id, 'delete', record);
-                      await refresh();
-                      setTimeout(() => {
-                        if (channels.length === 0 && activePage > 1) {
-                          refresh(activePage - 1);
-                        }
-                      }, 100);
-                    })();
-                  },
-                });
+                const shouldDelete = window.confirm(t('此修改将不可逆'));
+                if (!shouldDelete) {
+                  return;
+                }
+                (async () => {
+                  await manageChannel(record.id, 'delete', record);
+                  await refresh();
+                  setTimeout(() => {
+                    if (channels.length === 0 && activePage > 1) {
+                      refresh(activePage - 1);
+                    }
+                  }, 100);
+                })();
               },
             },
             {
@@ -729,11 +724,10 @@ export const getChannelsColumns = ({
               name: t('复制'),
               type: 'tertiary',
               onClick: () => {
-                Modal.confirm({
-                  title: t('确定是否要复制此渠道？'),
-                  content: t('复制渠道的所有信息'),
-                  onOk: () => copySelectedChannel(record),
-                });
+                const shouldCopy = window.confirm(t('复制渠道的所有信息'));
+                if (shouldCopy) {
+                  copySelectedChannel(record);
+                }
               },
             },
           ];
@@ -837,26 +831,16 @@ export const getChannelsColumns = ({
                   >
                     {t('编辑')}
                   </Button>
-                  <Dropdown
-                    trigger='click'
-                    position='bottomRight'
-                    menu={[
-                      {
-                        node: 'item',
-                        name: t('多密钥管理'),
-                        onClick: () => {
-                          setCurrentMultiKeyChannel(record);
-                          setShowMultiKeyManageModal(true);
-                        },
-                      },
-                    ]}
+                  <Button
+                    type='tertiary'
+                    size='small'
+                    onClick={() => {
+                      setCurrentMultiKeyChannel(record);
+                      setShowMultiKeyManageModal(true);
+                    }}
                   >
-                    <Button
-                      type='tertiary'
-                      size='small'
-                      icon={<IconTreeTriangleDown />}
-                    />
-                  </Dropdown>
+                    {t('多密钥管理')}
+                  </Button>
                 </SplitButtonGroup>
               ) : (
                 <Button
@@ -871,13 +855,16 @@ export const getChannelsColumns = ({
                 </Button>
               )}
 
-              <Dropdown
-                trigger='click'
-                position='bottomRight'
-                menu={moreMenuItems}
-              >
-                <Button icon={<IconMore />} type='tertiary' size='small' />
-              </Dropdown>
+              {moreMenuItems.map((item, itemIndex) => (
+                <Button
+                  key={`${record.id || record.key || 'channel'}-more-${itemIndex}`}
+                  type={item?.type || 'tertiary'}
+                  size='small'
+                  onClick={() => item?.onClick?.()}
+                >
+                  {item?.name}
+                </Button>
+              ))}
             </Space>
           );
         } else {

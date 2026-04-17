@@ -59,6 +59,7 @@ import ResetPasswordPage from './aurora/pages/public/ResetPasswordPage';
 import ModelsExplorerPage from './aurora/pages/public/ModelsExplorerPage';
 import NotFoundPage from './aurora/pages/public/NotFoundPage';
 import ForbiddenPage from './aurora/pages/public/ForbiddenPage';
+import { isLandingPageEnabled } from './aurora/layout/top-nav-utils';
 
 const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -98,10 +99,10 @@ function DynamicOAuth2Callback() {
 export function LegacyApp({ isAuroraTheme = false }) {
   const location = useLocation();
   const [statusState] = useContext(StatusContext);
+  const headerNavModulesConfig = statusState?.status?.HeaderNavModules;
 
   // 获取模型广场权限配置
   const pricingRequireAuth = useMemo(() => {
-    const headerNavModulesConfig = statusState?.status?.HeaderNavModules;
     if (headerNavModulesConfig) {
       try {
         const modules = JSON.parse(headerNavModulesConfig);
@@ -119,7 +120,11 @@ export function LegacyApp({ isAuroraTheme = false }) {
       }
     }
     return false; // 默认不需要登录
-  }, [statusState?.status?.HeaderNavModules]);
+  }, [headerNavModulesConfig]);
+
+  const landingPageEnabled = useMemo(() => {
+    return isLandingPageEnabled(headerNavModulesConfig);
+  }, [headerNavModulesConfig]);
 
   return (
     <SetupCheck>
@@ -128,7 +133,11 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              {isAuroraTheme ? <LandingPage /> : <Home />}
+              {isAuroraTheme
+                ? landingPageEnabled
+                  ? <LandingPage />
+                  : <Home />
+                : <Home />}
             </Suspense>
           }
         />

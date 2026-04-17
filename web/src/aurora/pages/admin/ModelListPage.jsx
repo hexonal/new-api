@@ -27,10 +27,18 @@ import {
   Image as ImageIcon,
   Video,
   AudioLines,
+  Building2,
 } from 'lucide-react';
 import { useModelsData } from '../../../hooks/models/useModelsData';
+import { getChannelIcon, getLobeHubIcon } from '../../../helpers';
 import { cn } from '../../lib/cn';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../primitives/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '../../primitives/card';
 import { Button } from '../../primitives/button';
 import { Input } from '../../primitives/input';
 import { Badge } from '../../primitives/badge';
@@ -72,17 +80,80 @@ const parseEndpoints = (value) => {
 
 const getBoundChannelLabel = (channel) => {
   const name = channel?.name || '-';
-  const count = channel?.count ?? channel?.type;
-  if (count === undefined || count === null || count === '') {
+  const count = Number(channel?.count);
+  if (!Number.isFinite(count) || count <= 0) {
     return name;
   }
   return `${name}(${count})`;
 };
 
+const getBoundChannelIcon = (channel) => {
+  const channelType = Number(channel?.channel_type ?? channel?.type);
+  if (Number.isFinite(channelType)) {
+    const icon = getChannelIcon(channelType);
+    if (icon) {
+      return icon;
+    }
+  }
+
+  if (channel?.icon) {
+    return getLobeHubIcon(channel.icon, 14);
+  }
+
+  return <Building2 className='h-3.5 w-3.5 text-slate-500' />;
+};
+
+const getVendorMeta = (row, vendorMap) => {
+  const vendorId = Number(row?.vendor_id);
+  if (!Number.isFinite(vendorId) || vendorId <= 0) {
+    return null;
+  }
+  return vendorMap?.[vendorId] || null;
+};
+
+const getProviderIcon = (row, vendorMap) => {
+  const vendorMeta = getVendorMeta(row, vendorMap);
+  const iconName =
+    row?.vendor_icon ||
+    vendorMeta?.icon ||
+    row?.vendor ||
+    row?.vendor_name ||
+    vendorMeta?.name ||
+    '';
+  if (!iconName) {
+    return null;
+  }
+  return getLobeHubIcon(iconName, 14);
+};
+
+const getProviderLabel = (row, vendorMap) => {
+  const vendorMeta = getVendorMeta(row, vendorMap);
+  return row?.vendor || row?.vendor_name || vendorMeta?.name || '-';
+};
+
+const getModelIcon = (row, vendorMap) => {
+  const vendorMeta = getVendorMeta(row, vendorMap);
+  const iconName =
+    row?.icon ||
+    row?.vendor_icon ||
+    vendorMeta?.icon ||
+    row?.vendor ||
+    row?.vendor_name ||
+    vendorMeta?.name ||
+    '';
+  if (!iconName) {
+    return null;
+  }
+  return getLobeHubIcon(iconName, 16);
+};
+
 const getModelTypeBadges = (row, t) => {
   const tags = parseCsvTags(row?.tags).map((item) => item.toLowerCase());
-  const endpoints = parseEndpoints(row?.endpoints).map((item) => item.toLowerCase());
-  const keyword = `${row?.model_name || ''} ${row?.description || ''}`.toLowerCase();
+  const endpoints = parseEndpoints(row?.endpoints).map((item) =>
+    item.toLowerCase(),
+  );
+  const keyword =
+    `${row?.model_name || ''} ${row?.description || ''}`.toLowerCase();
   const merged = [...tags, ...endpoints, keyword].join(' ');
 
   const result = [];
@@ -115,16 +186,32 @@ const getModelTypeBadges = (row, t) => {
     merged.includes('tts');
 
   if (hasText || (!hasImage && !hasVideo && !hasAudio)) {
-    result.push({ key: 'text', icon: <FileText className='h-3.5 w-3.5' />, label: t('文本') });
+    result.push({
+      key: 'text',
+      icon: <FileText className='h-3.5 w-3.5' />,
+      label: t('文本'),
+    });
   }
   if (hasImage) {
-    result.push({ key: 'image', icon: <ImageIcon className='h-3.5 w-3.5' />, label: t('图片') });
+    result.push({
+      key: 'image',
+      icon: <ImageIcon className='h-3.5 w-3.5' />,
+      label: t('图片'),
+    });
   }
   if (hasVideo) {
-    result.push({ key: 'video', icon: <Video className='h-3.5 w-3.5' />, label: t('视频') });
+    result.push({
+      key: 'video',
+      icon: <Video className='h-3.5 w-3.5' />,
+      label: t('视频'),
+    });
   }
   if (hasAudio) {
-    result.push({ key: 'audio', icon: <AudioLines className='h-3.5 w-3.5' />, label: t('音频') });
+    result.push({
+      key: 'audio',
+      icon: <AudioLines className='h-3.5 w-3.5' />,
+      label: t('音频'),
+    });
   }
 
   return result;
@@ -158,7 +245,8 @@ export default function ModelListPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchVendor, setSearchVendor] = useState('');
   const [showMissingModels, setShowMissingModels] = useState(false);
-  const [showPrefillGroupManagement, setShowPrefillGroupManagement] = useState(false);
+  const [showPrefillGroupManagement, setShowPrefillGroupManagement] =
+    useState(false);
   const formValuesRef = useRef({
     searchKeyword: '',
     searchVendor: '',
@@ -174,6 +262,7 @@ export default function ModelListPage() {
     pageSize,
     modelCount,
     vendors,
+    vendorMap,
     vendorCounts,
     activeVendorKey,
     setActiveVendorKey,
@@ -210,10 +299,19 @@ export default function ModelListPage() {
       value: String(item.id),
       label: `${item.name} (${vendorCounts[item.id] || 0})`,
     }));
-    return [{ value: 'all', label: `${t('全部')} (${vendorCounts.all || modelCount || 0})` }, ...dynamic];
+    return [
+      {
+        value: 'all',
+        label: `${t('全部')} (${vendorCounts.all || modelCount || 0})`,
+      },
+      ...dynamic,
+    ];
   }, [vendors, vendorCounts, modelCount, t]);
 
-  const totalPages = Math.max(1, Math.ceil((modelCount || 0) / Math.max(1, pageSize || 10)));
+  const totalPages = Math.max(
+    1,
+    Math.ceil((modelCount || 0) / Math.max(1, pageSize || 10)),
+  );
 
   return (
     <div className='space-y-4'>
@@ -234,7 +332,9 @@ export default function ModelListPage() {
       <Card>
         <CardHeader className='pb-4'>
           <CardTitle className='text-base'>{t('模型管理')}</CardTitle>
-          <CardDescription>{t('支持供应商标签筛选、状态切换与快速编辑')}</CardDescription>
+          <CardDescription>
+            {t('支持供应商标签筛选、状态切换与快速编辑')}
+          </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
           <div className='flex flex-col gap-3'>
@@ -252,7 +352,11 @@ export default function ModelListPage() {
                   <RefreshCw className='mr-1 h-3.5 w-3.5' />
                   {t('刷新')}
                 </Button>
-                <Button variant='outline' size='sm' onClick={() => setShowMissingModels(true)}>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setShowMissingModels(true)}
+                >
                   {t('未配置模型')}
                 </Button>
                 <Button
@@ -277,7 +381,10 @@ export default function ModelListPage() {
                 >
                   {t('紧凑列表')}
                 </Button>
-                <Button size='sm' onClick={() => navigate('/console/models/create')}>
+                <Button
+                  size='sm'
+                  onClick={() => navigate('/console/models/create')}
+                >
                   <Plus className='mr-1 h-3.5 w-3.5' />
                   {t('新增模型')}
                 </Button>
@@ -346,18 +453,32 @@ export default function ModelListPage() {
                 {(models || []).map((row) => {
                   const enabled = row.status === 1;
                   const types = getModelTypeBadges(row, t);
+                  const modelIcon = getModelIcon(row, vendorMap);
                   const tags = parseCsvTags(row.tags);
                   const endpoints = parseEndpoints(row.endpoints);
-                  const channels = Array.isArray(row.bound_channels) ? row.bound_channels : [];
+                  const channels = Array.isArray(row.bound_channels)
+                    ? row.bound_channels
+                    : [];
                   return (
                     <Tr key={row.id} className={cn(!enabled && 'bg-muted/40')}>
                       <Td className={compactMode ? 'py-1.5' : ''}>
                         <div className='flex flex-wrap items-center gap-1'>
+                          {modelIcon ? (
+                            <span className='inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-background'>
+                              {modelIcon}
+                            </span>
+                          ) : null}
                           {types.map((item) => (
-                            <Badge key={item.key} variant='outline' className='rounded-full px-1.5'>
+                            <Badge
+                              key={item.key}
+                              variant='outline'
+                              className='rounded-full px-1.5'
+                            >
                               <span className='inline-flex items-center gap-1'>
                                 {item.icon}
-                                <span className='text-[10px]'>{item.label}</span>
+                                <span className='text-[10px]'>
+                                  {item.label}
+                                </span>
                               </span>
                             </Badge>
                           ))}
@@ -367,23 +488,48 @@ export default function ModelListPage() {
                         <div className='font-medium'>{row.model_name}</div>
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
-                        <Badge variant='secondary' className='bg-emerald-100 text-emerald-700'>
+                        <Badge
+                          variant='secondary'
+                          className='bg-emerald-100 text-emerald-700'
+                        >
                           {t('精确')}
                         </Badge>
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
-                        <Badge variant={Number(row.sync_official) === 1 ? 'secondary' : 'outline'}>
+                        <Badge
+                          variant={
+                            Number(row.sync_official) === 1
+                              ? 'secondary'
+                              : 'outline'
+                          }
+                        >
                           {Number(row.sync_official) === 1 ? t('是') : t('否')}
                         </Badge>
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
-                        <Badge variant='outline'>{row.vendor || '-'}</Badge>
+                        <Badge variant='outline' className='rounded-full'>
+                          <span className='inline-flex items-center gap-1'>
+                            {getProviderIcon(row, vendorMap)}
+                            <span>{getProviderLabel(row, vendorMap)}</span>
+                          </span>
+                        </Badge>
                       </Td>
-                      <Td className={cn('max-w-[280px] text-sm text-muted-foreground', compactMode ? 'py-1.5' : '')}>
-                        <div className='line-clamp-2'>{row.description || '-'}</div>
+                      <Td
+                        className={cn(
+                          'max-w-[280px] text-sm text-muted-foreground',
+                          compactMode ? 'py-1.5' : '',
+                        )}
+                      >
+                        <div className='line-clamp-2'>
+                          {row.description || '-'}
+                        </div>
                       </Td>
-                      <Td className={compactMode ? 'py-1.5' : ''}>{renderLimitedBadges(tags, 3)}</Td>
-                      <Td className={compactMode ? 'py-1.5' : ''}>{renderLimitedBadges(endpoints, 3)}</Td>
+                      <Td className={compactMode ? 'py-1.5' : ''}>
+                        {renderLimitedBadges(tags, 3)}
+                      </Td>
+                      <Td className={compactMode ? 'py-1.5' : ''}>
+                        {renderLimitedBadges(endpoints, 3)}
+                      </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
                         {channels.length === 0 ? (
                           '-'
@@ -397,11 +543,17 @@ export default function ModelListPage() {
                                 className='h-auto px-0 text-xs'
                                 onClick={() => navigate('/console/channel')}
                               >
-                                {getBoundChannelLabel(channel)}
+                                <span className='inline-flex items-center gap-1'>
+                                  {getBoundChannelIcon(channel)}
+                                  <span>{getBoundChannelLabel(channel)}</span>
+                                </span>
                               </Button>
                             ))}
                             {channels.length > 3 ? (
-                              <Badge variant='secondary' className='rounded-full'>
+                              <Badge
+                                variant='secondary'
+                                className='rounded-full'
+                              >
                                 +{channels.length - 3}
                               </Badge>
                             ) : null}
@@ -419,7 +571,9 @@ export default function ModelListPage() {
                             <Button
                               size='sm'
                               variant='outline'
-                              onClick={() => manageModel(row.id, 'disable', row)}
+                              onClick={() =>
+                                manageModel(row.id, 'disable', row)
+                              }
                             >
                               {t('禁用')}
                             </Button>
@@ -432,7 +586,12 @@ export default function ModelListPage() {
                               {t('启用')}
                             </Button>
                           )}
-                          <Button size='sm' onClick={() => navigate(`/console/models/${row.id}/edit`)}>
+                          <Button
+                            size='sm'
+                            onClick={() =>
+                              navigate(`/console/models/${row.id}/edit`)
+                            }
+                          >
                             {t('编辑')}
                           </Button>
                           <Button
@@ -449,7 +608,10 @@ export default function ModelListPage() {
                 })}
                 {(models || []).length === 0 ? (
                   <Tr>
-                    <Td colSpan={11} className='py-8 text-center text-sm text-muted-foreground'>
+                    <Td
+                      colSpan={11}
+                      className='py-8 text-center text-sm text-muted-foreground'
+                    >
                       {t('暂无模型数据')}
                     </Td>
                   </Tr>
@@ -461,13 +623,15 @@ export default function ModelListPage() {
           <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
             <div className='text-xs text-muted-foreground'>
               {t('共 {{count}} 条', { count: modelCount || 0 })}
-              {(loading || searching) ? ` · ${t('加载中...')}` : ''}
+              {loading || searching ? ` · ${t('加载中...')}` : ''}
             </div>
             <div className='flex items-center gap-2'>
               <select
                 className='h-9 rounded border border-input bg-background px-2 text-sm'
                 value={pageSize}
-                onChange={(event) => handlePageSizeChange(Number(event.target.value))}
+                onChange={(event) =>
+                  handlePageSizeChange(Number(event.target.value))
+                }
               >
                 {[10, 20, 50, 100].map((size) => (
                   <option key={size} value={size}>

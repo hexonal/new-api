@@ -18,11 +18,22 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { ChevronDown, Grid3X3, List, Search } from 'lucide-react';
+import {
+  ChevronDown,
+  Grid3X3,
+  List,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { CATEGORY_PILLS } from './constants';
 
-const CategoryPills = ({ activeCategory, categoryCountMap, onCategoryClick, t }) => (
-  <div className='mb-8 flex items-center gap-2 overflow-x-auto pb-2'>
+const CategoryPills = ({
+  activeCategory,
+  categoryCountMap,
+  onCategoryClick,
+  t,
+}) => (
+  <div className='mb-6 flex items-center gap-2 overflow-x-auto pb-2'>
     {CATEGORY_PILLS.map((pill) => {
       const active = activeCategory === pill.key;
       const count = categoryCountMap[pill.key] || 0;
@@ -31,7 +42,7 @@ const CategoryPills = ({ activeCategory, categoryCountMap, onCategoryClick, t })
           key={pill.key}
           type='button'
           onClick={() => onCategoryClick(pill.key)}
-          className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors ${
+          className={`min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors ${
             active
               ? 'bg-indigo-600 font-semibold text-white'
               : 'border border-gray-200 bg-white font-medium text-gray-600 hover:border-indigo-300'
@@ -45,7 +56,7 @@ const CategoryPills = ({ activeCategory, categoryCountMap, onCategoryClick, t })
 );
 
 const SearchBox = ({ onChange, searchKeyword, t }) => (
-  <div className='flex w-full items-center rounded-lg border border-gray-200 bg-white px-4 py-2 shadow-sm transition-all focus-within:border-indigo-400 md:w-[400px]'>
+  <div className='flex min-h-11 w-full items-center rounded-lg border border-gray-200 bg-white px-4 py-2 shadow-sm transition-all focus-within:border-indigo-400 md:w-[400px]'>
     <Search className='mr-2 h-4 w-4 text-gray-400' />
     <input
       type='text'
@@ -60,7 +71,7 @@ const SearchBox = ({ onChange, searchKeyword, t }) => (
 const SortToggle = ({ onClick, sortBy, t }) => (
   <button
     type='button'
-    className='flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+    className='flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
     onClick={onClick}
   >
     <span>{sortBy === 'newest' ? t('最新') : t('名称')}</span>
@@ -69,10 +80,10 @@ const SortToggle = ({ onClick, sortBy, t }) => (
 );
 
 const ViewModeToggle = ({ setViewMode, viewMode }) => (
-  <div className='flex rounded-lg bg-gray-100 p-1'>
+  <div className='flex min-h-11 items-center rounded-lg bg-gray-100 p-1'>
     <button
       type='button'
-      className={`rounded-md p-1.5 ${
+      className={`flex min-h-9 min-w-9 items-center justify-center rounded-md p-1.5 ${
         viewMode === 'list'
           ? 'bg-white text-indigo-600 shadow-sm'
           : 'text-gray-500 hover:text-gray-700'
@@ -83,7 +94,7 @@ const ViewModeToggle = ({ setViewMode, viewMode }) => (
     </button>
     <button
       type='button'
-      className={`rounded-md p-1.5 ${
+      className={`flex min-h-9 min-w-9 items-center justify-center rounded-md p-1.5 ${
         viewMode === 'grid'
           ? 'bg-white text-indigo-600 shadow-sm'
           : 'text-gray-500 hover:text-gray-700'
@@ -93,6 +104,22 @@ const ViewModeToggle = ({ setViewMode, viewMode }) => (
       <Grid3X3 className='h-5 w-5' />
     </button>
   </div>
+);
+
+const FilterToggleButton = ({ activeFiltersCount, onClick, t }) => (
+  <button
+    type='button'
+    className='inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+    onClick={onClick}
+  >
+    <SlidersHorizontal className='h-4 w-4' />
+    <span>{t('筛选')}</span>
+    {activeFiltersCount > 0 ? (
+      <span className='rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white'>
+        {activeFiltersCount}
+      </span>
+    ) : null}
+  </button>
 );
 
 const ModelsExplorerToolbar = ({
@@ -106,6 +133,9 @@ const ModelsExplorerToolbar = ({
   sortBy,
   t,
   viewMode,
+  isMobile = false,
+  onToggleFilters,
+  activeFiltersCount = 0,
 }) => (
   <>
     <h1
@@ -122,16 +152,25 @@ const ModelsExplorerToolbar = ({
       t={t}
     />
 
-    <div className='mb-6 flex flex-wrap items-center justify-between gap-4'>
+    <div className='mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
       <SearchBox
         onChange={(event) => setSearchKeyword(event.target.value)}
         searchKeyword={searchKeyword}
         t={t}
       />
 
-      <div className='flex items-center gap-3'>
+      <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
+        {isMobile ? (
+          <FilterToggleButton
+            activeFiltersCount={activeFiltersCount}
+            onClick={onToggleFilters}
+            t={t}
+          />
+        ) : null}
         <SortToggle
-          onClick={() => setSortBy((prev) => (prev === 'newest' ? 'name' : 'newest'))}
+          onClick={() =>
+            setSortBy((prev) => (prev === 'newest' ? 'name' : 'newest'))
+          }
           sortBy={sortBy}
           t={t}
         />

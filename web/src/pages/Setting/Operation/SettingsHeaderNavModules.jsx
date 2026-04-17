@@ -40,6 +40,7 @@ export default function SettingsHeaderNavModules(props) {
 
   // 顶栏模块管理状态
   const [headerNavModules, setHeaderNavModules] = useState({
+    landing: true,
     home: true,
     console: true,
     pricing: {
@@ -80,6 +81,7 @@ export default function SettingsHeaderNavModules(props) {
   // 重置顶栏模块为默认配置
   function resetHeaderNavModules() {
     const defaultModules = {
+      landing: true,
       home: true,
       console: true,
       pricing: {
@@ -142,10 +144,15 @@ export default function SettingsHeaderNavModules(props) {
           };
         }
 
+        if (typeof modules.landing !== 'boolean') {
+          modules.landing = true;
+        }
+
         setHeaderNavModules(modules);
       } catch (error) {
         // 使用默认配置
         const defaultModules = {
+          landing: true,
           home: true,
           console: true,
           pricing: {
@@ -162,6 +169,11 @@ export default function SettingsHeaderNavModules(props) {
 
   // 模块配置数据
   const moduleConfigs = [
+    {
+      key: 'landing',
+      title: t('首页落地页'),
+      description: t('控制 Aurora 首页落地页展示，关闭后访问首页将直接显示系统首页'),
+    },
     {
       key: 'home',
       title: t('首页'),

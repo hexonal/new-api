@@ -328,7 +328,7 @@ export default function TokenListPage() {
   };
 
   return (
-    <div className='mt-4 mx-auto w-full max-w-[1200px] pb-8'>
+    <div className='mt-4 w-full min-w-0 pb-8'>
       <EditTokenModal
         refresh={data.refresh}
         editingToken={data.editingToken}
@@ -336,7 +336,7 @@ export default function TokenListPage() {
         handleClose={data.closeEdit}
       />
 
-      <section className='mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
+      <section className='mb-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end'>
         <div>
           <h1 className='text-3xl font-black tracking-[-0.75px] text-slate-950'>
             {getTokenListTitle(t)}
@@ -359,7 +359,7 @@ export default function TokenListPage() {
         </button>
       </section>
 
-      <section className='mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+      <section className='mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center'>
         <div className='flex min-w-0 flex-1 flex-col gap-3 sm:flex-row'>
           <label className='relative min-w-0 flex-1'>
             <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400' />
@@ -614,7 +614,7 @@ export default function TokenListPage() {
         </div>
       </section>
 
-      <section className='my-8 grid gap-6 md:grid-cols-3 xl:grid-cols-4'>
+      <section className='my-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4'>
         {summaryCards.map((item) => (
           <div
             key={item.key}

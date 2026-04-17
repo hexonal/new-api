@@ -243,7 +243,7 @@ export default function GroupManagementPage() {
             />
 
             <section className='flex-1 overflow-y-auto bg-white'>
-              <div className='mx-auto flex h-full max-w-5xl flex-col gap-8 px-6 py-8 lg:px-8'>
+              <div className='flex h-full w-full min-w-0 flex-col gap-8 px-6 py-8 lg:px-8'>
                 <div className='flex flex-col justify-between gap-4 sm:flex-row sm:items-start'>
                   <GroupDetail
                     groupName={selectedGroup}

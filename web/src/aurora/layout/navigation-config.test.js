@@ -40,7 +40,7 @@ describe('navigation-config', () => {
     expect(isPublicRoute('/console')).toBe(false);
   });
 
-  test('shows mobile menu only in compact mode', () => {
+  test('shows mobile menu on compact routes except auth pages', () => {
     expect(
       shouldShowMobileMenu({
         isCompact: false,
@@ -53,5 +53,17 @@ describe('navigation-config', () => {
         pathname: '/console',
       }),
     ).toBe(true);
+    expect(
+      shouldShowMobileMenu({
+        isCompact: true,
+        pathname: '/',
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowMobileMenu({
+        isCompact: true,
+        pathname: '/login',
+      }),
+    ).toBe(false);
   });
 });

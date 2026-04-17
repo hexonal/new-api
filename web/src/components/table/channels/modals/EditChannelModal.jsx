@@ -90,8 +90,27 @@ import {
 const { Text, Title } = Typography;
 const SPACE_TIGHT = String.fromCharCode(116, 105, 103, 104, 116);
 const AZURE_ENDPOINT_LABEL = String.fromCharCode(
-  65, 90, 85, 82, 69, 95, 79, 80, 69, 78, 65, 73, 95, 69, 78, 68, 80, 79, 73,
-  78, 84,
+  65,
+  90,
+  85,
+  82,
+  69,
+  95,
+  79,
+  80,
+  69,
+  78,
+  65,
+  73,
+  95,
+  69,
+  78,
+  68,
+  80,
+  79,
+  73,
+  78,
+  84,
 );
 
 const MODEL_MAPPING_EXAMPLE = {
@@ -777,14 +796,12 @@ const EditChannelModal = (props) => {
     }
 
     if (name === 'base_url' && value.endsWith('/v1')) {
-      Modal.confirm({
-        title: '警告',
-        content:
-          '不需要在末尾加/v1，New API会自动处理，添加后可能导致请求失败，是否继续？',
-        onOk: () => {
-          setInputs((inputs) => ({ ...inputs, [name]: value }));
-        },
-      });
+      const shouldKeepValue = window.confirm(
+        '不需要在末尾加/v1，New API会自动处理，添加后可能导致请求失败，是否继续？',
+      );
+      if (shouldKeepValue) {
+        setInputs((inputs) => ({ ...inputs, [name]: value }));
+      }
       return;
     }
     setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -1224,6 +1241,32 @@ const EditChannelModal = (props) => {
       ) {
         data.base_url = 'https://ark.cn-beijing.volces.com';
       }
+
+      const booleanFields = [
+        'auto_ban',
+        'is_enterprise_account',
+        'allow_service_tier',
+        'disable_store',
+        'allow_safety_identifier',
+        'allow_include_obfuscation',
+        'allow_inference_geo',
+        'claude_beta_query',
+        'upstream_model_update_check_enabled',
+        'upstream_model_update_auto_sync_enabled',
+        'call_error_alert_enabled',
+        'breaker_enabled',
+        'force_format',
+        'thinking_to_content',
+        'image_url_auto_base64',
+        'image_url_supported',
+        'image_url_unsupported',
+        'pass_through_body_enabled',
+        'system_prompt_override',
+      ];
+      booleanFields.forEach((field) => {
+        data[field] =
+          data[field] === true || data[field] === 1 || data[field] === '1';
+      });
 
       setInputs(data);
       breakerTouchedRef.current = new Set();
@@ -2790,7 +2833,8 @@ const EditChannelModal = (props) => {
                       autoComplete='new-password'
                     />
 
-                    {((inputs.type === 60 || inputs.type === 61) ||
+                    {(inputs.type === 60 ||
+                      inputs.type === 61 ||
                       hasImaProModelSelected) && (
                       <>
                         <Form.Input
@@ -2947,7 +2991,6 @@ const EditChannelModal = (props) => {
                               ? []
                               : [{ required: true, message: t('请输入密钥') }]
                           }
-                          autosize
                           autoComplete='new-password'
                           onChange={(value) => handleInputChange('key', value)}
                           disabled={isIonetLocked}
@@ -3063,7 +3106,6 @@ const EditChannelModal = (props) => {
                                   </Space>
                                 </div>
                               }
-                              autosize
                               showClear
                             />
 
@@ -3190,7 +3232,6 @@ const EditChannelModal = (props) => {
                                     {batchExtra}
                                   </div>
                                 }
-                                autosize
                                 showClear
                               />
                             ) : (
@@ -4360,7 +4401,6 @@ const EditChannelModal = (props) => {
                         t('格式示例：') +
                         '\n{\n  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0",\n  "Authorization": "Bearer {api_key}"\n}'
                       }
-                      autosize
                       onChange={(value) =>
                         handleInputChange('header_override', value)
                       }
@@ -4652,7 +4692,9 @@ const EditChannelModal = (props) => {
                           value,
                         )
                       }
-                      extraText={t('开启后会在该渠道将图片 URL 入参自动转换为 Base64')}
+                      extraText={t(
+                        '开启后会在该渠道将图片 URL 入参自动转换为 Base64',
+                      )}
                     />
 
                     <Form.Switch
@@ -4705,7 +4747,6 @@ const EditChannelModal = (props) => {
                       onChange={(value) =>
                         handleChannelSettingsChange('system_prompt', value)
                       }
-                      autosize
                       showClear
                       extraText={t(
                         '用户优先：如果用户在请求中指定了系统提示词，将优先使用用户的设置',
@@ -4784,10 +4825,7 @@ const EditChannelModal = (props) => {
                           min={0}
                           step={0.5}
                           onNumberChange={(value) =>
-                            handleChannelSettingsChange(
-                              'poll_qps',
-                              value || 0,
-                            )
+                            handleChannelSettingsChange('poll_qps', value || 0)
                           }
                           style={{ width: '100%' }}
                         />

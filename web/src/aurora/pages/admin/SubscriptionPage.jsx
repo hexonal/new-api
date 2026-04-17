@@ -460,7 +460,7 @@ export default function SubscriptionPage() {
         t={t}
       />
 
-      <div className='mx-auto max-w-7xl px-6 py-8'>
+      <div className='w-full min-w-0 px-6 py-8'>
         <PlanPageHeader t={t} onRefresh={refresh} onCreate={handleOpenCreate} />
         <InfoBanner t={t} />
         <PlansTableSection

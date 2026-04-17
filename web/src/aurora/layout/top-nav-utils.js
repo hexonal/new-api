@@ -85,6 +85,19 @@ export const parseHeaderNavModulesConfig = (config) => {
   }
 };
 
+export const isLandingPageEnabled = (config) => {
+  if (!config) {
+    return true;
+  }
+
+  try {
+    const modules = JSON.parse(config);
+    return modules.landing !== false;
+  } catch {
+    return true;
+  }
+};
+
 export const getResolvedDocsLink = (status) => {
   const docsLink =
     typeof status?.docs_link === 'string' ? status.docs_link.trim() : '';

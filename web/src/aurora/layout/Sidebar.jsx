@@ -119,6 +119,9 @@ const isSidebarItemVisible = ({
     if (itemKey === 'groups') {
       return isRootUser && isModuleVisible('admin', 'group-management');
     }
+    if (itemKey === 'setting') {
+      return isRootUser && isModuleVisible('admin', 'setting');
+    }
     return false;
   }
 
@@ -159,6 +162,8 @@ const getNavIcon = (key) => {
       return <Users size={17} strokeWidth={2} />;
     case 'groups':
       return <UserCog size={17} strokeWidth={2} />;
+    case 'setting':
+      return <Settings size={17} strokeWidth={2} />;
     default:
       return null;
   }
@@ -167,7 +172,7 @@ const getNavIcon = (key) => {
 const isSectionPath = (items, pathname) =>
   items.some((item) => isPathActive(item.href, pathname));
 
-const Sidebar = ({ onNavigate = () => {} }) => {
+const Sidebar = ({ onNavigate = () => {}, forceExpanded = false }) => {
   const collapsed = useSidebarStore((state) => state.collapsed);
   const setActiveSection = useSidebarStore((state) => state.setActiveSection);
   const location = useLocation();
@@ -178,6 +183,7 @@ const Sidebar = ({ onNavigate = () => {} }) => {
   const sectionLabels = useMemo(() => getConsoleSectionLabels(t), [t]);
   const sidebarGroups = useMemo(() => getConsoleSidebarGroups(t), [t]);
   const isPricingRoute = location.pathname === '/pricing';
+  const sidebarCollapsed = forceExpanded ? false : collapsed;
   const legacyFlags = useMemo(
     () => ({
       enableDataExport: toBooleanWithTrueFallback(
@@ -254,14 +260,14 @@ const Sidebar = ({ onNavigate = () => {} }) => {
       filteredSidebarGroups.workspace.map((item) => (
         <SidebarItem
           key={item.key}
-          collapsed={collapsed}
+          collapsed={sidebarCollapsed}
           href={item.href}
           label={item.label}
           icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, filteredSidebarGroups],
+    [sidebarCollapsed, onNavigate, filteredSidebarGroups],
   );
 
   const accountNodes = useMemo(
@@ -269,14 +275,14 @@ const Sidebar = ({ onNavigate = () => {} }) => {
       filteredSidebarGroups.account.map((item) => (
         <SidebarItem
           key={item.key}
-          collapsed={collapsed}
+          collapsed={sidebarCollapsed}
           href={item.href}
           label={item.label}
           icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, filteredSidebarGroups],
+    [sidebarCollapsed, onNavigate, filteredSidebarGroups],
   );
 
   const adminNodes = useMemo(
@@ -284,14 +290,14 @@ const Sidebar = ({ onNavigate = () => {} }) => {
       filteredSidebarGroups.admin.map((item) => (
         <SidebarItem
           key={item.key}
-          collapsed={collapsed}
+          collapsed={sidebarCollapsed}
           href={item.href}
           label={item.label}
           icon={getNavIcon(item.key)}
           onNavigate={onNavigate}
         />
       )),
-    [collapsed, onNavigate, filteredSidebarGroups],
+    [sidebarCollapsed, onNavigate, filteredSidebarGroups],
   );
 
   if (isPricingRoute) {
@@ -393,19 +399,25 @@ const Sidebar = ({ onNavigate = () => {} }) => {
   return (
     <nav className='aurora-sidebar' aria-label={t('控制台导航')}>
       {workspaceNodes.length > 0 && (
-        <SidebarSection title={sectionLabels.WORKSPACE} collapsed={collapsed}>
+        <SidebarSection
+          title={sectionLabels.WORKSPACE}
+          collapsed={sidebarCollapsed}
+        >
           {workspaceNodes}
         </SidebarSection>
       )}
 
       {accountNodes.length > 0 && (
-        <SidebarSection title={sectionLabels.ACCOUNT} collapsed={collapsed}>
+        <SidebarSection
+          title={sectionLabels.ACCOUNT}
+          collapsed={sidebarCollapsed}
+        >
           {accountNodes}
         </SidebarSection>
       )}
 
       {isAdminUser && adminNodes.length > 0 && (
-        <SidebarSection title={sectionLabels.ADMIN} collapsed={collapsed}>
+        <SidebarSection title={sectionLabels.ADMIN} collapsed={sidebarCollapsed}>
           {adminNodes}
         </SidebarSection>
       )}

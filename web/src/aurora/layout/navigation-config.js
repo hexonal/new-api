@@ -38,6 +38,12 @@ const PUBLIC_ROUTE_PATTERNS = [
   /^\/oauth(?:\/.*)?$/,
 ];
 
+const MOBILE_MENU_HIDE_PATTERNS = [
+  /^\/login$/,
+  /^\/register$/,
+  /^\/oauth(?:\/.*)?$/,
+];
+
 export function isPublicRoute(pathname = '') {
   return PUBLIC_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
 }
@@ -46,5 +52,9 @@ export function shouldShowMobileMenu({
   isCompact = false,
   pathname = '',
 } = {}) {
-  return isCompact && !isPublicRoute(pathname);
+  if (!isCompact) {
+    return false;
+  }
+
+  return !MOBILE_MENU_HIDE_PATTERNS.some((pattern) => pattern.test(pathname));
 }

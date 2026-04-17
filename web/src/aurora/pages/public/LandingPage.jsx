@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 // import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../context/Status';
+import { UserContext } from '../../../context/User';
 import { copy } from '../../../helpers';
 // import ProviderLogos from './components/ProviderLogos';
 import Footer from './components/Footer';
@@ -54,10 +56,30 @@ const providers = [
 const LandingPage = () => {
   const { t } = useTranslation();
   const [statusState] = useContext(StatusContext);
+  const [userState] = useContext(UserContext);
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   const endpoint = statusState?.status?.server_address || window.location.origin;
-  const docsLink = statusState?.status?.docs_link || '';
+  const docsLink = useMemo(() => {
+    const docsLinkFromStatus =
+      typeof statusState?.status?.docs_link === 'string'
+        ? statusState.status.docs_link.trim()
+        : '';
+    if (docsLinkFromStatus) {
+      return docsLinkFromStatus;
+    }
+    if (typeof localStorage === 'undefined') {
+      return '';
+    }
+    return localStorage.getItem('docs_link') || '';
+  }, [statusState?.status?.docs_link]);
+  const hasLoginSession = useMemo(() => {
+    if (userState?.user) {
+      return true;
+    }
+    return Boolean(localStorage.getItem('user'));
+  }, [userState?.user]);
 
   const handleCopy = async () => {
     const ok = await copy(endpoint);
@@ -96,29 +118,47 @@ const LandingPage = () => {
     window.location.assign(resolved.toString());
   };
 
+  const handleGetApiKeyNavigate = () => {
+    if (hasLoginSession) {
+      navigate('/console/token');
+      return;
+    }
+    navigate('/login');
+  };
+
+  const handleExploreModels = () => {
+    navigate('/pricing');
+  };
+
   return (
-    <div className='overflow-x-auto'>
+    <div className='w-full min-w-0 max-w-full overflow-x-hidden'>
       {/* Title */}
-      <div className='max-w-[720px] mt-20 mx-auto text-7xl font-black text-center tracking-[-1.8px]'>
+      <div className='mx-auto mt-12 max-w-[720px] px-4 text-center text-4xl font-black tracking-[-1.2px] sm:mt-16 sm:text-6xl lg:mt-20 lg:text-7xl'>
         {t('home.hero.title')}
       </div>
       {/* Desc */}
-      <div className='max-w-[672px] mt-[22px] mx-auto text-[rgba(75,89,99,1)] text-xl font-normal text-center leading-[32.5px]'>
+      <div className='mx-auto mt-5 max-w-[672px] px-4 text-center text-base font-normal leading-7 text-[rgba(75,89,99,1)] sm:text-xl sm:leading-[32.5px]'>
         {t('home.hero.description')}
       </div>
       {/* Button */}
-      <div className='flex items-center justify-center gap-4 w-full mt-10'>
+      <div className='mt-8 flex w-full flex-col items-center justify-center gap-3 px-4 sm:mt-10 sm:flex-row sm:gap-4'>
         {/* Get API Key */}
-        <div className='w-[166px] h-16 bg-[rgba(74,75,215,1)] rounded-lg text-lg text-white font-bold flex items-center justify-center cursor-pointer shadow-[0px_4px_6px_-4px_rgba(199,210,254,1),0px_10px_15px_-3px_rgba(199,210,254,1)]'>
+        <div
+          className='flex h-12 w-full max-w-[240px] cursor-pointer items-center justify-center rounded-lg bg-[rgba(74,75,215,1)] text-base font-bold text-white shadow-[0px_4px_6px_-4px_rgba(199,210,254,1),0px_10px_15px_-3px_rgba(199,210,254,1)] sm:h-16 sm:text-lg'
+          onClick={handleGetApiKeyNavigate}
+        >
           {t('home.actions.getApiKey')}
         </div>
         {/* Explore Models */}
-        <div className='w-[202px] h-16 border-[2px] border-[rgba(229,231,235,1)] rounded-lg text-lg text-[rgba(17,24,39,1)] font-bold flex items-center justify-center cursor-pointer'>
+        <div
+          className='flex h-12 w-full max-w-[240px] cursor-pointer items-center justify-center rounded-lg border-[2px] border-[rgba(229,231,235,1)] text-base font-bold text-[rgba(17,24,39,1)] sm:h-16 sm:text-lg'
+          onClick={handleExploreModels}
+        >
           {t('home.actions.exploreModels')}
         </div>
       </div>
       {/* API BASE CONFIGURATION */}
-      <div className='flex flex-col justify-between w-[768px] h-[144px] mt-20 mx-auto p-[24px] bg-white rounded-2xl border-[0.67px] border-[rgba(229,231,235,1)] shadow-2xl'>
+      <div className='mx-auto mt-14 flex w-full max-w-[768px] flex-col justify-between rounded-2xl border-[0.67px] border-[rgba(229,231,235,1)] bg-white p-4 shadow-2xl sm:mt-20 sm:min-h-[144px] sm:p-6'>
         {/* Button + Title */}
         <div className='flex items-center gap-6'>
           {/* Button */}
@@ -133,11 +173,11 @@ const LandingPage = () => {
           </div>
         </div>
         {/* Container */}
-        <div className='w-full h-[62px] flex items-center justify-between px-[10px] rounded-lg bg-[rgba(243,244,246,1)] border-[0.67px] border-[rgba(243,244,246,1)]'>
+        <div className='flex w-full flex-col gap-2 rounded-lg border-[0.67px] border-[rgba(243,244,246,1)] bg-[rgba(243,244,246,1)] px-[10px] py-2 sm:h-[62px] sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
           {/* BASE_URL */}
-          <div className='w-[414px] h-[45px] flex items-center gap-2 px-4 py-3 rounded-sm bg-white border-[0.67px] border-[rgba(229,231,235,1)]'>
+          <div className='flex h-[45px] min-w-0 w-full items-center gap-2 rounded-sm border-[0.67px] border-[rgba(229,231,235,1)] bg-white px-4 py-3 sm:flex-1'>
             <div className='text-sm text-[rgba(156,163,175,1)]'>BASE_URL:</div>
-            <div className='text-sm'>{endpoint}</div>
+            <div className='truncate text-sm'>{endpoint}</div>
           </div>
           {/* DropdownMenu */}
           <Dropdown
@@ -150,7 +190,7 @@ const LandingPage = () => {
             }
           >
             {/* Trigger */}
-            <div className='w-[219px] h-[45px] px-4 flex items-center justify-between gap-3 rounded-sm bg-white border-[0.67px] border-[rgba(229,231,235,1)]'>
+            <div className='flex h-[45px] w-full items-center justify-between gap-3 rounded-sm border-[0.67px] border-[rgba(229,231,235,1)] bg-white px-4 sm:w-[219px]'>
               <div className='text-sm tracking-[0.8px]'>
                 {t('home.apiConfig.endpointPath')}
               </div>
@@ -159,7 +199,7 @@ const LandingPage = () => {
           </Dropdown>
           {/* Copy */}
           <div
-            className='w-[52px] h-[45px] flex items-center justify-center bg-[rgba(17,24,39,1)] rounded-sm cursor-pointer'
+            className='flex h-[45px] w-full cursor-pointer items-center justify-center rounded-sm bg-[rgba(17,24,39,1)] sm:w-[52px]'
             onClick={handleCopy}
           >
             <IconCopy size='large' className='text-white rotate-180' />
@@ -167,13 +207,13 @@ const LandingPage = () => {
         </div>
       </div>
       {/* hr */}
-      <hr className='w-full h-[0.67px] mt-24 text-[rgba(243,244,246,1)]' />
+      <hr className='mt-16 h-[0.67px] w-full text-[rgba(243,244,246,1)] sm:mt-24' />
       {/* Data */}
-      <div className='w-[1024px] mt-16 flex items-center justify-between mx-auto'>
+      <div className='mx-auto mt-12 grid w-full max-w-[1024px] grid-cols-2 gap-6 px-4 sm:mt-16 sm:grid-cols-4'>
         {
           stats.map((item) => (
             <div
-              className='w-[232px] text-center'
+              className='text-center'
               key={item.value}
             >
               <div className='text-3xl text-[rgba(17,24,39,1)] font-black leading-[36px]'>
@@ -187,7 +227,7 @@ const LandingPage = () => {
         }
       </div>
       {/* Supported Providers */}
-      <div className='w-full h-[488px] mt-20 py-24 bg-[rgba(249,250,251,1)]'>
+      <div className='mt-16 w-full bg-[rgba(249,250,251,1)] py-14 sm:mt-20 sm:py-20'>
         {/* Title */}
         <div className='text-sm text-[rgba(79,70,229,1)] font-bold tracking-[1.4px] text-center leading-[20px]'>
           {t('home.providers.title')}
@@ -197,12 +237,12 @@ const LandingPage = () => {
           {t('home.providers.description')}
         </div>
         {/* Support */}
-        <div className='w-[1024px] h-[160px] mt-10 mx-auto flex flex-col justify-between'>
-          <div className='flex items-center justify-between'>
+        <div className='mx-auto mt-10 w-full max-w-[1024px] space-y-4 px-4'>
+          <div className='grid grid-cols-2 gap-3 sm:grid-cols-5'>
             {
               providers.slice(0, 5).map((item) => (
                 <div
-                  className='w-[179px] h-16 flex items-center justify-center text-base text-[rgba(156,163,175,1)] font-bold bg-white rounded-lg border-[0.67px] border-[rgba(243,244,246,1)]'
+                  className='flex h-14 items-center justify-center rounded-lg border-[0.67px] border-[rgba(243,244,246,1)] bg-white text-sm font-bold text-[rgba(156,163,175,1)] sm:h-16 sm:text-base'
                   key={item.name}
                 >
                   {item.name}
@@ -210,11 +250,11 @@ const LandingPage = () => {
               ))
             }
           </div>
-          <div className='flex items-center justify-between'>
+          <div className='grid grid-cols-2 gap-3 sm:grid-cols-6'>
             {
               providers.slice(5, 11).map((item) => (
                 <div
-                  className={cn('w-[144px] h-16 flex items-center justify-center text-base text-[rgba(156,163,175,1)] font-bold bg-white rounded-lg border-[0.67px] border-[rgba(243,244,246,1)]', item.highlight ? 'text-[rgba(79,70,229,1)] bg-[rgba(238,242,255,1)] border-[rgba(224,231,255,1)]' : '')}
+                  className={cn('flex h-14 items-center justify-center rounded-lg border-[0.67px] border-[rgba(243,244,246,1)] bg-white text-sm font-bold text-[rgba(156,163,175,1)] sm:h-16 sm:text-base', item.highlight ? 'border-[rgba(224,231,255,1)] bg-[rgba(238,242,255,1)] text-[rgba(79,70,229,1)]' : '')}
                   key={item.name || item.nameKey}
                 >
                   {item.nameKey ? t(item.nameKey) : item.name}
@@ -225,10 +265,10 @@ const LandingPage = () => {
         </div>
       </div>
       {/* Card */}
-      <div className='w-full pt-32'>
-        <div className='w-[1232px] h-[326px] mx-auto flex items-center justify-between'>
+      <div className='w-full px-4 pb-10 pt-16 sm:pt-24'>
+        <div className='mx-auto flex w-full max-w-[1232px] flex-col gap-4 lg:h-[326px] lg:flex-row lg:items-center lg:justify-between'>
           {/* Advanced Routing Logic */}
-          <div className='w-[813px] h-full p-6 bg-white rounded-3xl border-[0.67px] border-[rgba(229,231,235,1)]'>
+          <div className='h-full w-full rounded-3xl border-[0.67px] border-[rgba(229,231,235,1)] bg-white p-6 lg:w-[66%]'>
             {/* Title */}
             <div className='text-2xl font-bold'>
               {t('home.cards.advancedRouting.title')}
@@ -250,7 +290,7 @@ const LandingPage = () => {
             </div>
           </div>
           {/* Instant Setup */}
-          <div className='w-[394px] h-full p-8 bg-[rgba(79,70,229,1)] rounded-3xl'>
+          <div className='h-full w-full rounded-3xl bg-[rgba(79,70,229,1)] p-8 lg:w-[32%]'>
             {/* Icon */}
             <IconBolt style={{ color: '#fff', fontSize: 20 }} />
             {/* Title */}
@@ -262,7 +302,10 @@ const LandingPage = () => {
               {t('home.cards.instantSetup.description')}
             </div>
             {/* Button */}
-            <div className='w-full h-12 mt-10 flex items-center justify-center text-[rgba(79,70,229,1)] font-bold bg-white rounded-lg cursor-pointer'>
+            <div
+              className='mt-8 flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-white font-bold text-[rgba(79,70,229,1)] sm:mt-10'
+              onClick={handleDocsNavigate}
+            >
               {t('home.cards.instantSetup.button')}
             </div>
           </div>

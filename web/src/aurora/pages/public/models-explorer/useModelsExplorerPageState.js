@@ -34,7 +34,9 @@ import {
 } from './helpers';
 
 const buildCategoryCountMap = (modelRows) => {
-  const countMap = Object.fromEntries(CATEGORY_PILLS.map((item) => [item.key, 0]));
+  const countMap = Object.fromEntries(
+    CATEGORY_PILLS.map((item) => [item.key, 0]),
+  );
   modelRows.forEach((model) => {
     CATEGORY_PILLS.forEach((category) => {
       if (model.modalities.has(category.key)) {
@@ -53,15 +55,6 @@ const buildSortedOptions = (modelRows, field) => {
     }
   });
   return [...set].sort((a, b) => a.localeCompare(b));
-};
-
-const getVisibleOptions = (allOptions, selectedOptions, showAll, baseCount) => {
-  if (showAll) {
-    return allOptions;
-  }
-  const selectedInList = allOptions.filter((item) => selectedOptions.includes(item));
-  const preview = [...new Set([...selectedInList, ...allOptions])];
-  return preview.slice(0, Math.max(baseCount, selectedInList.length));
 };
 
 const useInjectExplorerFonts = () => {
@@ -89,8 +82,20 @@ const buildListToggleHandler = (setter) => (value) => {
   setter((prev) => toggleArrayItem(prev, value));
 };
 
+const resolveBillingLabel = (quotaType, t) => {
+  const normalizedQuotaType = Number(quotaType);
+  if (normalizedQuotaType === 1) {
+    return t('按次计费');
+  }
+  if (normalizedQuotaType === 0) {
+    return t('按量计费');
+  }
+  return '-';
+};
+
 const useExplorerSelections = () => {
-  const [selectedModalities, setSelectedModalities] = useState(BASE_MODALITY_KEYS);
+  const [selectedModalities, setSelectedModalities] =
+    useState(BASE_MODALITY_KEYS);
   const [selectedSeries, setSelectedSeries] = useState([]);
   const [selectedProviders, setSelectedProviders] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -112,7 +117,10 @@ const useExplorerSelections = () => {
 
   const handleCategoryClick = (category) => {
     setActiveCategory(category);
-    if (BASE_MODALITY_KEYS.includes(category) && !selectedModalities.includes(category)) {
+    if (
+      BASE_MODALITY_KEYS.includes(category) &&
+      !selectedModalities.includes(category)
+    ) {
       setSelectedModalities((prev) => [...prev, category]);
     }
   };
@@ -146,6 +154,7 @@ const buildModelRow = ({ language, model, t }) => {
     modalities,
     primaryModality: getPrimaryModality(modalities),
     badgeText: getContextBadge(model, modalities, t),
+    billingLabel: resolveBillingLabel(model?.quota_type, t),
     timestamp: formatModelTimestamp(model),
     dateText: formatModelDate(model, language),
   };
@@ -160,45 +169,44 @@ const useExplorerRows = ({ models, language, t }) => {
   }, [language, models, t]);
 
   return {
-    categoryCountMap: useMemo(() => buildCategoryCountMap(modelRows), [modelRows]),
+    categoryCountMap: useMemo(
+      () => buildCategoryCountMap(modelRows),
+      [modelRows],
+    ),
     modelRows,
   };
 };
 
-const useExplorerOptionPanels = ({ modelRows, selectedProviders, selectedSeries }) => {
-  const [showAllSeries, setShowAllSeries] = useState(false);
-  const [showAllProviders, setShowAllProviders] = useState(false);
+const useExplorerOptionPanels = ({ modelRows }) => {
   const [expanded, setExpanded] = useState({ series: true, providers: true });
 
-  const seriesOptions = useMemo(() => buildSortedOptions(modelRows, 'series'), [modelRows]);
-  const providerOptions = useMemo(() => buildSortedOptions(modelRows, 'provider'), [modelRows]);
-  const visibleSeries = useMemo(
-    () => getVisibleOptions(seriesOptions, selectedSeries, showAllSeries, 6),
-    [selectedSeries, seriesOptions, showAllSeries],
+  const seriesOptions = useMemo(
+    () => buildSortedOptions(modelRows, 'series'),
+    [modelRows],
   );
-  const visibleProviders = useMemo(
-    () => getVisibleOptions(providerOptions, selectedProviders, showAllProviders, 3),
-    [providerOptions, selectedProviders, showAllProviders],
+  const providerOptions = useMemo(
+    () => buildSortedOptions(modelRows, 'provider'),
+    [modelRows],
   );
 
   return {
     expanded,
-    hiddenProviderCount: Math.max(0, providerOptions.length - visibleProviders.length),
-    hiddenSeriesCount: Math.max(0, seriesOptions.length - visibleSeries.length),
     providerOptions,
     setExpanded,
-    setShowAllProviders,
-    setShowAllSeries,
-    showAllProviders,
-    showAllSeries,
     seriesOptions,
-    visibleProviders,
-    visibleSeries,
+    visibleProviders: providerOptions,
+    visibleSeries: seriesOptions,
   };
 };
 
 const modelMatchesKeyword = (model, keyword) =>
-  [model.model_name, model.description, model.provider, model.tags, model.series]
+  [
+    model.model_name,
+    model.description,
+    model.provider,
+    model.tags,
+    model.series,
+  ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -224,7 +232,9 @@ const modelPassesFilters = ({
   if (selectedSeriesSet.size > 0 && !selectedSeriesSet.has(model.series)) {
     return false;
   }
-  return !(selectedProviderSet.size > 0 && !selectedProviderSet.has(model.provider));
+  return !(
+    selectedProviderSet.size > 0 && !selectedProviderSet.has(model.provider)
+  );
 };
 
 const getSortOrder = (model) => {
@@ -240,7 +250,9 @@ const sortModels = (models, sortBy) => {
     }
 
     if (sortBy === 'name') {
-      return String(a.model_name || '').localeCompare(String(b.model_name || ''));
+      return String(a.model_name || '').localeCompare(
+        String(b.model_name || ''),
+      );
     }
     return (
       b.timestamp - a.timestamp ||
@@ -334,7 +346,13 @@ const useExplorerPagination = (filteredModels) => {
     return filteredModels.slice(start, start + PAGE_SIZE);
   }, [currentPageSafe, filteredModels]);
 
-  return { currentPageSafe, pageNumbers, pagedModels, setCurrentPage, totalPages };
+  return {
+    currentPageSafe,
+    pageNumbers,
+    pagedModels,
+    setCurrentPage,
+    totalPages,
+  };
 };
 
 const useExplorerPriceMeta = ({
@@ -383,7 +401,10 @@ const useExplorerPriceMeta = ({
   ]);
 
 const useDetailEndpointsMemo = (detailModel, endpointMap) =>
-  useMemo(() => buildDetailEndpoints(detailModel, endpointMap), [detailModel, endpointMap]);
+  useMemo(
+    () => buildDetailEndpoints(detailModel, endpointMap),
+    [detailModel, endpointMap],
+  );
 
 const useDetailPricingRowsMemo = ({
   currency,
@@ -426,7 +447,10 @@ const useDetailPricingRowsMemo = ({
   );
 
 const useDetailAutoChainMemo = (detailModel, autoGroups) =>
-  useMemo(() => buildDetailAutoChain(detailModel, autoGroups), [autoGroups, detailModel]);
+  useMemo(
+    () => buildDetailAutoChain(detailModel, autoGroups),
+    [autoGroups, detailModel],
+  );
 
 const useExplorerDetail = ({
   autoGroups,
@@ -495,11 +519,7 @@ const useExplorerBaseState = ({ language, t }) => {
     t,
   });
 
-  const optionPanels = useExplorerOptionPanels({
-    modelRows,
-    selectedProviders: selections.selectedProviders,
-    selectedSeries: selections.selectedSeries,
-  });
+  const optionPanels = useExplorerOptionPanels({ modelRows });
 
   return {
     categoryCountMap,
