@@ -58,9 +58,19 @@ const CardTable = ({
   };
 
   if (!isMobile) {
+    const incomingRowClassName = tableProps.rowClassName;
+    const mergedRowClassName = (record, index) => {
+      const customClassName =
+        typeof incomingRowClassName === 'function'
+          ? incomingRowClassName(record, index)
+          : incomingRowClassName || '';
+
+      return ['card-table-row', customClassName].filter(Boolean).join(' ');
+    };
+
     const finalTableProps = hidePagination
-      ? { ...tableProps, pagination: false }
-      : tableProps;
+      ? { ...tableProps, pagination: false, rowClassName: mergedRowClassName }
+      : { ...tableProps, rowClassName: mergedRowClassName };
 
     return (
       <Table

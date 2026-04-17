@@ -173,7 +173,8 @@ const AuroraLayout = ({ children }) => {
             .filter(Boolean)
             .join(' ')}
         >
-          <PageShell showChrome={showPageChrome}>{children}</PageShell>
+          {/* <PageShell showChrome={showNavigationShell}>{children}</PageShell> */}
+          {children}
         </main>
       </div>
 

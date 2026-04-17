@@ -2974,6 +2974,21 @@
     "确认配置后提交，提交成功会自动刷新列表": "确认配置后提交，提交成功会自动刷新列表",
     "创建模式": "创建模式",
     "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。": "当前弹层已切换到 Aurora 原生实现，避免使用会触发 StrictMode 警告的旧版组件链。",
+    "channels": {
+      "title": "渠道",
+      "description": "管理上游 AI 提供商配置",
+      "refreshAbilities": "刷新能力",
+      "batchOperations": "批量操作",
+      "addChannel": "添加渠道",
+      "edit": "编辑",
+      "delete": "删除",
+      "globalHealth": "全局健康度",
+      "totalBalance": "总余额",
+      "avgLatency": "平均延迟",
+      "estimatedRemaining": "预计剩余 14 天",
+      "acrossActiveProviders": "覆盖所有活跃提供商",
+      "optimal": "最优"
+    },
     "home": {
       "hero": {
         "title": "面向 LLM 的统一接口",

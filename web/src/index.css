@@ -841,6 +841,8 @@ html.dark .with-pastel-balls::before {
 .table-scroll-card .semi-card-body {
   flex: 1 1 auto;
   overflow-y: auto;
+  padding: 0 !important;
+  background-color: rgba(248,249,255,1);
 }
 
 .table-scroll-card .semi-card-body::-webkit-scrollbar {
@@ -927,6 +929,114 @@ html.dark .with-pastel-balls::before {
   padding: 10px !important;
 }
 
+/* ==================== Channels Tabs 定向样式 ==================== */
+/* 隐藏左右溢出箭头 */
+.channels-type-tabs .semi-tabs-bar-arrow {
+  display: none !important;
+}
+
+/* 去掉整条底边线，保留选中 tab 的下划线 */
+.channels-type-tabs .semi-tabs-bar-top.semi-tabs-bar-line {
+  border-bottom: none !important;
+}
+
+/* 选中下划线：自定义颜色与Y轴偏移（覆盖 line 模式默认 border-bottom） */
+.channels-type-tabs .semi-tabs-bar-line.semi-tabs-bar-top .semi-tabs-tab-active,
+.channels-type-tabs .semi-tabs-bar-line.semi-tabs-bar-top .semi-tabs-tab-active:hover {
+  border-bottom-color: transparent !important;
+}
+
+.channels-type-tabs .semi-tabs-bar-line.semi-tabs-bar-top .semi-tabs-tab-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: rgba(79, 70, 229, 1);
+  bottom: -2px;
+  pointer-events: none;
+}
+
+/* Channels 表格表头样式（定向） */
+.channels-table .semi-table-thead .semi-table-row-head {
+  height: 48px;
+  background: white;
+  color: rgba(156, 163, 175, 1);
+  font-weight: 700;
+  border-bottom: 0.67px solid rgba(243, 244, 246, 1);
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+/* Channels 表格每一行默认样式 */
+.channels-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell,
+.channels-table .semi-table-tbody .card-table-row > .semi-table-row-cell {
+  height: 79px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  vertical-align: middle;
+  border-bottom: 0.67px solid rgba(243, 244, 246, 1) !important;
+  background: rgba(255, 255, 255, 1) !important;
+  transition: background-color 160ms ease;
+}
+
+.channels-table .semi-table-tbody > .semi-table-row:hover > .semi-table-row-cell,
+.channels-table .semi-table-tbody .card-table-row:hover > .semi-table-row-cell {
+  background: rgba(249, 250, 251, 1) !important;
+}
+
+/* Channels 卡片头部去掉内边距 */
+.table-scroll-card .semi-card-header {
+  padding: 0 !important;
+}
+
+.channels-card .semi-card-header,
+.channels-card .semi-card-header .semi-card-header-wrapper,
+.channels-card .semi-card-header .semi-card-header-wrapper-title {
+  background: transparent !important;
+}
+
+.table-scroll-card .semi-card-header.semi-card-header-bordered {
+  border-bottom: none !important;
+}
+
+/* Channels 页面：让整张表格卡片高度自适应内容 */
+.channels-card.table-scroll-card {
+  height: auto;
+  max-height: none;
+  background: transparent !important;
+}
+
+.channels-card.table-scroll-card .semi-card-body {
+  overflow: visible;
+}
+
+.channels-card.semi-card {
+  background: transparent !important;
+}
+
+/* Channels Footer 样式（定向） */
+.channels-card .semi-card-footer {
+  padding: 16px 24px;
+  background: white;
+  border: 0.67px solid rgba(243, 244, 246, 1) !important;
+  margin-bottom: 20px;
+}
+
+.channels-card .semi-card-footer > .flex {
+  padding-top: 0 !important;
+  border-top: none !important;
+  align-items: center;
+}
+
+/* Channels 分页：选中页码样式 */
+.channels-card .semi-page .semi-page-item.semi-page-item-active {
+  background: rgba(79, 70, 229, 1);
+  border-color: rgba(79, 70, 229, 1);
+  color: rgba(255, 255, 255, 1);
+  border-radius: 2px !important;
+}
+
 /* ==================== 使用日志: channel affinity tag ==================== */
 .semi-tag.channel-affinity-tag {
   border: 1px solid rgba(var(--semi-cyan-5), 0.35);
@@ -955,6 +1065,23 @@ html.dark .with-pastel-balls::before {
   gap: 0.25rem;
 }
 
+/* Group Tag 样式 */
+.semi-tag.group-tag {
+  border-radius: 2px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  line-height: 15px;
+}
+
+.semi-tag.group-tag.group-tag-default {
+  background: rgba(249, 250, 251, 1);
+  color: rgba(75, 85, 99, 1);
+  border-color: rgba(229, 231, 235, 1);
+}
+
 /* ==================== 自定义圆角样式 ==================== */
 .semi-radio,
 .semi-tagInput,
@@ -970,4 +1097,18 @@ html.dark .with-pastel-balls::before {
 .semi-button,
 .semi-datepicker-range-input {
   border-radius: 10px !important;
+}
+
+/* ID 列单元格 */
+.channels-table .semi-table-tbody .channels-col-id {
+  color: rgba(156, 163, 175, 1);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+/* Name 列单元格 */
+.channels-table .semi-table-tbody .channels-col-name {
+  color: rgba(17, 24, 39, 1);
+  font-weight: 700;
+  font-size: 14px;
 }
