@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Dropdown } from '@douyinfe/semi-ui';
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,6 +27,7 @@ import {
   Infinity,
   KeyRound,
   Layers3,
+  MoreVertical,
   Plus,
   Search,
   SlidersHorizontal,
@@ -326,7 +328,7 @@ export default function TokenListPage() {
   };
 
   return (
-    <div className='mx-auto w-full max-w-[1200px] pb-8'>
+    <div className='mt-4 mx-auto w-full max-w-[1200px] pb-8'>
       <EditTokenModal
         refresh={data.refresh}
         editingToken={data.editingToken}
@@ -336,7 +338,7 @@ export default function TokenListPage() {
 
       <section className='mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
         <div>
-          <h1 className='text-3xl font-black tracking-tight text-slate-950'>
+          <h1 className='text-3xl font-black tracking-[-0.75px] text-slate-950'>
             {getTokenListTitle(t)}
           </h1>
           <p className='mt-1 text-sm text-slate-500'>
@@ -346,7 +348,7 @@ export default function TokenListPage() {
         </div>
         <button
           type='button'
-          className='inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.99]'
+          className='inline-flex items-center justify-center gap-2 rounded-sm bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.99]'
           onClick={() => {
             data.setEditingToken({ id: undefined });
             data.setShowEdit(true);
@@ -368,7 +370,7 @@ export default function TokenListPage() {
               className='w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
             />
           </label>
-          <label className='relative min-w-0 sm:w-[280px]'>
+          {/* <label className='relative min-w-0 sm:w-[280px]'>
             <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400' />
             <input
               value={searchToken}
@@ -376,7 +378,7 @@ export default function TokenListPage() {
               placeholder={t('密钥')}
               className='w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
             />
-          </label>
+          </label> */}
         </div>
 
         <div className='flex flex-wrap items-center justify-end gap-2'>
@@ -389,7 +391,7 @@ export default function TokenListPage() {
             <SlidersHorizontal className='h-4 w-4' />
             {t('查询')}
           </button>
-          <button
+          {/* <button
             type='button'
             className='rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50'
             onClick={handleReset}
@@ -409,11 +411,11 @@ export default function TokenListPage() {
             onClick={handleBatchDelete}
           >
             {t('删除所选令牌')}
-          </button>
+          </button> */}
         </div>
       </section>
 
-      <section className='mb-8 grid gap-6 md:grid-cols-3 xl:grid-cols-4'>
+      {/* <section className='mb-8 grid gap-6 md:grid-cols-3 xl:grid-cols-4'>
         {summaryCards.map((item) => (
           <div
             key={item.key}
@@ -434,14 +436,14 @@ export default function TokenListPage() {
             </div>
           </div>
         ))}
-      </section>
+      </section> */}
 
       <section className='overflow-hidden rounded-xl border border-slate-200 bg-white'>
         <div className='overflow-x-auto'>
           <Table className='min-w-[1120px]'>
             <Thead>
               <Tr>
-                <Th className='w-10 px-4 py-4'>
+                {/* <Th className='w-10 px-4 py-4'>
                   <input
                     type='checkbox'
                     checked={allChecked}
@@ -452,7 +454,7 @@ export default function TokenListPage() {
                     }}
                     onChange={handleSelectAll}
                   />
-                </Th>
+                </Th> */}
                 {tableHeaderLabels.map((label) => (
                   <Th
                     key={label}
@@ -469,7 +471,7 @@ export default function TokenListPage() {
                   key={token.id}
                   className='group border-b border-slate-100 transition-colors hover:bg-indigo-50/30'
                 >
-                  <Td className='px-4 py-5'>
+                  {/* <Td className='px-4 py-5'>
                     <input
                       type='checkbox'
                       checked={selectedTokenIds.includes(token.id)}
@@ -483,7 +485,7 @@ export default function TokenListPage() {
                         });
                       }}
                     />
-                  </Td>
+                  </Td> */}
                   <Td className='px-6 py-5'>
                     <div className='min-w-[220px]'>
                       <div className='mb-0.5 text-sm font-bold text-slate-950'>
@@ -497,7 +499,7 @@ export default function TokenListPage() {
                   <Td className='px-6 py-5 whitespace-nowrap'>
                     {getStatusBadge(token.status, t)}
                   </Td>
-                  <Td className='px-6 py-5 whitespace-nowrap text-xs text-slate-500'>
+                  <Td className='min-w-[220px] px-6 py-5 whitespace-nowrap text-xs text-slate-500'>
                     {getModelRestrictions(token, t)}
                   </Td>
                   <Td className='px-6 py-5 whitespace-nowrap text-sm font-medium text-slate-900'>
@@ -509,63 +511,60 @@ export default function TokenListPage() {
                   <Td className='px-6 py-5 whitespace-nowrap text-xs text-slate-400'>
                     {formatTokenCreatedAt(token.created_time)}
                   </Td>
-                  <Td className='min-w-[280px] px-6 py-5'>
-                    <div className='flex flex-wrap justify-end gap-2'>
-                      <button
-                        type='button'
-                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
-                        onClick={() => openChat(token)}
-                        disabled={chatLinks.length === 0}
-                      >
-                        {t('聊天')}
-                      </button>
-                      <button
-                        type='button'
-                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
-                        onClick={() => data.copyTokenKey(token)}
-                      >
-                        {t('复制')}
-                      </button>
-                      {token.status === 1 ? (
-                        <button
-                          type='button'
-                          className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
-                          onClick={() =>
-                            data.manageToken(token.id, 'disable', token)
-                          }
-                        >
-                          {t('禁用')}
-                        </button>
-                      ) : (
-                        <button
-                          type='button'
-                          className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
-                          onClick={() =>
-                            data.manageToken(token.id, 'enable', token)
-                          }
-                        >
-                          {t('启用')}
-                        </button>
-                      )}
-                      <button
-                        type='button'
-                        className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50'
-                        onClick={() => {
-                          data.setEditingToken(token);
-                          data.setShowEdit(true);
-                        }}
-                      >
-                        {t('编辑')}
-                      </button>
-                      <button
-                        type='button'
-                        className='rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50'
-                        onClick={() =>
-                          data.manageToken(token.id, 'delete', token)
+                  <Td className='min-w-[80px] px-6 py-5'>
+                    <div className='flex justify-center'>
+                      <Dropdown
+                        position='bottomRight'
+                        render={
+                          <Dropdown.Menu>
+                            <Dropdown.Item
+                              disabled={chatLinks.length === 0}
+                              onClick={() => openChat(token)}
+                            >
+                              {t('聊天')}
+                            </Dropdown.Item>
+                            <Dropdown.Item
+                              onClick={() => data.copyTokenKey(token)}
+                            >
+                              {t('复制')}
+                            </Dropdown.Item>
+                            <Dropdown.Item
+                              onClick={() =>
+                                data.manageToken(
+                                  token.id,
+                                  token.status === 1 ? 'disable' : 'enable',
+                                  token,
+                                )
+                              }
+                            >
+                              {token.status === 1 ? t('禁用') : t('启用')}
+                            </Dropdown.Item>
+                            <Dropdown.Item
+                              onClick={() => {
+                                data.setEditingToken(token);
+                                data.setShowEdit(true);
+                              }}
+                            >
+                              {t('编辑')}
+                            </Dropdown.Item>
+                            <Dropdown.Item
+                              style={{ color: '#e11d48' }}
+                              onClick={() =>
+                                data.manageToken(token.id, 'delete', token)
+                              }
+                            >
+                              {t('删除')}
+                            </Dropdown.Item>
+                          </Dropdown.Menu>
                         }
                       >
-                        {t('删除')}
-                      </button>
+                        <button
+                          type='button'
+                          className='h-[34px] w-4'
+                        >
+                          <MoreVertical className='h-4 w-4 text-[rgba(156,163,175,1)]' />
+                        </button>
+                      </Dropdown>
                     </div>
                   </Td>
                 </Tr>
@@ -600,9 +599,9 @@ export default function TokenListPage() {
             <span className='inline-flex h-7 min-w-7 items-center justify-center rounded bg-indigo-600 px-2 text-xs font-bold text-white shadow-sm'>
               {data.activePage}
             </span>
-            <span className='text-xs font-medium text-slate-500'>
+            {/* <span className='text-xs font-medium text-slate-500'>
               / {totalPages}
-            </span>
+            </span> */}
             <button
               type='button'
               className='inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50'
@@ -613,6 +612,29 @@ export default function TokenListPage() {
             </button>
           </div>
         </div>
+      </section>
+
+      <section className='my-8 grid gap-6 md:grid-cols-3 xl:grid-cols-4'>
+        {summaryCards.map((item) => (
+          <div
+            key={item.key}
+            className='rounded-xl border border-slate-200 bg-white p-5'
+          >
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <div className='mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'>
+                  {item.label}
+                </div>
+                <div className='text-2xl font-black text-slate-950'>
+                  {item.value}
+                </div>
+              </div>
+              <div className='rounded-xl border border-slate-200 bg-slate-50 p-2 text-indigo-600'>
+                {item.icon}
+              </div>
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
