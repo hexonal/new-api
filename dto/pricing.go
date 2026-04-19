@@ -10,10 +10,12 @@ type OpenAIModels struct {
 	Object                 string                  `json:"object"`
 	Created                int                     `json:"created"`
 	OwnedBy                string                  `json:"owned_by"`
+	Provider               string                  `json:"provider,omitempty"`
 	Icon                   string                  `json:"icon,omitempty"`
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	Reasoning              bool                    `json:"reasoning"`
 	FunctionCalling        bool                    `json:"function_calling"`
+	NSFW                   bool                    `json:"nsfw"`
 	Capabilities           CapabilityMap           `json:"capabilities"`
 }
 

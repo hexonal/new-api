@@ -235,19 +235,26 @@ func updatePricing() {
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
 	modelCustomEndpointKeys = make(map[string][]string)
 	for model, endpoints := range modelSupportEndpointsStr {
+		if meta, ok := metaMap[model]; ok {
+			capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
+			customKeys := capabilityKeysFromMap(capabilities)
+			if len(customKeys) > 0 {
+				supportedEndpoints := make([]constant.EndpointType, 0, len(customKeys))
+				for _, key := range customKeys {
+					supportedEndpoints = append(supportedEndpoints, constant.EndpointType(key))
+				}
+				modelSupportEndpointTypes[model] = supportedEndpoints
+				modelCustomEndpointKeys[model] = customKeys
+				continue
+			}
+		}
+
 		supportedEndpoints := make([]constant.EndpointType, 0, len(endpoints))
 		for _, endpointStr := range endpoints {
 			supportedEndpoints = append(supportedEndpoints, constant.EndpointType(endpointStr))
 		}
 		capabilities := dto.BuildCapabilityMapFromEndpointTypes(supportedEndpoints)
 		modelSupportEndpointTypes[model] = dto.SupportedEndpointTypes(capabilities)
-	}
-	for modelName, meta := range metaMap {
-		capabilities := dto.BuildCapabilityMapFromRawEndpoints(meta.GetParsedEndpoints())
-		keys := capabilityKeysFromMap(capabilities)
-		if len(keys) > 0 {
-			modelCustomEndpointKeys[modelName] = keys
-		}
 	}
 
 	// 构建全局 supportedEndpointMap（默认 + 自定义覆盖）

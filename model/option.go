@@ -203,6 +203,7 @@ func InitOptionMap() {
 	common.OptionMap["CallbackLogMaskSensitiveEnabled"] = "false"
 	common.OptionMap["ModelReasoningMap"] = "{}"
 	common.OptionMap["ModelFunctionCallingMap"] = "{}"
+	common.OptionMap["ModelNSFWMap"] = "{}"
 	common.OptionMap["LogCleanupRetentionDays"] = "0"
 
 	// 自动添加所有注册的模型配置
@@ -479,6 +480,8 @@ func updateOptionMap(key string, value string) (err error) {
 		err = model_capability.UpdateModelReasoningByJSONString(value)
 	case "ModelFunctionCallingMap":
 		err = model_capability.UpdateModelFunctionCallingByJSONString(value)
+	case "ModelNSFWMap":
+		err = model_capability.UpdateModelNSFWByJSONString(value)
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
 	case "SMTPServer":
