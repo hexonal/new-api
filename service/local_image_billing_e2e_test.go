@@ -131,11 +131,25 @@ func getUserQuotaForTest(t *testing.T, id int) int {
 	return user.Quota
 }
 
+func getUserUsedQuotaForTest(t *testing.T, id int) int {
+	t.Helper()
+	var user model.User
+	require.NoError(t, model.DB.Select("used_quota").Where("id = ?", id).First(&user).Error)
+	return user.UsedQuota
+}
+
 func getTokenRemainQuotaForTest(t *testing.T, id int) int {
 	t.Helper()
 	var token model.Token
 	require.NoError(t, model.DB.Select("remain_quota").Where("id = ?", id).First(&token).Error)
 	return token.RemainQuota
+}
+
+func getChannelUsedQuotaForTest(t *testing.T, id int) int64 {
+	t.Helper()
+	var ch model.Channel
+	require.NoError(t, model.DB.Select("used_quota").Where("id = ?", id).First(&ch).Error)
+	return ch.UsedQuota
 }
 
 func getGenerationRecordByTaskID(t *testing.T, taskID string) model.GenerationRecord {
@@ -376,6 +390,8 @@ func TestE2E_ImageTaskBilling_SuccessSettles(t *testing.T) {
 	assert.Equal(t, expectedQuota, record.Quota)
 	assert.Equal(t, userQuota-expectedQuota, getUserQuotaForTest(t, 1))
 	assert.Equal(t, userQuota-expectedQuota, getTokenRemainQuotaForTest(t, 1))
+	assert.Equal(t, expectedQuota, getUserUsedQuotaForTest(t, 1))
+	assert.EqualValues(t, expectedQuota, getChannelUsedQuotaForTest(t, 1))
 }
 
 func TestE2E_ImageTaskBilling_SubmitEditsPersistsReplayFields(t *testing.T) {
@@ -542,4 +558,6 @@ func TestE2E_ImageTaskBilling_FailureRefunds(t *testing.T) {
 	assert.Equal(t, expectedQuota, record.Quota)
 	assert.Equal(t, userQuota, getUserQuotaForTest(t, 1))
 	assert.Equal(t, userQuota, getTokenRemainQuotaForTest(t, 1))
+	assert.Equal(t, 0, getUserUsedQuotaForTest(t, 1))
+	assert.EqualValues(t, 0, getChannelUsedQuotaForTest(t, 1))
 }

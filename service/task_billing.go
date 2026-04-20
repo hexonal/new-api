@@ -118,6 +118,17 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	}
 }
 
+// taskAdjustUsageStats 调整用户与渠道的已消耗统计。
+func taskAdjustUsageStats(task *model.Task, delta int) {
+	if task == nil || delta == 0 {
+		return
+	}
+	model.UpdateUserUsedQuota(task.UserId, delta)
+	if task.ChannelId > 0 {
+		model.UpdateChannelUsedQuota(task.ChannelId, delta)
+	}
+}
+
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
 func taskBillingOther(task *model.Task) map[string]interface{} {
 	other := make(map[string]interface{})
@@ -169,10 +180,13 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 		return
 	}
 
-	// 2. 退还令牌额度
+	// 2. 回滚已消耗统计
+	taskAdjustUsageStats(task, -quota)
+
+	// 3. 退还令牌额度
 	taskAdjustTokenQuota(ctx, task, -quota)
 
-	// 3. 记录日志
+	// 4. 记录日志
 	other := taskBillingOther(task)
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
@@ -222,6 +236,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 
 	// 调整令牌额度
 	taskAdjustTokenQuota(ctx, task, quotaDelta)
+	taskAdjustUsageStats(task, quotaDelta)
 
 	task.Quota = actualQuota
 
@@ -230,8 +245,6 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if quotaDelta > 0 {
 		logType = model.LogTypeConsume
 		logQuota = quotaDelta
-		model.UpdateUserUsedQuotaAndRequestCount(task.UserId, quotaDelta)
-		model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
 	} else {
 		logType = model.LogTypeRefund
 		logQuota = -quotaDelta
