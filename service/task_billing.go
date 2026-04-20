@@ -776,6 +776,10 @@ func ResolveDeferredTaskActualQuota(adaptor TaskPollingAdaptor, task *model.Task
 		}
 	}
 	if taskResult != nil && taskResult.TotalTokens > 0 {
+		modelName := taskModelName(task)
+		if result, ok := calculateImaProQuotaResult(context.Background(), task, modelName, taskResult.TotalTokens); ok && result != nil && result.Quota > 0 {
+			return int(result.Quota), fmt.Sprintf("token_recalculate:%d", taskResult.TotalTokens)
+		}
 		if q, ok := calculateTaskQuotaByTokens(task, taskResult.TotalTokens); ok && q > 0 {
 			return q, fmt.Sprintf("token_recalculate:%d", taskResult.TotalTokens)
 		}
@@ -872,15 +876,20 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	other["estimated_quota"] = bc.EstimatedQuota
 	other["terminal_charge_state"] = bc.TerminalChargeState
 	other["terminal_charge_reason"] = reason
+	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	// Clear submit-time model_price for terminal charge logs so frontend
 	// renders deferred-settle format instead of per-call format.
 	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
 		modelName := taskModelName(task)
-		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
-		completionRatio := ratio_setting.GetCompletionRatio(modelName)
 		other["model_price"] = float64(-1) // clear per-call pricing flag
-		other["model_ratio"] = modelRatio
-		other["completion_ratio"] = completionRatio
+		if result, ok := calculateImaProQuotaResult(ctx, task, modelName, totalTokens); ok && result != nil {
+			applyImaProAuditFields(other, modelName, resolveImaProTaskVariantKey(task, modelName), result)
+		} else {
+			modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
+			completionRatio := ratio_setting.GetCompletionRatio(modelName)
+			other["model_ratio"] = modelRatio
+			other["completion_ratio"] = completionRatio
+		}
 	} else if strings.Contains(reason, "adaptor_adjust") {
 		// Adaptor-based settlement (e.g. Vidu credits): clear model_price
 		// to prevent frontend from showing misleading per-call format.
@@ -903,7 +912,6 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 			}
 		}
 	}
-	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
 	if totalTokens > 0 {
 		other["task_total_tokens"] = totalTokens
 	}

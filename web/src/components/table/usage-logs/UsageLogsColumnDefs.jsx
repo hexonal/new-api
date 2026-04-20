@@ -123,8 +123,9 @@ function buildImaProSettlementSummary(record, other, billedQuota, t) {
   const lines = buildImaProBillingLines({
     other,
     totalTokens: tokenTotal,
+    billedQuota,
+    quotaPerUnit: getQuotaPerUnit(),
     finalCostText: renderQuota(billedQuota, 6),
-    formatTokenCount,
     labels: buildImaProBillingLabels(t),
   });
   return lines.join('\n');

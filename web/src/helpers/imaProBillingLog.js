@@ -3,6 +3,14 @@ const toPositiveNumber = (value) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
+const formatInteger = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return String(value);
+  }
+  return String(Math.trunc(parsed)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
 export function parseImaProBillingSku(sku) {
   const text = String(sku || '').trim();
   if (!text) {
@@ -38,6 +46,8 @@ export function resolveImaProBillingInfo(other = {}) {
   const ratePerM =
     toPositiveNumber(other?.rate_per_m) ||
     toPositiveNumber(other?.model_ratio) * 2;
+  const modelRatio =
+    toPositiveNumber(other?.model_ratio) || (ratePerM > 0 ? ratePerM / 2 : 0);
   const groupRatio = Number(other?.group_ratio);
   const isImaProLike =
     Boolean(sku) ||
@@ -54,6 +64,7 @@ export function resolveImaProBillingInfo(other = {}) {
     inputMode,
     resolutionBucket,
     ratePerM,
+    modelRatio,
     groupRatio: Number.isFinite(groupRatio) ? groupRatio : 1,
     usedFallback: Boolean(other?.used_fallback),
   };
@@ -62,8 +73,9 @@ export function resolveImaProBillingInfo(other = {}) {
 export function buildImaProBillingLines({
   other,
   totalTokens,
+  billedQuota,
+  quotaPerUnit = 500000,
   finalCostText,
-  formatTokenCount = (value) => String(value),
   labels = {},
 }) {
   const info = resolveImaProBillingInfo(other);
@@ -88,7 +100,7 @@ export function buildImaProBillingLines({
 
   if (totalTokens > 0) {
     lines.push(
-      `${labels.tokens || '计费 Tokens'}：${formatTokenCount(totalTokens)}`,
+      `${labels.tokens || '计费 Tokens'}：${formatInteger(totalTokens)}`,
     );
   }
 
@@ -100,8 +112,12 @@ export function buildImaProBillingLines({
   );
 
   if (totalTokens > 0 && finalCostText) {
+    const quotaValue =
+      toPositiveNumber(billedQuota) ||
+      Math.trunc(totalTokens * info.modelRatio * info.groupRatio);
+    const quotaUnit = toPositiveNumber(quotaPerUnit) || 500000;
     lines.push(
-      `${labels.formula || '计费公式'}：(${formatTokenCount(totalTokens)} tokens / 1M * $${info.ratePerM.toFixed(6)}) * ${labels.groupRatio || '分组倍率（模型覆盖）'} ${info.groupRatio.toFixed(4)} = ${finalCostText}`,
+      `${labels.formula || '计费公式'}：${formatInteger(totalTokens)} tokens * SKU倍率 ${info.modelRatio.toFixed(6)} * ${labels.groupRatio || '分组倍率（模型覆盖）'} ${info.groupRatio.toFixed(4)} = ${formatInteger(quotaValue)} quota；${formatInteger(quotaValue)} quota / ${formatInteger(quotaUnit)} quota/USD = ${finalCostText}`,
     );
   }
 

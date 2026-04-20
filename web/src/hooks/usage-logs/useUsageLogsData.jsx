@@ -155,8 +155,9 @@ const buildImaProSettlementLines = (other, totalTokens, billedQuota, t) =>
   buildImaProBillingLines({
     other,
     totalTokens,
+    billedQuota,
+    quotaPerUnit: getQuotaPerUnit(),
     finalCostText: renderQuota(billedQuota, 6),
-    formatTokenCount: renderNumber,
     labels: buildImaProBillingLabels(t),
   });
 

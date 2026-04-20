@@ -29,6 +29,7 @@ test('resolveImaProBillingInfo supports old logs without rate_per_m and mode fie
   assert.equal(info.inputMode, 'novideo');
   assert.equal(info.resolutionBucket, '720p');
   assert.equal(info.ratePerM, 7);
+  assert.equal(info.modelRatio, 3.5);
   assert.equal(info.groupRatio, 0.8);
 });
 
@@ -40,18 +41,45 @@ test('buildImaProBillingLines renders video-specific formula without LLM input/c
       group_ratio: 0.8,
     },
     totalTokens: 87300,
+    billedQuota: 244440,
+    quotaPerUnit: 500000,
     finalCostText: '$0.488880',
-    formatTokenCount: (value) => (value === 87300 ? '87.3k' : String(value)),
   });
 
   const text = lines.join('\n');
   assert.match(text, /计费 SKU：ima-pro-novideo-720p/);
   assert.match(text, /计费档位：无参考视频 \/ 720p/);
+  assert.match(text, /计费 Tokens：87,300/);
   assert.match(text, /SKU 单价：\$7\.000000 \/ 1M tokens/);
   assert.match(
     text,
-    /计费公式：\(87\.3k tokens \/ 1M \* \$7\.000000\) \* 分组倍率（模型覆盖） 0\.8000 = \$0\.488880/,
+    /计费公式：87,300 tokens \* SKU倍率 3\.500000 \* 分组倍率（模型覆盖） 0\.8000 = 244,440 quota；244,440 quota \/ 500,000 quota\/USD = \$0\.488880/,
   );
+  assert.doesNotMatch(text, /87\.3k tokens \/ 1M/);
   assert.doesNotMatch(text, /输入价格/);
   assert.doesNotMatch(text, /补全价格/);
+});
+
+test('buildImaProBillingLines uses exact token count for 1080p sku formula', () => {
+  const lines = buildImaProBillingLines({
+    other: {
+      billing_sku: 'ima-pro-novideo-1080p',
+      model_ratio: 3.85,
+      group_ratio: 0.8,
+      rate_per_m: 7.7,
+    },
+    totalTokens: 245025,
+    billedQuota: 754677,
+    quotaPerUnit: 500000,
+    finalCostText: '$1.509354',
+  });
+
+  const text = lines.join('\n');
+  assert.match(text, /计费 SKU：ima-pro-novideo-1080p/);
+  assert.match(text, /SKU 单价：\$7\.700000 \/ 1M tokens/);
+  assert.match(
+    text,
+    /计费公式：245,025 tokens \* SKU倍率 3\.850000 \* 分组倍率（模型覆盖） 0\.8000 = 754,677 quota；754,677 quota \/ 500,000 quota\/USD = \$1\.509354/,
+  );
+  assert.doesNotMatch(text, /245\.0k/);
 });
