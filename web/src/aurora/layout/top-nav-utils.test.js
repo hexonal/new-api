@@ -24,6 +24,7 @@ import {
   getTopNavLinks,
   isLandingPageEnabled,
   isLandingPagePublicAccessEnabled,
+  isSystemHomeEnabled,
   parseHeaderNavModulesConfig,
   shouldRedirectHomeToLogin,
 } from './top-nav-utils';
@@ -159,6 +160,18 @@ describe('top-nav-utils', () => {
     expect(isLandingPageEnabled('{invalid-json')).toBe(true);
   });
 
+  test('enables system home by default and disables only when explicitly false', () => {
+    expect(isSystemHomeEnabled()).toBe(true);
+    expect(isSystemHomeEnabled(JSON.stringify({}))).toBe(true);
+    expect(
+      isSystemHomeEnabled(
+        JSON.stringify({
+          home: false,
+        }),
+      ),
+    ).toBe(false);
+  });
+
   test('treats landing page as publicly accessible by default and supports explicit guest blocking', () => {
     expect(isLandingPagePublicAccessEnabled()).toBe(true);
     expect(isLandingPagePublicAccessEnabled(JSON.stringify({}))).toBe(true);
@@ -174,7 +187,7 @@ describe('top-nav-utils', () => {
     ).toBe(false);
   });
 
-  test('redirects unauthenticated visitors from home when landing guest access is disabled', () => {
+  test('redirects unauthenticated visitors from home when guest access is disabled or no homepage is available', () => {
     expect(
       shouldRedirectHomeToLogin({
         headerNavModulesConfig: JSON.stringify({
@@ -198,6 +211,26 @@ describe('top-nav-utils', () => {
         isAuthenticated: true,
       }),
     ).toBe(false);
+
+    expect(
+      shouldRedirectHomeToLogin({
+        headerNavModulesConfig: JSON.stringify({
+          landing: { enabled: false, publicAccess: true },
+          home: true,
+        }),
+        isAuthenticated: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRedirectHomeToLogin({
+        headerNavModulesConfig: JSON.stringify({
+          landing: { enabled: false, publicAccess: true },
+          home: false,
+        }),
+        isAuthenticated: false,
+      }),
+    ).toBe(true);
 
     expect(
       shouldRedirectHomeToLogin({

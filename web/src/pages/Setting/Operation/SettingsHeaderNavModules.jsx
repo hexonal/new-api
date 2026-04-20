@@ -51,6 +51,16 @@ export default function SettingsHeaderNavModules(props) {
   function handleHeaderNavModuleChange(moduleKey) {
     return (checked) => {
       const newModules = { ...headerNavModules };
+      if (moduleKey === 'landing' || moduleKey === 'home') {
+        newModules.landing = {
+          ...newModules.landing,
+          enabled: checked,
+        };
+        newModules.home = checked;
+        setHeaderNavModules(newModules);
+        return;
+      }
+
       if (
         newModules[moduleKey] &&
         typeof newModules[moduleKey] === 'object'
@@ -146,15 +156,13 @@ export default function SettingsHeaderNavModules(props) {
     {
       key: 'landing',
       title: t('首页落地页'),
-      description: t(
-        '控制首页落地页展示；关闭后使用系统首页，未登录访问可单独配置',
-      ),
+      description: t('控制首页落地页展示；与首页开关保持同步'),
       hasSubConfig: true,
     },
     {
       key: 'home',
       title: t('首页'),
-      description: t('用户主页，展示系统信息'),
+      description: t('系统首页展示开关；与首页落地页保持同步'),
     },
     {
       key: 'console',
@@ -243,7 +251,8 @@ export default function SettingsHeaderNavModules(props) {
                   </div>
                 </div>
 
-                {module.key === 'landing' && (
+                {module.key === 'landing' &&
+                  headerNavModules.landing?.enabled && (
                   <div
                     style={{
                       borderTop: '1px solid var(--semi-color-border)',

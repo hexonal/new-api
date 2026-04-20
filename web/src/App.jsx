@@ -61,6 +61,7 @@ import NotFoundPage from './aurora/pages/public/NotFoundPage';
 import ForbiddenPage from './aurora/pages/public/ForbiddenPage';
 import {
   isLandingPageEnabled,
+  isSystemHomeEnabled,
   shouldRedirectHomeToLogin,
 } from './aurora/layout/top-nav-utils';
 
@@ -131,6 +132,10 @@ export function LegacyApp({ isAuroraTheme = false }) {
     return isLandingPageEnabled(headerNavModulesConfig);
   }, [headerNavModulesConfig]);
 
+  const homePageEnabled = useMemo(() => {
+    return isSystemHomeEnabled(headerNavModulesConfig);
+  }, [headerNavModulesConfig]);
+
   const shouldRedirectHome = useMemo(() => {
     return shouldRedirectHomeToLogin({
       headerNavModulesConfig,
@@ -151,10 +156,22 @@ export function LegacyApp({ isAuroraTheme = false }) {
                   replace
                   state={{ from: location }}
                 />
+              ) : !landingPageEnabled && !homePageEnabled ? (
+                <Navigate
+                  to={isAuthenticated ? '/console' : '/login'}
+                  replace
+                  state={{ from: location }}
+                />
               ) : isAuroraTheme ? (
                 landingPageEnabled ? <LandingPage /> : <Home />
-              ) : (
+              ) : homePageEnabled ? (
                 <Home />
+              ) : (
+                <Navigate
+                  to={isAuthenticated ? '/console' : '/login'}
+                  replace
+                  state={{ from: location }}
+                />
               )}
             </Suspense>
           }

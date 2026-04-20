@@ -9,7 +9,9 @@ describe('home auth regression', () => {
     const source = readSource('App.jsx');
 
     expect(source).toContain('shouldRedirectHomeToLogin({');
+    expect(source).toContain('isSystemHomeEnabled(headerNavModulesConfig)');
     expect(source).toContain("to='/login'");
+    expect(source).toContain("to={isAuthenticated ? '/console' : '/login'}");
     expect(source).toContain('state={{ from: location }}');
     expect(source).toContain('landingPageEnabled ? <LandingPage /> : <Home />');
   });

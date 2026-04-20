@@ -111,6 +111,10 @@ export const isLandingPageEnabled = (config) => {
   return parseHeaderNavModulesConfig(config)?.landing?.enabled ?? true;
 };
 
+export const isSystemHomeEnabled = (config) => {
+  return parseHeaderNavModulesConfig(config)?.home ?? true;
+};
+
 export const isLandingPagePublicAccessEnabled = (config) => {
   return parseHeaderNavModulesConfig(config)?.landing?.publicAccess ?? true;
 };
@@ -119,9 +123,14 @@ export const shouldRedirectHomeToLogin = ({
   headerNavModulesConfig,
   isAuthenticated,
 }) => {
+  const landingModule =
+    parseHeaderNavModulesConfig(headerNavModulesConfig)?.landing ||
+    normalizeLandingModule();
+  const homeEnabled = isSystemHomeEnabled(headerNavModulesConfig);
+
   return (
     !isAuthenticated &&
-    !isLandingPagePublicAccessEnabled(headerNavModulesConfig)
+    (!landingModule.publicAccess || (!landingModule.enabled && !homeEnabled))
   );
 };
 
