@@ -167,11 +167,7 @@ const ContentModal = ({
       width={isVideo ? '90vw' : 800}
       style={isVideo ? { maxWidth: 960 } : undefined}
     >
-      {isVideo ? (
-        renderVideoContent()
-      ) : (
-        <p style={{ whiteSpace: 'pre-line' }}>{modalContent}</p>
-      )}
+      {isVideo ? renderVideoContent() : <pre>{modalContent}</pre>}
     </Modal>
   );
 };

@@ -100,7 +100,9 @@ const getImageTaskMode = (record) => {
   if (typeof taskMode === 'string' && taskMode.trim() !== '') {
     return taskMode.trim();
   }
-  return getTaskRequestPath(record) === '/v1/images/edits' ? 'edits' : 'generations';
+  return getTaskRequestPath(record) === '/v1/images/edits'
+    ? 'edits'
+    : 'generations';
 };
 
 const isVideoTask = (record) => {
@@ -420,15 +422,10 @@ export const getTaskLogsColumns = ({
         const displayText = String(record.username || userId || '?');
         return (
           <Space>
-            <Avatar
-              size='extra-small'
-              color={stringToColor(displayText)}
-            >
+            <Avatar size='extra-small' color={stringToColor(displayText)}>
               {displayText.slice(0, 1)}
             </Avatar>
-            <Typography.Text>
-              {displayText}
-            </Typography.Text>
+            <Typography.Text>{displayText}</Typography.Text>
           </Space>
         );
       },
@@ -466,7 +463,7 @@ export const getTaskLogsColumns = ({
           <Typography.Text
             ellipsis={{ showTooltip: true }}
             onClick={() => {
-              openContentModal(JSON.stringify(record, null, 2));
+              openContentModal(record);
             }}
           >
             <div>{text}</div>

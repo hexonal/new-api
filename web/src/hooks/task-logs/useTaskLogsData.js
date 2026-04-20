@@ -31,6 +31,62 @@ import {
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 
+const isPlainObject = (value) =>
+  Object.prototype.toString.call(value) === '[object Object]';
+
+const isJsonLikeString = (value) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+};
+
+const tryParseJsonString = (value) => {
+  if (!isJsonLikeString(value)) {
+    return { parsed: false, value };
+  }
+  try {
+    return { parsed: true, value: JSON.parse(value) };
+  } catch {
+    return { parsed: false, value };
+  }
+};
+
+const normalizeJsonValue = (value) => {
+  const parsedResult = tryParseJsonString(value);
+  if (parsedResult.parsed) {
+    return normalizeJsonValue(parsedResult.value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJsonValue(item));
+  }
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        normalizeJsonValue(item),
+      ]),
+    );
+  }
+  return value;
+};
+
+const formatModalContent = (content) => {
+  if (content === null || content === undefined) {
+    return '';
+  }
+  const normalized = normalizeJsonValue(content);
+  if (typeof normalized === 'string') {
+    return normalized;
+  }
+  try {
+    return JSON.stringify(normalized, null, 2);
+  } catch {
+    return String(content);
+  }
+};
+
 export const useTaskLogsData = () => {
   const { t } = useTranslation();
 
@@ -277,7 +333,7 @@ export const useTaskLogsData = () => {
 
   // Modal handlers
   const openContentModal = (content) => {
-    setModalContent(content);
+    setModalContent(formatModalContent(content));
     setIsModalOpen(true);
   };
 
