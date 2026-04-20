@@ -56,6 +56,7 @@ import {
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
 } from '../../../helpers/dynamicPerCall';
+import { buildImaProBillingLines } from '../../../helpers/imaProBillingLog';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
 
@@ -87,40 +88,45 @@ function formatRatio(ratio) {
   return String(ratio);
 }
 
-function formatRatePerM(rate) {
-  const num = Number(rate);
-  if (!Number.isFinite(num) || num <= 0) {
-    return '-';
+function buildImaProBillingSummary(other, t) {
+  const lines = buildImaProBillingLines({
+    other,
+    labels: buildImaProBillingLabels(t),
+  });
+  if (lines.length === 0) {
+    return '';
   }
-  return `$${num.toFixed(4)} / 1M tokens`;
+  return [t('IMA Pro 计费明细'), ...lines].join('\n');
 }
 
-function buildImaProBillingSummary(other, t) {
-  if (!other) {
-    return '';
-  }
+function buildImaProBillingLabels(t) {
+  return {
+    sku: t('计费 SKU'),
+    tier: t('计费档位'),
+    tokens: t('计费 Tokens'),
+    rate: t('SKU 单价'),
+    groupRatio: t('分组倍率（模型覆盖）'),
+    formula: t('计费公式'),
+    novideo: t('无参考视频'),
+    withvideo: t('含参考视频'),
+    fallback: t('计费提示：SKU 未命中，已使用模型基础价格兜底'),
+  };
+}
 
-  const sku = other.billing_sku || other.model_variant || '';
-  const inputMode = other.input_mode || '';
-  const bucket = other.resolution_bucket || '';
-  const rate = Number(other.rate_per_m);
-  if (!sku && !inputMode && !bucket && !(rate > 0)) {
-    return '';
-  }
-
-  const lines = [t('IMA Pro 计费明细')];
-  if (sku) {
-    lines.push(`${t('计费变体')}：${sku}`);
-  }
-  if (inputMode) {
-    lines.push(`${t('输入模式')}：${inputMode}`);
-  }
-  if (bucket) {
-    lines.push(`${t('分辨率档')}：${bucket}`);
-  }
-  if (rate > 0) {
-    lines.push(`${t('费率 ($/M)')}：${formatRatePerM(rate)}`);
-  }
+function buildImaProSettlementSummary(record, other, billedQuota, t) {
+  const tokenTotal = resolveDeferredTotalTokens(
+    record,
+    other,
+    record?.prompt_tokens,
+    record?.completion_tokens,
+  );
+  const lines = buildImaProBillingLines({
+    other,
+    totalTokens: tokenTotal,
+    finalCostText: renderQuota(billedQuota, 6),
+    formatTokenCount,
+    labels: buildImaProBillingLabels(t),
+  });
   return lines.join('\n');
 }
 
@@ -1237,30 +1243,37 @@ export const getLogsColumns = ({
             record?.prompt_tokens,
             record?.completion_tokens,
           );
-          const billingSummary = renderLogContent(
-            other?.model_ratio,
-            other?.completion_ratio,
-            other?.model_price,
-            other?.group_ratio,
-            other?.user_group_ratio,
-            other?.cache_ratio || 1.0,
-            false,
-            1.0,
-            false,
-            0,
-            false,
-            0,
-            billingDisplayMode,
-            other?.group_ratio_source,
-            other,
-          );
-          const formulaPreview = buildDeferredTokenFormulaPreview(
+          const imaProSettlementSummary = buildImaProSettlementSummary(
             record,
             other,
+            billedQuota,
             t,
           );
+          const billingSummary = imaProSettlementSummary
+            ? null
+            : renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+                other,
+              );
+          const formulaPreview = imaProSettlementSummary
+            ? null
+            : buildDeferredTokenFormulaPreview(record, other, t);
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
+            imaProSettlementSummary,
             billingSummary,
             formulaPreview,
             `${t('结算原因')}：${reason}`,

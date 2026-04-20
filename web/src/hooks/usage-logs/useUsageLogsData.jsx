@@ -51,6 +51,7 @@ import {
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
 } from '../../helpers/dynamicPerCall';
+import { buildImaProBillingLines } from '../../helpers/imaProBillingLog';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 import { StatusContext } from '../../context/Status';
@@ -137,6 +138,27 @@ const isDeferredSettlePendingLog = (log, other) => {
   const state = String(other?.terminal_charge_state || '').toLowerCase();
   return state === 'pending';
 };
+
+const buildImaProBillingLabels = (t) => ({
+  sku: t('计费 SKU'),
+  tier: t('计费档位'),
+  tokens: t('计费 Tokens'),
+  rate: t('SKU 单价'),
+  groupRatio: t('分组倍率（模型覆盖）'),
+  formula: t('计费公式'),
+  novideo: t('无参考视频'),
+  withvideo: t('含参考视频'),
+  fallback: t('计费提示：SKU 未命中，已使用模型基础价格兜底'),
+});
+
+const buildImaProSettlementLines = (other, totalTokens, billedQuota, t) =>
+  buildImaProBillingLines({
+    other,
+    totalTokens,
+    finalCostText: renderQuota(billedQuota, 6),
+    formatTokenCount: renderNumber,
+    labels: buildImaProBillingLabels(t),
+  });
 
 const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   const quotaValue = Number(quota);
@@ -743,6 +765,12 @@ export const useLogsData = () => {
         const billedQuota = toPositiveNumber(
           other?.actual_quota || logs[i]?.quota || 0,
         );
+        const imaProSettlementSummary = buildImaProSettlementLines(
+          other,
+          totalTokens,
+          billedQuota,
+          t,
+        ).join(' | ');
         const deferredBillingSummary = deferredTokenRecalculate
           ? isAdaptorAdjustLog
             ? isCreditSettlement && upstreamCredits > 0
@@ -757,7 +785,8 @@ export const useLogsData = () => {
               : t('上游实际消耗结算，分组倍率(模型覆盖) {{ratio}}', {
                   ratio: Number(other?.group_ratio || 1).toFixed(1),
                 })
-            : renderLogContent(
+            : imaProSettlementSummary ||
+              renderLogContent(
                 other?.model_ratio,
                 other?.completion_ratio,
                 other?.model_price,
@@ -775,14 +804,6 @@ export const useLogsData = () => {
                 other,
               )
           : null;
-        const deferredPromptTokens =
-          toPositiveNumber(logs[i]?.prompt_tokens) > 0
-            ? toPositiveNumber(logs[i]?.prompt_tokens)
-            : toPositiveNumber(other?.task_prompt_tokens);
-        const deferredCompletionTokens =
-          toPositiveNumber(logs[i]?.completion_tokens) > 0
-            ? toPositiveNumber(logs[i]?.completion_tokens)
-            : toPositiveNumber(other?.task_completion_tokens);
         expandDataLocal.push({
           key: t('日志详情'),
           value: deferredTokenRecalculate
@@ -1039,40 +1060,52 @@ export const useLogsData = () => {
                 deferredPromptTokens,
                 deferredCompletionTokens,
               );
-              const billingProcess = renderLogContent(
-                other?.model_ratio,
-                other?.completion_ratio,
-                other?.model_price,
-                other?.group_ratio,
-                other?.user_group_ratio,
-                other?.cache_ratio || 1.0,
-                false,
-                1.0,
-                false,
-                0,
-                false,
-                0,
-                billingDisplayMode,
-                other?.group_ratio_source,
+              const imaProSettlementLines = buildImaProSettlementLines(
                 other,
+                totalTokens,
+                billedQuota,
+                t,
               );
+              const billingProcess =
+                imaProSettlementLines.length > 0
+                  ? null
+                  : renderLogContent(
+                      other?.model_ratio,
+                      other?.completion_ratio,
+                      other?.model_price,
+                      other?.group_ratio,
+                      other?.user_group_ratio,
+                      other?.cache_ratio || 1.0,
+                      false,
+                      1.0,
+                      false,
+                      0,
+                      false,
+                      0,
+                      billingDisplayMode,
+                      other?.group_ratio_source,
+                      other,
+                    );
               const modelName = logs[i]?.model_name || '';
               const isGeminiImagePreview =
                 modelName.includes('image-preview') ||
                 modelName.includes('image_preview');
               const thoughtRatio = isGeminiImagePreview ? 6.0 : undefined;
-              const forcedFormula = buildDeferredTokenFormula(
-                deferredPromptTokens,
-                deferredCompletionTokens,
-                other?.cache_tokens || 0,
-                other?.model_ratio,
-                other?.completion_ratio,
-                other?.cache_ratio || 1.0,
-                other?.group_ratio,
-                t,
-                totalTokens,
-                thoughtRatio,
-              );
+              const forcedFormula =
+                imaProSettlementLines.length > 0
+                  ? null
+                  : buildDeferredTokenFormula(
+                      deferredPromptTokens,
+                      deferredCompletionTokens,
+                      other?.cache_tokens || 0,
+                      other?.model_ratio,
+                      other?.completion_ratio,
+                      other?.cache_ratio || 1.0,
+                      other?.group_ratio,
+                      t,
+                      totalTokens,
+                      thoughtRatio,
+                    );
               content = (
                 <article>
                   <p>
@@ -1080,6 +1113,9 @@ export const useLogsData = () => {
                       cost: renderQuota(billedQuota, 6),
                     })}
                   </p>
+                  {imaProSettlementLines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
                   {billingProcess}
                   {forcedFormula && <p>{forcedFormula}</p>}
                   <p>{t('结算原因：{{reason}}', { reason })}</p>
@@ -1255,9 +1291,8 @@ export const useLogsData = () => {
                 groupRatio: safeGroupRatio,
                 quotaPerUnit,
               });
-              const derivedModelPriceText = formatDirectPerCallPrice(
-                derivedModelPrice,
-              );
+              const derivedModelPriceText =
+                formatDirectPerCallPrice(derivedModelPrice);
               content = (
                 <article>
                   <p>{t('按次计费（根据实际扣费反推）')}</p>
@@ -1547,12 +1582,7 @@ export const useLogsData = () => {
       return;
     }
     setLogsFormat(rawLogs);
-  }, [
-    rawLogs,
-    isAdminUser,
-    showGroupForNonAdmin,
-    showPricingGroupForNonAdmin,
-  ]);
+  }, [rawLogs, isAdminUser, showGroupForNonAdmin, showPricingGroupForNonAdmin]);
 
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
