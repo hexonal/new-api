@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -79,12 +80,7 @@ func validatePrompt(prompt string) *dto.TaskError {
 }
 
 func isPromptOptionalTaskModel(model string) bool {
-	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "ima-pro", "ima-pro-fast":
-		return true
-	default:
-		return false
-	}
+	return ratio_setting.IsIMAProModel(model)
 }
 
 func isImageOnlyModel(model string) bool {

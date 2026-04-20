@@ -51,6 +51,19 @@ func TestValidateMultipartDirect_AllowPromptlessImaProFastWithReferenceMetadata(
 	require.Equal(t, constant.TaskActionGenerate, info.Action)
 }
 
+func TestIsPromptOptionalTaskModel_SeedanceModels(t *testing.T) {
+	testCases := []string{
+		"seedance-2.0",
+		"seedance-2.0-fast-cn",
+	}
+
+	for _, modelName := range testCases {
+		t.Run(modelName, func(t *testing.T) {
+			require.True(t, isPromptOptionalTaskModel(modelName))
+		})
+	}
+}
+
 func TestValidateMultipartDirect_RejectImageOnlyModelsOnVideoEndpoint(t *testing.T) {
 	testCases := []string{
 		"gemini-3-pro-image-preview",
