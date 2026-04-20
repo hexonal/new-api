@@ -180,7 +180,7 @@ const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   );
   const inputPrice = modelRatioValue * 2;
   return t(
-    '(预扣 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
+    '(预估 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
     {
       tokens: renderNumber(estimatedTokens),
       inputPrice: Number(inputPrice).toFixed(6),

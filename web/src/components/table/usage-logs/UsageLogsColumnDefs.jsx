@@ -544,7 +544,7 @@ function buildDeferredPendingFormulaPreview(other, t) {
   }
   const estimatedTokens = Math.round(quota / (modelRatio * groupRatio));
   const inputPrice = modelRatio * 2;
-  return `(${t('预扣')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
+  return `(${t('预估')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
 }
 
 function getPromptCacheSummary(other) {
@@ -999,7 +999,7 @@ export const getLogsColumns = ({
             </Tooltip>
           );
         }
-        // Deferred settle pending: show the submit-stage pre-charge estimate.
+        // Deferred settle pending: show submit-stage estimate only; no money is charged yet.
         if (
           other?.deferred_settle &&
           other?.terminal_charge_state === 'pending'
@@ -1023,7 +1023,7 @@ export const getLogsColumns = ({
                   style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
                 >
                   {est > 0
-                    ? `${t('预扣费')} ${renderQuota(est, 6)}`
+                    ? `${t('预估费用')} ${renderQuota(est, 6)}`
                     : t('等待结算')}
                 </span>
               </span>
