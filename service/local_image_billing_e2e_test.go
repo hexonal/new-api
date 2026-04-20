@@ -74,6 +74,7 @@ func (a *e2eImageAdaptor) DoRequest(
 func truncateAll(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
+		model.DB.Exec("DELETE FROM generation_records")
 		model.DB.Exec("DELETE FROM tasks")
 		model.DB.Exec("DELETE FROM users")
 		model.DB.Exec("DELETE FROM tokens")
@@ -135,6 +136,13 @@ func getTokenRemainQuotaForTest(t *testing.T, id int) int {
 	var token model.Token
 	require.NoError(t, model.DB.Select("remain_quota").Where("id = ?", id).First(&token).Error)
 	return token.RemainQuota
+}
+
+func getGenerationRecordByTaskID(t *testing.T, taskID string) model.GenerationRecord {
+	t.Helper()
+	var record model.GenerationRecord
+	require.NoError(t, model.DB.Where("external_task_id = ?", taskID).First(&record).Error)
+	return record
 }
 
 func submitImageTask(
@@ -295,6 +303,11 @@ func expectedImageQuota(t *testing.T, imageReq *dto.ImageRequest) int {
 
 func TestE2E_ImageTaskBilling_SuccessSettles(t *testing.T) {
 	truncateAll(t)
+	previousEnabled := common.GenerationRecordEnabled.Load()
+	common.GenerationRecordEnabled.Store(true)
+	t.Cleanup(func() {
+		common.GenerationRecordEnabled.Store(previousEnabled)
+	})
 
 	const (
 		userQuota = 100000
@@ -357,6 +370,9 @@ func TestE2E_ImageTaskBilling_SuccessSettles(t *testing.T) {
 	require.NoError(t, model.DB.First(&updated, submitted.ID).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
 	assert.Equal(t, "https://result.example/img.png", updated.PrivateData.ResultURL)
+	record := getGenerationRecordByTaskID(t, submitted.TaskID)
+	assert.Equal(t, model.GenerationStatusSuccess, record.Status)
+	assert.Equal(t, expectedQuota, record.Quota)
 	assert.Equal(t, userQuota-expectedQuota, getUserQuotaForTest(t, 1))
 	assert.Equal(t, userQuota-expectedQuota, getTokenRemainQuotaForTest(t, 1))
 }
@@ -460,6 +476,11 @@ func TestE2E_ImageTaskBilling_SubmitEditsPersistsMaskReplayField(t *testing.T) {
 
 func TestE2E_ImageTaskBilling_FailureRefunds(t *testing.T) {
 	truncateAll(t)
+	previousEnabled := common.GenerationRecordEnabled.Load()
+	common.GenerationRecordEnabled.Store(true)
+	t.Cleanup(func() {
+		common.GenerationRecordEnabled.Store(previousEnabled)
+	})
 
 	const (
 		userQuota = 100000
@@ -514,6 +535,9 @@ func TestE2E_ImageTaskBilling_FailureRefunds(t *testing.T) {
 	require.NoError(t, model.DB.First(&updated, submitted.ID).Error)
 	assert.EqualValues(t, model.TaskStatusFailure, updated.Status)
 	assert.Contains(t, updated.FailReason, "upstream 400")
+	record := getGenerationRecordByTaskID(t, submitted.TaskID)
+	assert.Equal(t, model.GenerationStatusFailed, record.Status)
+	assert.Equal(t, expectedQuota, record.Quota)
 	assert.Equal(t, userQuota, getUserQuotaForTest(t, 1))
 	assert.Equal(t, userQuota, getTokenRemainQuotaForTest(t, 1))
 }

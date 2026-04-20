@@ -82,6 +82,11 @@ func ExecuteLocalImageTask(ctx context.Context, workerID string, task *model.Tas
 	if err = FinalizeLocalImageSuccess(persistCtx, workerID, task.ID, resultURL, nil); err != nil {
 		return err
 	}
+	task.Status = model.TaskStatusSuccess
+	task.Progress = "100%"
+	task.FinishTime = common.GetTimestamp()
+	task.PrivateData.ResultURL = resultURL
+	WriteAsyncStatusAdvance(persistCtx, task, model.GenerationStatusSuccess)
 
 	info.FinalPreConsumedQuota = task.Quota
 	if err = SettleBilling(ginCtx, info, task.Quota); err != nil {
@@ -544,6 +549,11 @@ func failLocalImageTask(
 	if err != nil {
 		return err
 	}
+	task.Status = model.TaskStatusFailure
+	task.Progress = "100%"
+	task.FinishTime = common.GetTimestamp()
+	task.FailReason = reason
+	WriteAsyncStatusAdvance(ctx, task, model.GenerationStatusFailed)
 	RefundTaskQuota(ctx, task, reason)
 	return cause
 }
