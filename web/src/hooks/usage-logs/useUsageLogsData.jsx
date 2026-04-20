@@ -146,9 +146,11 @@ const buildImaProBillingLabels = (t) => ({
   rate: t('SKU 单价'),
   groupRatio: t('分组倍率（模型覆盖）'),
   formula: t('计费公式'),
+  model: t('计费模型'),
+  candidateSku: t('候选 SKU（未配置）'),
   novideo: t('无参考视频'),
   withvideo: t('含参考视频'),
-  fallback: t('计费提示：SKU 未命中，已使用模型基础价格兜底'),
+  fallback: t('计费提示：SKU 未配置，已按计费模型基础价格结算'),
 });
 
 const buildImaProSettlementLines = (other, totalTokens, billedQuota, t) =>
@@ -180,7 +182,7 @@ const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   );
   const inputPrice = modelRatioValue * 2;
   return t(
-    '估算公式（未扣费）：(预估 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
+    '估算参考公式（未扣费，不计入花费）：(预估 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
     {
       tokens: renderNumber(estimatedTokens),
       inputPrice: Number(inputPrice).toFixed(6),

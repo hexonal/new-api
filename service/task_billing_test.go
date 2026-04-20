@@ -559,6 +559,63 @@ func TestLogDeferredTaskSubmission_StoresTokenBillingFieldsInOther(t *testing.T)
 	assert.Equal(t, "task_abc", other["task_id"])
 }
 
+func TestLogDeferredTaskSubmission_ImaProUnconfiguredSKUUsesBaseBillingModel(t *testing.T) {
+	truncate(t)
+
+	const (
+		modelName  = "ima-pro-fast"
+		variantKey = "ima-pro-fast-novideo-720p"
+	)
+	withTempRatios(t, modelName, 2.815217, 1)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannelWithType(t, 1, constant.ChannelTypeImaPro)
+
+	ctx := buildTaskBillingTestContext("/v1/videos")
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  modelName,
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:   1,
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			ConsumedModel:  variantKey,
+			PerCallBilling: false,
+			DeferredSettle: true,
+		},
+		PriceData: types.PriceData{
+			ModelPrice:      0,
+			ModelRatio:      2.815217,
+			CompletionRatio: 1.0,
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 0.8, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogDeferredTaskSubmission(ctx, info, 1126, "task_fast")
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	require.Equal(t, 0, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, modelName, other["billing_sku"])
+	assert.Equal(t, variantKey, other["model_variant"])
+	assert.Equal(t, variantKey, other["billing_candidate_sku"])
+	assert.Equal(t, true, other["used_fallback"])
+	assert.Equal(t, "novideo", other["input_mode"])
+	assert.Equal(t, "720p", other["resolution_bucket"])
+	assert.Equal(t, float64(5.630434), other["rate_per_m"])
+	assert.Equal(t, float64(0), other["actual_quota"])
+	assert.Equal(t, false, other["submit_stage_charged"])
+}
+
 // ===========================================================================
 // RefundTaskQuota tests
 // ===========================================================================
@@ -1982,8 +2039,9 @@ func TestRecalculateTaskQuotaByTokens_ImaProFallsBackWhenPersistedSKUUnconfigure
 
 	other, err := common.StrToMap(log.Other)
 	require.NoError(t, err)
-	assert.Equal(t, variantKey, other["billing_sku"])
+	assert.Equal(t, modelName, other["billing_sku"])
 	assert.Equal(t, variantKey, other["model_variant"])
+	assert.Equal(t, variantKey, other["billing_candidate_sku"])
 	assert.Equal(t, "novideo", other["input_mode"])
 	assert.Equal(t, "480p", other["resolution_bucket"])
 	assert.Equal(t, float64(7), other["rate_per_m"])

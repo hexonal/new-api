@@ -117,21 +117,46 @@ func applyImaProAuditFields(other map[string]interface{}, modelName string, vari
 		return
 	}
 
-	billingSKU := strings.TrimSpace(variantKey)
-	if result != nil && strings.TrimSpace(result.BillingSku) != "" {
-		billingSKU = strings.TrimSpace(result.BillingSku)
+	baseModel := strings.TrimSpace(modelName)
+	candidateSKU := strings.TrimSpace(variantKey)
+	if result != nil {
+		if strings.TrimSpace(result.VariantKey) != "" {
+			candidateSKU = strings.TrimSpace(result.VariantKey)
+		} else if strings.TrimSpace(result.BillingSku) != "" {
+			candidateSKU = strings.TrimSpace(result.BillingSku)
+		}
 	}
-	if billingSKU == "" {
-		billingSKU = strings.TrimSpace(modelName)
+	if candidateSKU == "" {
+		candidateSKU = baseModel
 	}
-	if billingSKU == "" {
+	if baseModel == "" && candidateSKU == "" {
 		return
+	}
+
+	billingSKU := candidateSKU
+	usedFallback := false
+	if result != nil {
+		usedFallback = result.UsedFallback
+	} else {
+		normalizedBase := strings.ToLower(strings.TrimSpace(baseModel))
+		normalizedCandidate := strings.ToLower(strings.TrimSpace(candidateSKU))
+		if normalizedCandidate != "" && normalizedCandidate != normalizedBase {
+			_, hit := ratio_setting.GetModelRatioExact(normalizedCandidate)
+			usedFallback = !hit
+		}
+	}
+	if usedFallback && baseModel != "" {
+		billingSKU = baseModel
 	}
 
 	other["billing_sku"] = billingSKU
 	other["model_variant"] = billingSKU
+	if usedFallback && candidateSKU != "" && !strings.EqualFold(candidateSKU, billingSKU) {
+		other["billing_candidate_sku"] = candidateSKU
+		other["model_variant"] = candidateSKU
+	}
 
-	inputMode, bucket := parseImaProVariantKey(billingSKU)
+	inputMode, bucket := parseImaProVariantKey(candidateSKU)
 	if result != nil {
 		if result.InputMode != "" {
 			inputMode = result.InputMode
@@ -140,21 +165,14 @@ func applyImaProAuditFields(other map[string]interface{}, modelName string, vari
 			bucket = result.ResolutionBucket
 		}
 		other["rate_per_m"] = result.RatePerM
-		other["used_fallback"] = result.UsedFallback
+		other["used_fallback"] = usedFallback
 		other["model_ratio"] = result.ModelRatio
 		other["completion_ratio"] = result.CompletionRatio
 	} else {
 		if modelRatio, ok := other["model_ratio"].(float64); ok && modelRatio > 0 {
 			other["rate_per_m"] = modelRatio * 2.0
 		}
-		baseModel := strings.ToLower(strings.TrimSpace(modelName))
-		normalizedSKU := strings.ToLower(strings.TrimSpace(billingSKU))
-		if normalizedSKU == "" || normalizedSKU == baseModel {
-			other["used_fallback"] = false
-		} else {
-			_, hit := ratio_setting.GetModelRatioExact(normalizedSKU)
-			other["used_fallback"] = !hit
-		}
+		other["used_fallback"] = usedFallback
 	}
 
 	if inputMode != "" {
@@ -539,6 +557,7 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	appendImaProAuditFieldsForRelay(c, info, other)
 	other["deferred_settle"] = true
 	other["terminal_charge_state"] = TaskTerminalChargeStatePending
 	other["actual_quota"] = 0

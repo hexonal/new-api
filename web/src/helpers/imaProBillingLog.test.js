@@ -87,3 +87,30 @@ test('buildImaProBillingLines uses exact token count for 1080p sku formula', () 
   );
   assert.doesNotMatch(text, /245\.0k/);
 });
+
+test('buildImaProBillingLines renders base model when sku is unconfigured fallback', () => {
+  const lines = buildImaProBillingLines({
+    other: {
+      billing_sku: 'ima-pro-fast',
+      billing_candidate_sku: 'ima-pro-fast-novideo-720p',
+      model_variant: 'ima-pro-fast-novideo-720p',
+      input_mode: 'novideo',
+      resolution_bucket: '720p',
+      model_ratio: 2.815217,
+      group_ratio: 0.8,
+      used_fallback: true,
+    },
+    totalTokens: 87300,
+    billedQuota: 196614,
+    quotaPerUnit: 500000,
+    finalCostText: '$0.393228',
+  });
+
+  const text = lines.join('\n');
+  assert.match(text, /计费模型：ima-pro-fast/);
+  assert.match(text, /候选 SKU（未配置）：ima-pro-fast-novideo-720p/);
+  assert.match(text, /计费档位：无参考视频 \/ 720p/);
+  assert.match(text, /SKU 单价：\$5\.630434 \/ 1M tokens/);
+  assert.match(text, /计费提示：SKU 未配置，已按计费模型基础价格结算/);
+  assert.doesNotMatch(text, /计费 SKU：ima-pro-fast-novideo-720p/);
+});

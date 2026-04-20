@@ -107,9 +107,11 @@ function buildImaProBillingLabels(t) {
     rate: t('SKU 单价'),
     groupRatio: t('分组倍率（模型覆盖）'),
     formula: t('计费公式'),
+    model: t('计费模型'),
+    candidateSku: t('候选 SKU（未配置）'),
     novideo: t('无参考视频'),
     withvideo: t('含参考视频'),
-    fallback: t('计费提示：SKU 未命中，已使用模型基础价格兜底'),
+    fallback: t('计费提示：SKU 未配置，已按计费模型基础价格结算'),
   };
 }
 
@@ -544,7 +546,7 @@ function buildDeferredPendingFormulaPreview(other, t) {
   }
   const estimatedTokens = Math.round(quota / (modelRatio * groupRatio));
   const inputPrice = modelRatio * 2;
-  return `${t('估算公式（未扣费）')}：(${t('预估')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
+  return `${t('估算参考公式（未扣费，不计入花费）')}：(${t('预估')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
 }
 
 function getPromptCacheSummary(other) {

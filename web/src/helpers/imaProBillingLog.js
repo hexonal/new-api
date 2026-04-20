@@ -38,10 +38,19 @@ export function getImaProInputModeLabel(inputMode, labels = {}) {
 
 export function resolveImaProBillingInfo(other = {}) {
   const sku = String(other?.billing_sku || other?.model_variant || '').trim();
+  const candidateSku = String(
+    other?.billing_candidate_sku || other?.model_variant || '',
+  ).trim();
   const parsed = parseImaProBillingSku(sku);
-  const inputMode = String(other?.input_mode || parsed.inputMode || '').trim();
+  const candidateParsed = parseImaProBillingSku(candidateSku);
+  const inputMode = String(
+    other?.input_mode || parsed.inputMode || candidateParsed.inputMode || '',
+  ).trim();
   const resolutionBucket = String(
-    other?.resolution_bucket || parsed.resolutionBucket || '',
+    other?.resolution_bucket ||
+      parsed.resolutionBucket ||
+      candidateParsed.resolutionBucket ||
+      '',
   ).trim();
   const ratePerM =
     toPositiveNumber(other?.rate_per_m) ||
@@ -61,6 +70,7 @@ export function resolveImaProBillingInfo(other = {}) {
 
   return {
     sku,
+    candidateSku: candidateSku && candidateSku !== sku ? candidateSku : '',
     inputMode,
     resolutionBucket,
     ratePerM,
@@ -85,7 +95,14 @@ export function buildImaProBillingLines({
 
   const lines = [];
   if (info.sku) {
-    lines.push(`${labels.sku || '计费 SKU'}：${info.sku}`);
+    lines.push(
+      `${info.usedFallback ? labels.model || '计费模型' : labels.sku || '计费 SKU'}：${info.sku}`,
+    );
+  }
+  if (info.usedFallback && info.candidateSku) {
+    lines.push(
+      `${labels.candidateSku || '候选 SKU（未配置）'}：${info.candidateSku}`,
+    );
   }
 
   const tier = [
@@ -123,7 +140,8 @@ export function buildImaProBillingLines({
 
   if (info.usedFallback) {
     lines.push(
-      labels.fallback || '计费提示：SKU 未命中，已使用模型基础价格兜底',
+      labels.fallback ||
+        '计费提示：SKU 未配置，已按计费模型基础价格结算',
     );
   }
 
