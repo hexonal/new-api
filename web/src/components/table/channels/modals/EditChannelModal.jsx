@@ -63,6 +63,7 @@ import SingleModelSelectModal from './SingleModelSelectModal';
 import OllamaModelModal from './OllamaModelModal';
 import CodexOAuthModal from './CodexOAuthModal';
 import ParamOverrideEditorModal from './ParamOverrideEditorModal';
+import { normalizeLoadedJsonObjectString } from './jsonFieldUtils';
 import JSONEditor from '../../../common/ui/JSONEditor';
 import SecureVerificationModal from '../../../common/modals/SecureVerificationModal';
 import StatusCodeRiskGuardModal from './StatusCodeRiskGuardModal';
@@ -1037,13 +1038,7 @@ const EditChannelModal = (props) => {
     if (success) {
       data.models = normalizeStringList(data.models, 'id');
       data.groups = normalizeStringList(data.group);
-      if (data.model_mapping !== '') {
-        data.model_mapping = JSON.stringify(
-          JSON.parse(data.model_mapping),
-          null,
-          2,
-        );
-      }
+      data.model_mapping = normalizeLoadedJsonObjectString(data.model_mapping);
       const chInfo = data.channel_info || {};
       const isMulti = chInfo.is_multi_key === true;
       setIsMultiKeyChannel(isMulti);
