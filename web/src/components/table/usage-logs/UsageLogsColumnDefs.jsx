@@ -1007,9 +1007,13 @@ export const getLogsColumns = ({
           const est = toTokenNumber(other?.estimated_quota);
           const tip =
             est > 0
-              ? t('提交阶段估算 {{cost}}，未扣费；以任务终态结算为准', {
-                  cost: renderQuota(est, 6),
-                })
+              ? t(
+                  '实际扣费 {{actual}}；提交阶段估算 {{estimate}}，未扣费；以任务终态结算为准',
+                  {
+                    actual: renderQuota(record?.quota || 0, 6),
+                    estimate: renderQuota(est, 6),
+                  },
+                )
               : t('等待任务完成后结算');
           return (
             <Tooltip content={tip}>
@@ -1022,9 +1026,7 @@ export const getLogsColumns = ({
                 <span
                   style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
                 >
-                  {est > 0
-                    ? `${t('未扣费')} ${renderQuota(est, 6)}`
-                    : t('等待结算')}
+                  {`${t('实际扣费')} ${renderQuota(record?.quota || 0, 6)}`}
                 </span>
               </span>
             </Tooltip>
