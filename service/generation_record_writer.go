@@ -303,7 +303,7 @@ func mapTaskPlatformToKind(platform constant.TaskPlatform) string {
 	switch platform {
 	case constant.TaskPlatformSuno:
 		return model.GenerationKindMusic
-	case constant.TaskPlatformMidjourney:
+	case constant.TaskPlatformMidjourney, constant.TaskPlatformImage:
 		return model.GenerationKindImage
 	default:
 		return model.GenerationKindVideo

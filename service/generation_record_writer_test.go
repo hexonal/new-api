@@ -18,6 +18,7 @@ import (
 func TestMapTaskPlatformToKind(t *testing.T) {
 	assert.Equal(t, model.GenerationKindMusic, mapTaskPlatformToKind(constant.TaskPlatformSuno))
 	assert.Equal(t, model.GenerationKindImage, mapTaskPlatformToKind(constant.TaskPlatformMidjourney))
+	assert.Equal(t, model.GenerationKindImage, mapTaskPlatformToKind(constant.TaskPlatformImage))
 	assert.Equal(t, model.GenerationKindVideo, mapTaskPlatformToKind("kling"))
 }
 
