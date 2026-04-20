@@ -28,6 +28,10 @@ import {
   Video,
   AudioLines,
   Building2,
+  MoreHorizontal,
+  Pencil,
+  Shield,
+  Trash2,
 } from 'lucide-react';
 import { useModelsData } from '../../../hooks/models/useModelsData';
 import { getChannelIcon, getLobeHubIcon } from '../../../helpers';
@@ -43,6 +47,12 @@ import { Button } from '../../primitives/button';
 import { Input } from '../../primitives/input';
 import { Badge } from '../../primitives/badge';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../primitives/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../primitives/dropdown-menu';
 import ModelProviderTabs from './components/ModelProviderTabs';
 import MissingModelsModal from '../../../components/table/models/modals/MissingModelsModal';
 import PrefillGroupManagement from '../../../components/table/models/modals/PrefillGroupManagement';
@@ -433,11 +443,12 @@ export default function ModelListPage() {
           </div>
 
           <div className='rounded-lg border border-border'>
-            <Table>
+            <Table className='min-w-[1320px]'>
               <Thead>
                 <Tr>
                   <Th>{t('图标')}</Th>
                   <Th>{t('模型名称')}</Th>
+                  <Th>{t('优先级')}</Th>
                   <Th>{t('匹配类型')}</Th>
                   <Th>{t('参与官方同步')}</Th>
                   <Th>{t('供应商')}</Th>
@@ -459,6 +470,7 @@ export default function ModelListPage() {
                   const channels = Array.isArray(row.bound_channels)
                     ? row.bound_channels
                     : [];
+                  const priority = Number(row.sort_order ?? 0);
                   return (
                     <Tr key={row.id} className={cn(!enabled && 'bg-muted/40')}>
                       <Td className={compactMode ? 'py-1.5' : ''}>
@@ -486,6 +498,19 @@ export default function ModelListPage() {
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
                         <div className='font-medium'>{row.model_name}</div>
+                      </Td>
+                      <Td className={compactMode ? 'py-1.5' : ''}>
+                        <div className='min-w-[88px]'>
+                          <Badge
+                            variant={priority > 0 ? 'secondary' : 'outline'}
+                            className='rounded-full'
+                          >
+                            {priority}
+                          </Badge>
+                          <div className='mt-1 text-[11px] text-muted-foreground'>
+                            {priority > 0 ? t('越大越靠前') : t('默认')}
+                          </div>
+                        </div>
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
                         <Badge
@@ -566,41 +591,59 @@ export default function ModelListPage() {
                         </Badge>
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
-                        <div className='flex justify-end gap-2'>
+                        <div className='flex justify-end gap-2 whitespace-nowrap'>
                           {enabled ? (
                             <Button
                               size='sm'
-                              variant='outline'
+                              variant='destructive'
                               onClick={() =>
                                 manageModel(row.id, 'disable', row)
                               }
                             >
+                              <Shield className='mr-1 h-3.5 w-3.5' />
                               {t('禁用')}
                             </Button>
                           ) : (
                             <Button
                               size='sm'
-                              variant='outline'
                               onClick={() => manageModel(row.id, 'enable', row)}
                             >
+                              <Shield className='mr-1 h-3.5 w-3.5' />
                               {t('启用')}
                             </Button>
                           )}
                           <Button
+                            variant='outline'
                             size='sm'
                             onClick={() =>
                               navigate(`/console/models/${row.id}/edit`)
                             }
                           >
+                            <Pencil className='mr-1 h-3.5 w-3.5' />
                             {t('编辑')}
                           </Button>
-                          <Button
-                            variant='destructive'
-                            size='sm'
-                            onClick={() => manageModel(row.id, 'delete', row)}
-                          >
-                            {t('删除')}
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant='outline'
+                                size='icon'
+                                aria-label={t('更多操作')}
+                              >
+                                <MoreHorizontal className='h-4 w-4' />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align='end'>
+                              <DropdownMenuItem
+                                className='text-destructive focus:text-destructive'
+                                onSelect={() =>
+                                  manageModel(row.id, 'delete', row)
+                                }
+                              >
+                                <Trash2 className='mr-2 h-4 w-4' />
+                                {t('删除模型')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </Td>
                     </Tr>
@@ -609,7 +652,7 @@ export default function ModelListPage() {
                 {(models || []).length === 0 ? (
                   <Tr>
                     <Td
-                      colSpan={11}
+                      colSpan={12}
                       className='py-8 text-center text-sm text-muted-foreground'
                     >
                       {t('暂无模型数据')}

@@ -110,7 +110,7 @@ func GetVendorModelCounts() (map[int64]int64, error) {
 
 func GetAllModels(offset int, limit int) ([]*Model, error) {
 	var models []*Model
-	err := DB.Order("id DESC").Offset(offset).Limit(limit).Find(&models).Error
+	err := DB.Order("sort_order DESC, id DESC").Offset(offset).Limit(limit).Find(&models).Error
 	return models, err
 }
 
@@ -213,7 +213,7 @@ func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Mode
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := db.Order("models.id DESC").Offset(offset).Limit(limit).Find(&models).Error; err != nil {
+	if err := db.Order("models.sort_order DESC, models.id DESC").Offset(offset).Limit(limit).Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
 	return models, total, nil
