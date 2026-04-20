@@ -113,6 +113,18 @@ func seedChannel(t *testing.T, id int) {
 	require.NoError(t, model.DB.Create(ch).Error)
 }
 
+func seedChannelWithType(t *testing.T, id int, channelType int) {
+	t.Helper()
+	ch := &model.Channel{
+		Id:     id,
+		Name:   "test_channel",
+		Key:    "sk-test",
+		Status: common.ChannelStatusEnabled,
+		Type:   channelType,
+	}
+	require.NoError(t, model.DB.Create(ch).Error)
+}
+
 func makeTask(userId, channelId, quota, tokenId int, billingSource string, subscriptionId int) *model.Task {
 	return &model.Task{
 		TaskID:    "task_" + time.Now().Format("150405.000"),
@@ -370,6 +382,67 @@ func TestLogTaskConsumption_StoresBillingSKUWhenConsumedModelPresent(t *testing.
 	require.NoError(t, err)
 	require.NotNil(t, other)
 	assert.Equal(t, "MiniMax-Hailuo-2.3-Fast-6s-1080p", other["billing_sku"])
+}
+
+func TestLogTaskConsumption_StoresImaProAuditFieldsFromContextResult(t *testing.T) {
+	truncate(t)
+
+	seedUser(t, 1, 1000000)
+	seedToken(t, 1, 1, "sk-test-key", 1000000)
+	seedChannelWithType(t, 1, constant.ChannelTypeImaPro)
+
+	ctx := buildTaskBillingTestContext("/v1/videos")
+	ctx.Set("ima_pro_quota_result", &ratio_setting.QuotaResult{
+		Quota:            4500,
+		BillingSku:       "ima-pro-withvideo-1080p",
+		VariantKey:       "ima-pro-withvideo-1080p",
+		InputMode:        "withvideo",
+		ResolutionBucket: "1080p",
+		RatePerM:         90.0,
+		ModelRatio:       45.0,
+		CompletionRatio:  1.5,
+		UsedFallback:     true,
+	})
+
+	info := &relaycommon.RelayInfo{
+		UserId:           1,
+		TokenId:          1,
+		OriginModelName:  "ima-pro",
+		UsingGroup:       "qagroup_01",
+		UserPricingGroup: "qagroup_01",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:   1,
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{
+			Action:         "textGenerate",
+			PerCallBilling: false,
+			ConsumedModel:  "ima-pro-withvideo-1080p",
+		},
+		PriceData: types.PriceData{
+			ModelPrice:      0,
+			ModelRatio:      12.0,
+			CompletionRatio: 3.0,
+			Quota:           4500,
+			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 1.0, GroupRatioSource: types.GroupRatioSourceModel},
+		},
+	}
+
+	LogTaskConsumption(ctx, info)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "ima-pro-withvideo-1080p", other["billing_sku"])
+	assert.Equal(t, "ima-pro-withvideo-1080p", other["model_variant"])
+	assert.Equal(t, "withvideo", other["input_mode"])
+	assert.Equal(t, "1080p", other["resolution_bucket"])
+	assert.Equal(t, float64(90), other["rate_per_m"])
+	assert.Equal(t, true, other["used_fallback"])
+	assert.Equal(t, float64(45), other["model_ratio"])
+	assert.Equal(t, float64(1.5), other["completion_ratio"])
 }
 
 func TestLogTaskConsumption_UsesUserGroupAsPricingGroup(t *testing.T) {
@@ -1644,4 +1717,52 @@ func TestRecalculateTaskQuotaByTokens_ReasonUsesResolvedGroupRatio(t *testing.T)
 	assert.Contains(t, log.Content, "token重算：tokens=1000")
 	assert.Contains(t, log.Content, "groupRatio=0.10")
 	assert.Equal(t, 200, log.Quota)
+}
+
+func TestRecalculateTaskQuotaByTokens_ImaProFallbacksToDBChannelAndPersistsAuditFields(t *testing.T) {
+	truncate(t)
+
+	oldMemoryCacheEnabled := common.MemoryCacheEnabled
+	common.MemoryCacheEnabled = true
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = oldMemoryCacheEnabled
+	})
+
+	const (
+		modelName  = "ima-pro"
+		variantKey = "ima-pro-withvideo-1080p"
+	)
+	withTempRatios(t, modelName, 37.5, 1.5)
+	withTempRatios(t, variantKey, 45, 1.5)
+
+	seedUser(t, 301, 1000000)
+	seedChannelWithType(t, 301, constant.ChannelTypeImaPro)
+
+	task := makeTask(301, 301, 0, 0, BillingSourceWallet, 0)
+	task.Properties.OriginModelName = modelName
+	task.Properties.BillingSku = variantKey
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.PrivateData.BillingContext.GroupRatio = 0.1
+	task.PricingGroup = "pg_ima"
+	require.NoError(t, model.DB.Create(task).Error)
+
+	RecalculateTaskQuotaByTokens(context.Background(), task, 1000)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Contains(t, log.Content, "ima_pro 重算：tokens=1000")
+	assert.Contains(t, log.Content, "sku=ima-pro-withvideo-1080p")
+	assert.Equal(t, 4500, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	require.NotNil(t, other)
+	assert.Equal(t, "ima-pro-withvideo-1080p", other["billing_sku"])
+	assert.Equal(t, "ima-pro-withvideo-1080p", other["model_variant"])
+	assert.Equal(t, "withvideo", other["input_mode"])
+	assert.Equal(t, "1080p", other["resolution_bucket"])
+	assert.Equal(t, float64(90), other["rate_per_m"])
+	assert.Equal(t, false, other["used_fallback"])
+	assert.Equal(t, float64(45), other["model_ratio"])
+	assert.Equal(t, float64(1.5), other["completion_ratio"])
 }

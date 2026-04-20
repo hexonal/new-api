@@ -21,7 +21,192 @@ const (
 	TaskTerminalChargeStatePending = "pending"
 	TaskTerminalChargeStateApplied = "applied"
 	TaskTerminalChargeStateSkipped = "skipped"
+	imaProQuotaResultKey           = "ima_pro_quota_result"
 )
+
+type imaProQuotaResultContextKey struct{}
+type imaProTotalTokensContextKey struct{}
+
+func withImaProQuotaResult(ctx context.Context, result *ratio_setting.QuotaResult, totalTokens int) context.Context {
+	if result == nil {
+		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = context.WithValue(ctx, imaProQuotaResultContextKey{}, result)
+	if totalTokens > 0 {
+		ctx = context.WithValue(ctx, imaProTotalTokensContextKey{}, totalTokens)
+	}
+	return ctx
+}
+
+func getImaProQuotaResultFromContext(ctx context.Context) *ratio_setting.QuotaResult {
+	if ctx == nil {
+		return nil
+	}
+	result, _ := ctx.Value(imaProQuotaResultContextKey{}).(*ratio_setting.QuotaResult)
+	return result
+}
+
+func getImaProTotalTokensFromContext(ctx context.Context) int {
+	if ctx == nil {
+		return 0
+	}
+	totalTokens, _ := ctx.Value(imaProTotalTokensContextKey{}).(int)
+	return totalTokens
+}
+
+func getImaProQuotaResultFromGin(c *gin.Context) *ratio_setting.QuotaResult {
+	if c == nil {
+		return nil
+	}
+	v, ok := c.Get(imaProQuotaResultKey)
+	if !ok {
+		return nil
+	}
+	result, _ := v.(*ratio_setting.QuotaResult)
+	return result
+}
+
+func parseImaProVariantKey(variantKey string) (string, string) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(variantKey)), "-")
+	if len(parts) < 3 {
+		return "", ""
+	}
+	bucket := parts[len(parts)-1]
+	inputMode := parts[len(parts)-2]
+	if bucket != "720p" && bucket != "1080p" {
+		bucket = ""
+	}
+	if inputMode != "novideo" && inputMode != "withvideo" {
+		inputMode = ""
+	}
+	return inputMode, bucket
+}
+
+func applyImaProAuditFields(other map[string]interface{}, modelName string, variantKey string, result *ratio_setting.QuotaResult) {
+	if other == nil {
+		return
+	}
+
+	billingSKU := strings.TrimSpace(variantKey)
+	if result != nil && strings.TrimSpace(result.BillingSku) != "" {
+		billingSKU = strings.TrimSpace(result.BillingSku)
+	}
+	if billingSKU == "" {
+		billingSKU = strings.TrimSpace(modelName)
+	}
+	if billingSKU == "" {
+		return
+	}
+
+	other["billing_sku"] = billingSKU
+	other["model_variant"] = billingSKU
+
+	inputMode, bucket := parseImaProVariantKey(billingSKU)
+	if result != nil {
+		if result.InputMode != "" {
+			inputMode = result.InputMode
+		}
+		if result.ResolutionBucket != "" {
+			bucket = result.ResolutionBucket
+		}
+		other["rate_per_m"] = result.RatePerM
+		other["used_fallback"] = result.UsedFallback
+		other["model_ratio"] = result.ModelRatio
+		other["completion_ratio"] = result.CompletionRatio
+	} else {
+		if modelRatio, ok := other["model_ratio"].(float64); ok && modelRatio > 0 {
+			other["rate_per_m"] = modelRatio * 2.0
+		}
+		baseModel := strings.ToLower(strings.TrimSpace(modelName))
+		normalizedSKU := strings.ToLower(strings.TrimSpace(billingSKU))
+		if normalizedSKU == "" || normalizedSKU == baseModel {
+			other["used_fallback"] = false
+		} else {
+			_, hit := ratio_setting.GetModelRatioExact(normalizedSKU)
+			other["used_fallback"] = !hit
+		}
+	}
+
+	if inputMode != "" {
+		other["input_mode"] = inputMode
+	}
+	if bucket != "" {
+		other["resolution_bucket"] = bucket
+	}
+}
+
+func appendImaProAuditFieldsForRelay(c *gin.Context, info *relaycommon.RelayInfo, other map[string]interface{}) {
+	if info == nil || other == nil || info.ChannelMeta == nil {
+		return
+	}
+	if !ratio_setting.ImaProPricingApplies(info.ChannelType, info.OriginModelName) {
+		return
+	}
+	variantKey := strings.TrimSpace(info.OriginModelName)
+	if info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.ConsumedModel) != "" {
+		variantKey = strings.TrimSpace(info.TaskRelayInfo.ConsumedModel)
+	}
+	applyImaProAuditFields(other, info.OriginModelName, variantKey, getImaProQuotaResultFromGin(c))
+}
+
+func loadImaProTaskChannel(task *model.Task, modelName string) (*model.Channel, bool) {
+	if task == nil || task.ChannelId == 0 {
+		return nil, false
+	}
+	channel, err := model.CacheGetChannel(task.ChannelId)
+	if err == nil && channel != nil {
+		return channel, true
+	}
+	if !ratio_setting.IsIMAProModel(modelName) {
+		return nil, false
+	}
+
+	dbChannel, dbErr := model.GetChannelById(task.ChannelId, true)
+	if dbErr != nil || dbChannel == nil {
+		common.SysError(fmt.Sprintf(
+			"[ima_pro] channel cache AND DB miss for task %d model=%s channel_id=%d — falling back to generic path",
+			task.ID, modelName, task.ChannelId,
+		))
+		return nil, false
+	}
+	common.SysLog(fmt.Sprintf(
+		"[ima_pro] channel cache miss for task %d model=%s channel_id=%d — recovered via DB",
+		task.ID, modelName, task.ChannelId,
+	))
+	return dbChannel, true
+}
+
+func calculateImaProQuotaResult(ctx context.Context, task *model.Task, modelName string, totalTokens int) (*ratio_setting.QuotaResult, bool) {
+	if task == nil || totalTokens <= 0 {
+		return nil, false
+	}
+	channel, ok := loadImaProTaskChannel(task, modelName)
+	if !ok || channel == nil {
+		return nil, false
+	}
+	if !ratio_setting.ImaProPricingApplies(channel.Type, modelName) {
+		return nil, false
+	}
+
+	variantKey := strings.TrimSpace(task.Properties.BillingSku)
+	if variantKey == "" {
+		variantKey = modelName
+	}
+	groupRatio := resolveTaskFinalGroupRatio(task, modelName)
+	result, err := ratio_setting.CalculateQuota(ctx, ratio_setting.CalculateQuotaParams{
+		OriginModelName: modelName,
+		VariantKey:      variantKey,
+		Tokens:          totalTokens,
+		GroupRatio:      groupRatio,
+	})
+	if err != nil || result == nil || result.Quota < 0 {
+		return nil, false
+	}
+	return result, true
+}
 
 func requestPathForLog(c *gin.Context) string {
 	if v, ok := c.Get("original_request_path"); ok {
@@ -107,6 +292,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	appendImaProAuditFieldsForRelay(c, info, other)
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId:    info.ChannelId,
 		ModelName:    info.OriginModelName,
@@ -712,17 +898,32 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
 	// Mark as token recalculation so the frontend renders token-based billing details.
-	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") {
+	if strings.Contains(reason, "token_recalculate") || strings.HasPrefix(reason, "token重算") || strings.HasPrefix(reason, "ima_pro 重算") {
 		other["deferred_settle"] = true
 		other["terminal_charge_reason"] = reason
-		modelName := taskModelName(task)
-		modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
-		completionRatio := ratio_setting.GetCompletionRatio(modelName)
 		other["model_price"] = float64(-1)
-		other["model_ratio"] = modelRatio
-		other["completion_ratio"] = completionRatio
 	}
 	promptTokens, completionTokens, totalTokens := extractTaskTokenUsage(task)
+	if other["deferred_settle"] == true {
+		modelName := taskModelName(task)
+		imaProResult := getImaProQuotaResultFromContext(ctx)
+		if imaProResult == nil {
+			if totalTokens <= 0 {
+				totalTokens = getImaProTotalTokensFromContext(ctx)
+			}
+			if rebuilt, ok := calculateImaProQuotaResult(ctx, task, modelName, totalTokens); ok {
+				imaProResult = rebuilt
+			}
+		}
+		if imaProResult != nil {
+			applyImaProAuditFields(other, modelName, task.Properties.BillingSku, imaProResult)
+		} else {
+			modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
+			completionRatio := ratio_setting.GetCompletionRatio(modelName)
+			other["model_ratio"] = modelRatio
+			other["completion_ratio"] = completionRatio
+		}
+	}
 	if totalTokens > 0 {
 		other["task_total_tokens"] = totalTokens
 	}
@@ -757,16 +958,45 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 // 当任务成功且返回了 totalTokens 时，根据模型倍率和分组倍率重新计算实际扣费额度，
 // 与预扣费的差额进行补扣或退还。支持钱包和订阅计费来源。
 func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTokens int) {
+	if task == nil || totalTokens <= 0 {
+		return
+	}
+	modelName := taskModelName(task)
+
+	// IMA Pro / Seedance variant pricing channel-fork.
+	if quota, ok := tryRecalculateImaProQuota(ctx, task, modelName, totalTokens); ok {
+		_ = quota
+		return
+	}
+
 	actualQuota, ok := calculateTaskQuotaByTokens(task, totalTokens)
 	if !ok || actualQuota <= 0 {
 		return
 	}
 
-	modelName := taskModelName(task)
 	modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
 	groupRatio := resolveTaskFinalGroupRatio(task, modelName)
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, groupRatio)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+}
+
+func tryRecalculateImaProQuota(ctx context.Context, task *model.Task, modelName string, totalTokens int) (int64, bool) {
+	result, ok := calculateImaProQuotaResult(ctx, task, modelName, totalTokens)
+	if !ok || result == nil {
+		return 0, false
+	}
+	ctx = withImaProQuotaResult(ctx, result, totalTokens)
+	reason := fmt.Sprintf(
+		"ima_pro 重算：tokens=%d, sku=%s, modelRatio=%.4f, completionRatio=%.2f, groupRatio=%.2f, fallback=%v",
+		totalTokens,
+		result.BillingSku,
+		result.ModelRatio,
+		result.CompletionRatio,
+		resolveTaskFinalGroupRatio(task, modelName),
+		result.UsedFallback,
+	)
+	RecalculateTaskQuota(ctx, task, int(result.Quota), reason)
+	return result.Quota, true
 }
 
 func resolveTaskFinalGroupRatio(task *model.Task, modelName string) float64 {

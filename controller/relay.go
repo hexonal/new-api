@@ -621,6 +621,7 @@ func RelayTask(c *gin.Context) {
 		task.Status = model.TaskStatusSubmitted
 		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
 			task.Properties.Input = relaycommon.DescribeTaskInputType(req)
+			task.Properties.BillingSku = result.ConsumedModel
 			if !constant.IsImaProChannelType(relayInfo.ChannelType) {
 				if callbackURL := strings.TrimSpace(req.GetCallbackURL()); callbackURL != "" {
 					task.PrivateData.CallbackURL = callbackURL
