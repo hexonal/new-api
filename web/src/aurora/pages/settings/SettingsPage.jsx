@@ -34,7 +34,7 @@ import {
   Cog,
   MoreHorizontal,
 } from 'lucide-react';
-import { isRoot } from '../../../helpers';
+import { isAdmin } from '../../../helpers';
 import OperationSetting from '../../../components/settings/OperationSetting';
 import DashboardSetting from '../../../components/settings/DashboardSetting';
 import ChatsSetting from '../../../components/settings/ChatsSetting';
@@ -302,7 +302,7 @@ export default function SettingsPage() {
     });
   };
 
-  if (!isRoot()) {
+  if (!isAdmin()) {
     return null;
   }
 

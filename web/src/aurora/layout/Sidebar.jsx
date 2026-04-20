@@ -122,7 +122,7 @@ const isSidebarItemVisible = ({
       return isRootUser && isModuleVisible('admin', 'group-management');
     }
     if (itemKey === 'setting') {
-      return isRootUser && isModuleVisible('admin', 'setting');
+      return isAdminUser && isModuleVisible('admin', 'setting');
     }
     return false;
   }

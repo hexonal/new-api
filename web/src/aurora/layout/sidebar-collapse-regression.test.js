@@ -53,4 +53,15 @@ describe('aurora sidebar collapse regression', () => {
     );
     expect(cssSource).toContain('grid-template-columns: 80px minmax(0, 1fr);');
   });
+
+  test('keeps system settings visible to administrators in the aurora sidebar', () => {
+    const source = readSource('Sidebar.jsx');
+
+    expect(source).toContain(
+      "return isAdminUser && isModuleVisible('admin', 'setting');",
+    );
+    expect(source).not.toContain(
+      "return isRootUser && isModuleVisible('admin', 'setting');",
+    );
+  });
 });

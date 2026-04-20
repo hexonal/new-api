@@ -23,12 +23,16 @@ export const getTopNavDisplayState = (isMobile) => ({
   showUserLabel: !isMobile,
 });
 
-const DEFAULT_TOP_NAV_MODULES = Object.freeze({
+export const getDefaultHeaderNavModules = () => ({
+  landing: { enabled: true, publicAccess: true },
   home: true,
   console: true,
   pricing: { enabled: true, requireAuth: false },
   docs: true,
+  about: true,
 });
+
+const DEFAULT_TOP_NAV_MODULES = Object.freeze(getDefaultHeaderNavModules());
 
 const getWindowOrigin = () => {
   if (typeof window !== 'undefined' && window.location?.origin) {
@@ -49,6 +53,23 @@ const normalizePricingModule = (pricingModule) => {
   return {
     enabled: pricingModule !== false,
     requireAuth: false,
+  };
+};
+
+const normalizeLandingModule = (landingModule) => {
+  if (landingModule && typeof landingModule === 'object') {
+    return {
+      enabled: landingModule.enabled !== false,
+      publicAccess:
+        typeof landingModule.publicAccess === 'boolean'
+          ? landingModule.publicAccess
+          : landingModule.requireAuth !== true,
+    };
+  }
+
+  return {
+    enabled: landingModule !== false,
+    publicAccess: true,
   };
 };
 
@@ -78,6 +99,7 @@ export const parseHeaderNavModulesConfig = (config) => {
     const modules = JSON.parse(config);
     return {
       ...modules,
+      landing: normalizeLandingModule(modules.landing),
       pricing: normalizePricingModule(modules.pricing),
     };
   } catch {
@@ -86,16 +108,21 @@ export const parseHeaderNavModulesConfig = (config) => {
 };
 
 export const isLandingPageEnabled = (config) => {
-  if (!config) {
-    return true;
-  }
+  return parseHeaderNavModulesConfig(config)?.landing?.enabled ?? true;
+};
 
-  try {
-    const modules = JSON.parse(config);
-    return modules.landing !== false;
-  } catch {
-    return true;
-  }
+export const isLandingPagePublicAccessEnabled = (config) => {
+  return parseHeaderNavModulesConfig(config)?.landing?.publicAccess ?? true;
+};
+
+export const shouldRedirectHomeToLogin = ({
+  headerNavModulesConfig,
+  isAuthenticated,
+}) => {
+  return (
+    !isAuthenticated &&
+    !isLandingPagePublicAccessEnabled(headerNavModulesConfig)
+  );
 };
 
 export const getResolvedDocsLink = (status) => {

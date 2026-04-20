@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { lazy, Suspense, useContext, useEffect, useMemo } from 'react';
-import { Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
@@ -59,7 +59,10 @@ import ResetPasswordPage from './aurora/pages/public/ResetPasswordPage';
 import ModelsExplorerPage from './aurora/pages/public/ModelsExplorerPage';
 import NotFoundPage from './aurora/pages/public/NotFoundPage';
 import ForbiddenPage from './aurora/pages/public/ForbiddenPage';
-import { isLandingPageEnabled } from './aurora/layout/top-nav-utils';
+import {
+  isLandingPageEnabled,
+  shouldRedirectHomeToLogin,
+} from './aurora/layout/top-nav-utils';
 
 const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -100,6 +103,8 @@ export function LegacyApp({ isAuroraTheme = false }) {
   const location = useLocation();
   const [statusState] = useContext(StatusContext);
   const headerNavModulesConfig = statusState?.status?.HeaderNavModules;
+  const isAuthenticated =
+    typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('user'));
 
   // 获取模型广场权限配置
   const pricingRequireAuth = useMemo(() => {
@@ -126,6 +131,13 @@ export function LegacyApp({ isAuroraTheme = false }) {
     return isLandingPageEnabled(headerNavModulesConfig);
   }, [headerNavModulesConfig]);
 
+  const shouldRedirectHome = useMemo(() => {
+    return shouldRedirectHomeToLogin({
+      headerNavModulesConfig,
+      isAuthenticated,
+    });
+  }, [headerNavModulesConfig, isAuthenticated]);
+
   return (
     <SetupCheck>
       <Routes>
@@ -133,11 +145,17 @@ export function LegacyApp({ isAuroraTheme = false }) {
           path='/'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              {isAuroraTheme
-                ? landingPageEnabled
-                  ? <LandingPage />
-                  : <Home />
-                : <Home />}
+              {shouldRedirectHome ? (
+                <Navigate
+                  to='/login'
+                  replace
+                  state={{ from: location }}
+                />
+              ) : isAuroraTheme ? (
+                landingPageEnabled ? <LandingPage /> : <Home />
+              ) : (
+                <Home />
+              )}
             </Suspense>
           }
         />

@@ -23,7 +23,9 @@ import {
   getResolvedDocsLink,
   getTopNavLinks,
   isLandingPageEnabled,
+  isLandingPagePublicAccessEnabled,
   parseHeaderNavModulesConfig,
+  shouldRedirectHomeToLogin,
 } from './top-nav-utils';
 
 const createLocalStorageMock = () => {
@@ -103,10 +105,11 @@ describe('top-nav-utils', () => {
     expect(getResolvedDocsLink({})).toBe('https://cached.example.com/docs');
   });
 
-  test('parses header nav modules and normalizes legacy pricing config', () => {
+  test('parses header nav modules and normalizes legacy landing and pricing config', () => {
     expect(
       parseHeaderNavModulesConfig(
         JSON.stringify({
+          landing: true,
           home: true,
           console: true,
           pricing: true,
@@ -114,10 +117,27 @@ describe('top-nav-utils', () => {
         }),
       ),
     ).toEqual({
+      landing: { enabled: true, publicAccess: true },
       home: true,
       console: true,
       pricing: { enabled: true, requireAuth: false },
       docs: true,
+    });
+  });
+
+  test('supports object landing config with disabled public access', () => {
+    expect(
+      parseHeaderNavModulesConfig(
+        JSON.stringify({
+          landing: {
+            enabled: true,
+            publicAccess: false,
+          },
+        }),
+      ),
+    ).toEqual({
+      landing: { enabled: true, publicAccess: false },
+      pricing: { enabled: true, requireAuth: false },
     });
   });
 
@@ -137,5 +157,55 @@ describe('top-nav-utils', () => {
       ),
     ).toBe(false);
     expect(isLandingPageEnabled('{invalid-json')).toBe(true);
+  });
+
+  test('treats landing page as publicly accessible by default and supports explicit guest blocking', () => {
+    expect(isLandingPagePublicAccessEnabled()).toBe(true);
+    expect(isLandingPagePublicAccessEnabled(JSON.stringify({}))).toBe(true);
+    expect(
+      isLandingPagePublicAccessEnabled(
+        JSON.stringify({
+          landing: {
+            enabled: true,
+            publicAccess: false,
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  test('redirects unauthenticated visitors from home when landing guest access is disabled', () => {
+    expect(
+      shouldRedirectHomeToLogin({
+        headerNavModulesConfig: JSON.stringify({
+          landing: {
+            enabled: true,
+            publicAccess: false,
+          },
+        }),
+        isAuthenticated: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRedirectHomeToLogin({
+        headerNavModulesConfig: JSON.stringify({
+          landing: {
+            enabled: true,
+            publicAccess: false,
+          },
+        }),
+        isAuthenticated: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRedirectHomeToLogin({
+        headerNavModulesConfig: JSON.stringify({
+          landing: true,
+        }),
+        isAuthenticated: false,
+      }),
+    ).toBe(false);
   });
 });

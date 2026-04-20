@@ -139,8 +139,8 @@ export default function SettingsSensitiveWords(props) {
                       SensitiveWords: value,
                     })
                   }
+                  rows={8}
                   style={{ fontFamily: 'JetBrains Mono, Consolas' }}
-                  autosize={{ minRows: 6, maxRows: 12 }}
                 />
               </Col>
             </Row>

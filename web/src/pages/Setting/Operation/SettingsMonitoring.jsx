@@ -556,7 +556,7 @@ export default function SettingsMonitoring(props) {
                     '当上游通道返回错误中包含这些关键词时（不区分大小写），自动禁用通道',
                   )}
                   field={'AutomaticDisableKeywords'}
-                  autosize={{ minRows: 6, maxRows: 12 }}
+                  rows={8}
                   onChange={(value) =>
                     setInputs({ ...inputs, AutomaticDisableKeywords: value })
                   }
@@ -632,7 +632,7 @@ export default function SettingsMonitoring(props) {
                       extraText={t(
                         '仅匹配这些前缀的用户名才推送；多个前缀可用逗号或换行分隔，区分大小写，留空表示全部用户',
                       )}
-                      autosize={{ minRows: 3, maxRows: 6 }}
+                      rows={4}
                       onChange={(value) =>
                         setInputs({
                           ...inputs,

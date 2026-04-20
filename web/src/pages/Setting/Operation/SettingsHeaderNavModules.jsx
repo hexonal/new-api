@@ -30,6 +30,10 @@ import {
 import { API, showError, showSuccess } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../context/Status';
+import {
+  getDefaultHeaderNavModules,
+  parseHeaderNavModulesConfig,
+} from '../../../aurora/layout/top-nav-utils';
 
 const { Text } = Typography;
 
@@ -39,24 +43,18 @@ export default function SettingsHeaderNavModules(props) {
   const [statusState, statusDispatch] = useContext(StatusContext);
 
   // 顶栏模块管理状态
-  const [headerNavModules, setHeaderNavModules] = useState({
-    landing: true,
-    home: true,
-    console: true,
-    pricing: {
-      enabled: true,
-      requireAuth: false, // 默认不需要登录鉴权
-    },
-    docs: true,
-    about: true,
-  });
+  const [headerNavModules, setHeaderNavModules] = useState(() =>
+    getDefaultHeaderNavModules(),
+  );
 
   // 处理顶栏模块配置变更
   function handleHeaderNavModuleChange(moduleKey) {
     return (checked) => {
       const newModules = { ...headerNavModules };
-      if (moduleKey === 'pricing') {
-        // 对于pricing模块，只更新enabled属性
+      if (
+        newModules[moduleKey] &&
+        typeof newModules[moduleKey] === 'object'
+      ) {
         newModules[moduleKey] = {
           ...newModules[moduleKey],
           enabled: checked,
@@ -78,19 +76,18 @@ export default function SettingsHeaderNavModules(props) {
     setHeaderNavModules(newModules);
   }
 
+  function handleLandingPublicAccessChange(checked) {
+    const newModules = { ...headerNavModules };
+    newModules.landing = {
+      ...newModules.landing,
+      publicAccess: checked,
+    };
+    setHeaderNavModules(newModules);
+  }
+
   // 重置顶栏模块为默认配置
   function resetHeaderNavModules() {
-    const defaultModules = {
-      landing: true,
-      home: true,
-      console: true,
-      pricing: {
-        enabled: true,
-        requireAuth: false,
-      },
-      docs: true,
-      about: true,
-    };
+    const defaultModules = getDefaultHeaderNavModules();
     setHeaderNavModules(defaultModules);
     showSuccess(t('已重置为默认配置'));
   }
@@ -133,37 +130,14 @@ export default function SettingsHeaderNavModules(props) {
   useEffect(() => {
     // 从 props.options 中获取配置
     if (props.options && props.options.HeaderNavModules) {
-      try {
-        const modules = JSON.parse(props.options.HeaderNavModules);
+      const modules = parseHeaderNavModulesConfig(
+        props.options.HeaderNavModules,
+      );
 
-        // 处理向后兼容性：如果pricing是boolean，转换为对象格式
-        if (typeof modules.pricing === 'boolean') {
-          modules.pricing = {
-            enabled: modules.pricing,
-            requireAuth: false, // 默认不需要登录鉴权
-          };
-        }
-
-        if (typeof modules.landing !== 'boolean') {
-          modules.landing = true;
-        }
-
-        setHeaderNavModules(modules);
-      } catch (error) {
-        // 使用默认配置
-        const defaultModules = {
-          landing: true,
-          home: true,
-          console: true,
-          pricing: {
-            enabled: true,
-            requireAuth: false,
-          },
-          docs: true,
-          about: true,
-        };
-        setHeaderNavModules(defaultModules);
-      }
+      setHeaderNavModules({
+        ...getDefaultHeaderNavModules(),
+        ...(modules || {}),
+      });
     }
   }, [props.options]);
 
@@ -172,7 +146,10 @@ export default function SettingsHeaderNavModules(props) {
     {
       key: 'landing',
       title: t('首页落地页'),
-      description: t('控制 Aurora 首页落地页展示，关闭后访问首页将直接显示系统首页'),
+      description: t(
+        '控制首页落地页展示；关闭后使用系统首页，未登录访问可单独配置',
+      ),
+      hasSubConfig: true,
     },
     {
       key: 'home',
@@ -187,7 +164,7 @@ export default function SettingsHeaderNavModules(props) {
     {
       key: 'pricing',
       title: t('模型广场'),
-      description: t('模型定价，需要登录访问'),
+      description: t('模型定价页，可单独配置是否需要登录访问'),
       hasSubConfig: true, // 标识该模块有子配置
     },
     {
@@ -220,7 +197,6 @@ export default function SettingsHeaderNavModules(props) {
                   minHeight: '80px',
                 }}
                 bodyStyle={{ padding: '16px' }}
-                hoverable
               >
                 <div
                   style={{
@@ -257,7 +233,7 @@ export default function SettingsHeaderNavModules(props) {
                   <div style={{ marginLeft: '16px' }}>
                     <Switch
                       checked={
-                        module.key === 'pricing'
+                        module.key === 'pricing' || module.key === 'landing'
                           ? headerNavModules[module.key]?.enabled
                           : headerNavModules[module.key]
                       }
@@ -267,11 +243,61 @@ export default function SettingsHeaderNavModules(props) {
                   </div>
                 </div>
 
+                {module.key === 'landing' && (
+                  <div
+                    style={{
+                      borderTop: '1px solid var(--semi-color-border)',
+                      marginTop: '12px',
+                      paddingTop: '12px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div style={{ flex: 1, textAlign: 'left' }}>
+                        <div
+                          style={{
+                            fontWeight: '500',
+                            fontSize: '12px',
+                            color: 'var(--semi-color-text-1)',
+                            marginBottom: '2px',
+                          }}
+                        >
+                          {t('未登录可访问')}
+                        </div>
+                        <Text
+                          type='secondary'
+                          size='small'
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--semi-color-text-2)',
+                            lineHeight: '1.4',
+                            display: 'block',
+                          }}
+                        >
+                          {t('关闭后访客访问首页会直接跳转到登录页')}
+                        </Text>
+                      </div>
+                      <div style={{ marginLeft: '16px' }}>
+                        <Switch
+                          checked={
+                            headerNavModules.landing?.publicAccess ?? true
+                          }
+                          onChange={handleLandingPublicAccessChange}
+                          size='default'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 为模型广场添加权限控制子开关 */}
                 {module.key === 'pricing' &&
-                  (module.key === 'pricing'
-                    ? headerNavModules[module.key]?.enabled
-                    : headerNavModules[module.key]) && (
+                  headerNavModules[module.key]?.enabled && (
                     <div
                       style={{
                         borderTop: '1px solid var(--semi-color-border)',
