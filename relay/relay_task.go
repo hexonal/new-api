@@ -408,7 +408,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		}
 	}
 
-	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
+	// 视频异步任务在 fetch 时优先直拉上游，避免长轮询窗口里持续返回旧状态。
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
@@ -544,11 +544,12 @@ func buildImageTaskResultItems(task *model.Task) []dto.ImageResultItem {
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
 func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
-	if err != nil {
+	if !shouldRealtimeFetchTask(task) {
 		return nil
 	}
-	if channelModel.Type != constant.ChannelTypeVertexAi && channelModel.Type != constant.ChannelTypeGemini {
+
+	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	if err != nil {
 		return nil
 	}
 
@@ -557,7 +558,10 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		baseURL = channelModel.GetBaseURL()
 	}
 	proxy := channelModel.GetSetting().Proxy
-	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
+	adaptor := GetTaskAdaptor(task.Platform)
+	if adaptor == nil {
+		adaptor = GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
+	}
 	if adaptor == nil {
 		return nil
 	}
@@ -581,6 +585,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	}
 
 	snap := task.Snapshot()
+	task.Data = sanitizeRealtimeVideoBody(body)
 
 	// 将上游最新状态更新到 task
 	if ti.Status != "" {
@@ -640,6 +645,13 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	return respBody
 }
 
+func shouldRealtimeFetchTask(task *model.Task) bool {
+	if task == nil || strings.TrimSpace(task.GetUpstreamTaskID()) == "" {
+		return false
+	}
+	return task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure
+}
+
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式
 func detectVideoFormat(rawBody []byte) string {
 	var raw map[string]any
@@ -677,6 +689,42 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 	default:
 		return "processing"
 	}
+}
+
+func sanitizeRealtimeVideoBody(body []byte) []byte {
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+	response, ok := payload["response"].(map[string]any)
+	if !ok {
+		return body
+	}
+	delete(response, "bytesBase64Encoded")
+	if video, ok := response["video"].(string); ok {
+		response["video"] = truncateRealtimeVideoPayload(video)
+	}
+	if videos, ok := response["videos"].([]any); ok {
+		for i := range videos {
+			item, ok := videos[i].(map[string]any)
+			if ok {
+				delete(item, "bytesBase64Encoded")
+			}
+		}
+	}
+	sanitized, err := common.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return sanitized
+}
+
+func truncateRealtimeVideoPayload(raw string) string {
+	const maxKeep = 256
+	if len(raw) <= maxKeep {
+		return raw
+	}
+	return raw[:maxKeep] + "..."
 }
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
