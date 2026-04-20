@@ -2780,7 +2780,7 @@ const EditChannelModal = (props) => {
     return (
       <div className='relative overflow-hidden pb-10'>
         <div className='pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,_rgba(79,70,229,0.18),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.16),_transparent_36%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(248,250,252,0.76))]' />
-        <div className='relative mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-3 pb-2 pt-1 2xl:px-6'>
+        <div className='relative mx-auto flex w-full max-w-[1760px] flex-col gap-6 px-3 pb-2 pt-1 2xl:px-6'>
           <div className='rounded-[28px] border border-slate-200/80 bg-white/92 px-6 py-6 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.45)] backdrop-blur md:px-8'>
             <div className='flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between'>
               <div className='space-y-4'>
@@ -2867,7 +2867,7 @@ const EditChannelModal = (props) => {
               <div
                 className={
                   isRouteMode
-                    ? 'grid items-start gap-5 p-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.9fr)]'
+                    ? 'grid items-start gap-5 p-2 xl:grid-cols-[minmax(0,1fr)_320px]'
                     : 'p-2 space-y-3'
                 }
                 ref={formContainerRef}
@@ -4312,6 +4312,7 @@ const EditChannelModal = (props) => {
                 {/* Advanced Settings Card */}
                 <div
                   ref={(el) => (formSectionRefs.current.advancedSettings = el)}
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Advanced Settings */}
@@ -4953,6 +4954,7 @@ const EditChannelModal = (props) => {
                   ref={(el) =>
                     (formSectionRefs.current.channelExtraSettings = el)
                   }
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Channel Extra Settings */}

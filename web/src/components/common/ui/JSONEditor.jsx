@@ -668,18 +668,7 @@ const JSONEditor = ({
 
         {/* 编辑器内容 */}
         {editMode === 'visual' ? (
-          <div>
-            {renderVisualEditor()}
-            {/* 隐藏的Form字段用于验证和数据绑定 */}
-            <Form.Input
-              field={field}
-              value={value}
-              rules={rules}
-              style={{ display: 'none' }}
-              noLabel={true}
-              {...props}
-            />
-          </div>
+          <div>{renderVisualEditor()}</div>
         ) : (
           <div>
             <TextArea
@@ -689,17 +678,18 @@ const JSONEditor = ({
               showClear={showClear}
               rows={Math.max(8, manualText ? manualText.split('\n').length : 8)}
             />
-            {/* 隐藏的Form字段用于验证和数据绑定 */}
-            <Form.Input
-              field={field}
-              value={value}
-              rules={rules}
-              style={{ display: 'none' }}
-              noLabel={true}
-              {...props}
-            />
           </div>
         )}
+
+        {/* 隐藏的Form字段用于验证和数据绑定；保持单实例以避免切换编辑模式时反复注销 */}
+        <Form.Input
+          field={field}
+          value={value}
+          rules={rules}
+          style={{ display: 'none' }}
+          noLabel={true}
+          {...props}
+        />
 
         {/* 额外文本显示在卡片底部 */}
         {extraText && (
