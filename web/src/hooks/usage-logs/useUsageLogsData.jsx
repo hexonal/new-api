@@ -834,7 +834,7 @@ export const useLogsData = () => {
                     cost: renderQuota(logs[i]?.quota || 0, 6),
                   }),
                   toPositiveNumber(other?.estimated_quota) > 0
-                    ? t('估算参考（未扣费）：{{cost}}', {
+                    ? t('估算参考（未扣费，不计入花费）：{{cost}}', {
                         cost: renderQuota(other.estimated_quota, 6),
                       })
                     : null,
@@ -1167,7 +1167,7 @@ export const useLogsData = () => {
                 </p>
                 {toPositiveNumber(other?.estimated_quota) > 0 && (
                   <p>
-                    {t('估算参考（未扣费）：{{cost}}', {
+                    {t('估算参考（未扣费，不计入花费）：{{cost}}', {
                       cost: renderQuota(other.estimated_quota, 6),
                     })}
                   </p>

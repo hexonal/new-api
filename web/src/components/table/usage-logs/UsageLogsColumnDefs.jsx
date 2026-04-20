@@ -1010,7 +1010,7 @@ export const getLogsColumns = ({
           const tip =
             est > 0
               ? t(
-                  '实际扣费 {{actual}}；提交阶段估算 {{estimate}}，未扣费；以任务终态结算为准',
+                  '实际扣费 {{actual}}；提交阶段估算参考 {{estimate}}，未扣费且不计入花费；以任务终态结算为准',
                   {
                     actual: renderQuota(record?.quota || 0, 6),
                     estimate: renderQuota(est, 6),
@@ -1311,7 +1311,7 @@ export const getLogsColumns = ({
             t('延迟结算（提交阶段）'),
             `${t('实际扣费')}：${renderQuota(record?.quota || 0, 6)}`,
             toTokenNumber(other?.estimated_quota) > 0
-              ? `${t('估算参考（未扣费）')}：${renderQuota(other.estimated_quota, 6)}`
+              ? `${t('估算参考（未扣费，不计入花费）')}：${renderQuota(other.estimated_quota, 6)}`
               : null,
             pendingFormula,
             `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
