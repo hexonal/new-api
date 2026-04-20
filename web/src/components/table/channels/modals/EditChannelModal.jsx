@@ -2813,12 +2813,12 @@ const EditChannelModal = (props) => {
             </div>
           </div>
 
-          <div className='grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]'>
-            <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-2 py-2 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur'>
+          <div className='grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]'>
+            <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-3 py-3 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur sm:px-4 sm:py-4 [&_.semi-card]:!mb-5 [&_.semi-card]:!rounded-[26px] [&_.semi-card]:!border [&_.semi-card]:!border-slate-200/80 [&_.semi-card]:!bg-white/96 [&_.semi-card]:!shadow-[0_24px_70px_-52px_rgba(15,23,42,0.22)] [&_.semi-card]:backdrop-blur [&_.semi-card-body]:!p-6 [&_.semi-divider]:!border-slate-100 [&_.semi-form-field]:!mb-4 [&_.semi-form-field-label]:!mb-2 [&_.semi-form-field-label]:!text-[13px] [&_.semi-form-field-label]:!font-semibold [&_.semi-form-field-label]:!text-slate-700 [&_.semi-input-wrapper]:!rounded-xl [&_.semi-input-wrapper]:!border-slate-200 [&_.semi-input-wrapper]:!bg-white [&_.semi-input-wrapper]:shadow-none [&_.semi-input-wrapper]:transition-all [&_.semi-input-wrapper]:duration-200 [&_.semi-input-wrapper:hover]:!border-slate-300 [&_.semi-input-textarea-wrapper]:!rounded-2xl [&_.semi-input-textarea-wrapper]:!border-slate-200 [&_.semi-input-number]:!rounded-xl [&_.semi-input-number]:!border-slate-200 [&_.semi-select]:!rounded-xl [&_.semi-select-selection]:!rounded-xl [&_.semi-select-selection]:!border-slate-200 [&_.semi-select-selection]:!bg-white [&_.semi-tabs-bar]:!mb-3 [&_.semi-tabs-tab]:!px-0 [&_.semi-tabs-tab]:!text-sm [&_.semi-tabs-tab-active]:!font-semibold [&_.semi-switch]:scale-[0.96]'>
               {children}
             </div>
             <div className='space-y-4'>
-              <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] xl:sticky xl:top-6'>
+              <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] lg:sticky lg:top-6'>
                 <div className='space-y-4 p-5'>
                   <div>
                     <Text className='text-base font-semibold text-slate-900'>
