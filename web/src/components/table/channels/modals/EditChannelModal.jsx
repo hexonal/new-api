@@ -2674,82 +2674,176 @@ const EditChannelModal = (props) => {
     );
   };
 
+  const titleContent = (
+    <Space>
+      <Tag color='blue' shape='circle'>
+        {isEdit ? t('编辑') : t('新建')}
+      </Tag>
+      <Title heading={4} className='m-0'>
+        {isEdit ? t('更新渠道信息') : t('创建新的渠道')}
+      </Title>
+    </Space>
+  );
+
+  const footerContent = (
+    <div className='flex justify-between items-center bg-white'>
+      <div className='flex gap-2'>
+        <Button
+          size='small'
+          type='tertiary'
+          icon={<IconChevronUp />}
+          onClick={() => navigateToSection('up')}
+          style={{
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title={t('上一个表单块')}
+        />
+        <Button
+          size='small'
+          type='tertiary'
+          icon={<IconChevronDown />}
+          onClick={() => navigateToSection('down')}
+          style={{
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title={t('下一个表单块')}
+        />
+      </div>
+      <Space>
+        <Button
+          theme='solid'
+          onClick={() => formApiRef.current?.submitForm()}
+          icon={<IconSave />}
+        >
+          {t('提交')}
+        </Button>
+        <Button
+          theme='light'
+          type='primary'
+          onClick={handleCancel}
+          icon={<IconClose />}
+        >
+          {t('取消')}
+        </Button>
+      </Space>
+    </div>
+  );
+
+  const LayoutWrapper = ({ children }) => {
+    if (!isRouteMode) {
+      return (
+        <SideSheet
+          placement={sheetPlacement}
+          title={titleContent}
+          bodyStyle={{ padding: '0' }}
+          visible={props.visible}
+          width={sheetWidth}
+          mask={sheetMask}
+          footer={footerContent}
+          closeIcon={null}
+          onCancel={() => handleCancel()}
+        >
+          {children}
+        </SideSheet>
+      );
+    }
+
+    return (
+      <div className='relative overflow-hidden pb-10'>
+        <div className='pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,_rgba(79,70,229,0.18),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.16),_transparent_36%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(248,250,252,0.76))]' />
+        <div className='relative mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-3 pb-2 pt-1 2xl:px-6'>
+          <div className='rounded-[28px] border border-slate-200/80 bg-white/92 px-6 py-6 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.45)] backdrop-blur md:px-8'>
+            <div className='flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between'>
+              <div className='space-y-4'>
+                <div className='flex flex-wrap items-center gap-2 text-sm text-slate-500'>
+                  <button
+                    className='transition hover:text-indigo-600'
+                    onClick={handleCancel}
+                    type='button'
+                  >
+                    {t('渠道管理')}
+                  </button>
+                  <span>/</span>
+                  <span className='font-medium text-slate-900'>
+                    {isEdit ? t('编辑渠道') : t('新建渠道')}
+                  </span>
+                </div>
+                <div className='space-y-3'>
+                  <div className='inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700'>
+                    {isEdit ? t('Aurora Editor') : t('Aurora Creator')}
+                  </div>
+                  <div className='space-y-2'>
+                    <h1 className='font-headline text-3xl font-black tracking-[-0.03em] text-slate-950'>
+                      {isEdit ? t('编辑渠道') : t('新建渠道')}
+                    </h1>
+                    <p className='max-w-3xl text-sm leading-6 text-slate-600'>
+                      {t(
+                        '渠道字段、回填和保存逻辑沿用旧版成熟实现，但路由态页面恢复为 Aurora 工作台样式。',
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className='flex flex-wrap items-center gap-3'>
+                <Button theme='light' type='tertiary' onClick={handleCancel}>
+                  {t('返回列表')}
+                </Button>
+                <Button
+                  theme='solid'
+                  type='primary'
+                  onClick={() => formApiRef.current?.submitForm()}
+                  icon={<IconSave />}
+                >
+                  {isEdit ? t('保存修改') : t('创建渠道')}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className='grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]'>
+            <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-2 py-2 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur'>
+              {children}
+            </div>
+            <div className='space-y-4'>
+              <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] xl:sticky xl:top-6'>
+                <div className='space-y-4 p-5'>
+                  <div>
+                    <Text className='text-base font-semibold text-slate-900'>
+                      {isEdit ? t('编辑导航') : t('创建导航')}
+                    </Text>
+                    <div className='mt-1 text-xs leading-5 text-slate-500'>
+                      {t('这里保留旧版完整字段能力，但不再使用旧版 SideSheet 外壳。')}
+                    </div>
+                  </div>
+                  <div className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'>
+                    {titleContent}
+                  </div>
+                  {footerContent}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-      <SideSheet
-        placement={sheetPlacement}
-        title={
-          <Space>
-            <Tag color='blue' shape='circle'>
-              {isEdit ? t('编辑') : t('新建')}
-            </Tag>
-            <Title heading={4} className='m-0'>
-              {isEdit ? t('更新渠道信息') : t('创建新的渠道')}
-            </Title>
-          </Space>
-        }
-        bodyStyle={{ padding: '0' }}
-        visible={props.visible}
-        width={sheetWidth}
-        mask={sheetMask}
-        footer={
-          <div className='flex justify-between items-center bg-white'>
-            <div className='flex gap-2'>
-              <Button
-                size='small'
-                type='tertiary'
-                icon={<IconChevronUp />}
-                onClick={() => navigateToSection('up')}
-                style={{
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title={t('上一个表单块')}
-              />
-              <Button
-                size='small'
-                type='tertiary'
-                icon={<IconChevronDown />}
-                onClick={() => navigateToSection('down')}
-                style={{
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title={t('下一个表单块')}
-              />
-            </div>
-            <Space>
-              <Button
-                theme='solid'
-                onClick={() => formApiRef.current?.submitForm()}
-                icon={<IconSave />}
-              >
-                {t('提交')}
-              </Button>
-              <Button
-                theme='light'
-                type='primary'
-                onClick={handleCancel}
-                icon={<IconClose />}
-              >
-                {t('取消')}
-              </Button>
-            </Space>
-          </div>
-        }
-        closeIcon={null}
-        onCancel={() => handleCancel()}
-      >
+      <LayoutWrapper>
         <Form
           key={isEdit ? 'edit' : 'new'}
           initValues={originInputs}
@@ -4868,7 +4962,7 @@ const EditChannelModal = (props) => {
           visible={isModalOpenurl}
           onVisibleChange={(visible) => setIsModalOpenurl(visible)}
         />
-      </SideSheet>
+      </LayoutWrapper>
       <StatusCodeRiskGuardModal
         visible={statusCodeRiskConfirmVisible}
         detailItems={statusCodeRiskDetailItems}
