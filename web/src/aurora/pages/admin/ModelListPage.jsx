@@ -279,6 +279,7 @@ export default function ModelListPage() {
     handlePageChange,
     handlePageSizeChange,
     manageModel,
+    updateModelSortOrder,
     refresh,
     compactMode,
     setCompactMode,
@@ -501,12 +502,33 @@ export default function ModelListPage() {
                       </Td>
                       <Td className={compactMode ? 'py-1.5' : ''}>
                         <div className='min-w-[88px]'>
-                          <Badge
-                            variant={priority > 0 ? 'secondary' : 'outline'}
-                            className='rounded-full'
-                          >
-                            {priority}
-                          </Badge>
+                          <Input
+                            type='number'
+                            min='0'
+                            defaultValue={priority}
+                            className='h-8 rounded-full text-center'
+                            onBlur={(event) => {
+                              const nextValue = event.target.value.trim();
+                              if (nextValue === '') {
+                                event.target.value = String(priority);
+                                return;
+                              }
+
+                              const nextPriority = Number(nextValue);
+                              if (!Number.isFinite(nextPriority) || nextPriority < 0) {
+                                event.target.value = String(priority);
+                                return;
+                              }
+
+                              updateModelSortOrder(row.id, event.target.value, priority).then(
+                                (updated) => {
+                                  if (!updated) {
+                                    event.target.value = String(priority);
+                                  }
+                                },
+                              );
+                            }}
+                          />
                           <div className='mt-1 text-[11px] text-muted-foreground'>
                             {priority > 0 ? t('越大越靠前') : t('默认')}
                           </div>

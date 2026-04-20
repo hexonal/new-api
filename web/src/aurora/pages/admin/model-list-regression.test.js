@@ -29,7 +29,9 @@ describe('model list regression', () => {
 
     expect(source).toContain("{t('优先级')}");
     expect(source).toContain('const priority = Number(row.sort_order ?? 0);');
-    expect(source).toContain("{priority > 0 ? t('越大越靠前') : t('默认')}");
+    expect(source).toContain("type='number'");
+    expect(source).toContain('onBlur={(event) =>');
+    expect(source).toContain('updateModelSortOrder(row.id, event.target.value, priority)');
   });
 
   test('uses compact primary actions with an overflow menu for secondary model actions', () => {

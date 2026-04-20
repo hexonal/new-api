@@ -327,6 +327,37 @@ export const useModelsData = () => {
     }
   };
 
+  const updateModelSortOrder = async (id, sortOrder, currentSortOrder) => {
+    const nextSortOrder = Number(sortOrder);
+    if (!Number.isFinite(nextSortOrder)) {
+      showError(t('请输入有效的优先级数字'));
+      return false;
+    }
+    if (nextSortOrder === Number(currentSortOrder ?? 0)) {
+      return true;
+    }
+
+    try {
+      const res = await API.put('/api/models/?sort_only=true', {
+        id,
+        sort_order: nextSortOrder,
+      });
+      const { success, message } = res.data || {};
+      if (!success) {
+        showError(message || t('优先级更新失败'));
+        return false;
+      }
+
+      await refresh();
+      return true;
+    } catch (error) {
+      showError(
+        error?.response?.data?.message || error?.message || t('优先级更新失败'),
+      );
+      return false;
+    }
+  };
+
   // Handle page change
   const handlePageChange = (page) => {
     setActivePage(page);
@@ -458,6 +489,7 @@ export const useModelsData = () => {
     searchModels,
     refresh,
     manageModel,
+    updateModelSortOrder,
     batchDeleteModels,
     copyText,
 

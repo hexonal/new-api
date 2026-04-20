@@ -39,7 +39,6 @@ const EMPTY_FORM = {
   prompt_price: '',
   completion_price: '',
   ratio: '',
-  sort_order: 0,
   status: 1,
   tags: [],
   channels: [],
@@ -173,7 +172,6 @@ export default function ModelFormPage() {
 
     setSubmitting(true);
     try {
-      const sortOrder = Number(form.sort_order ?? 0);
       const payload = {
         model_name: form.model_name.trim(),
         description: form.description || '',
@@ -185,7 +183,6 @@ export default function ModelFormPage() {
         model_ratio: form.prompt_price,
         model_price: form.completion_price,
         completion_ratio: form.ratio,
-        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
         endpoints: form.endpoints || '',
         sync_official: form.sync_official ?? 1,
       };
@@ -266,15 +263,10 @@ export default function ModelFormPage() {
               provider: form.provider,
               max_tokens: String(form.max_tokens ?? ''),
               support: form.support,
-              sort_order: String(form.sort_order ?? 0),
             }}
             onChange={(key, value) => {
               if (key === 'name') {
                 updateField('model_name', value);
-                return;
-              }
-              if (key === 'sort_order') {
-                updateField('sort_order', value);
                 return;
               }
               updateField(key, value);

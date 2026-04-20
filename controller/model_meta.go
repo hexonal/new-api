@@ -114,6 +114,7 @@ func CreateModelMeta(c *gin.Context) {
 // UpdateModelMeta 更新模型
 func UpdateModelMeta(c *gin.Context) {
 	statusOnly := c.Query("status_only") == "true"
+	sortOnly := c.Query("sort_only") == "true"
 
 	var m model.Model
 	if err := c.ShouldBindJSON(&m); err != nil {
@@ -128,6 +129,12 @@ func UpdateModelMeta(c *gin.Context) {
 	if statusOnly {
 		// 只更新状态，防止误清空其他字段
 		if err := model.DB.Model(&model.Model{}).Where("id = ?", m.Id).Update("status", m.Status).Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	} else if sortOnly {
+		// 排序只允许通过列表页的专用入口单字段更新
+		if err := model.DB.Model(&model.Model{}).Where("id = ?", m.Id).UpdateColumn("sort_order", m.SortOrder).Error; err != nil {
 			common.ApiError(c, err)
 			return
 		}
@@ -146,7 +153,9 @@ func UpdateModelMeta(c *gin.Context) {
 			return
 		}
 	}
-	model.RefreshPricing()
+	if !sortOnly {
+		model.RefreshPricing()
+	}
 	common.ApiSuccess(c, &m)
 }
 

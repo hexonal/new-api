@@ -34,7 +34,6 @@ export default function ModelBasicInfo({
     { key: 'provider', label: t('Provider'), placeholder: t('OpenAI / Google / Azure') },
     { key: 'max_tokens', label: t('最大 token'), placeholder: t('输入数字') },
     { key: 'support', label: t('支持能力'), placeholder: t('chat / image / video') },
-    { key: 'sort_order', label: t('推荐排序'), placeholder: t('数字越大越靠前，0 为默认') },
   ];
 
   return (

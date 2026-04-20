@@ -35,4 +35,14 @@ describe('model form import regression', () => {
     expect(source).toContain("from './components/ModelAdvanced';");
     expect(source).toContain("from './components/ModelDangerZone';");
   });
+
+  test('does not expose sort order controls in the model edit form', () => {
+    const formSource = readSource('ModelFormPage.jsx');
+    const basicInfoSource = readSource('components/ModelBasicInfo.jsx');
+
+    expect(formSource).not.toContain('sort_order: String(form.sort_order ?? 0)');
+    expect(formSource).not.toContain("if (key === 'sort_order')");
+    expect(basicInfoSource).not.toContain("key: 'sort_order'");
+    expect(basicInfoSource).not.toContain("{ key: 'sort_order', label: t('推荐排序')");
+  });
 });
