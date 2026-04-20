@@ -25,34 +25,44 @@ import {
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '../../../primitives/tabs';
 import { CATEGORY_PILLS } from './constants';
 
-const CategoryPills = ({
+const CategoryTabs = ({
   activeCategory,
   categoryCountMap,
   onCategoryClick,
   t,
 }) => (
-  <div className='mb-6 flex items-center gap-2 overflow-x-auto pb-2'>
-    {CATEGORY_PILLS.map((pill) => {
-      const active = activeCategory === pill.key;
-      const count = categoryCountMap[pill.key] || 0;
-      return (
-        <button
-          key={pill.key}
-          type='button'
-          onClick={() => onCategoryClick(pill.key)}
-          className={`min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors ${
-            active
-              ? 'bg-indigo-600 font-semibold text-white'
-              : 'border border-gray-200 bg-white font-medium text-gray-600 hover:border-indigo-300'
-          }`}
-        >
-          {t(pill.labelKey)} {count}
-        </button>
-      );
-    })}
-  </div>
+  <Tabs value={activeCategory} onValueChange={onCategoryClick}>
+    <TabsList
+      aria-label={t('模型类别')}
+      className='mb-6 flex h-auto w-full justify-start gap-3 overflow-x-auto rounded-none border-0 bg-transparent p-0 text-slate-500 shadow-none'
+    >
+      {CATEGORY_PILLS.map((pill) => {
+        const active = activeCategory === pill.key;
+        const count = categoryCountMap[pill.key] || 0;
+        return (
+          <TabsTrigger
+            key={pill.key}
+            value={pill.key}
+            className='shrink-0 rounded-full border border-slate-200 bg-white/95 px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-[0_10px_25px_-22px_rgba(15,23,42,0.22)] transition-all hover:border-indigo-200 hover:text-indigo-600 data-[state=active]:border-indigo-200 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-[0_16px_34px_-24px_rgba(79,70,229,0.5)]'
+          >
+            <span>{t(pill.labelKey)}</span>
+            <span
+              className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                active
+                  ? 'bg-white text-indigo-700 shadow-[inset_0_0_0_1px_rgba(165,180,252,0.4)]'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {count}
+            </span>
+          </TabsTrigger>
+        );
+      })}
+    </TabsList>
+  </Tabs>
 );
 
 const SearchBox = ({ onChange, searchKeyword, t }) => (
@@ -145,7 +155,7 @@ const ModelsExplorerToolbar = ({
       {t('模型广场')}
     </h1>
 
-    <CategoryPills
+    <CategoryTabs
       activeCategory={activeCategory}
       categoryCountMap={categoryCountMap}
       onCategoryClick={handleCategoryClick}

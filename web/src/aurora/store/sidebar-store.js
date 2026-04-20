@@ -19,22 +19,40 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { create } from 'zustand';
 
+const STORAGE_KEY = 'aurora_sidebar_collapsed';
+
+const readStoredCollapsed = () => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(STORAGE_KEY) === 'true';
+};
+
 const isMobile = (value) => {
   if (typeof window === 'undefined') return false;
   return window.innerWidth < 1024;
 };
 
 export const useSidebarStore = create((set) => ({
-  collapsed: isMobile(),
+  collapsed: isMobile() ? true : readStoredCollapsed(),
   mobileOpen: false,
   activeSection: 'WORKSPACE',
 
-  setCollapsed: (collapsed) => {
-    set({ collapsed: Boolean(collapsed) });
+  setCollapsed: (collapsed, options = {}) => {
+    const next = Boolean(collapsed);
+    const persist = options.persist ?? true;
+    if (persist && typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, String(next));
+    }
+    set({ collapsed: next });
   },
 
   toggleCollapsed: () => {
-    set((state) => ({ collapsed: !state.collapsed }));
+    set((state) => {
+      const next = !state.collapsed;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      }
+      return { collapsed: next };
+    });
   },
 
   setMobileOpen: (mobileOpen) => {
@@ -49,3 +67,5 @@ export const useSidebarStore = create((set) => ({
     set({ activeSection });
   },
 }));
+
+export const getStoredSidebarCollapsed = readStoredCollapsed;

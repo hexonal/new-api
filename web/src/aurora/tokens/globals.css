@@ -256,6 +256,10 @@
   background-color: rgba(248, 249, 255, 1);
 }
 
+.aurora-body-shell.aurora-body-shell-collapsed {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
 .aurora-body-shell-dashboard {
   padding-top: 20px;
 }
@@ -445,6 +449,48 @@
   gap: 14px;
 }
 
+.aurora-sidebar-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2px;
+}
+
+.aurora-sidebar-controls.collapsed {
+  justify-content: center;
+}
+
+.aurora-sidebar-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.aurora-sidebar-collapse-toggle:hover {
+  background: hsl(var(--sidebar-accent));
+  color: hsl(var(--foreground));
+}
+
+.aurora-sidebar-collapse-toggle:active {
+  transform: translateY(1px);
+}
+
+.aurora-sidebar-collapse-toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .aurora-sidebar-section-title {
   margin: 0 6px 8px;
   font-size: 0.75rem;
@@ -591,27 +637,7 @@
   padding: 2px 4px 6px;
 }
 
-.aurora-mobile-nav-primary-entry {
-  padding: 0 4px;
-}
-
-.aurora-mobile-nav-primary-btn {
-  min-height: 46px;
-  border-radius: 12px;
-  border: 1px solid #99b1dc;
-  color: #183a79;
-  background: linear-gradient(180deg, #eef4ff 0%, #e0ecff 100%);
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.aurora-mobile-nav-primary-btn:hover {
-  border-color: #6f91cf;
-  color: #143265;
-  background: linear-gradient(180deg, #e7f0ff 0%, #d5e5ff 100%);
-}
-
-.aurora-mobile-nav-quick-link {
+.aurora-mobile-nav-link {
   min-height: 44px;
   border: 1px solid #d4deec;
   border-radius: 12px;
@@ -623,10 +649,16 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
 }
 
-.aurora-mobile-nav-quick-link:hover {
+.aurora-mobile-nav-link:hover {
   border-color: #9cb6e7;
   color: #1f4da8;
   background: linear-gradient(180deg, #fdfefe 0%, #ebf2ff 100%);
+}
+
+.aurora-mobile-nav-link.is-active {
+  border-color: #99b1dc;
+  color: #183a79;
+  background: linear-gradient(180deg, #eef4ff 0%, #e0ecff 100%);
 }
 
 .aurora-mobile-nav .aurora-sidebar {

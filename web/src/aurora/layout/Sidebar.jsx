@@ -21,6 +21,8 @@ import React, { useEffect, useMemo } from 'react';
 import {
   BarChart3,
   Boxes,
+  ChevronsLeft,
+  ChevronsRight,
   CreditCard,
   HelpCircle,
   KeyRound,
@@ -174,6 +176,7 @@ const isSectionPath = (items, pathname) =>
 
 const Sidebar = ({ onNavigate = () => {}, forceExpanded = false }) => {
   const collapsed = useSidebarStore((state) => state.collapsed);
+  const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed);
   const setActiveSection = useSidebarStore((state) => state.setActiveSection);
   const location = useLocation();
   const isAdminUser = isAdmin();
@@ -398,6 +401,31 @@ const Sidebar = ({ onNavigate = () => {}, forceExpanded = false }) => {
 
   return (
     <nav className='aurora-sidebar' aria-label={t('控制台导航')}>
+      {!forceExpanded && (
+        <div
+          className={`aurora-sidebar-controls ${sidebarCollapsed ? 'collapsed' : ''}`}
+        >
+          <button
+            type='button'
+            className='aurora-sidebar-collapse-toggle'
+            onClick={toggleCollapsed}
+            aria-label={sidebarCollapsed ? t('展开侧边栏') : t('收起侧边栏')}
+            title={sidebarCollapsed ? t('展开侧边栏') : t('收起侧边栏')}
+          >
+            {sidebarCollapsed ? (
+              <ChevronsRight size={16} strokeWidth={2.2} />
+            ) : (
+              <ChevronsLeft size={16} strokeWidth={2.2} />
+            )}
+            {!sidebarCollapsed && (
+              <span className='aurora-sidebar-collapse-toggle-label'>
+                {t('收起')}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {workspaceNodes.length > 0 && (
         <SidebarSection
           title={sectionLabels.WORKSPACE}

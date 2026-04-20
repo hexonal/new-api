@@ -165,7 +165,8 @@ export default function ChannelDataTable(props) {
 
   return (
     <div className='rounded-[22px] border border-slate-200 bg-white shadow-[0_18px_40px_-34px_rgba(15,23,42,0.32)]'>
-      <Table className='table-fixed'>
+      <div className='overflow-x-auto'>
+        <Table className='min-w-[720px] table-fixed md:min-w-[760px] xl:min-w-0'>
         <Thead className='border-b border-slate-100 bg-slate-50/70'>
           <Tr className='hover:bg-transparent'>
             <Th className='w-12'>
@@ -419,7 +420,8 @@ export default function ChannelDataTable(props) {
             );
           })}
         </Tbody>
-      </Table>
+        </Table>
+      </div>
 
       <div className='flex flex-col gap-4 border-t border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between'>
         <div className='text-sm text-slate-500'>
@@ -442,7 +444,7 @@ export default function ChannelDataTable(props) {
               ))}
             </select>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 overflow-x-auto pb-1'>
             <Button
               variant='outline'
               disabled={activePage <= 1}

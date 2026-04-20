@@ -24,7 +24,10 @@ import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import PageShell from './PageShell';
-import { useSidebarStore } from '../store/sidebar-store';
+import {
+  getStoredSidebarCollapsed,
+  useSidebarStore,
+} from '../store/sidebar-store';
 import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
 import { API, setStatusData } from '../../helpers';
@@ -125,7 +128,11 @@ const AuroraLayout = ({ children }) => {
   useEffect(() => {
     const onResize = () => {
       const compact = getCompactMode();
-      setCollapsed(compact);
+      if (compact) {
+        setCollapsed(true, { persist: false });
+      } else {
+        setCollapsed(getStoredSidebarCollapsed(), { persist: false });
+      }
       if (!compact) {
         setMobileOpen(false);
       }
@@ -152,6 +159,9 @@ const AuroraLayout = ({ children }) => {
         className={[
           'aurora-body-shell',
           isCompact || !showNavigationShell ? 'compact' : '',
+          !isCompact && showNavigationShell && collapsed
+            ? 'aurora-body-shell-collapsed'
+            : '',
           isDashboardRoute ? 'aurora-body-shell-dashboard' : '',
         ]
           .filter(Boolean)

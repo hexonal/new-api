@@ -18,9 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Boxes, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -34,7 +34,11 @@ import { QUICK_LINKS } from './navigation-config';
 
 const MobileNav = ({ open, onOpenChange, showConsoleLinks = true }) => {
   const { t } = useTranslation();
-  const secondaryLinks = QUICK_LINKS.filter((link) => link.href !== '/pricing');
+  const location = useLocation();
+  const mobileLinks = [
+    QUICK_LINKS.find((link) => link.href === '/pricing'),
+    ...QUICK_LINKS.filter((link) => link.href !== '/pricing'),
+  ].filter(Boolean);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -51,28 +55,11 @@ const MobileNav = ({ open, onOpenChange, showConsoleLinks = true }) => {
         </SheetHeader>
 
         <div className='aurora-mobile-nav-content'>
-          <div className='aurora-mobile-nav-primary-entry'>
-            <Link
-              to='/pricing'
-              className='block'
-              onClick={() => onOpenChange(false)}
-            >
-              <Button
-                size='sm'
-                variant='ghost'
-                className='aurora-mobile-nav-primary-btn w-full justify-between'
-              >
-                <span className='inline-flex items-center gap-2'>
-                  <Boxes size={15} />
-                  {t('模型广场')}
-                </span>
-                <ChevronRight size={14} />
-              </Button>
-            </Link>
-          </div>
-
           <div className='aurora-mobile-nav-actions'>
-            {secondaryLinks.map((link) => (
+            {mobileLinks.map((link) => {
+              const isActive = location.pathname === link.href;
+
+              return (
               <Link
                 key={link.href}
                 to={link.href}
@@ -82,13 +69,16 @@ const MobileNav = ({ open, onOpenChange, showConsoleLinks = true }) => {
                 <Button
                   size='sm'
                   variant='ghost'
-                  className='aurora-mobile-nav-quick-link w-full justify-between'
+                  className={`aurora-mobile-nav-link w-full justify-between ${
+                    isActive ? 'is-active' : ''
+                  }`}
                 >
                   {t(link.label)}
                   <ChevronRight size={14} />
                 </Button>
               </Link>
-            ))}
+              );
+            })}
           </div>
 
           {showConsoleLinks ? (

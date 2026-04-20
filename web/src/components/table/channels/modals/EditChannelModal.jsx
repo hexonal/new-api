@@ -2780,7 +2780,7 @@ const EditChannelModal = (props) => {
     return (
       <div className='relative overflow-hidden pb-10'>
         <div className='pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,_rgba(79,70,229,0.18),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(6,182,212,0.16),_transparent_36%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(248,250,252,0.76))]' />
-        <div className='relative mx-auto flex w-full max-w-[1760px] flex-col gap-6 px-3 pb-2 pt-1 2xl:px-6'>
+        <div className='relative mx-auto flex w-full flex-col gap-6 px-3 pb-2 pt-1 2xl:px-6'>
           <div className='rounded-[28px] border border-slate-200/80 bg-white/92 px-6 py-6 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.45)] backdrop-blur md:px-8'>
             <div className='flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between'>
               <div className='space-y-4'>
@@ -2845,7 +2845,7 @@ const EditChannelModal = (props) => {
             </div>
           </div>
 
-          <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-3 py-3 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur sm:px-4 sm:py-4 [&_.semi-card]:!mb-5 [&_.semi-card]:!rounded-[26px] [&_.semi-card]:!border [&_.semi-card]:!border-slate-200/80 [&_.semi-card]:!bg-white/96 [&_.semi-card]:!shadow-[0_24px_70px_-52px_rgba(15,23,42,0.22)] [&_.semi-card]:backdrop-blur [&_.semi-card-body]:!p-6 [&_.semi-divider]:!border-slate-100 [&_.semi-form-field]:!mb-4 [&_.semi-form-field-label]:!mb-2 [&_.semi-form-field-label]:!text-[13px] [&_.semi-form-field-label]:!font-semibold [&_.semi-form-field-label]:!text-slate-700 [&_.semi-input-wrapper]:!rounded-xl [&_.semi-input-wrapper]:!border-slate-200 [&_.semi-input-wrapper]:!bg-white [&_.semi-input-wrapper]:shadow-none [&_.semi-input-wrapper]:transition-all [&_.semi-input-wrapper]:duration-200 [&_.semi-input-wrapper:hover]:!border-slate-300 [&_.semi-input-textarea-wrapper]:!rounded-2xl [&_.semi-input-textarea-wrapper]:!border-slate-200 [&_.semi-input-number]:!rounded-xl [&_.semi-input-number]:!border-slate-200 [&_.semi-select]:!rounded-xl [&_.semi-select-selection]:!rounded-xl [&_.semi-select-selection]:!border-slate-200 [&_.semi-select-selection]:!bg-white [&_.semi-tabs-bar]:!mb-3 [&_.semi-tabs-tab]:!px-0 [&_.semi-tabs-tab]:!text-sm [&_.semi-tabs-tab-active]:!font-semibold [&_.semi-switch]:scale-[0.96]'>
+          <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-3 py-3 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur sm:px-4 sm:py-4 [&_.semi-card]:!mb-5 [&_.semi-card]:!rounded-[26px] [&_.semi-card]:!border [&_.semi-card]:!border-slate-200/80 [&_.semi-card]:!bg-white/96 [&_.semi-card]:!shadow-[0_24px_70px_-52px_rgba(15,23,42,0.22)] [&_.semi-card]:backdrop-blur [&_.semi-card-body]:!p-4 sm:[&_.semi-card-body]:!p-6 [&_.semi-divider]:!border-slate-100 [&_.semi-form-field]:!mb-4 [&_.semi-form-field-label]:!mb-2 [&_.semi-form-field-label]:!text-[13px] [&_.semi-form-field-label]:!font-semibold [&_.semi-form-field-label]:!text-slate-700 [&_.semi-input-wrapper]:!rounded-xl [&_.semi-input-wrapper]:!border-slate-200 [&_.semi-input-wrapper]:!bg-white [&_.semi-input-wrapper]:shadow-none [&_.semi-input-wrapper]:transition-all [&_.semi-input-wrapper]:duration-200 [&_.semi-input-wrapper:hover]:!border-slate-300 [&_.semi-input-textarea-wrapper]:!rounded-2xl [&_.semi-input-textarea-wrapper]:!border-slate-200 [&_.semi-input-number]:!rounded-xl [&_.semi-input-number]:!border-slate-200 [&_.semi-select]:!rounded-xl [&_.semi-select-selection]:!rounded-xl [&_.semi-select-selection]:!border-slate-200 [&_.semi-select-selection]:!bg-white [&_.semi-tabs-bar]:!mb-3 [&_.semi-tabs-tab]:!px-0 [&_.semi-tabs-tab]:!text-sm [&_.semi-tabs-tab-active]:!font-semibold [&_.semi-switch]:scale-[0.96]'>
             {children}
           </div>
         </div>
@@ -4185,7 +4185,7 @@ const EditChannelModal = (props) => {
                                   {routeBalanceText}
                                 </span>
                               </div>
-                              <div className='grid grid-cols-2 gap-3 pt-1'>
+                              <div className='grid gap-3 pt-1 sm:grid-cols-2'>
                                 <div>
                                   <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
                                     {t('优先级')}
@@ -4231,7 +4231,7 @@ const EditChannelModal = (props) => {
                           <Text className='text-sm font-semibold text-slate-900'>
                             {t('表单导航')}
                           </Text>
-                          <div className='grid gap-2'>
+                          <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-1'>
                             {[
                               ['basicInfo', t('基本信息')],
                               ['apiConfig', t('API 配置')],
@@ -4270,7 +4270,7 @@ const EditChannelModal = (props) => {
                           </div>
                         </div>
 
-                        <div className='flex gap-2'>
+                        <div className='flex justify-end gap-2 sm:justify-start'>
                           <Button
                             size='small'
                             type='tertiary'
