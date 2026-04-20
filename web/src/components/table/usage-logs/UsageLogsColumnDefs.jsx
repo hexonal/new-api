@@ -87,6 +87,43 @@ function formatRatio(ratio) {
   return String(ratio);
 }
 
+function formatRatePerM(rate) {
+  const num = Number(rate);
+  if (!Number.isFinite(num) || num <= 0) {
+    return '-';
+  }
+  return `$${num.toFixed(4)} / 1M tokens`;
+}
+
+function buildImaProBillingSummary(other, t) {
+  if (!other) {
+    return '';
+  }
+
+  const sku = other.billing_sku || other.model_variant || '';
+  const inputMode = other.input_mode || '';
+  const bucket = other.resolution_bucket || '';
+  const rate = Number(other.rate_per_m);
+  if (!sku && !inputMode && !bucket && !(rate > 0)) {
+    return '';
+  }
+
+  const lines = [t('IMA Pro 计费明细')];
+  if (sku) {
+    lines.push(`${t('计费变体')}：${sku}`);
+  }
+  if (inputMode) {
+    lines.push(`${t('输入模式')}：${inputMode}`);
+  }
+  if (bucket) {
+    lines.push(`${t('分辨率档')}：${bucket}`);
+  }
+  if (rate > 0) {
+    lines.push(`${t('费率 ($/M)')}：${formatRatePerM(rate)}`);
+  }
+  return lines.join('\n');
+}
+
 function buildChannelAffinityTooltip(affinity, t) {
   if (!affinity) {
     return null;
@@ -1395,10 +1432,17 @@ export const getLogsColumns = ({
             modelPrice,
             groupRatio,
           });
+          const skuLine = billingSKU
+            ? `${t('计费SKU')}：${billingSKU}${
+                other?.input_mode
+                  ? ` (${other.input_mode}${other?.resolution_bucket ? `/${other.resolution_bucket}` : ''})`
+                  : ''
+              }`
+            : '';
           const summary = fixedPrice
             ? [
                 t('按次计费'),
-                `${t('计费SKU')}：${billingSKU}`,
+                skuLine,
                 `${t('SKU单价')}：$${fixedPrice.unitPrice.toFixed(6)} / ${t('次')}`,
                 `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio.toFixed(4) : '-'}`,
                 buildFixedPerCallFormula({
@@ -1583,6 +1627,7 @@ export const getLogsColumns = ({
             cacheSummary += ` | ${t('缓存未命中提示（本地）')}：${localHint}`;
           }
         }
+        const imaProSummary = buildImaProBillingSummary(other, t);
         return (
           <Typography.Paragraph
             ellipsis={
@@ -1602,7 +1647,7 @@ export const getLogsColumns = ({
               wordBreak: 'break-word',
             }}
           >
-            {[tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
+            {[imaProSummary, tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
           </Typography.Paragraph>
         );
       },
