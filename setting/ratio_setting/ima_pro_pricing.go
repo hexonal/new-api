@@ -3,6 +3,7 @@ package ratio_setting
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -10,7 +11,7 @@ import (
 // IMA Pro / BytePlus Seedance 2.0 Pricing
 //
 // Source of truth for variant ratios:
-//   docs/byteplus-seedance-2-pricing.md §4.7 (18 keys total)
+//   docs/byteplus-seedance-2-pricing.md §4.7 (30 keys total)
 //
 // Channel-fork integration (caller side):
 //   service/task_billing.go:RecalculateTaskQuotaByTokens
@@ -20,8 +21,8 @@ import (
 // Pricing formula (token-based):
 //   quota = tokens × variantRatio × completionRatio × groupRatio
 //
-// Variant key layout: "{family}-{novideo|withvideo}-{720p|1080p}"
-//   e.g. "seedance-2.0-novideo-720p", "ima-pro-fast-withvideo-720p"
+// Variant key layout: "{family}-{novideo|withvideo}-{480p|720p|1080p}"
+//   e.g. "seedance-2.0-novideo-480p", "ima-pro-fast-withvideo-720p"
 //
 // Fallback ladder (variant ratio not configured):
 //   1. variantKey ratio (configured? use it)
@@ -36,11 +37,12 @@ import (
 // included without a deliberate entry here).
 //
 // Sourced from Phase 1 audit of the 5 hardcoded sites:
-//   relay_task.go:taskForcedTokenBillingModels,
-//   sora/constants.go:IMAProModelList,
-//   openai/constant.go:IMAProModelList,
-//   relay/common/relay_utils.go:81,
-//   service/task_deferred_billing.go.
+//
+//	relay_task.go:taskForcedTokenBillingModels,
+//	sora/constants.go:IMAProModelList,
+//	openai/constant.go:IMAProModelList,
+//	relay/common/relay_utils.go:81,
+//	service/task_deferred_billing.go.
 //
 // NOTE: Gemini image preview models share the same forced-token-billing
 // list but DO NOT use IMA Pro variant pricing — they are explicitly
@@ -84,7 +86,7 @@ type QuotaResult struct {
 	BillingSku       string  // = VariantKey (consumed-model audit trail)
 	VariantKey       string  // resolved variant lookup key
 	InputMode        string  // "novideo" | "withvideo"
-	ResolutionBucket string  // "720p" | "1080p" | ""
+	ResolutionBucket string  // "480p" | "720p" | "1080p" | ""
 	RatePerM         float64 // ratio × 2  (USD per 1M tokens)
 	ModelRatio       float64 // ratio actually applied (variant or base)
 	CompletionRatio  float64 // completion ratio actually applied
@@ -139,8 +141,10 @@ func ImaProPricingApplies(channelType int, model string) bool {
 //
 // B2 hotfix: accept all 4 keys actually consumed by upstream
 // (verified sora/adaptor.go:553-556 and task_input_type.go:9-12):
-//   reference_video_urls (array), video_urls (array),
-//   reference_video_url (string), video_url (string).
+//
+//	reference_video_urls (array), video_urls (array),
+//	reference_video_url (string), video_url (string).
+//
 // Empty strings / empty arrays / arrays of only empty strings do NOT count.
 //
 // C1 hotfix (Round-2): upstream hasTaskResourceURL (task_input_type.go:83-107)
@@ -202,55 +206,128 @@ func itemHasValidURL(v interface{}) bool {
 	return false
 }
 
+type IMAProResolutionResult struct {
+	Resolution  string
+	Source      string
+	AspectRatio string
+}
+
+const (
+	IMAProResolutionSourceRequestSize        = "request_size"
+	IMAProResolutionSourceMetadataSize       = "metadata_size"
+	IMAProResolutionSourceMetadataResolution = "metadata_resolution"
+	IMAProResolutionSourceDefault            = "default"
+)
+
+// ResolveIMAProResolution is the single normalization point for IMA Pro
+// output resolution. Request size wins, then metadata.size, then
+// metadata.resolution, then the adaptor default of 720p.
+func ResolveIMAProResolution(requestSize, metadataSize, metadataResolution string) IMAProResolutionResult {
+	if resolution, aspectRatio, ok := normalizeIMAProSize(requestSize); ok {
+		return IMAProResolutionResult{
+			Resolution:  resolution,
+			Source:      IMAProResolutionSourceRequestSize,
+			AspectRatio: aspectRatio,
+		}
+	}
+	if resolution, aspectRatio, ok := normalizeIMAProSize(metadataSize); ok {
+		return IMAProResolutionResult{
+			Resolution:  resolution,
+			Source:      IMAProResolutionSourceMetadataSize,
+			AspectRatio: aspectRatio,
+		}
+	}
+	if resolution := normalizeIMAProResolutionLabel(metadataResolution); resolution != "" {
+		return IMAProResolutionResult{
+			Resolution:  resolution,
+			Source:      IMAProResolutionSourceMetadataResolution,
+			AspectRatio: "16:9",
+		}
+	}
+	return IMAProResolutionResult{
+		Resolution:  "720p",
+		Source:      IMAProResolutionSourceDefault,
+		AspectRatio: "16:9",
+	}
+}
+
 // NormalizeResolutionBucket folds (size, resolution) into one of:
-//   "720p"  — ≤720p tier (480p / 720p / inferred from W×H ≤ 1280×720)
-//   "1080p" — 1080p tier (resolution=="1080p" or W×H >= 1920×1080)
-//   ""      — unresolved (caller falls back to base ratio)
 //
-// Per byteplus-seedance-2-pricing.md §4.1: 480p and 720p share one bucket.
+//	"480p"  — 480p output
+//	"720p"  — 720p output, also the default when no size/resolution is supplied
+//	"1080p" — 1080p output
 func NormalizeResolutionBucket(size, resolution string) string {
-	r := strings.ToLower(strings.TrimSpace(resolution))
-	switch r {
-	case "480p", "720p":
+	return ResolveIMAProResolution(size, "", resolution).Resolution
+}
+
+func normalizeIMAProResolutionLabel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "480p":
+		return "480p"
+	case "720p":
 		return "720p"
 	case "1080p":
 		return "1080p"
-	}
-	// Fallback: parse "<W>x<H>" or "<W>×<H>"
-	s := strings.ToLower(strings.TrimSpace(size))
-	if s == "" {
+	default:
 		return ""
+	}
+}
+
+func normalizeIMAProSize(size string) (resolution string, aspectRatio string, ok bool) {
+	s := strings.ToLower(strings.TrimSpace(size))
+	if resolution := normalizeIMAProResolutionLabel(s); resolution != "" {
+		return resolution, "16:9", true
+	}
+	if s == "" {
+		return "", "", false
 	}
 	s = strings.ReplaceAll(s, "×", "x")
-	s = strings.ReplaceAll(s, "*", "x") // B8: support "720*1280" separator
+	s = strings.ReplaceAll(s, "*", "x")
 	parts := strings.Split(s, "x")
 	if len(parts) != 2 {
-		return ""
+		return "", "", false
 	}
-	var w, h int
-	if _, err := fmt.Sscanf(parts[0], "%d", &w); err != nil {
-		return ""
+	w, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || w <= 0 || h <= 0 {
+		return "", "", false
 	}
-	if _, err := fmt.Sscanf(parts[1], "%d", &h); err != nil {
-		return ""
+	longSide, shortSide := w, h
+	if shortSide > longSide {
+		longSide, shortSide = shortSide, longSide
 	}
-	long, short := w, h
-	if h > w {
-		long, short = h, w
-	}
-	// M4 hotfix: strict banding so non-standard resolutions (e.g. 1792x1024)
-	// do not incorrectly map to the 720p bucket. Anything outside the
-	// standard bands returns "" and the caller falls back to the base
-	// model ratio (UsedFallback=true).
+	aspectRatio = ratioFromDimensions(w, h)
 	switch {
-	case long >= 1920 && short >= 1080:
-		return "1080p"
-	case long >= 1280 && short >= 720 && short < 1080:
-		return "720p"
-	case long >= 854 && short >= 480 && short < 720:
-		return "720p" // 480p folds into 720p bucket (BytePlus §4.1)
+	case longSide >= 1920 && shortSide >= 1080:
+		return "1080p", aspectRatio, true
+	case longSide >= 1280 && shortSide >= 720 && shortSide < 1080:
+		return "720p", aspectRatio, true
+	case longSide >= 854 && shortSide >= 480 && shortSide < 720:
+		return "480p", aspectRatio, true
+	default:
+		return "", "", false
 	}
-	return ""
+}
+
+func ratioFromDimensions(w, h int) string {
+	if w <= 0 || h <= 0 {
+		return "16:9"
+	}
+	g := gcdInt(w, h)
+	if g <= 0 {
+		return "16:9"
+	}
+	return fmt.Sprintf("%d:%d", w/g, h/g)
+}
+
+func gcdInt(a int, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
 }
 
 // ResolveVariantKey composes the variant key from the model + input mode
@@ -323,7 +400,7 @@ func CalculateQuota(ctx context.Context, p CalculateQuotaParams) (*QuotaResult, 
 	if parts := strings.Split(variantKey, "-"); len(parts) >= 3 {
 		last := parts[len(parts)-1]
 		prev := parts[len(parts)-2]
-		if last == "720p" || last == "1080p" {
+		if last == "480p" || last == "720p" || last == "1080p" {
 			bucket = last
 			if prev == "novideo" || prev == "withvideo" {
 				inputMode = prev

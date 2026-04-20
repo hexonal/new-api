@@ -213,7 +213,13 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		}
 	}
 	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
-		bucket := ratio_setting.NormalizeResolutionBucket(req.Size, pickStringFromMetadata(req.Metadata, "resolution"))
+		metadata := metadataMapFromReq(req.Metadata)
+		effectiveResolution := ratio_setting.ResolveIMAProResolution(
+			req.Size,
+			pickString(metadata, "size"),
+			pickString(metadata, "resolution"),
+		)
+		bucket := effectiveResolution.Resolution
 		if err := ratio_setting.ValidateIMAProRequest(info.OriginModelName, bucket); err != nil {
 			return service.TaskErrorWrapperLocal(err, "unsupported_resolution_for_fast_variant", http.StatusBadRequest)
 		}
@@ -233,9 +239,15 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		return nil
 	}
 	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
-		bucket := ratio_setting.NormalizeResolutionBucket(req.Size, pickStringFromMetadata(req.Metadata, "resolution"))
+		metadata := metadataMapFromReq(req.Metadata)
+		effectiveResolution := ratio_setting.ResolveIMAProResolution(
+			req.Size,
+			pickString(metadata, "size"),
+			pickString(metadata, "resolution"),
+		)
+		bucket := effectiveResolution.Resolution
 		mode := "novideo"
-		if ratio_setting.HasVideoInput(metadataMapFromReq(req.Metadata)) {
+		if ratio_setting.HasVideoInput(metadata) {
 			mode = "withvideo"
 		}
 		variantKey := ratio_setting.ResolveVariantKey(info.OriginModelName, mode, bucket)
@@ -748,19 +760,18 @@ func resolveTaskDurationSeconds(req *relaycommon.TaskSubmitReq, metadata map[str
 }
 
 func resolveResolutionAndAspectRatio(req *relaycommon.TaskSubmitReq, metadata map[string]any) (string, string) {
-	size := strings.TrimSpace(req.Size)
-	if size == "" {
-		size = pickString(metadata, "size")
-	}
-	if size != "" {
-		if w, h, ok := parseWidthHeight(size); ok {
-			return fmt.Sprintf("%dp", minInt(w, h)), toAspectRatio(w, h)
-		}
+	effectiveResolution := ratio_setting.ResolveIMAProResolution(
+		req.Size,
+		pickString(metadata, "size"),
+		pickString(metadata, "resolution"),
+	)
+	if effectiveResolution.Source == ratio_setting.IMAProResolutionSourceRequestSize ||
+		effectiveResolution.Source == ratio_setting.IMAProResolutionSourceMetadataSize {
+		return effectiveResolution.Resolution, effectiveResolution.AspectRatio
 	}
 
-	resolution := pickStringWithDefault(metadata, "720p", "resolution")
 	aspectRatio := pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
-	return resolution, aspectRatio
+	return effectiveResolution.Resolution, aspectRatio
 }
 
 func parseWidthHeight(size string) (int, int, bool) {

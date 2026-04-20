@@ -17,7 +17,7 @@ export function parseImaProBillingSku(sku) {
     return { inputMode: '', resolutionBucket: '' };
   }
   const parts = text.toLowerCase().split('-');
-  const resolutionBucket = ['720p', '1080p'].includes(parts[parts.length - 1])
+  const resolutionBucket = ['480p', '720p', '1080p'].includes(parts[parts.length - 1])
     ? parts[parts.length - 1]
     : '';
   const inputMode = ['novideo', 'withvideo'].includes(parts[parts.length - 2])

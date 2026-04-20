@@ -103,7 +103,7 @@ func parseImaProVariantKey(variantKey string) (string, string) {
 	}
 	bucket := parts[len(parts)-1]
 	inputMode := parts[len(parts)-2]
-	if bucket != "720p" && bucket != "1080p" {
+	if bucket != "480p" && bucket != "720p" && bucket != "1080p" {
 		bucket = ""
 	}
 	if inputMode != "novideo" && inputMode != "withvideo" {
@@ -238,7 +238,8 @@ func inferConfiguredImaProBillingSKUFromTaskData(task *model.Task, modelName str
 	}
 	resolution := stringFromMap(params, "resolution")
 	size := stringFromMap(params, "size")
-	bucket := ratio_setting.NormalizeResolutionBucket(size, resolution)
+	effectiveResolution := ratio_setting.ResolveIMAProResolution(size, "", resolution)
+	bucket := effectiveResolution.Resolution
 	if bucket == "" {
 		bucket = inferImaProResolutionBucketFromResults(task.Data)
 	}

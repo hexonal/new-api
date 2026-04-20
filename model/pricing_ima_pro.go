@@ -24,7 +24,7 @@ func GetIMAProVariantPrices(modelName string) []PricingVariant {
 	}
 
 	inputModes := []string{"novideo", "withvideo"}
-	resolutionBuckets := []string{"720p", "1080p"}
+	resolutionBuckets := []string{"480p", "720p", "1080p"}
 	rows := make([]PricingVariant, 0, len(inputModes)*len(resolutionBuckets))
 	for _, inputMode := range inputModes {
 		for _, bucket := range resolutionBuckets {
@@ -61,10 +61,12 @@ func GetIMAProVariantPrices(modelName string) []PricingVariant {
 
 func imaProResolutionOrder(bucket string) int {
 	switch bucket {
-	case "720p":
+	case "480p":
 		return 1
-	case "1080p":
+	case "720p":
 		return 2
+	case "1080p":
+		return 3
 	default:
 		return 99
 	}

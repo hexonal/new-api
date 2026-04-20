@@ -12,6 +12,10 @@ test('parseImaProBillingSku extracts mode and resolution from ima-pro sku', () =
     inputMode: 'novideo',
     resolutionBucket: '720p',
   });
+  assert.deepEqual(parseImaProBillingSku('ima-pro-novideo-480p'), {
+    inputMode: 'novideo',
+    resolutionBucket: '480p',
+  });
   assert.deepEqual(parseImaProBillingSku('ima-pro-fast-withvideo-1080p'), {
     inputMode: 'withvideo',
     resolutionBucket: '1080p',

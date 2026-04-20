@@ -949,6 +949,30 @@ func TestValidateRequestAndSetAction_RejectsImaProFast1080pEarly(t *testing.T) {
 	}
 }
 
+func TestValidateRequestAndSetAction_RejectsImaProFastMetadataSize1080pEarly(t *testing.T) {
+	ctx := newSoraTaskTestContext(`{
+		"model":"ima-pro-fast",
+		"prompt":"generate a cinematic clip",
+		"metadata":{"size":"1920×1080"}
+	}`)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro-fast",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
+	if taskErr == nil {
+		t.Fatalf("ValidateRequestAndSetAction should reject fast+metadata.size 1080p")
+	}
+	if taskErr.Code != "unsupported_resolution_for_fast_variant" {
+		t.Fatalf("taskErr.Code = %q, want unsupported_resolution_for_fast_variant", taskErr.Code)
+	}
+}
+
 func TestEstimateBilling_ImaProWritesConsumedModelAndSkipsRatios(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Set("task_request", relaycommon.TaskSubmitReq{
@@ -971,6 +995,52 @@ func TestEstimateBilling_ImaProWritesConsumedModelAndSkipsRatios(t *testing.T) {
 	}
 	if info.TaskRelayInfo.ConsumedModel != "ima-pro-withvideo-1080p" {
 		t.Fatalf("ConsumedModel = %q, want ima-pro-withvideo-1080p", info.TaskRelayInfo.ConsumedModel)
+	}
+}
+
+func TestEstimateBilling_ImaProUsesMetadataSizeAndPreserves480p(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: "ima-pro",
+		Metadata: map[string]any{
+			"size": "854x480",
+		},
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-novideo-480p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-novideo-480p", info.TaskRelayInfo.ConsumedModel)
+	}
+}
+
+func TestEstimateBilling_ImaProDefaultsConsumedModelTo720p(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model:  "ima-pro",
+		Prompt: "generate a cinematic clip",
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-novideo-720p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-novideo-720p", info.TaskRelayInfo.ConsumedModel)
 	}
 }
 

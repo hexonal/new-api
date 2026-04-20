@@ -1877,6 +1877,45 @@ func TestRecalculateTaskQuotaByTokens_ImaProInfersConfiguredSKUFromLegacyTaskDat
 	assert.Equal(t, false, other["used_fallback"])
 }
 
+func TestRecalculateTaskQuotaByTokens_ImaProInfers480pSKUFromLegacyTaskData(t *testing.T) {
+	truncate(t)
+
+	const (
+		modelName  = "ima-pro"
+		variantKey = "ima-pro-novideo-480p"
+	)
+	withTempRatios(t, modelName, 37.5, 1)
+	withTempRatios(t, variantKey, 3.5, 1)
+
+	seedUser(t, 403, 1000000)
+	seedChannelWithType(t, 403, constant.ChannelTypeImaPro)
+
+	task := makeTask(403, 403, 0, 0, BillingSourceWallet, 0)
+	task.TaskID = "task_legacy_data_480p"
+	task.ChannelId = 0
+	task.Platform = constant.TaskPlatform("60")
+	task.Properties.OriginModelName = modelName
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.PrivateData.BillingContext.GroupRatio = 0.8
+	task.PricingGroup = "pg_legacy_data"
+	task.Data = json.RawMessage(`{"data":{"usage":{"total_tokens":1000,"completion_tokens":1000},"request_info":{"parameters":{"content":[{"type":"text","text":"hello"}],"resolution":"480p"}}}}`)
+	require.NoError(t, model.DB.Create(task).Error)
+
+	RecalculateTaskQuotaByTokens(context.Background(), task, 1000)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, 2800, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	assert.Equal(t, variantKey, other["billing_sku"])
+	assert.Equal(t, "novideo", other["input_mode"])
+	assert.Equal(t, "480p", other["resolution_bucket"])
+	assert.Equal(t, float64(7), other["rate_per_m"])
+	assert.Equal(t, false, other["used_fallback"])
+}
+
 func TestRecalculateTaskQuotaByTokens_ImaProKeepsBaseModelWhenSKUUnconfigured(t *testing.T) {
 	truncate(t)
 
@@ -1910,6 +1949,46 @@ func TestRecalculateTaskQuotaByTokens_ImaProKeepsBaseModelWhenSKUUnconfigured(t 
 	assert.Equal(t, float64(7), other["rate_per_m"])
 	assert.Equal(t, float64(3.5), other["model_ratio"])
 	assert.Equal(t, false, other["used_fallback"])
+}
+
+func TestRecalculateTaskQuotaByTokens_ImaProFallsBackWhenPersistedSKUUnconfigured(t *testing.T) {
+	truncate(t)
+
+	const (
+		modelName  = "ima-pro"
+		variantKey = "ima-pro-novideo-480p"
+	)
+	withTempRatios(t, modelName, 3.5, 1)
+
+	seedUser(t, 404, 1000000)
+	seedChannelWithType(t, 404, constant.ChannelTypeImaPro)
+
+	task := makeTask(404, 404, 0, 0, BillingSourceWallet, 0)
+	task.TaskID = "task_persisted_sku_unconfigured"
+	task.Properties.OriginModelName = modelName
+	task.Properties.BillingSku = variantKey
+	task.PrivateData.BillingContext.OriginModelName = modelName
+	task.PrivateData.BillingContext.BillingSku = variantKey
+	task.PrivateData.BillingContext.GroupRatio = 0.8
+	task.PricingGroup = "pg_sku_unconfigured"
+	task.Data = json.RawMessage(`{"data":{"usage":{"total_tokens":1000,"completion_tokens":1000},"request_info":{"parameters":{"content":[{"type":"text","text":"hello"}],"resolution":"480p"}}}}`)
+	require.NoError(t, model.DB.Create(task).Error)
+
+	RecalculateTaskQuotaByTokens(context.Background(), task, 1000)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, 2800, log.Quota)
+
+	other, err := common.StrToMap(log.Other)
+	require.NoError(t, err)
+	assert.Equal(t, variantKey, other["billing_sku"])
+	assert.Equal(t, variantKey, other["model_variant"])
+	assert.Equal(t, "novideo", other["input_mode"])
+	assert.Equal(t, "480p", other["resolution_bucket"])
+	assert.Equal(t, float64(7), other["rate_per_m"])
+	assert.Equal(t, float64(3.5), other["model_ratio"])
+	assert.Equal(t, true, other["used_fallback"])
 }
 
 func TestResolveDeferredTaskActualQuota_ImaProUsesVariantSKU(t *testing.T) {

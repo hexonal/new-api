@@ -14,16 +14,16 @@ func TestIsIMAProModel(t *testing.T) {
 	}{
 		{"ima-pro", true},
 		{"ima-pro-fast", true},
-		{"IMA-PRO", true},                      // case insensitive
-		{"  seedance-2.0  ", true},             // trim
+		{"IMA-PRO", true},          // case insensitive
+		{"  seedance-2.0  ", true}, // trim
 		{"seedance-2.0", true},
 		{"seedance-2.0-fast", true},
 		{"seedance-2.0-cn", true},
 		{"seedance-2.0-fast-cn", true},
-		{"seedance-3.0", false},                // wrong family
-		{"seedance-2.0-experimental", false},   // B7: allowlist rejects unknown suffixes
-		{"ima-pro-v2", false},                  // B7: allowlist rejects unknown suffixes
-		{"gemini-3-pro-image-preview", false},  // explicitly excluded
+		{"seedance-3.0", false},               // wrong family
+		{"seedance-2.0-experimental", false},  // B7: allowlist rejects unknown suffixes
+		{"ima-pro-v2", false},                 // B7: allowlist rejects unknown suffixes
+		{"gemini-3-pro-image-preview", false}, // explicitly excluded
 		{"gemini-3.1-flash-image-preview", false},
 		{"gpt-4", false},
 		{"", false},
@@ -128,25 +128,27 @@ func TestNormalizeResolutionBucket(t *testing.T) {
 		size, resolution, want string
 	}{
 		// resolution wins when present
-		{"", "480p", "720p"}, // 480p folds into 720p bucket (BytePlus §4.1)
+		{"", "480p", "480p"},
 		{"", "720p", "720p"},
 		{"", "1080p", "1080p"},
 		{"", "  720P  ", "720p"}, // case insensitive, trim
 		// size fallback
+		{"854x480", "", "480p"},
+		{"480x854", "", "480p"},
 		{"1280x720", "", "720p"},
 		{"720x1280", "", "720p"}, // portrait
 		{"1920x1080", "", "1080p"},
 		{"1080x1920", "", "1080p"},
-		{"854x480", "", "720p"}, // 480p folds in
 		// M4 hotfix: non-standard aspect ratios whose short side is
 		// below the 1080 threshold do NOT get promoted to 1080p.
 		// 1792x1024 → short=1024 < 1080 → "720p" bucket.
 		{"1792x1024", "", "720p"},
 		{"1024x1792", "", "720p"},
-		// unresolved
-		{"", "", ""},
-		{"100x100", "", ""},
-		{"abcxdef", "", ""},
+		// default
+		{"", "", "720p"},
+		// unresolved sizes fall back to the 720p default when no resolution is present
+		{"100x100", "", "720p"},
+		{"abcxdef", "", "720p"},
 		// Unicode "×" + B8: asterisk separator
 		{"1280×720", "", "720p"},
 		{"1280*720", "", "720p"},
@@ -157,6 +159,68 @@ func TestNormalizeResolutionBucket(t *testing.T) {
 			t.Errorf("NormalizeResolutionBucket(%q, %q) = %q, want %q",
 				c.size, c.resolution, got, c.want)
 		}
+	}
+}
+
+func TestResolveIMAProResolution(t *testing.T) {
+	cases := []struct {
+		name               string
+		requestSize        string
+		metadataSize       string
+		metadataResolution string
+		wantResolution     string
+		wantAspectRatio    string
+		wantSource         string
+	}{
+		{
+			name:            "defaults to 720p when no size or resolution is provided",
+			wantResolution:  "720p",
+			wantAspectRatio: "16:9",
+			wantSource:      "default",
+		},
+		{
+			name:            "request size wins and preserves 480p",
+			requestSize:     "854x480",
+			wantResolution:  "480p",
+			wantAspectRatio: "427:240",
+			wantSource:      "request_size",
+		},
+		{
+			name:            "metadata size is used when request size is absent",
+			metadataSize:    "1920×1080",
+			wantResolution:  "1080p",
+			wantAspectRatio: "16:9",
+			wantSource:      "metadata_size",
+		},
+		{
+			name:               "metadata resolution is used after unrecognized size",
+			requestSize:        "2K",
+			metadataResolution: "480p",
+			wantResolution:     "480p",
+			wantAspectRatio:    "16:9",
+			wantSource:         "metadata_resolution",
+		},
+		{
+			name:            "resolution-style size is accepted",
+			requestSize:     "1080p",
+			wantResolution:  "1080p",
+			wantAspectRatio: "16:9",
+			wantSource:      "request_size",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ResolveIMAProResolution(c.requestSize, c.metadataSize, c.metadataResolution)
+			if got.Resolution != c.wantResolution {
+				t.Fatalf("Resolution = %q, want %q", got.Resolution, c.wantResolution)
+			}
+			if got.AspectRatio != c.wantAspectRatio {
+				t.Fatalf("AspectRatio = %q, want %q", got.AspectRatio, c.wantAspectRatio)
+			}
+			if got.Source != c.wantSource {
+				t.Fatalf("Source = %q, want %q", got.Source, c.wantSource)
+			}
+		})
 	}
 }
 
@@ -212,10 +276,10 @@ func TestValidateIMAProRequest(t *testing.T) {
 	}
 }
 
-// ---------- CalculateQuota: 18-variant table-driven ----------
+// ---------- CalculateQuota: 30-variant table-driven ----------
 
 // installVariantRatios swaps the in-process ratio map for a deterministic
-// fixture covering all 18 keys. Restores the original snapshot on cleanup.
+// fixture covering all 30 keys. Restores the original snapshot on cleanup.
 //
 // B5 hotfix: types.RWMap exposes no Delete method
 // (see types/rw_map.go:27-90: Get/Set/AddAll/Clear/ReadAll/Len/AnyKey only).
@@ -224,23 +288,35 @@ func TestValidateIMAProRequest(t *testing.T) {
 func installVariantRatios(t *testing.T) {
 	t.Helper()
 	fixture := map[string]float64{
+		"seedance-2.0-novideo-480p":           3.50,
 		"seedance-2.0-novideo-720p":           3.50,
 		"seedance-2.0-novideo-1080p":          3.85,
+		"seedance-2.0-withvideo-480p":         2.15,
 		"seedance-2.0-withvideo-720p":         2.15,
 		"seedance-2.0-withvideo-1080p":        2.35,
+		"seedance-2.0-fast-novideo-480p":      2.80,
 		"seedance-2.0-fast-novideo-720p":      2.80,
+		"seedance-2.0-fast-withvideo-480p":    1.65,
 		"seedance-2.0-fast-withvideo-720p":    1.65,
+		"seedance-2.0-cn-novideo-480p":        3.50,
 		"seedance-2.0-cn-novideo-720p":        3.50,
 		"seedance-2.0-cn-novideo-1080p":       3.85,
+		"seedance-2.0-cn-withvideo-480p":      2.15,
 		"seedance-2.0-cn-withvideo-720p":      2.15,
 		"seedance-2.0-cn-withvideo-1080p":     2.35,
+		"seedance-2.0-fast-cn-novideo-480p":   2.80,
 		"seedance-2.0-fast-cn-novideo-720p":   2.80,
+		"seedance-2.0-fast-cn-withvideo-480p": 1.65,
 		"seedance-2.0-fast-cn-withvideo-720p": 1.65,
+		"ima-pro-novideo-480p":                3.50,
 		"ima-pro-novideo-720p":                3.50,
 		"ima-pro-novideo-1080p":               3.85,
+		"ima-pro-withvideo-480p":              2.15,
 		"ima-pro-withvideo-720p":              2.15,
 		"ima-pro-withvideo-1080p":             2.35,
+		"ima-pro-fast-novideo-480p":           2.80,
 		"ima-pro-fast-novideo-720p":           2.80,
+		"ima-pro-fast-withvideo-480p":         1.65,
 		"ima-pro-fast-withvideo-720p":         1.65,
 		// Base fallbacks (for fallback test below)
 		"ima-pro": 3.0,
@@ -256,7 +332,7 @@ func installVariantRatios(t *testing.T) {
 	completionSnapshot := completionRatioMap.ReadAll()
 	modelRatioMap.Clear()
 	completionRatioMap.Clear()
-	modelRatioMap.AddAll(modelSnapshot)       // restore originals
+	modelRatioMap.AddAll(modelSnapshot) // restore originals
 	completionRatioMap.AddAll(completionSnapshot)
 	modelRatioMap.AddAll(fixture) // layer test fixture on top
 	t.Cleanup(func() {
@@ -296,32 +372,44 @@ func TestCalculateQuota_AllVariants(t *testing.T) {
 	type row struct {
 		model     string
 		mode      string // "novideo"/"withvideo"
-		bucket    string // "720p"/"1080p"
+		bucket    string // "480p"/"720p"/"1080p"
 		wantRatio float64
 	}
 	rows := []row{
+		{"seedance-2.0", "novideo", "480p", 3.50},
 		{"seedance-2.0", "novideo", "720p", 3.50},
 		{"seedance-2.0", "novideo", "1080p", 3.85},
+		{"seedance-2.0", "withvideo", "480p", 2.15},
 		{"seedance-2.0", "withvideo", "720p", 2.15},
 		{"seedance-2.0", "withvideo", "1080p", 2.35},
 
+		{"seedance-2.0-fast", "novideo", "480p", 2.80},
 		{"seedance-2.0-fast", "novideo", "720p", 2.80},
+		{"seedance-2.0-fast", "withvideo", "480p", 1.65},
 		{"seedance-2.0-fast", "withvideo", "720p", 1.65},
 
+		{"seedance-2.0-cn", "novideo", "480p", 3.50},
 		{"seedance-2.0-cn", "novideo", "720p", 3.50},
 		{"seedance-2.0-cn", "novideo", "1080p", 3.85},
+		{"seedance-2.0-cn", "withvideo", "480p", 2.15},
 		{"seedance-2.0-cn", "withvideo", "720p", 2.15},
 		{"seedance-2.0-cn", "withvideo", "1080p", 2.35},
 
+		{"seedance-2.0-fast-cn", "novideo", "480p", 2.80},
 		{"seedance-2.0-fast-cn", "novideo", "720p", 2.80},
+		{"seedance-2.0-fast-cn", "withvideo", "480p", 1.65},
 		{"seedance-2.0-fast-cn", "withvideo", "720p", 1.65},
 
+		{"ima-pro", "novideo", "480p", 3.50},
 		{"ima-pro", "novideo", "720p", 3.50},
 		{"ima-pro", "novideo", "1080p", 3.85},
+		{"ima-pro", "withvideo", "480p", 2.15},
 		{"ima-pro", "withvideo", "720p", 2.15},
 		{"ima-pro", "withvideo", "1080p", 2.35},
 
+		{"ima-pro-fast", "novideo", "480p", 2.80},
 		{"ima-pro-fast", "novideo", "720p", 2.80},
+		{"ima-pro-fast", "withvideo", "480p", 1.65},
 		{"ima-pro-fast", "withvideo", "720p", 1.65},
 	}
 
