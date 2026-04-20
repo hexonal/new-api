@@ -24,14 +24,12 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../primitives/card';
 import { Button } from '../../primitives/button';
-import {
-  ModelBasicInfo,
-  ModelPricing,
-  ModelCapabilities,
-  ModelChannelBinding,
-  ModelAdvanced,
-  ModelDangerZone,
-} from './components';
+import ModelBasicInfo from './components/ModelBasicInfo';
+import ModelPricing from './components/ModelPricing';
+import ModelCapabilities from './components/ModelCapabilities';
+import ModelChannelBinding from './components/ModelChannelBinding';
+import ModelAdvanced from './components/ModelAdvanced';
+import ModelDangerZone from './components/ModelDangerZone';
 
 const EMPTY_FORM = {
   model_name: '',
