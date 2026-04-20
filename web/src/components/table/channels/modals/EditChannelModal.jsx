@@ -2851,78 +2851,8 @@ const EditChannelModal = (props) => {
             </div>
           </div>
 
-          <div className='grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]'>
-            <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-3 py-3 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur sm:px-4 sm:py-4 [&_.semi-card]:!mb-5 [&_.semi-card]:!rounded-[26px] [&_.semi-card]:!border [&_.semi-card]:!border-slate-200/80 [&_.semi-card]:!bg-white/96 [&_.semi-card]:!shadow-[0_24px_70px_-52px_rgba(15,23,42,0.22)] [&_.semi-card]:backdrop-blur [&_.semi-card-body]:!p-6 [&_.semi-divider]:!border-slate-100 [&_.semi-form-field]:!mb-4 [&_.semi-form-field-label]:!mb-2 [&_.semi-form-field-label]:!text-[13px] [&_.semi-form-field-label]:!font-semibold [&_.semi-form-field-label]:!text-slate-700 [&_.semi-input-wrapper]:!rounded-xl [&_.semi-input-wrapper]:!border-slate-200 [&_.semi-input-wrapper]:!bg-white [&_.semi-input-wrapper]:shadow-none [&_.semi-input-wrapper]:transition-all [&_.semi-input-wrapper]:duration-200 [&_.semi-input-wrapper:hover]:!border-slate-300 [&_.semi-input-textarea-wrapper]:!rounded-2xl [&_.semi-input-textarea-wrapper]:!border-slate-200 [&_.semi-input-number]:!rounded-xl [&_.semi-input-number]:!border-slate-200 [&_.semi-select]:!rounded-xl [&_.semi-select-selection]:!rounded-xl [&_.semi-select-selection]:!border-slate-200 [&_.semi-select-selection]:!bg-white [&_.semi-tabs-bar]:!mb-3 [&_.semi-tabs-tab]:!px-0 [&_.semi-tabs-tab]:!text-sm [&_.semi-tabs-tab-active]:!font-semibold [&_.semi-switch]:scale-[0.96]'>
-              {children}
-            </div>
-            <div className='space-y-4'>
-                <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] lg:sticky lg:top-6'>
-                  <div className='space-y-4 p-5'>
-                    <div>
-                      <Text className='text-base font-semibold text-slate-900'>
-                        {isEdit ? t('编辑工作台') : t('创建工作台')}
-                      </Text>
-                      <div className='mt-1 text-xs leading-5 text-slate-500'>
-                        {t('右侧保留 Stitch 风格的状态、摘要和操作区。')}
-                      </div>
-                    </div>
-
-                    {isEdit ? (
-                      <div className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'>
-                        <div className='flex items-center justify-between'>
-                          <Text className='text-sm font-bold text-slate-900'>
-                            {t('渠道统计')}
-                          </Text>
-                          <span className='text-[10px] font-medium text-slate-400'>
-                            {t('实时')}
-                          </span>
-                        </div>
-                        <div className='mt-4 space-y-3'>
-                          <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
-                            <span className='text-sm text-slate-500'>
-                              {t('响应时间')}
-                            </span>
-                            <span className='text-sm font-bold text-emerald-600'>
-                              {routeResponseTimeText}
-                            </span>
-                          </div>
-                          <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
-                            <span className='text-sm text-slate-500'>
-                              {t('余额')}
-                            </span>
-                            <span className='text-sm font-bold text-slate-900'>
-                              {routeBalanceText}
-                            </span>
-                          </div>
-                          <div className='grid grid-cols-2 gap-3 pt-1'>
-                            <div>
-                              <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
-                                {t('优先级')}
-                              </div>
-                              <div className='mt-1 text-lg font-black text-slate-900'>
-                                {inputs.priority ?? 0}
-                              </div>
-                            </div>
-                            <div>
-                              <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
-                                {t('权重')}
-                              </div>
-                              <div className='mt-1 text-lg font-black text-slate-900'>
-                                {inputs.weight ?? 0}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className='rounded-2xl border border-slate-200 bg-white p-4'>
-                      {titleContent}
-                    </div>
-                    {footerContent}
-                  </div>
-                </Card>
-              </div>
+          <div className='min-w-0 overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 px-3 py-3 shadow-[0_32px_120px_-60px_rgba(15,23,42,0.38)] backdrop-blur sm:px-4 sm:py-4 [&_.semi-card]:!mb-5 [&_.semi-card]:!rounded-[26px] [&_.semi-card]:!border [&_.semi-card]:!border-slate-200/80 [&_.semi-card]:!bg-white/96 [&_.semi-card]:!shadow-[0_24px_70px_-52px_rgba(15,23,42,0.22)] [&_.semi-card]:backdrop-blur [&_.semi-card-body]:!p-6 [&_.semi-divider]:!border-slate-100 [&_.semi-form-field]:!mb-4 [&_.semi-form-field-label]:!mb-2 [&_.semi-form-field-label]:!text-[13px] [&_.semi-form-field-label]:!font-semibold [&_.semi-form-field-label]:!text-slate-700 [&_.semi-input-wrapper]:!rounded-xl [&_.semi-input-wrapper]:!border-slate-200 [&_.semi-input-wrapper]:!bg-white [&_.semi-input-wrapper]:shadow-none [&_.semi-input-wrapper]:transition-all [&_.semi-input-wrapper]:duration-200 [&_.semi-input-wrapper:hover]:!border-slate-300 [&_.semi-input-textarea-wrapper]:!rounded-2xl [&_.semi-input-textarea-wrapper]:!border-slate-200 [&_.semi-input-number]:!rounded-xl [&_.semi-input-number]:!border-slate-200 [&_.semi-select]:!rounded-xl [&_.semi-select-selection]:!rounded-xl [&_.semi-select-selection]:!border-slate-200 [&_.semi-select-selection]:!bg-white [&_.semi-tabs-bar]:!mb-3 [&_.semi-tabs-tab]:!px-0 [&_.semi-tabs-tab]:!text-sm [&_.semi-tabs-tab-active]:!font-semibold [&_.semi-switch]:scale-[0.96]'>
+            {children}
           </div>
         </div>
       </div>
@@ -4199,7 +4129,143 @@ const EditChannelModal = (props) => {
                 </div>
 
                 {isRouteMode ? (
-                  <div className='xl:col-start-2'>
+                  <div className='space-y-5 xl:col-start-2 xl:row-start-1 xl:row-span-3'>
+                    <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] xl:sticky xl:top-6'>
+                      <div className='space-y-4 p-5'>
+                        <div>
+                          <Text className='text-base font-semibold text-slate-900'>
+                            {isEdit ? t('编辑工作台') : t('创建工作台')}
+                          </Text>
+                          <div className='mt-1 text-xs leading-5 text-slate-500'>
+                            {t('这里集中放置状态、提交动作和右侧功能区块，避免再出现三栏嵌套。')}
+                          </div>
+                        </div>
+
+                        <div className='rounded-2xl border border-slate-200 bg-white p-4'>
+                          <div className='flex items-start justify-between gap-3'>
+                            <div className='min-w-0'>
+                              <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
+                                {routeProviderLabel}
+                              </div>
+                              <div className='mt-1 truncate text-base font-semibold text-slate-900'>
+                                {inputs.name || (isEdit ? t('未命名渠道') : t('待创建渠道'))}
+                              </div>
+                            </div>
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${routeStatusTone}`}
+                            >
+                              <span className='h-2 w-2 rounded-full bg-current opacity-80' />
+                              {isEdit ? routeStatusLabel : t('Draft')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isEdit ? (
+                          <div className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'>
+                            <div className='flex items-center justify-between'>
+                              <Text className='text-sm font-bold text-slate-900'>
+                                {t('渠道统计')}
+                              </Text>
+                              <span className='text-[10px] font-medium text-slate-400'>
+                                {t('实时')}
+                              </span>
+                            </div>
+                            <div className='mt-4 space-y-3'>
+                              <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
+                                <span className='text-sm text-slate-500'>
+                                  {t('响应时间')}
+                                </span>
+                                <span className='text-sm font-bold text-emerald-600'>
+                                  {routeResponseTimeText}
+                                </span>
+                              </div>
+                              <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
+                                <span className='text-sm text-slate-500'>
+                                  {t('余额')}
+                                </span>
+                                <span className='text-sm font-bold text-slate-900'>
+                                  {routeBalanceText}
+                                </span>
+                              </div>
+                              <div className='grid grid-cols-2 gap-3 pt-1'>
+                                <div>
+                                  <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
+                                    {t('优先级')}
+                                  </div>
+                                  <div className='mt-1 text-lg font-black text-slate-900'>
+                                    {inputs.priority ?? 0}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
+                                    {t('权重')}
+                                  </div>
+                                  <div className='mt-1 text-lg font-black text-slate-900'>
+                                    {inputs.weight ?? 0}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-1'>
+                          <Button
+                            theme='solid'
+                            type='primary'
+                            onClick={() => formApiRef.current?.submitForm()}
+                            icon={<IconSave />}
+                            block
+                          >
+                            {isEdit ? t('保存修改') : t('创建渠道')}
+                          </Button>
+                          <Button
+                            theme='light'
+                            type='tertiary'
+                            onClick={handleCancel}
+                            block
+                          >
+                            {t('返回列表')}
+                          </Button>
+                        </div>
+
+                        <div className='flex gap-2'>
+                          <Button
+                            size='small'
+                            type='tertiary'
+                            icon={<IconChevronUp />}
+                            onClick={() => navigateToSection('up')}
+                            style={{
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title={t('上一个表单块')}
+                          />
+                          <Button
+                            size='small'
+                            type='tertiary'
+                            icon={<IconChevronDown />}
+                            onClick={() => navigateToSection('down')}
+                            style={{
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title={t('下一个表单块')}
+                          />
+                        </div>
+                      </div>
+                    </Card>
+
                     <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                       <div className='flex items-center mb-2'>
                         <Avatar
@@ -4279,7 +4345,7 @@ const EditChannelModal = (props) => {
                 {/* Advanced Settings Card */}
                 <div
                   ref={(el) => (formSectionRefs.current.advancedSettings = el)}
-                  className={isRouteMode ? 'xl:col-start-2' : undefined}
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Advanced Settings */}
@@ -4921,7 +4987,7 @@ const EditChannelModal = (props) => {
                   ref={(el) =>
                     (formSectionRefs.current.channelExtraSettings = el)
                   }
-                  className={isRouteMode ? 'xl:col-start-2' : undefined}
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Channel Extra Settings */}
