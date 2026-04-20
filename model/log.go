@@ -2,8 +2,11 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -17,27 +20,28 @@ import (
 )
 
 type Log struct {
-	Id               int    `json:"id" gorm:"index:idx_created_at_id,priority:1;index:idx_user_id_id,priority:2"`
-	UserId           int    `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1"`
-	CreatedAt        int64  `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:2;index:idx_created_at_type"`
-	Type             int    `json:"type" gorm:"index:idx_created_at_type"`
-	Content          string `json:"content"`
-	Username         string `json:"username" gorm:"index;index:index_username_model_name,priority:2;default:''"`
-	TokenName        string `json:"token_name" gorm:"index;default:''"`
-	ModelName        string `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
-	Quota            int    `json:"quota" gorm:"default:0"`
-	PromptTokens     int    `json:"prompt_tokens" gorm:"default:0"`
-	CompletionTokens int    `json:"completion_tokens" gorm:"default:0"`
-	UseTime          int    `json:"use_time" gorm:"default:0"`
-	IsStream         bool   `json:"is_stream"`
-	ChannelId        int    `json:"channel" gorm:"index"`
-	ChannelName      string `json:"channel_name" gorm:"->"`
-	TokenId          int    `json:"token_id" gorm:"default:0;index"`
-	Group            string `json:"group" gorm:"index"`
-	PricingGroup     string `json:"pricing_group" gorm:"type:varchar(64);index"`
-	Ip               string `json:"ip" gorm:"index;default:''"`
-	RequestId        string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
-	Other            string `json:"other"`
+	Id               int     `json:"id" gorm:"index:idx_created_at_id,priority:1;index:idx_user_id_id,priority:2"`
+	UserId           int     `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1"`
+	CreatedAt        int64   `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:2;index:idx_created_at_type"`
+	Type             int     `json:"type" gorm:"index:idx_created_at_type"`
+	Content          string  `json:"content"`
+	Username         string  `json:"username" gorm:"index;index:index_username_model_name,priority:2;default:''"`
+	TokenName        string  `json:"token_name" gorm:"index;default:''"`
+	ModelName        string  `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
+	Quota            int     `json:"quota" gorm:"default:0"`
+	PromptTokens     int     `json:"prompt_tokens" gorm:"default:0"`
+	CompletionTokens int     `json:"completion_tokens" gorm:"default:0"`
+	UseTime          int     `json:"use_time" gorm:"default:0"`
+	IsStream         bool    `json:"is_stream"`
+	ChannelId        int     `json:"channel" gorm:"index"`
+	ChannelName      string  `json:"channel_name" gorm:"->"`
+	TokenId          int     `json:"token_id" gorm:"default:0;index"`
+	Group            string  `json:"group" gorm:"index"`
+	PricingGroup     string  `json:"pricing_group" gorm:"type:varchar(64);index"`
+	Ip               string  `json:"ip" gorm:"index;default:''"`
+	RequestId        string  `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
+	Other            string  `json:"other"`
+	AmountUSD        float64 `json:"amount_usd" gorm:"-"`
 }
 
 // don't use iota, avoid change log type value
@@ -56,6 +60,7 @@ func formatUserLogs(logs []*Log, startIdx int) {
 		logs[i].ChannelName = ""
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
+		logs[i].AmountUSD = logAmountUSD(logs[i], otherMap)
 		if otherMap != nil {
 			// Remove admin-only debug fields.
 			delete(otherMap, "admin_info")
@@ -66,8 +71,56 @@ func formatUserLogs(logs []*Log, startIdx int) {
 	}
 }
 
-func GetLogByTokenId(tokenId int) (logs []*Log, err error) {
-	err = LOG_DB.Model(&Log{}).Where("token_id = ?", tokenId).Order("id desc").Limit(common.MaxRecentItems).Find(&logs).Error
+func logAmountUSD(log *Log, other map[string]interface{}) float64 {
+	if log == nil || common.QuotaPerUnit <= 0 {
+		return 0
+	}
+	quota := float64(log.Quota)
+	if actualQuota, ok := numberFromLogOther(other, "actual_quota"); ok {
+		quota = actualQuota
+	}
+	return quota / common.QuotaPerUnit
+}
+
+func numberFromLogOther(other map[string]interface{}, key string) (float64, bool) {
+	if other == nil {
+		return 0, false
+	}
+	value, ok := other[key]
+	if !ok || value == nil {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case int32:
+		return float64(typed), true
+	case json.Number:
+		number, err := typed.Float64()
+		return number, err == nil
+	case string:
+		number, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		return number, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func GetLogByTokenId(tokenId int, requestId ...string) (logs []*Log, err error) {
+	tx := LOG_DB.Model(&Log{}).Where("token_id = ?", tokenId)
+	if len(requestId) > 0 {
+		trimmedRequestId := strings.TrimSpace(requestId[0])
+		if trimmedRequestId != "" {
+			tx = tx.Where("request_id = ?", trimmedRequestId)
+		}
+	}
+	err = tx.Order("id desc").Limit(common.MaxRecentItems).Find(&logs).Error
 	formatUserLogs(logs, 0)
 	return logs, err
 }
@@ -203,13 +256,13 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 }
 
 type RecordTaskBillingLogParams struct {
-	UserId    int
-	LogType   int
-	Content   string
-	ChannelId int
-	ModelName string
-	Quota     int
-	TokenId   int
+	UserId       int
+	LogType      int
+	Content      string
+	ChannelId    int
+	ModelName    string
+	Quota        int
+	TokenId      int
 	Group        string
 	PricingGroup string
 	RequestId    string
