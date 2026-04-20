@@ -164,23 +164,23 @@ export default function ChannelDataTable(props) {
   };
 
   return (
-    <div className='rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-34px_rgba(15,23,42,0.4)]'>
-      <Table>
+    <div className='rounded-[22px] border border-slate-200 bg-white shadow-[0_18px_40px_-34px_rgba(15,23,42,0.32)]'>
+      <Table className='table-fixed'>
         <Thead className='border-b border-slate-100 bg-slate-50/70'>
           <Tr className='hover:bg-transparent'>
             <Th className='w-12'>
               <Checkbox checked={allSelected} onCheckedChange={toggleAllRows} />
             </Th>
-            <Th>{t('渠道')}</Th>
-            <Th>{t('类型')}</Th>
-            <Th>{t('分组')}</Th>
-            <Th>{t('模型')}</Th>
-            <Th>{t('状态')}</Th>
-            <Th>{t('响应时间')}</Th>
-            <Th>{t('余额')}</Th>
-            <Th>{t('优先级')}</Th>
-            <Th>{t('权重')}</Th>
-            <Th className='text-right'>{t('操作')}</Th>
+            <Th className='w-[230px]'>{t('渠道')}</Th>
+            <Th className='w-[170px]'>{t('类型')}</Th>
+            <Th className='w-[120px]'>{t('状态')}</Th>
+            <Th className='hidden xl:table-cell w-[320px]'>{t('分组')}</Th>
+            <Th className='hidden 2xl:table-cell w-[260px]'>{t('模型')}</Th>
+            <Th className='hidden xl:table-cell w-[110px]'>{t('响应时间')}</Th>
+            <Th className='hidden xl:table-cell w-[140px]'>{t('余额')}</Th>
+            <Th className='hidden 2xl:table-cell w-[100px]'>{t('优先级')}</Th>
+            <Th className='hidden 2xl:table-cell w-[100px]'>{t('权重')}</Th>
+            <Th className='w-[76px] text-right'>{t('操作')}</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -210,8 +210,8 @@ export default function ChannelDataTable(props) {
                   />
                 </Td>
                 <Td>
-                  <div className={`space-y-1 ${record._depth ? 'pl-5' : ''}`}>
-                    <div className='flex items-center gap-2'>
+                  <div className={`space-y-0.5 ${record._depth ? 'pl-4' : ''}`}>
+                    <div className='flex items-start gap-2'>
                       {record._isTagGroup ? (
                         <Badge variant='secondary' className='rounded-full'>
                           {t('标签')}
@@ -219,12 +219,15 @@ export default function ChannelDataTable(props) {
                       ) : (
                         getChannelIcon(typeValue)
                       )}
-                      <span className='font-semibold text-slate-900'>
+                      <span className='line-clamp-2 text-[15px] font-semibold leading-6 text-slate-900'>
                         {sanitizeChannelMetricValue(record.name)}
                       </span>
                     </div>
-                    <div className='text-xs text-slate-500'>
+                    <div className='text-xs leading-5 text-slate-500'>
                       ID {sanitizeChannelMetricValue(record.id)}
+                    </div>
+                    <div className='truncate text-xs leading-5 text-slate-500 xl:hidden'>
+                      {sanitizeChannelMetricValue(record.group)}
                     </div>
                   </div>
                 </Td>
@@ -235,32 +238,40 @@ export default function ChannelDataTable(props) {
                     ) : (
                       <Shield className='h-4 w-4 text-slate-400' />
                     )}
-                    <span>{typeLabel}</span>
-                  </div>
-                </Td>
-                <Td>{sanitizeChannelMetricValue(record.group)}</Td>
-                <Td className='max-w-[280px]'>
-                  <div className='truncate text-sm text-slate-600'>
-                    {modelsText}
+                    <span className='line-clamp-2'>{typeLabel}</span>
                   </div>
                 </Td>
                 <Td>
                   <Badge
                     variant='outline'
-                    className={`rounded-full ${getToneClassName(statusMeta.tone)}`}
+                    className={`rounded-full whitespace-nowrap ${getToneClassName(statusMeta.tone)}`}
                   >
                     {statusMeta.label}
                     {statusMeta.detail ? ` ${statusMeta.detail}` : ''}
                   </Badge>
                 </Td>
-                <Td>{latencyText}</Td>
-                <Td>{balanceText}</Td>
-                <Td>
+                <Td className='hidden xl:table-cell'>
+                  <div className='truncate text-sm leading-6 text-slate-700'>
+                    {sanitizeChannelMetricValue(record.group)}
+                  </div>
+                </Td>
+                <Td className='hidden 2xl:table-cell'>
+                  <div className='truncate text-sm text-slate-600'>
+                    {modelsText}
+                  </div>
+                </Td>
+                <Td className='hidden xl:table-cell whitespace-nowrap text-sm text-slate-700'>
+                  {latencyText}
+                </Td>
+                <Td className='hidden xl:table-cell whitespace-nowrap text-sm font-medium text-slate-800'>
+                  {balanceText}
+                </Td>
+                <Td className='hidden 2xl:table-cell'>
                   {record._isTagGroup ? (
                     <span className='text-slate-400'>—</span>
                   ) : (
                     <Input
-                      className='h-9 w-20'
+                      className='h-8 w-16'
                       defaultValue={sanitizeChannelMetricValue(
                         record.priority,
                         '',
@@ -276,12 +287,12 @@ export default function ChannelDataTable(props) {
                     />
                   )}
                 </Td>
-                <Td>
+                <Td className='hidden 2xl:table-cell'>
                   {record._isTagGroup ? (
                     <span className='text-slate-400'>—</span>
                   ) : (
                     <Input
-                      className='h-9 w-20'
+                      className='h-8 w-16'
                       defaultValue={sanitizeChannelMetricValue(
                         record.weight,
                         '',
@@ -410,7 +421,7 @@ export default function ChannelDataTable(props) {
         </Tbody>
       </Table>
 
-      <div className='flex flex-col gap-4 border-t border-slate-100 px-6 py-4 lg:flex-row lg:items-center lg:justify-between'>
+      <div className='flex flex-col gap-4 border-t border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between'>
         <div className='text-sm text-slate-500'>
           {t('已选择')} {selectedChannels.length} {t('个渠道')}
         </div>

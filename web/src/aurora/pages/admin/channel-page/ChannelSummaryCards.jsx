@@ -55,42 +55,46 @@ export default function ChannelSummaryCards({ channels, t }) {
   );
 
   return (
-    <div className='grid gap-4 xl:grid-cols-3'>
-      {cards.map((card) => {
-        const meta = CARD_META[card.id];
-        const Icon = meta.icon;
+    <Card className='rounded-[20px] border-slate-200/90 bg-white shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)]'>
+      <CardContent className='p-3 md:p-4'>
+        <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+          {cards.map((card) => {
+            const meta = CARD_META[card.id];
+            const Icon = meta.icon;
 
-        return (
-          <Card
-            key={card.id}
-            className='rounded-[24px] border-slate-200/90 bg-white shadow-[0_22px_60px_-38px_rgba(15,23,42,0.35)]'
-          >
-            <CardContent className='p-5 md:p-6'>
-              <div className='flex items-start justify-between gap-4'>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-[18px] ${meta.iconClassName}`}
-                >
-                  <Icon className='h-5 w-5' />
-                </div>
-                <div className='rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500'>
-                  {t('概览')}
+            return (
+              <div
+                key={card.id}
+                className='rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3'
+              >
+                <div className='flex items-center gap-3'>
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${meta.iconClassName}`}
+                  >
+                    <Icon className='h-4 w-4' />
+                  </div>
+                  <div className='min-w-0 flex-1'>
+                    <p className='truncate text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400'>
+                      {meta.title}
+                    </p>
+                    <div className='mt-1 flex items-end gap-2'>
+                      <p className='truncate text-2xl font-black leading-none tracking-[-0.05em] text-slate-900'>
+                        {card.value}
+                      </p>
+                      <span className='mb-0.5 hidden rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 md:inline-flex'>
+                        {t('实时')}
+                      </span>
+                    </div>
+                    <p className='mt-1 truncate text-xs text-slate-500'>
+                      {t(meta.description)}
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className='mt-5 space-y-2'>
-                <p className='text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400'>
-                  {meta.title}
-                </p>
-                <p className='text-3xl font-black tracking-[-0.05em] text-slate-900 md:text-[2rem]'>
-                  {card.value}
-                </p>
-                <p className='max-w-[28rem] text-sm leading-6 text-slate-500'>
-                  {t(meta.description)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
