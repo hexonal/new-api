@@ -80,6 +80,8 @@ type Properties struct {
 	Input             string `json:"input"`
 	UpstreamModelName string `json:"upstream_model_name,omitempty"`
 	OriginModelName   string `json:"origin_model_name,omitempty"`
+	// IMA Pro/Seedance 2.0 variant key，terminal billing 直读
+	BillingSku string `json:"billing_sku,omitempty"`
 }
 
 func (m *Properties) Scan(val interface{}) error {
