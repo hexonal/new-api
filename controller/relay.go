@@ -628,6 +628,7 @@ func runTaskRelaySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) {
 		}
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
+		normalizeSubmittedTaskState(task, result.Platform)
 		if persistErr := persistTaskSubmitRecord(task, reservedTask); persistErr != nil {
 			if existingTask, recovered := recoverImageTaskInsertIdempotencyConflict(result.Platform, relayInfo, task, persistErr); recovered {
 				c.JSON(http.StatusOK, buildImageTaskSubmitResponse(existingTask))

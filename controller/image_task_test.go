@@ -168,3 +168,50 @@ func TestImageTaskSubmit_IdempotencyKey_ReturnsSameTask(t *testing.T) {
 	require.NoError(t, db.Model(&model.Task{}).Where("user_id = ? AND idempotency_key = ?", 1, "same-key").Count(&sameKeyCount).Error)
 	assert.EqualValues(t, 1, sameKeyCount)
 }
+
+func TestImageTaskSubmit_PersistsSubmittedStatus(t *testing.T) {
+	db := setupImageTaskControllerTestDB(t)
+	seedImageTaskSubmitFixtures(t, db)
+
+	_, response := submitImageTaskForControllerTest(t, "submitted-key")
+
+	var task model.Task
+	require.NoError(t, db.Where("task_id = ?", response.TaskID).First(&task).Error)
+	assert.EqualValues(t, model.TaskStatusSubmitted, task.Status)
+	assert.Equal(t, "10%", task.Progress)
+}
+
+func TestImageTaskFetch_NotStartReturnsQueuedStatus(t *testing.T) {
+	db := setupImageTaskControllerTestDB(t)
+	seedImageTaskSubmitFixtures(t, db)
+
+	task := &model.Task{
+		TaskID:     "task_image_fetch_not_start",
+		UserId:     1,
+		Group:      "default",
+		ChannelId:  1,
+		Platform:   constant.TaskPlatformImage,
+		Status:     model.TaskStatusNotStart,
+		SubmitTime: time.Now().Unix(),
+		CreatedAt:  time.Now().Unix(),
+		UpdatedAt:  time.Now().Unix(),
+		Progress:   "0%",
+		Properties: model.Properties{OriginModelName: "gpt-image-1"},
+	}
+	require.NoError(t, db.Create(task).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/images/"+task.TaskID, nil)
+	ctx.Params = gin.Params{{Key: "task_id", Value: task.TaskID}}
+	ctx.Set("id", 1)
+	common.SetContextKey(ctx, constant.ContextKeyUserId, 1)
+
+	RelayImageTaskFetch(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response map[string]any
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.Equal(t, "queued", response["status"])
+}

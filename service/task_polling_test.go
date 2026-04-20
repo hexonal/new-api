@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -142,4 +143,30 @@ func TestSweepTimedOutTasks_LocalImage_StuckSubmittedGetsFailedRefunded(t *testi
 	assert.Contains(t, updated.FailReason, "超时")
 	assert.Equal(t, 1100, getUserQuota(t, 1))
 	assert.Equal(t, 5100, getTokenRemainQuota(t, 1))
+}
+
+func TestNormalizePolledTaskStatus_ImageNotStartBecomesSubmitted(t *testing.T) {
+	task := &model.Task{
+		Platform: constant.TaskPlatformImage,
+		Status:   model.TaskStatusNotStart,
+	}
+
+	status := normalizePolledTaskStatus(task, &relaycommon.TaskInfo{
+		Status: string(model.TaskStatusNotStart),
+	})
+
+	assert.EqualValues(t, model.TaskStatusSubmitted, status)
+}
+
+func TestNormalizePolledTaskStatus_NonImageNotStartStaysNotStart(t *testing.T) {
+	task := &model.Task{
+		Platform: constant.TaskPlatformSuno,
+		Status:   model.TaskStatusNotStart,
+	}
+
+	status := normalizePolledTaskStatus(task, &relaycommon.TaskInfo{
+		Status: string(model.TaskStatusNotStart),
+	})
+
+	assert.EqualValues(t, model.TaskStatusNotStart, status)
 }

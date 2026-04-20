@@ -466,9 +466,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	shouldSettle := false
 	quota := task.Quota
 
-	task.Status = model.TaskStatus(taskResult.Status)
-	switch taskResult.Status {
-	case model.TaskStatusSubmitted:
+	task.Status = normalizePolledTaskStatus(task, taskResult)
+	switch task.Status {
+	case model.TaskStatusNotStart, model.TaskStatusSubmitted:
 		task.Progress = taskcommon.ProgressSubmitted
 	case model.TaskStatusQueued:
 		task.Progress = taskcommon.ProgressQueued
