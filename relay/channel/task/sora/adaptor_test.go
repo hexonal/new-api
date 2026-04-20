@@ -16,6 +16,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func newSoraTaskTestContext(body string) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(body))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	return ctx
+}
+
 func TestConvertToOpenAIVideo_ExposeUsageAndResults(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	task := &model.Task{
@@ -826,6 +835,59 @@ func TestGetModelList_ImaProContainsFastModel(t *testing.T) {
 		if !found {
 			t.Fatalf("missing model %q in model list: %#v", modelName, models)
 		}
+	}
+}
+
+func TestValidateRequestAndSetAction_RejectsImaProFast1080pEarly(t *testing.T) {
+	ctx := newSoraTaskTestContext(`{
+		"model":"ima-pro-fast",
+		"prompt":"generate a cinematic clip",
+		"size":"1920x1080",
+		"metadata":{"resolution":"1080p"}
+	}`)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro-fast",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
+	if taskErr == nil {
+		t.Fatalf("ValidateRequestAndSetAction should reject fast+1080p")
+	}
+	if taskErr.Code != "unsupported_resolution_for_fast_variant" {
+		t.Fatalf("taskErr.Code = %q, want unsupported_resolution_for_fast_variant", taskErr.Code)
+	}
+	if taskErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("taskErr.StatusCode = %d, want %d", taskErr.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func TestEstimateBilling_ImaProWritesConsumedModelAndSkipsRatios(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: "ima-pro",
+		Size:  "1920x1080",
+		Metadata: map[string]any{
+			"reference_video_url": "https://example.com/ref.mp4",
+		},
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-withvideo-1080p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-withvideo-1080p", info.TaskRelayInfo.ConsumedModel)
 	}
 }
 

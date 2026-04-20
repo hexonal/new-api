@@ -22,6 +22,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
@@ -210,6 +211,12 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			}
 		}
 	}
+	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
+		bucket := ratio_setting.NormalizeResolutionBucket(req.Size, pickStringFromMetadata(req.Metadata, "resolution"))
+		if err := ratio_setting.ValidateIMAProRequest(info.OriginModelName, bucket); err != nil {
+			return service.TaskErrorWrapperLocal(err, "unsupported_resolution_for_fast_variant", http.StatusBadRequest)
+		}
+	}
 	return nil
 }
 
@@ -223,6 +230,18 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil
+	}
+	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
+		bucket := ratio_setting.NormalizeResolutionBucket(req.Size, pickStringFromMetadata(req.Metadata, "resolution"))
+		mode := "novideo"
+		if ratio_setting.HasVideoInput(metadataMapFromReq(req.Metadata)) {
+			mode = "withvideo"
+		}
+		variantKey := ratio_setting.ResolveVariantKey(info.OriginModelName, mode, bucket)
+		if info.TaskRelayInfo != nil {
+			info.TaskRelayInfo.ConsumedModel = variantKey
+		}
+		return map[string]float64{}
 	}
 
 	seconds, _ := strconv.Atoi(req.Seconds)
@@ -246,6 +265,25 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		ratios["size"] = 1.666667
 	}
 	return ratios
+}
+
+func pickStringFromMetadata(meta map[string]interface{}, key string) string {
+	if meta == nil {
+		return ""
+	}
+	value, ok := meta[key]
+	if !ok {
+		return ""
+	}
+	str, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(str)
+}
+
+func metadataMapFromReq(meta map[string]interface{}) map[string]interface{} {
+	return meta
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
