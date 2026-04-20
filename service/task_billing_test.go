@@ -218,6 +218,17 @@ func getTaskTerminalChargeState(t *testing.T, id int64) string {
 	return task.PrivateData.BillingContext.TerminalChargeState
 }
 
+func taskDataAmountUSD(t *testing.T, task *model.Task) float64 {
+	t.Helper()
+	var reloaded model.Task
+	require.NoError(t, model.DB.Select("data").Where("id = ?", task.ID).First(&reloaded).Error)
+	var data map[string]any
+	require.NoError(t, common.Unmarshal(reloaded.Data, &data))
+	amountUSD, ok := data["amount_usd"].(float64)
+	require.True(t, ok, "task.data.amount_usd missing: %s", string(reloaded.Data))
+	return amountUSD
+}
+
 func setupRedisForTest(t *testing.T) *redis.Client {
 	t.Helper()
 
@@ -830,6 +841,7 @@ func TestApplyDeferredTaskTerminalCharge_Idempotency(t *testing.T) {
 
 		require.NoError(t, ApplyDeferredTaskTerminalCharge(ctx, task, charge, "first charge"))
 		assert.Equal(t, initQuota-charge, getUserQuota(t, userID))
+		assert.Equal(t, quotaToTaskAmountUSD(charge), taskDataAmountUSD(t, task))
 		assert.Equal(t, int64(1), countLogs(t))
 
 		// Force state back to pending. Without NX, the second call would charge again.
@@ -1438,6 +1450,7 @@ func TestSettle_DeferredSettle_ChargesOnceByAdaptor(t *testing.T) {
 	assert.Equal(t, initQuota-actualQuota, getUserQuota(t, userID))
 	assert.Equal(t, tokenRemain-actualQuota, getTokenRemainQuota(t, tokenID))
 	assert.Equal(t, actualQuota, task.Quota)
+	assert.Equal(t, quotaToTaskAmountUSD(actualQuota), taskDataAmountUSD(t, task))
 	assert.Equal(t, TaskTerminalChargeStateApplied, task.PrivateData.BillingContext.TerminalChargeState)
 	assert.Equal(t, int64(1), countLogs(t))
 

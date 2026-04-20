@@ -813,6 +813,7 @@ paths:
                     model: ima-pro
                     status: completed
                     progress: 100
+                    amount_usd: 2.2743
                     created_at: 1773395498
                     completed_at: 1773395600
                     results:
@@ -836,6 +837,7 @@ paths:
                     model: ima-pro
                     status: completed
                     progress: 100
+                    amount_usd: 2.2743
                     created_at: 1773561120
                     completed_at: 1773562786
                     metadata:
@@ -864,6 +866,7 @@ paths:
                     model: ima-pro-fast
                     status: completed
                     progress: 100
+                    amount_usd: 1.13715
                     created_at: 1773666000
                     completed_at: 1773666120
                     results:
@@ -890,6 +893,7 @@ paths:
                     model: ima-pro-fast
                     status: completed
                     progress: 100
+                    amount_usd: 1.13715
                     created_at: 1773667000
                     completed_at: 1773667130
                     results:
@@ -3751,6 +3755,11 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+        amount_usd:
+          type: number
+          format: double
+          minimum: 0
+          description: 实际扣费美元金额。仅在任务成功完成后返回，按最终实际扣减 quota 折算；排队、处理中、失败或尚未完成终态结算时不返回。
         created_at:
           type: integer
           format: int64

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,32 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
+
+func quotaToTaskAmountUSD(quota int) float64 {
+	if quota <= 0 || common.QuotaPerUnit <= 0 {
+		return 0
+	}
+	return math.Round((float64(quota)/common.QuotaPerUnit)*1e6) / 1e6
+}
+
+func writeTaskDataAmountUSD(task *model.Task, quota int) {
+	if task == nil {
+		return
+	}
+	amountUSD := quotaToTaskAmountUSD(quota)
+	if amountUSD <= 0 {
+		return
+	}
+	var data map[string]any
+	if len(task.Data) > 0 {
+		_ = common.Unmarshal(task.Data, &data)
+	}
+	if data == nil {
+		data = make(map[string]any)
+	}
+	data["amount_usd"] = amountUSD
+	task.SetData(data)
+}
 
 const (
 	TaskTerminalChargeStatePending = "pending"
@@ -833,6 +860,7 @@ func ApplyDeferredTaskTerminalCharge(ctx context.Context, task *model.Task, actu
 	taskAdjustTokenQuota(ctx, task, actualQuota)
 
 	task.Quota = actualQuota
+	writeTaskDataAmountUSD(task, actualQuota)
 	bc.TerminalChargeState = TaskTerminalChargeStateApplied
 	bc.TerminalChargedQuota = actualQuota
 	bc.TerminalChargeAt = time.Now().Unix()
@@ -1040,6 +1068,10 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		return
 	}
 	taskAdjustTokenQuota(ctx, task, quotaDelta)
+	writeTaskDataAmountUSD(task, actualQuota)
+	if err := task.Update(); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("差额结算写入 task.data.amount_usd 失败 task %s: %s", task.TaskID, err.Error()))
+	}
 
 	var logType int
 	var logQuota int

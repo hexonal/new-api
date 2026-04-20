@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -81,6 +82,88 @@ func TestConvertToOpenAIVideo_ExposeUsageAndResults(t *testing.T) {
 	}
 	if r0["url"] != "https://cdn.example.com/final.mp4" {
 		t.Fatalf("results[0].url = %v, want https://cdn.example.com/final.mp4", r0["url"])
+	}
+}
+
+func TestConvertToOpenAIVideo_ExposeAmountUSDForImaPro(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_amount",
+		Status: model.TaskStatusSuccess,
+		Quota:  1,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+		Data: json.RawMessage(`{"amount_usd":0.48888,"usage":{"completion_tokens":87300,"total_tokens":87300}}`),
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	want := 0.48888
+	if got["amount_usd"] != want {
+		t.Fatalf("amount_usd = %v, want %v", got["amount_usd"], want)
+	}
+}
+
+func TestConvertToOpenAIVideo_FallsBackToQuotaAmountForOldImaProTask(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_amount_old",
+		Status: model.TaskStatusSuccess,
+		Quota:  244440,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+		Data: json.RawMessage(`{"usage":{"completion_tokens":87300,"total_tokens":87300}}`),
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	want := float64(244440) / common.QuotaPerUnit
+	if got["amount_usd"] != want {
+		t.Fatalf("amount_usd = %v, want %v", got["amount_usd"], want)
+	}
+}
+
+func TestConvertToOpenAIVideo_OmitsAmountUSDUntilImaProCompletes(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_pending",
+		Status: model.TaskStatusInProgress,
+		Quota:  244440,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	if _, ok := got["amount_usd"]; ok {
+		t.Fatalf("amount_usd should be omitted before completion, got %v", got["amount_usd"])
 	}
 }
 

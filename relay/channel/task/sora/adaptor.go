@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -439,8 +440,8 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		return nil, err
 	}
 	parameters := imaProPayloadParam{
-		Audio:       resolveImaProAudioFlag(metadata),
-		MCPList:     resolveImaProMCPList(metadata),
+		Audio:   resolveImaProAudioFlag(metadata),
+		MCPList: resolveImaProMCPList(metadata),
 	}
 	if isImageModel {
 		size, aspectRatio, err := validateImaGeminiImageParams(req, metadata, upstreamModelVersion)
@@ -466,12 +467,12 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		parameters.Duration = duration
 	}
 	payload := &imaProPayload{
-		IDTask:       resolveImaProTraceTaskID(info),
-		TenantID:     resolveImaProTenantID(info, metadata),
-		UserID:       resolveImaProUserID(c, info, metadata),
-		AppID:        resolveImaProAppID(info, metadata),
-		AppKind:      resolveImaProAppKind(info, metadata),
-		TaskID:       resolveImaProTraceTaskID(info),
+		IDTask:   resolveImaProTraceTaskID(info),
+		TenantID: resolveImaProTenantID(info, metadata),
+		UserID:   resolveImaProUserID(c, info, metadata),
+		AppID:    resolveImaProAppID(info, metadata),
+		AppKind:  resolveImaProAppKind(info, metadata),
+		TaskID:   resolveImaProTraceTaskID(info),
 		AigcCategory: pickStringWithDefault(
 			metadata,
 			resolveImaProCategory(req, upstreamModelVersion),
@@ -1526,8 +1527,56 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	if len(results) > 0 {
 		out["results"] = results
 	}
+	a.appendImaProAmountUSD(out, task)
 
 	return common.Marshal(out)
+}
+
+func (a *TaskAdaptor) appendImaProAmountUSD(out map[string]any, task *model.Task) {
+	if out == nil || task == nil {
+		return
+	}
+	if task.Status != model.TaskStatusSuccess {
+		return
+	}
+	modelName := taskcommon.DefaultString(task.Properties.OriginModelName, task.Properties.UpstreamModelName)
+	if !a.isImaProFamily() && !ratio_setting.IsIMAProModel(modelName) {
+		return
+	}
+	amountUSD := amountUSDFromTaskData(task.Data)
+	if amountUSD <= 0 {
+		amountUSD = quotaToOpenAIVideoAmountUSD(task.Quota)
+	}
+	if amountUSD > 0 {
+		out["amount_usd"] = amountUSD
+	}
+}
+
+func quotaToOpenAIVideoAmountUSD(quota int) float64 {
+	if quota <= 0 || common.QuotaPerUnit <= 0 {
+		return 0
+	}
+	return math.Round((float64(quota)/common.QuotaPerUnit)*1e6) / 1e6
+}
+
+func amountUSDFromTaskData(data []byte) float64 {
+	if len(data) == 0 {
+		return 0
+	}
+	value := gjson.GetBytes(data, "amount_usd")
+	if !value.Exists() {
+		return 0
+	}
+	if value.Type == gjson.Number {
+		return value.Float()
+	}
+	if value.Type == gjson.String {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(value.String()), 64)
+		if err == nil {
+			return amount
+		}
+	}
+	return 0
 }
 
 func extractFirstJSONObject(respBody []byte, paths ...string) map[string]any {

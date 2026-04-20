@@ -992,7 +992,7 @@ export const getLogsColumns = ({
             </Tooltip>
           );
         }
-        // Deferred settle pending: clearly show not yet charged
+        // Deferred settle pending: show the submit-stage pre-charge estimate.
         if (
           other?.deferred_settle &&
           other?.terminal_charge_state === 'pending'
@@ -1015,7 +1015,9 @@ export const getLogsColumns = ({
                 <span
                   style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
                 >
-                  {t('未扣费')}
+                  {est > 0
+                    ? `${t('预扣费')} ${renderQuota(est, 6)}`
+                    : t('等待结算')}
                 </span>
               </span>
             </Tooltip>
@@ -1171,7 +1173,8 @@ export const getLogsColumns = ({
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
           const billedQuota = Number(other?.actual_quota || record?.quota || 0);
-          const reason = other?.terminal_charge_reason || record?.content || '-';
+          const reason =
+            other?.terminal_charge_reason || record?.content || '-';
           const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
           const credits = toTokenNumber(other?.upstream_credits);
           const isCreditSettle = other?.settlement_type === 'credits';
@@ -1202,9 +1205,7 @@ export const getLogsColumns = ({
               isCreditSettle
                 ? t('结算方式：上游实际消耗结算（按 credits）')
                 : t('结算方式：上游实际消耗结算'),
-              isCreditSettle &&
-              credits > 0 &&
-              Number.isFinite(creditsUnitPrice)
+              isCreditSettle && credits > 0 && Number.isFinite(creditsUnitPrice)
                 ? t('credits 单价：{{price}} / credit', {
                     price: formatDirectPerCallPrice(creditsUnitPrice),
                   })
@@ -1490,9 +1491,8 @@ export const getLogsColumns = ({
             groupRatio: safeRatio,
             quotaPerUnit,
           });
-          const derivedModelPriceText = formatDirectPerCallPrice(
-            derivedModelPrice,
-          );
+          const derivedModelPriceText =
+            formatDirectPerCallPrice(derivedModelPrice);
           const summary = [
             t('按次计费（根据实际扣费反推）'),
             `${t('模型单价')}：${derivedModelPriceText} / ${t('次')}`,
@@ -1647,7 +1647,9 @@ export const getLogsColumns = ({
               wordBreak: 'break-word',
             }}
           >
-            {[imaProSummary, tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
+            {[imaProSummary, tokenSummary, cacheSummary, content]
+              .filter(Boolean)
+              .join('\n')}
           </Typography.Paragraph>
         );
       },
