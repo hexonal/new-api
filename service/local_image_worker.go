@@ -101,6 +101,7 @@ func FinalizeLocalImageSuccess(
 		}
 
 		task.PrivateData.ResultURL = resultURL
+		task.PrivateData.OutputImageURL = resultURL
 		updates := map[string]any{
 			"status":       model.TaskStatusSuccess,
 			"private_data": task.PrivateData,

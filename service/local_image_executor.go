@@ -74,18 +74,34 @@ func ExecuteLocalImageTask(ctx context.Context, workerID string, task *model.Tas
 		return failLocalImageTask(persistCtx, workerID, task, err.Error(), err)
 	}
 
-	resultURL, err := executeLocalImageUpstream(ctx, ginCtx, adaptor, info, imageReq)
+	resultURL, responseBody, err := executeLocalImageUpstream(ctx, ginCtx, adaptor, info, imageReq)
 	if err != nil {
 		return failLocalImageTask(persistCtx, workerID, task, err.Error(), err)
 	}
 
-	if err = FinalizeLocalImageSuccess(persistCtx, workerID, task.ID, resultURL, nil); err != nil {
+	storedResultURL := resultURL
+	storedResultBody := append([]byte(nil), responseBody...)
+	if archivedURL, ok := MaybeArchiveTaskResult(persistCtx, task, resultURL, responseBody); ok {
+		storedResultURL = archivedURL
+		storedResultBody = RewriteTaskResultData(responseBody, archivedURL)
+	}
+
+	if err = FinalizeLocalImageSuccess(
+		persistCtx,
+		workerID,
+		task.ID,
+		storedResultURL,
+		decodeLocalImageResultData(storedResultBody),
+	); err != nil {
 		return err
 	}
 	task.Status = model.TaskStatusSuccess
 	task.Progress = "100%"
 	task.FinishTime = common.GetTimestamp()
-	task.PrivateData.ResultURL = resultURL
+	task.PrivateData.ResultURL = storedResultURL
+	task.PrivateData.OutputImageURL = storedResultURL
+	task.Data = storedResultBody
+	_ = model.PatchLatestConsumeLogOutputByTaskID(persistCtx, task.TaskID, storedResultURL)
 	WriteAsyncStatusAdvance(persistCtx, task, model.GenerationStatusSuccess)
 
 	info.FinalPreConsumedQuota = task.Quota
@@ -440,25 +456,25 @@ func executeLocalImageUpstream(
 	adaptor ImageChannelAdaptor,
 	info *relaycommon.RelayInfo,
 	imageReq dto.ImageRequest,
-) (string, error) {
+) (string, []byte, error) {
 	requestBody, err := buildLocalImageRequestBody(ginCtx, adaptor, info, imageReq)
 	if err != nil {
-		return "", fmt.Errorf("convert request failed: %w", err)
+		return "", nil, fmt.Errorf("convert request failed: %w", err)
 	}
 
 	for attempt := 0; attempt < localImageExecutorMaxRetries; attempt++ {
-		resultURL, retry, execErr := tryExecuteLocalImageOnce(ginCtx, adaptor, info, requestBody)
+		resultURL, responseBody, retry, execErr := tryExecuteLocalImageOnce(ginCtx, adaptor, info, requestBody)
 		if execErr == nil {
-			return resultURL, nil
+			return resultURL, responseBody, nil
 		}
 		if !retry || attempt == localImageExecutorMaxRetries-1 {
-			return "", execErr
+			return "", nil, execErr
 		}
 		if err = sleepWithContext(ctx, time.Duration(1<<attempt)*time.Second); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
-	return "", errors.New("local image execution exhausted")
+	return "", nil, errors.New("local image execution exhausted")
 }
 
 func buildLocalImageRequestBody(
@@ -493,32 +509,43 @@ func tryExecuteLocalImageOnce(
 	adaptor ImageChannelAdaptor,
 	info *relaycommon.RelayInfo,
 	requestBody []byte,
-) (string, bool, error) {
+) (string, []byte, bool, error) {
 	rawResp, err := adaptor.DoRequest(ginCtx, info, bytes.NewReader(requestBody))
 	if err != nil {
-		return "", isRetryable(nil, 0, err), fmt.Errorf("upstream call failed: %w", err)
+		return "", nil, isRetryable(nil, 0, err), fmt.Errorf("upstream call failed: %w", err)
 	}
 
 	httpResp, ok := rawResp.(*http.Response)
 	if !ok {
-		return "", false, fmt.Errorf("unexpected upstream response type %T", rawResp)
+		return "", nil, false, fmt.Errorf("unexpected upstream response type %T", rawResp)
 	}
 
 	respBody, readErr := io.ReadAll(httpResp.Body)
 	_ = httpResp.Body.Close()
 	if readErr != nil {
-		return "", false, fmt.Errorf("read upstream body failed: %w", readErr)
+		return "", nil, false, fmt.Errorf("read upstream body failed: %w", readErr)
 	}
 	if httpResp.StatusCode >= http.StatusBadRequest {
 		retry := isRetryable(httpResp, httpResp.StatusCode, nil)
-		return "", retry, fmt.Errorf("upstream %d: %s", httpResp.StatusCode, string(respBody))
+		return "", nil, retry, fmt.Errorf("upstream %d: %s", httpResp.StatusCode, string(respBody))
 	}
 
 	resultURL, parseErr := parseLocalImageResponse(respBody)
 	if parseErr != nil {
-		return "", false, parseErr
+		return "", nil, false, parseErr
 	}
-	return resultURL, false, nil
+	return resultURL, respBody, false, nil
+}
+
+func decodeLocalImageResultData(respBody []byte) map[string]any {
+	if len(respBody) == 0 {
+		return nil
+	}
+	var payload map[string]any
+	if err := common.Unmarshal(respBody, &payload); err != nil {
+		return nil
+	}
+	return payload
 }
 
 func parseLocalImageResponse(respBody []byte) (string, error) {

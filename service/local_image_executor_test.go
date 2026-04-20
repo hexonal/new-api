@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service/archiver"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -65,6 +66,36 @@ func (a *mockImageChannelAdaptor) DoRequest(
 		return nil, err
 	}
 	return resp, nil
+}
+
+type mockArchiveDownloaderForExec struct {
+	received archiver.Source
+	blob     archiver.Blob
+}
+
+func (d *mockArchiveDownloaderForExec) Fetch(
+	_ context.Context,
+	src archiver.Source,
+	_ int64,
+) (archiver.Blob, error) {
+	d.received = src
+	return d.blob, nil
+}
+
+type mockArchiveUploaderForExec struct {
+	publicURL    string
+	receivedKey  string
+	receivedBlob archiver.Blob
+}
+
+func (u *mockArchiveUploaderForExec) Upload(
+	_ context.Context,
+	key string,
+	blob archiver.Blob,
+) (string, error) {
+	u.receivedKey = key
+	u.receivedBlob = blob
+	return u.publicURL, nil
 }
 
 func mustDecodeTinyPNG(t *testing.T) []byte {
@@ -168,6 +199,70 @@ func TestExecute_Success(t *testing.T) {
 	assert.Equal(t, "https://example.com/result.png", updated.PrivateData.ResultURL)
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))
 	assert.Equal(t, 100, getUserQuota(t, 1))
+}
+
+func TestExecute_SuccessArchivesImageResultURL(t *testing.T) {
+	truncate(t)
+	seedUser(t, 1, 100)
+	t.Setenv("MEDIA_ARCHIVE_ENABLED", "true")
+	t.Setenv("MEDIA_ARCHIVE_S3_ENDPOINT", "https://oss.example.com")
+	t.Setenv("MEDIA_ARCHIVE_S3_BUCKET", "oss")
+	t.Setenv("MEDIA_ARCHIVE_S3_ACCESS_KEY", "ak")
+	t.Setenv("MEDIA_ARCHIVE_S3_SECRET_KEY", "sk")
+	t.Setenv("MEDIA_ARCHIVE_S3_PUBLIC_BASE_URL", "https://archive.example.com/new-api")
+
+	downloader := &mockArchiveDownloaderForExec{
+		blob: archiver.Blob{
+			Data:     mustDecodeTinyPNG(t),
+			MimeType: "image/png",
+		},
+	}
+	uploader := &mockArchiveUploaderForExec{
+		publicURL: "https://archive.example.com/new-api/output.png",
+	}
+	archiver.SetDefaultForTest(archiver.New(downloader, uploader, 1<<20, "test"))
+	t.Cleanup(func() {
+		archiver.ResetDefaultForTest()
+	})
+
+	imageRequest := `{"model":"dall-e-3","prompt":"archive the image result"}`
+	seedOpenAIChannelForExec(t, 17, "https://example.invalid")
+	task := seedLocalImageExecTask(t, 17, 20, imageRequest)
+
+	var attempts int32
+	previousFactory := GetChannelAdaptorFunc
+	GetChannelAdaptorFunc = func(apiType int) ImageChannelAdaptor {
+		require.Equal(t, constant.APITypeOpenAI, apiType)
+		return &mockImageChannelAdaptor{
+			attempts: &attempts,
+			doFunc: func(_ *gin.Context, _ *relaycommon.RelayInfo, _ io.Reader) (any, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body: io.NopCloser(strings.NewReader(
+						`{"created":1,"data":[{"url":"https://upstream.example/result.png"}]}`,
+					)),
+				}, nil
+			},
+		}
+	}
+	t.Cleanup(func() {
+		GetChannelAdaptorFunc = previousFactory
+	})
+
+	err := ExecuteLocalImageTask(context.Background(), "worker-a", task)
+	require.NoError(t, err)
+
+	var updated model.Task
+	require.NoError(t, model.DB.First(&updated, task.ID).Error)
+	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
+	assert.Equal(t, "https://archive.example.com/new-api/output.png", updated.PrivateData.ResultURL)
+	assert.Equal(t, "https://archive.example.com/new-api/output.png", updated.PrivateData.OutputImageURL)
+	assert.Contains(t, string(updated.Data), "https://archive.example.com/new-api/output.png")
+	assert.NotContains(t, string(updated.Data), "https://upstream.example/result.png")
+	assert.Equal(t, "https://upstream.example/result.png", downloader.received.URL)
+	assert.Contains(t, uploader.receivedKey, "/image/")
+	assert.Equal(t, "image/png", uploader.receivedBlob.MimeType)
 }
 
 func TestExecute_4xxFatal(t *testing.T) {

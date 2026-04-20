@@ -18,10 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Progress, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
+import { Progress, Tag, Typography } from '@douyinfe/semi-ui';
 import {
   Music,
   FileText,
+  Image as ImageIcon,
   HelpCircle,
   CheckCircle,
   Pause,
@@ -30,13 +31,12 @@ import {
   XCircle,
   Loader,
   List,
-  Hash,
-  Video,
   Sparkles,
 } from 'lucide-react';
 import {
   TASK_ACTION_FIRST_TAIL_GENERATE,
   TASK_ACTION_GENERATE,
+  TASK_ACTION_IMAGE_GENERATE,
   TASK_ACTION_REFERENCE_GENERATE,
   TASK_ACTION_TEXT_GENERATE,
   TASK_ACTION_REMIX_GENERATE,
@@ -90,7 +90,36 @@ function renderDuration(submit_time, finishTime) {
   );
 }
 
-const renderType = (type, t) => {
+const isImageTask = (record) => {
+  const requestPath = getTaskRequestPath(record);
+  return record?.platform === 'image' || requestPath.startsWith('/v1/images');
+};
+
+const isVideoTask = (record) => {
+  return [
+    TASK_ACTION_GENERATE,
+    TASK_ACTION_TEXT_GENERATE,
+    TASK_ACTION_FIRST_TAIL_GENERATE,
+    TASK_ACTION_REFERENCE_GENERATE,
+    TASK_ACTION_REMIX_GENERATE,
+  ].includes(record?.action);
+};
+
+const renderType = (type, record, t) => {
+  if (isImageTask(record)) {
+    if (getTaskRequestPath(record) === '/v1/images/edits') {
+      return (
+        <Tag color='cyan' shape='circle' prefixIcon={<ImageIcon size={14} />}>
+          {t('编辑图片')}
+        </Tag>
+      );
+    }
+    return (
+      <Tag color='cyan' shape='circle' prefixIcon={<ImageIcon size={14} />}>
+        {t('生成图片')}
+      </Tag>
+    );
+  }
   switch (type) {
     case 'MUSIC':
       return (
@@ -134,6 +163,12 @@ const renderType = (type, t) => {
           {t('视频Remix')}
         </Tag>
       );
+    case TASK_ACTION_IMAGE_GENERATE:
+      return (
+        <Tag color='cyan' shape='circle' prefixIcon={<ImageIcon size={14} />}>
+          {t('生成图片')}
+        </Tag>
+      );
     default:
       return (
         <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
@@ -155,6 +190,12 @@ const renderPlatform = (platform, t) => {
     );
   }
   switch (platform) {
+    case 'image':
+      return (
+        <Tag color='cyan' shape='circle'>
+          {t('图片')}
+        </Tag>
+      );
     case 'suno':
       return (
         <Tag color='green' shape='circle'>
@@ -232,6 +273,9 @@ const getTaskRequestPath = (record) => {
   if (videoActions.includes(record?.action)) {
     return '/v1/videos';
   }
+  if (record?.platform === 'image') {
+    return '/v1/images';
+  }
   return '';
 };
 
@@ -305,6 +349,7 @@ export const getTaskLogsColumns = ({
   openContentModal,
   isAdminUser,
   openVideoModal,
+  openImageModal,
   openAudioModal,
 }) => {
   return [
@@ -401,7 +446,7 @@ export const getTaskLogsColumns = ({
       title: t('类型'),
       dataIndex: 'action',
       render: (text, record, index) => {
-        return <div>{renderType(text, t)}</div>;
+        return <div>{renderType(text, record, t)}</div>;
       },
     },
     {
@@ -489,17 +534,27 @@ export const getTaskLogsColumns = ({
           );
         }
 
-        // 视频预览：优先使用 result_url，兼容旧数据 fail_reason 中的 URL
-        const isVideoTask =
-          record.action === TASK_ACTION_GENERATE ||
-          record.action === TASK_ACTION_TEXT_GENERATE ||
-          record.action === TASK_ACTION_FIRST_TAIL_GENERATE ||
-          record.action === TASK_ACTION_REFERENCE_GENERATE ||
-          record.action === TASK_ACTION_REMIX_GENERATE;
         const isSuccess = record.status === 'SUCCESS';
         const resultUrl = record.result_url;
-        const hasResultUrl = typeof resultUrl === 'string' && /^https?:\/\//.test(resultUrl);
-        if (isSuccess && isVideoTask && hasResultUrl) {
+        const hasImageResultUrl =
+          typeof resultUrl === 'string' &&
+          (/^https?:\/\//.test(resultUrl) || /^data:image\//.test(resultUrl));
+        const hasVideoResultUrl =
+          typeof resultUrl === 'string' && /^https?:\/\//.test(resultUrl);
+        if (isSuccess && isImageTask(record) && hasImageResultUrl) {
+          return (
+            <a
+              href='#'
+              onClick={(e) => {
+                e.preventDefault();
+                openImageModal(resultUrl);
+              }}
+            >
+              {t('点击预览图片')}
+            </a>
+          );
+        }
+        if (isSuccess && isVideoTask(record) && hasVideoResultUrl) {
           return (
             <a
               href='#'

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
@@ -130,8 +131,9 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 	archiveCtx, cancel := newMediaArchiveContext(ctx)
 	defer cancel()
 
+	kind := taskArchiveKind(task)
 	meta := archiver.Meta{
-		Kind:      archiver.KindVideo,
+		Kind:      kind,
 		Model:     firstNonEmpty(strings.TrimSpace(task.Properties.OriginModelName), strings.TrimSpace(task.Properties.UpstreamModelName)),
 		TaskID:    strings.TrimSpace(task.TaskID),
 		ChannelID: task.ChannelId,
@@ -140,17 +142,17 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 
 	ref := strings.TrimSpace(sourceURL)
 	if ref != "" {
-		if url, err := a.Archive(archiveCtx, archiver.Source{URL: ref}, meta); err == nil {
+		if url, err := archiveTaskResultReference(archiveCtx, a, ref, kind, meta); err == nil {
 			return url, true
 		} else {
 			reportMediaArchiveFinalFailure(archiveCtx, "archive_task", ref, err, meta)
 		}
 	}
-	payloadURL := extractTaskPayloadMediaURL(responseBody)
+	payloadURL := extractTaskPayloadMediaURL(responseBody, kind)
 	if payloadURL == "" {
 		return "", false
 	}
-	url, err := a.Archive(archiveCtx, archiver.Source{URL: payloadURL}, meta)
+	url, err := archiveTaskResultReference(archiveCtx, a, payloadURL, kind, meta)
 	if err != nil {
 		reportMediaArchiveFinalFailure(archiveCtx, "archive_task", payloadURL, err, meta)
 		return "", false
@@ -163,7 +165,7 @@ func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string
 	if task == nil || len(task.Data) == 0 {
 		return "", false
 	}
-	sourceURL := extractTaskPayloadMediaURL(task.Data)
+	sourceURL := extractTaskPayloadMediaURL(task.Data, taskArchiveKind(task))
 	if sourceURL == "" {
 		var payload map[string]any
 		if err := common.Unmarshal(task.Data, &payload); err == nil {
@@ -270,11 +272,21 @@ func newMediaArchiveContext(parent context.Context) (context.Context, context.Ca
 	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
 }
 
-// extractTaskPayloadMediaURL 从任务 JSON 提取主媒体 URL，支持 base64 内嵌视频。
-func extractTaskPayloadMediaURL(body []byte) string {
+// extractTaskPayloadMediaURL 从任务 JSON 提取主媒体 URL，支持 image/video 链接与内嵌 base64。
+func extractTaskPayloadMediaURL(body []byte, kind archiver.Kind) string {
 	var payload map[string]any
 	if err := common.Unmarshal(body, &payload); err != nil {
 		return ""
+	}
+	if kind == archiver.KindImage {
+		return firstNonEmpty(
+			extractImageBytesDataURL(payload, "response"),
+			extractImageBytesDataURL(payload),
+			extractImageURL(payload, "response"),
+			extractImageURL(payload),
+			extractMapString(payload, "response", "url"),
+			extractMapString(payload, "url"),
+		)
 	}
 	return firstNonEmpty(
 		extractVideoBytesDataURL(payload, "response"),
@@ -309,6 +321,67 @@ func extractVideoBytesDataURL(payload map[string]any, pathSegments ...string) st
 			if b64, ok := vm["bytesBase64Encoded"].(string); ok && strings.TrimSpace(b64) != "" {
 				return "data:video/mp4;base64," + strings.TrimSpace(b64)
 			}
+		}
+	}
+	return ""
+}
+
+func extractImageBytesDataURL(payload map[string]any, pathSegments ...string) string {
+	var node any = payload
+	for _, segment := range pathSegments {
+		m, ok := node.(map[string]any)
+		if !ok {
+			return ""
+		}
+		node = m[segment]
+	}
+	root, ok := node.(map[string]any)
+	if !ok {
+		return ""
+	}
+	dataItems, ok := root["data"].([]any)
+	if !ok {
+		return ""
+	}
+	for _, item := range dataItems {
+		imageMap, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if b64, ok := imageMap["b64_json"].(string); ok && strings.TrimSpace(b64) != "" {
+			return "data:image/png;base64," + strings.TrimSpace(b64)
+		}
+		if b64, ok := imageMap["b64Json"].(string); ok && strings.TrimSpace(b64) != "" {
+			return "data:image/png;base64," + strings.TrimSpace(b64)
+		}
+	}
+	return ""
+}
+
+func extractImageURL(payload map[string]any, pathSegments ...string) string {
+	var node any = payload
+	for _, segment := range pathSegments {
+		m, ok := node.(map[string]any)
+		if !ok {
+			return ""
+		}
+		node = m[segment]
+	}
+	root, ok := node.(map[string]any)
+	if !ok {
+		return ""
+	}
+	dataItems, ok := root["data"].([]any)
+	if !ok {
+		return ""
+	}
+	for _, item := range dataItems {
+		imageMap, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if url, ok := imageMap["url"].(string); ok && strings.TrimSpace(url) != "" {
+			return strings.TrimSpace(url)
 		}
 	}
 	return ""
@@ -442,7 +515,7 @@ func mediaArchiveMetaToAlertData(meta archiver.Meta) map[string]interface{} {
 	return data
 }
 
-// rewriteTaskPayloadMediaNode 递归改写 JSON 中典型的 video_url/url/videos 节点为归档 URL。
+// rewriteTaskPayloadMediaNode 递归改写 JSON 中典型的媒体节点为归档 URL。
 func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) bool {
 	changed := false
 	if value, ok := payload["video_url"].(string); ok && strings.TrimSpace(value) != "" {
@@ -480,6 +553,28 @@ func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) boo
 			videos[i] = videoMap
 		}
 		payload["videos"] = videos
+	}
+	if dataItems, ok := payload["data"].([]any); ok {
+		for i, item := range dataItems {
+			dataMap, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if _, exists := dataMap["b64_json"]; exists {
+				delete(dataMap, "b64_json")
+				changed = true
+			}
+			if _, exists := dataMap["b64Json"]; exists {
+				delete(dataMap, "b64Json")
+				changed = true
+			}
+			if value, ok := dataMap["url"].(string); ok && strings.TrimSpace(value) != "" {
+				dataMap["url"] = archivedURL
+				changed = true
+			}
+			dataItems[i] = dataMap
+		}
+		payload["data"] = dataItems
 	}
 	if _, exists := payload["bytesBase64Encoded"]; exists {
 		delete(payload, "bytesBase64Encoded")
@@ -534,4 +629,56 @@ func decodeImageB64(b64 string) []byte {
 		return nil
 	}
 	return data
+}
+
+func taskArchiveKind(task *model.Task) archiver.Kind {
+	if task != nil && task.Platform == constant.TaskPlatformImage {
+		return archiver.KindImage
+	}
+	return archiver.KindVideo
+}
+
+func archiveTaskResultReference(
+	ctx context.Context,
+	a *archiver.Archiver,
+	ref string,
+	kind archiver.Kind,
+	meta archiver.Meta,
+) (string, error) {
+	src, err := taskResultArchiveSource(ref, kind)
+	if err != nil {
+		return "", err
+	}
+	return a.Archive(ctx, src, meta)
+}
+
+func taskResultArchiveSource(ref string, kind archiver.Kind) (archiver.Source, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return archiver.Source{}, fmt.Errorf("empty task result reference")
+	}
+	if strings.HasPrefix(ref, "data:") {
+		prefix, payload, ok := strings.Cut(ref, ",")
+		if !ok || payload == "" {
+			return archiver.Source{}, fmt.Errorf("invalid data url")
+		}
+		switch {
+		case kind == archiver.KindImage && strings.HasPrefix(prefix, "data:image/"):
+			data := decodeImageB64(payload)
+			if len(data) == 0 {
+				return archiver.Source{}, fmt.Errorf("invalid image data url")
+			}
+			return archiver.Source{Bytes: data}, nil
+		case kind == archiver.KindVideo && strings.HasPrefix(prefix, "data:video/"):
+			data, err := decodeBase64Payload(payload)
+			if err != nil {
+				return archiver.Source{}, err
+			}
+			if len(data) == 0 {
+				return archiver.Source{}, fmt.Errorf("invalid video data url")
+			}
+			return archiver.Source{Bytes: data}, nil
+		}
+	}
+	return archiver.Source{URL: ref}, nil
 }

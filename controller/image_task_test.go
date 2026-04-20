@@ -181,6 +181,17 @@ func TestImageTaskSubmit_PersistsSubmittedStatus(t *testing.T) {
 	assert.Equal(t, "10%", task.Progress)
 }
 
+func TestImageTaskSubmit_PersistsImageAction(t *testing.T) {
+	db := setupImageTaskControllerTestDB(t)
+	seedImageTaskSubmitFixtures(t, db)
+
+	_, response := submitImageTaskForControllerTest(t, "image-action-key")
+
+	var task model.Task
+	require.NoError(t, db.Where("task_id = ?", response.TaskID).First(&task).Error)
+	assert.Equal(t, constant.TaskActionImageGenerate, task.Action)
+}
+
 func TestImageTaskFetch_NotStartReturnsQueuedStatus(t *testing.T) {
 	db := setupImageTaskControllerTestDB(t)
 	seedImageTaskSubmitFixtures(t, db)

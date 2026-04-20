@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Layout } from '@douyinfe/semi-ui';
+import { ImagePreview, Layout } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import TaskLogsTable from './TaskLogsTable';
 import TaskLogsActions from './TaskLogsActions';
@@ -45,6 +45,11 @@ const TaskLogsPage = () => {
         setIsModalOpen={taskLogsData.setIsVideoModalOpen}
         modalContent={taskLogsData.videoUrl}
         isVideo={true}
+      />
+      <ImagePreview
+        src={taskLogsData.imageUrl}
+        visible={taskLogsData.isImageModalOpen}
+        onVisibleChange={(visible) => taskLogsData.setIsImageModalOpen(visible)}
       />
       <AudioPreviewModal
         isModalOpen={taskLogsData.isAudioModalOpen}

@@ -67,6 +67,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 		return
 	}
 	relayInfo.TaskRelayInfo.Mode = mode
+	relayInfo.Action = defaultImageTaskAction(mode)
 	relayInfo.TaskRelayInfo.InputRequest = string(requestBytes)
 	if relayInfo.TaskRelayInfo.IdempotencyKey == "" {
 		relayInfo.TaskRelayInfo.IdempotencyKey = common.GetUUID()
@@ -85,6 +86,10 @@ func imageTaskModeFromEditsFlag(isEdits bool) string {
 		return "edits"
 	}
 	return "generations"
+}
+
+func defaultImageTaskAction(_ string) string {
+	return constant.TaskActionImageGenerate
 }
 
 func ensureImageTaskRelayInfo(relayInfo *relaycommon.RelayInfo) {
