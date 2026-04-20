@@ -170,7 +170,7 @@ func submitImageTask(
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(body))
+	request := httptest.NewRequest(http.MethodPost, "/v1/images", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	ctx.Request = request
 
@@ -234,7 +234,7 @@ func submitImageTaskMultipart(
 	}
 	require.NoError(t, writer.Close())
 
-	request := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	request := httptest.NewRequest(http.MethodPost, "/v1/images", bytes.NewReader(body.Bytes()))
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	ctx.Request = request
 
@@ -446,7 +446,8 @@ func TestE2E_ImageTaskBilling_SubmitEditsPersistsReplayFields(t *testing.T) {
 	assert.Equal(t, "add a red border", imageReq.Prompt)
 	require.NotNil(t, imageReq.N)
 	assert.EqualValues(t, 2, *imageReq.N)
-	assert.Empty(t, imageReq.Image)
+	require.NotEmpty(t, imageReq.Image)
+	assert.Equal(t, "https://archive.example/input.png", privateData["input_image_url"])
 }
 
 func TestE2E_ImageTaskBilling_SubmitEditsPersistsMaskReplayField(t *testing.T) {
@@ -489,6 +490,47 @@ func TestE2E_ImageTaskBilling_SubmitEditsPersistsMaskReplayField(t *testing.T) {
 	privateData := loadTaskPrivateDataMap(t, submitted.ID)
 	assert.NotEmpty(t, privateData["input_image_url"])
 	assert.NotEmpty(t, privateData["input_mask_url"])
+
+	inputRequestRaw, ok := privateData["input_request"].(string)
+	require.True(t, ok)
+
+	var imageReq dto.ImageRequest
+	require.NoError(t, common.Unmarshal([]byte(inputRequestRaw), &imageReq))
+	require.NotEmpty(t, imageReq.Extra["mask"])
+}
+
+func TestE2E_ImageTaskBilling_SubmitJSONImageInputNormalizesReplayFields(t *testing.T) {
+	truncateAll(t)
+
+	const (
+		userQuota = 100000
+		tokenKey  = "sk-e2e-image-input"
+	)
+
+	seedUserRecord(t, 1, userQuota)
+	seedTokenRecord(t, 1, 1, tokenKey, userQuota)
+	seedOpenAIChannelRecord(t, 1, "sk-channel")
+
+	bodyBytes, err := common.Marshal(map[string]any{
+		"model":       "dall-e-3",
+		"prompt":      "repaint from url",
+		"image_input": []string{"https://example.com/reference.png"},
+	})
+	require.NoError(t, err)
+
+	submitted := submitImageTask(t, string(bodyBytes), userQuota, tokenKey)
+	privateData := loadTaskPrivateDataMap(t, submitted.ID)
+	assert.Equal(t, "edits", privateData["image_task_mode"])
+	assert.Equal(t, "https://example.com/reference.png", privateData["input_image_url"])
+
+	inputRequestRaw, ok := privateData["input_request"].(string)
+	require.True(t, ok)
+
+	var imageReq dto.ImageRequest
+	require.NoError(t, common.Unmarshal([]byte(inputRequestRaw), &imageReq))
+	require.NotEmpty(t, imageReq.Image)
+	_, exists := imageReq.Extra["image_input"]
+	assert.False(t, exists)
 }
 
 func TestE2E_ImageTaskBilling_FailureRefunds(t *testing.T) {

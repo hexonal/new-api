@@ -95,6 +95,14 @@ const isImageTask = (record) => {
   return record?.platform === 'image' || requestPath.startsWith('/v1/images');
 };
 
+const getImageTaskMode = (record) => {
+  const taskMode = record?.private_data?.image_task_mode;
+  if (typeof taskMode === 'string' && taskMode.trim() !== '') {
+    return taskMode.trim();
+  }
+  return getTaskRequestPath(record) === '/v1/images/edits' ? 'edits' : 'generations';
+};
+
 const isVideoTask = (record) => {
   return [
     TASK_ACTION_GENERATE,
@@ -107,7 +115,7 @@ const isVideoTask = (record) => {
 
 const renderType = (type, record, t) => {
   if (isImageTask(record)) {
-    if (getTaskRequestPath(record) === '/v1/images/edits') {
+    if (getImageTaskMode(record) === 'edits') {
       return (
         <Tag color='cyan' shape='circle' prefixIcon={<ImageIcon size={14} />}>
           {t('编辑图片')}

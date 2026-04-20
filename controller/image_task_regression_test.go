@@ -106,7 +106,7 @@ func submitImageTaskWithCustomBody(
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	request := httptest.NewRequest(http.MethodPost, "/v1/images", nil)
 	request.Body = body
 	request.ContentLength = contentLength
 	request.Header.Set("Content-Type", "application/json")

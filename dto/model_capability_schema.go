@@ -108,7 +108,7 @@ func parseCapabilitySpec(capabilityKey string, raw json.RawMessage) (CapabilityS
 	if spec.Parameters == nil {
 		spec.Parameters = map[string]CapabilityParameter{}
 	}
-	spec.Async = spec.Async || inferAsync(capabilityKey, spec.ProviderStyle)
+	spec.Async = spec.Async || inferAsync(capabilityKey, spec.ProviderStyle, spec.Path)
 	return spec, true
 }
 
@@ -126,7 +126,7 @@ func parseLegacyCapabilitySpec(capabilityKey string, raw json.RawMessage) (Capab
 		Path:          inferPath(capabilityKey, legacy.Path),
 		Method:        inferMethod(legacy.Method),
 		ProviderStyle: strings.TrimSpace(legacy.ProviderStyle),
-		Async:         legacy.Async || inferAsync(capabilityKey, legacy.ProviderStyle),
+		Async:         legacy.Async || inferAsync(capabilityKey, legacy.ProviderStyle, legacy.Path),
 		RequestFormat: inferRequestFormat(capabilityKey, legacy.Path, legacy.Method, legacy.ProviderStyle),
 		SDKMethod:     inferSDKMethod(capabilityKey, legacy.Path, legacy.ProviderStyle),
 		StreamSDKMethod: inferStreamSDKMethod(
@@ -198,16 +198,16 @@ func inferRequestFormat(capabilityKey string, path string, method string, provid
 }
 
 func inferPath(capabilityKey string, legacyPath string) string {
+	trimmedPath := strings.TrimSpace(legacyPath)
+	if trimmedPath != "" {
+		return trimmedPath
+	}
 	switch capabilityKey {
 	case "image_to_image":
 		return "/v1/images/edits"
 	case "text_to_video", "image_to_video":
 		return "/v1/videos"
 	default:
-		trimmedPath := strings.TrimSpace(legacyPath)
-		if trimmedPath != "" {
-			return trimmedPath
-		}
 		return legacyPath
 	}
 }
@@ -220,9 +220,12 @@ func inferMethod(method string) string {
 	return trimmedMethod
 }
 
-func inferAsync(capabilityKey string, providerStyle string) bool {
+func inferAsync(capabilityKey string, providerStyle string, path string) bool {
 	switch capabilityKey {
 	case "text_to_video", "image_to_video":
+		return true
+	}
+	if providerStyle == "openai-image" && strings.TrimSpace(path) == "/v1/images" {
 		return true
 	}
 	return false
@@ -288,8 +291,14 @@ func normalizeSDKMethod(current string, capabilityKey string, path string, provi
 func inferSDKMethod(capabilityKey string, path string, providerStyle string) string {
 	switch capabilityKey {
 	case "text_to_image":
+		if strings.TrimSpace(path) == "/v1/images" {
+			return "aiApi.imageTasks"
+		}
 		return "aiApi.imageGenerations"
 	case "image_to_image":
+		if strings.TrimSpace(path) == "/v1/images" {
+			return "aiApi.imageTasks"
+		}
 		return "aiApi.imageEdits"
 	case "text_to_video", "image_to_video":
 		return "aiApi.videoGenerations"
@@ -310,6 +319,8 @@ func inferSDKMethod(capabilityKey string, path string, providerStyle string) str
 		return "aiApi.responses"
 	case "/v1/messages":
 		return "aiApi.messages"
+	case "/v1/images":
+		return "aiApi.imageTasks"
 	}
 
 	switch {
@@ -537,12 +548,22 @@ func capabilitySpecsFromEndpointType(endpointType constant.EndpointType) map[str
 		return map[string]CapabilitySpec{
 			"text_to_image": {
 				Supported:     true,
-				Path:          "/v1/images/generations",
+				Path:          "/v1/images",
 				Method:        "POST",
 				ProviderStyle: "openai-image",
 				Async:         true,
 				RequestFormat: "json",
-				SDKMethod:     "aiApi.imageGenerations",
+				SDKMethod:     "aiApi.imageTasks",
+				Parameters:    map[string]CapabilityParameter{},
+			},
+			"image_to_image": {
+				Supported:     true,
+				Path:          "/v1/images",
+				Method:        "POST",
+				ProviderStyle: "openai-image",
+				Async:         true,
+				RequestFormat: "multipart",
+				SDKMethod:     "aiApi.imageTasks",
 				Parameters:    map[string]CapabilityParameter{},
 			},
 		}

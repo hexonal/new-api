@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service/archiver"
 	"github.com/QuantumNous/new-api/types"
@@ -30,9 +32,7 @@ type imageTaskSubmitResponse struct {
 }
 
 func RelayImageTaskSubmit(c *gin.Context) {
-	isEdits := strings.HasPrefix(c.ContentType(), "multipart/form-data")
-	mode := imageTaskModeFromEditsFlag(isEdits)
-	c.Set("image_task_mode", mode)
+	isMultipart := strings.HasPrefix(c.ContentType(), "multipart/form-data")
 	c.Set("platform", string(constant.TaskPlatformImage))
 
 	clientIdempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
@@ -61,11 +61,12 @@ func RelayImageTaskSubmit(c *gin.Context) {
 
 	ensureImageTaskRelayInfo(relayInfo)
 	relayInfo.TaskRelayInfo.ClientIdempotencyKey = clientIdempotencyKey
-	imageReq, requestBytes, err := prepareImageTaskReplayRequest(c, relayInfo, isEdits)
+	imageReq, requestBytes, mode, err := prepareImageTaskReplayRequest(c, relayInfo, isMultipart)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	c.Set("image_task_mode", mode)
 	relayInfo.TaskRelayInfo.Mode = mode
 	relayInfo.Action = defaultImageTaskAction(mode)
 	relayInfo.TaskRelayInfo.InputRequest = string(requestBytes)
@@ -79,13 +80,6 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	}
 
 	runTaskRelaySubmit(c, relayInfo)
-}
-
-func imageTaskModeFromEditsFlag(isEdits bool) string {
-	if isEdits {
-		return "edits"
-	}
-	return "generations"
 }
 
 func defaultImageTaskAction(_ string) string {
@@ -104,23 +98,50 @@ func ensureImageTaskRelayInfo(relayInfo *relaycommon.RelayInfo) {
 func prepareImageTaskReplayRequest(
 	c *gin.Context,
 	relayInfo *relaycommon.RelayInfo,
-	isEdits bool,
-) (*dto.ImageRequest, []byte, error) {
-	imageReq, err := helper.GetAndValidOpenAIImageRequest(c, relayInfo.RelayMode)
+	isMultipart bool,
+) (*dto.ImageRequest, []byte, string, error) {
+	parseRelayMode := relayInfo.RelayMode
+	if isMultipart {
+		parseRelayMode = relayconstant.RelayModeImagesEdits
+	}
+	imageReq, err := helper.GetAndValidOpenAIImageRequest(c, parseRelayMode)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	relayInfo.OriginModelName = imageReq.Model
-	if isEdits {
-		if err = persistImageEditsInput(c, relayInfo); err != nil {
-			return nil, nil, err
-		}
+	mode, err := normalizeImageTaskReplayRequest(c, relayInfo, imageReq, isMultipart)
+	if err != nil {
+		return nil, nil, "", err
 	}
 	requestBytes, err := common.Marshal(imageReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
-	return imageReq, requestBytes, nil
+	return imageReq, requestBytes, mode, nil
+}
+
+func normalizeImageTaskReplayRequest(
+	c *gin.Context,
+	info *relaycommon.RelayInfo,
+	imageReq *dto.ImageRequest,
+	isMultipart bool,
+) (string, error) {
+	if isMultipart {
+		if err := persistImageEditsInput(c, info); err != nil {
+			return "", err
+		}
+		if err := attachArchivedImageTaskInputs(imageReq, info); err != nil {
+			return "", err
+		}
+		return "edits", nil
+	}
+	if err := normalizeImageTaskJSONInputs(imageReq, info); err != nil {
+		return "", err
+	}
+	if hasImageTaskInput(imageReq) {
+		return "edits", nil
+	}
+	return "generations", nil
 }
 
 func RelayImageTaskFetch(c *gin.Context) {
@@ -185,6 +206,159 @@ func persistImageEditsInput(c *gin.Context, info *relaycommon.RelayInfo) error {
 	}
 	info.TaskRelayInfo.InputMaskURL = maskURL
 	return nil
+}
+
+func normalizeImageTaskJSONInputs(imageReq *dto.ImageRequest, info *relaycommon.RelayInfo) error {
+	if imageReq == nil {
+		return nil
+	}
+	normalizeImageTaskMaskField(imageReq)
+	urls, found, err := consumeImageTaskURLs(imageReq)
+	if err != nil {
+		return err
+	}
+	if found {
+		if err = setImageTaskURLs(imageReq, urls); err != nil {
+			return err
+		}
+		recordImageTaskInputURL(info, urls)
+	}
+	return attachArchivedImageTaskInputs(imageReq, info)
+}
+
+func attachArchivedImageTaskInputs(imageReq *dto.ImageRequest, info *relaycommon.RelayInfo) error {
+	if imageReq == nil || info == nil || info.TaskRelayInfo == nil {
+		return nil
+	}
+
+	inputImageURL := strings.TrimSpace(info.TaskRelayInfo.InputImageURL)
+	if inputImageURL != "" {
+		if err := setImageTaskURLs(imageReq, []string{inputImageURL}); err != nil {
+			return err
+		}
+	}
+	return setImageTaskExtraField(imageReq, "mask", strings.TrimSpace(info.TaskRelayInfo.InputMaskURL))
+}
+
+func normalizeImageTaskMaskField(imageReq *dto.ImageRequest) {
+	if imageReq == nil || len(imageReq.Extra) == 0 {
+		return
+	}
+	rawMask, ok := imageReq.Extra["mask_input"]
+	if !ok {
+		return
+	}
+	delete(imageReq.Extra, "mask_input")
+	if len(bytes.TrimSpace(imageReq.Extra["mask"])) == 0 {
+		imageReq.Extra["mask"] = rawMask
+	}
+}
+
+func consumeImageTaskURLs(imageReq *dto.ImageRequest) ([]string, bool, error) {
+	if imageReq == nil {
+		return nil, false, nil
+	}
+
+	var extraURLs json.RawMessage
+	if imageReq.Extra != nil {
+		extraURLs = imageReq.Extra["image_input"]
+		delete(imageReq.Extra, "image_input")
+	}
+
+	urls, err := parseImageTaskURLs(imageReq.Image)
+	if err != nil || len(urls) > 0 {
+		return urls, len(urls) > 0, err
+	}
+	if len(bytes.TrimSpace(extraURLs)) == 0 {
+		return nil, false, nil
+	}
+	urls, err = parseImageTaskURLs(extraURLs)
+	return urls, len(urls) > 0, err
+}
+
+func parseImageTaskURLs(raw []byte) ([]string, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil, nil
+	}
+
+	var urls []string
+	if trimmed[0] == '[' {
+		if err := common.Unmarshal(trimmed, &urls); err != nil {
+			return nil, err
+		}
+	} else {
+		var singleURL string
+		if err := common.Unmarshal(trimmed, &singleURL); err != nil {
+			return nil, err
+		}
+		if singleURL != "" {
+			urls = []string{singleURL}
+		}
+	}
+	return compactImageTaskURLs(urls), nil
+}
+
+func compactImageTaskURLs(urls []string) []string {
+	compacted := make([]string, 0, len(urls))
+	for _, url := range urls {
+		trimmed := strings.TrimSpace(url)
+		if trimmed != "" {
+			compacted = append(compacted, trimmed)
+		}
+	}
+	return compacted
+}
+
+func setImageTaskURLs(imageReq *dto.ImageRequest, urls []string) error {
+	if imageReq == nil {
+		return nil
+	}
+	payload, err := common.Marshal(compactImageTaskURLs(urls))
+	if err != nil {
+		return err
+	}
+	imageReq.Image = payload
+	return nil
+}
+
+func setImageTaskExtraField(imageReq *dto.ImageRequest, key string, value string) error {
+	if imageReq == nil || strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if imageReq.Extra == nil {
+		imageReq.Extra = make(map[string]json.RawMessage)
+	}
+	payload, err := common.Marshal(strings.TrimSpace(value))
+	if err != nil {
+		return err
+	}
+	imageReq.Extra[key] = payload
+	return nil
+}
+
+func recordImageTaskInputURL(info *relaycommon.RelayInfo, urls []string) {
+	if info == nil || info.TaskRelayInfo == nil || len(urls) == 0 {
+		return
+	}
+	if strings.TrimSpace(info.TaskRelayInfo.InputImageURL) == "" {
+		info.TaskRelayInfo.InputImageURL = urls[0]
+	}
+}
+
+func hasImageTaskInput(imageReq *dto.ImageRequest) bool {
+	if imageReq == nil {
+		return false
+	}
+	urls, err := parseImageTaskURLs(imageReq.Image)
+	if err == nil && len(urls) > 0 {
+		return true
+	}
+	if imageReq.Extra == nil {
+		return false
+	}
+	urls, err = parseImageTaskURLs(imageReq.Extra["image_input"])
+	return err == nil && len(urls) > 0
 }
 
 func archiveImageTaskFormFile(c *gin.Context, info *relaycommon.RelayInfo, fieldName string, index int) (string, error) {

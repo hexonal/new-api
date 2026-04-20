@@ -13,6 +13,17 @@ import (
 
 func setupCallbackEventTestDB(t *testing.T) {
 	t.Helper()
+	previousDB := DB
+	previousUsingSQLite := common.UsingSQLite
+	previousUsingMySQL := common.UsingMySQL
+	previousUsingPostgreSQL := common.UsingPostgreSQL
+	t.Cleanup(func() {
+		DB = previousDB
+		common.UsingSQLite = previousUsingSQLite
+		common.UsingMySQL = previousUsingMySQL
+		common.UsingPostgreSQL = previousUsingPostgreSQL
+		InitColumnNames()
+	})
 
 	common.UsingSQLite = true
 	common.UsingMySQL = false
@@ -22,6 +33,12 @@ func setupCallbackEventTestDB(t *testing.T) {
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
 
 	DB = db
 	require.NoError(t, DB.AutoMigrate(&CallbackEvent{}))

@@ -23,8 +23,19 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+var streamScannerGlobalStateMu sync.Mutex
+
+func lockStreamScannerGlobals(t *testing.T) {
+	t.Helper()
+	streamScannerGlobalStateMu.Lock()
+	t.Cleanup(func() {
+		streamScannerGlobalStateMu.Unlock()
+	})
+}
+
 func setupStreamTest(t *testing.T, body io.Reader) (*gin.Context, *http.Response, *relaycommon.RelayInfo) {
 	t.Helper()
+	lockStreamScannerGlobals(t)
 
 	oldTimeout := constant.StreamingTimeout
 	constant.StreamingTimeout = 30
@@ -237,6 +248,7 @@ func TestStreamScannerHandler_DataWithExtraSpaces(t *testing.T) {
 
 func TestStreamScannerHandler_ScannerDecoupledFromSlowHandler(t *testing.T) {
 	t.Parallel()
+	lockStreamScannerGlobals(t)
 
 	// Strategy: use a slow upstream (io.Pipe, 10ms per chunk) AND a slow handler (20ms per chunk).
 	// If the scanner were synchronously coupled to the handler, total time would be
@@ -333,6 +345,7 @@ func TestStreamScannerHandler_SlowUpstreamFastHandler(t *testing.T) {
 
 func TestStreamScannerHandler_PingSentDuringSlowUpstream(t *testing.T) {
 	t.Parallel()
+	lockStreamScannerGlobals(t)
 
 	setting := operation_setting.GetGeneralSetting()
 	oldEnabled := setting.PingIntervalEnabled
@@ -396,6 +409,7 @@ func TestStreamScannerHandler_PingSentDuringSlowUpstream(t *testing.T) {
 
 func TestStreamScannerHandler_PingDisabledByRelayInfo(t *testing.T) {
 	t.Parallel()
+	lockStreamScannerGlobals(t)
 
 	setting := operation_setting.GetGeneralSetting()
 	oldEnabled := setting.PingIntervalEnabled
@@ -458,6 +472,7 @@ func TestStreamScannerHandler_PingDisabledByRelayInfo(t *testing.T) {
 
 func TestStreamScannerHandler_PingInterleavesWithSlowUpstream(t *testing.T) {
 	t.Parallel()
+	lockStreamScannerGlobals(t)
 
 	setting := operation_setting.GetGeneralSetting()
 	oldEnabled := setting.PingIntervalEnabled

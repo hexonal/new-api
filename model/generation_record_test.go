@@ -13,11 +13,25 @@ import (
 
 func setupGenerationRecordTestDB(t *testing.T) {
 	t.Helper()
+	previousDB := DB
+	t.Cleanup(func() {
+		DB = previousDB
+	})
+
 	var err error
 	DB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatal("failed to open test db:", err)
 	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		t.Fatal("failed to get sql.DB:", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
+
 	err = DB.AutoMigrate(&GenerationRecord{})
 	if err != nil {
 		t.Fatal("failed to migrate test db:", err)

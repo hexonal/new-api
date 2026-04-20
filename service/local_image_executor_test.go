@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -373,11 +372,9 @@ func TestExecute_Edits_Success(t *testing.T) {
 		return &mockImageChannelAdaptor{
 			attempts: &attempts,
 			convertFunc: func(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-				require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
-				require.Equal(t, "/v1/images/edits", c.Request.URL.Path)
-				require.NoError(t, c.Request.ParseMultipartForm(1<<20))
-				require.NotNil(t, c.Request.MultipartForm)
-				require.Len(t, c.Request.MultipartForm.File["image"], 1)
+				require.Equal(t, relayconstant.RelayModeImagesGenerations, info.RelayMode)
+				require.Equal(t, "/v1/images/generations", c.Request.URL.Path)
+				require.NotEmpty(t, request.Image)
 				require.NotNil(t, c.Request.GetBody)
 
 				bodyReader, err := c.Request.GetBody()
@@ -389,29 +386,16 @@ func TestExecute_Edits_Success(t *testing.T) {
 			doFunc: func(c *gin.Context, _ *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 				bodyBytes, err := io.ReadAll(requestBody)
 				require.NoError(t, err)
+				require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
 
-				mediaType, params, err := mime.ParseMediaType(c.Request.Header.Get("Content-Type"))
-				require.NoError(t, err)
-				require.Equal(t, "multipart/form-data", mediaType)
-
-				form, err := multipart.NewReader(bytes.NewReader(bodyBytes), params["boundary"]).ReadForm(1 << 20)
-				require.NoError(t, err)
-				defer form.RemoveAll()
-
-				require.Equal(t, []string{"edit this image"}, form.Value["prompt"])
-				require.Equal(t, []string{"gpt-image-1"}, form.Value["model"])
-				require.Equal(t, []string{"2"}, form.Value["n"])
-				require.Equal(t, []string{"1024x1024"}, form.Value["size"])
-				require.Equal(t, []string{"high"}, form.Value["quality"])
-				require.Len(t, form.File["image"], 1)
-
-				file, err := form.File["image"][0].Open()
-				require.NoError(t, err)
-				defer file.Close()
-
-				gotImageBytes, err := io.ReadAll(file)
-				require.NoError(t, err)
-				require.Equal(t, inputImageBytes, gotImageBytes)
+				var payload map[string]json.RawMessage
+				require.NoError(t, common.Unmarshal(bodyBytes, &payload))
+				assertJSONFieldEquals(t, payload, "prompt", "edit this image")
+				assertJSONFieldEquals(t, payload, "model", "gpt-image-1")
+				assertJSONFieldEquals(t, payload, "size", "1024x1024")
+				assertJSONFieldEquals(t, payload, "quality", "high")
+				assertJSONFieldEquals(t, payload, "n", float64(2))
+				assertJSONFieldContainsURL(t, payload, "image", imageServer.URL+"/input.png")
 
 				return &http.Response{
 					StatusCode: http.StatusOK,
@@ -483,8 +467,9 @@ func TestExecute_Edits_WithMask_Success(t *testing.T) {
 		return &mockImageChannelAdaptor{
 			attempts: &attempts,
 			convertFunc: func(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-				require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
-				require.Equal(t, "/v1/images/edits", c.Request.URL.Path)
+				require.Equal(t, relayconstant.RelayModeImagesGenerations, info.RelayMode)
+				require.Equal(t, "/v1/images/generations", c.Request.URL.Path)
+				require.NotEmpty(t, request.Image)
 				bodyReader, err := c.Request.GetBody()
 				require.NoError(t, err)
 				bodyBytes, err := io.ReadAll(bodyReader)
@@ -494,31 +479,13 @@ func TestExecute_Edits_WithMask_Success(t *testing.T) {
 			doFunc: func(c *gin.Context, _ *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 				bodyBytes, err := io.ReadAll(requestBody)
 				require.NoError(t, err)
+				require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
 
-				mediaType, params, err := mime.ParseMediaType(c.Request.Header.Get("Content-Type"))
-				require.NoError(t, err)
-				require.Equal(t, "multipart/form-data", mediaType)
-
-				form, err := multipart.NewReader(bytes.NewReader(bodyBytes), params["boundary"]).ReadForm(1 << 20)
-				require.NoError(t, err)
-				defer form.RemoveAll()
-
-				require.Len(t, form.File["image"], 1)
-				require.Len(t, form.File["mask"], 1)
-
-				imageFile, err := form.File["image"][0].Open()
-				require.NoError(t, err)
-				defer imageFile.Close()
-				gotImageBytes, err := io.ReadAll(imageFile)
-				require.NoError(t, err)
-				require.Equal(t, inputImageBytes, gotImageBytes)
-
-				maskFile, err := form.File["mask"][0].Open()
-				require.NoError(t, err)
-				defer maskFile.Close()
-				gotMaskBytes, err := io.ReadAll(maskFile)
-				require.NoError(t, err)
-				require.Equal(t, maskImageBytes, gotMaskBytes)
+				var payload map[string]json.RawMessage
+				require.NoError(t, common.Unmarshal(bodyBytes, &payload))
+				assertJSONFieldEquals(t, payload, "prompt", "mask this image")
+				assertJSONFieldContainsURL(t, payload, "image", imageServer.URL+"/input.png")
+				assertJSONFieldEquals(t, payload, "mask", maskServer.URL+"/mask.png")
 
 				return &http.Response{
 					StatusCode: http.StatusOK,
@@ -542,6 +509,38 @@ func TestExecute_Edits_WithMask_Success(t *testing.T) {
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
 	assert.Equal(t, "https://example.com/masked.png", updated.PrivateData.ResultURL)
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))
+}
+
+func assertJSONFieldEquals(t *testing.T, payload map[string]json.RawMessage, key string, expected any) {
+	t.Helper()
+
+	raw, ok := payload[key]
+	require.True(t, ok, "missing json field %s", key)
+
+	switch want := expected.(type) {
+	case string:
+		var value string
+		require.NoError(t, common.Unmarshal(raw, &value))
+		assert.Equal(t, want, value)
+	case float64:
+		var value float64
+		require.NoError(t, common.Unmarshal(raw, &value))
+		assert.Equal(t, want, value)
+	default:
+		t.Fatalf("unsupported expected type for %s", key)
+	}
+}
+
+func assertJSONFieldContainsURL(t *testing.T, payload map[string]json.RawMessage, key string, expectedURL string) {
+	t.Helper()
+
+	raw, ok := payload[key]
+	require.True(t, ok, "missing json field %s", key)
+
+	var urls []string
+	require.NoError(t, common.Unmarshal(raw, &urls))
+	require.NotEmpty(t, urls)
+	assert.Equal(t, expectedURL, urls[0])
 }
 
 func TestExecute_SendsIdempotencyKeyHeader(t *testing.T) {

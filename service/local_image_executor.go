@@ -3,12 +3,10 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
-	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -133,10 +130,20 @@ func buildLocalImageGinContext(
 	ch *model.Channel,
 	imageReq *dto.ImageRequest,
 ) (*gin.Context, error) {
-	if resolveLocalImageTaskMode(task) == "edits" {
-		return buildLocalImageEditsGinContext(ctx, task, ch, imageReq)
+	if err := hydrateLocalImageRequest(task, imageReq); err != nil {
+		return nil, err
 	}
 	return buildLocalImageGenerationsGinContext(ctx, task, ch, imageReq)
+}
+
+func hydrateLocalImageRequest(task *model.Task, imageReq *dto.ImageRequest) error {
+	if imageReq == nil || task == nil {
+		return nil
+	}
+	if err := setLocalImageRequestImages(imageReq, task.PrivateData.InputImageURL); err != nil {
+		return err
+	}
+	return setLocalImageRequestMask(imageReq, task.PrivateData.InputMaskURL)
 }
 
 func buildLocalImageGenerationsGinContext(
@@ -160,25 +167,42 @@ func buildLocalImageGenerationsGinContext(
 	)
 }
 
-func buildLocalImageEditsGinContext(
-	ctx context.Context,
-	task *model.Task,
-	ch *model.Channel,
-	imageReq *dto.ImageRequest,
-) (*gin.Context, error) {
-	requestBody, contentType, err := buildLocalImageEditsMultipartBody(task, *imageReq)
-	if err != nil {
-		return nil, err
+func setLocalImageRequestImages(imageReq *dto.ImageRequest, inputImageURL string) error {
+	if imageReq == nil || len(bytes.TrimSpace(imageReq.Image)) > 0 {
+		return nil
 	}
-	return newLocalImageGinContext(
-		ctx,
-		task,
-		ch,
-		imageReq,
-		"/v1/images/edits",
-		requestBody,
-		contentType,
-	)
+	trimmedURL := strings.TrimSpace(inputImageURL)
+	if trimmedURL == "" {
+		return nil
+	}
+	payload, err := common.Marshal([]string{trimmedURL})
+	if err != nil {
+		return err
+	}
+	imageReq.Image = payload
+	return nil
+}
+
+func setLocalImageRequestMask(imageReq *dto.ImageRequest, inputMaskURL string) error {
+	if imageReq == nil {
+		return nil
+	}
+	trimmedURL := strings.TrimSpace(inputMaskURL)
+	if trimmedURL == "" {
+		return nil
+	}
+	if imageReq.Extra == nil {
+		imageReq.Extra = make(map[string]json.RawMessage)
+	}
+	if len(bytes.TrimSpace(imageReq.Extra["mask"])) > 0 {
+		return nil
+	}
+	payload, err := common.Marshal(trimmedURL)
+	if err != nil {
+		return err
+	}
+	imageReq.Extra["mask"] = payload
+	return nil
 }
 
 func newLocalImageGinContext(
@@ -202,151 +226,6 @@ func newLocalImageGinContext(
 	ginCtx.Request = httpReq
 	populateLocalImageChannelContext(ginCtx, task, ch, imageReq)
 	return ginCtx, nil
-}
-
-func buildLocalImageEditsMultipartBody(
-	task *model.Task,
-	imageReq dto.ImageRequest,
-) ([]byte, string, error) {
-	imageBytes, mimeType, err := loadLocalImageEditAsset(strings.TrimSpace(task.PrivateData.InputImageURL), "input image")
-	if err != nil {
-		return nil, "", err
-	}
-
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-	if err = writeLocalImageMultipartFields(writer, imageReq); err != nil {
-		return nil, "", err
-	}
-
-	part, err := writer.CreateFormFile("image", localImageInputFilename(mimeType))
-	if err != nil {
-		return nil, "", err
-	}
-	if _, err = part.Write(imageBytes); err != nil {
-		return nil, "", err
-	}
-	if maskURL := strings.TrimSpace(task.PrivateData.InputMaskURL); maskURL != "" {
-		maskBytes, maskMimeType, maskErr := loadLocalImageEditAsset(maskURL, "input mask")
-		if maskErr != nil {
-			return nil, "", maskErr
-		}
-		maskPart, maskErr := writer.CreateFormFile("mask", localImageInputFilename(maskMimeType))
-		if maskErr != nil {
-			return nil, "", maskErr
-		}
-		if _, maskErr = maskPart.Write(maskBytes); maskErr != nil {
-			return nil, "", maskErr
-		}
-	}
-	if err = writer.Close(); err != nil {
-		return nil, "", err
-	}
-	return requestBody.Bytes(), writer.FormDataContentType(), nil
-}
-
-func loadLocalImageEditAsset(assetURL string, assetName string) ([]byte, string, error) {
-	if strings.TrimSpace(assetURL) == "" {
-		return nil, "", fmt.Errorf("missing %s url", assetName)
-	}
-
-	source := types.NewURLFileSource(strings.TrimSpace(assetURL))
-	loadCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	cachedData, err := LoadFileSource(loadCtx, source, "local_image_executor_edits")
-	if err != nil {
-		return nil, "", err
-	}
-	defer cachedData.Close()
-
-	base64Str, err := cachedData.GetBase64Data()
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get cached %s data: %w", assetName, err)
-	}
-	imageBytes, err := base64.StdEncoding.DecodeString(base64Str)
-	if err != nil {
-		return nil, "", fmt.Errorf("decode %s failed: %w", assetName, err)
-	}
-	return imageBytes, cachedData.MimeType, nil
-}
-
-func writeLocalImageMultipartFields(writer *multipart.Writer, imageReq dto.ImageRequest) error {
-	fields, err := localImageMultipartFields(imageReq)
-	if err != nil {
-		return err
-	}
-	for key, value := range fields {
-		if key == "image" || value == "" {
-			continue
-		}
-		if err = writer.WriteField(key, value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func localImageMultipartFields(imageReq dto.ImageRequest) (map[string]string, error) {
-	payload, err := common.Marshal(imageReq)
-	if err != nil {
-		return nil, err
-	}
-
-	rawFields := make(map[string]json.RawMessage)
-	if err = common.Unmarshal(payload, &rawFields); err != nil {
-		return nil, err
-	}
-
-	fields := make(map[string]string, len(rawFields))
-	for key, raw := range rawFields {
-		value, parseErr := jsonRawToFormValue(raw)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		fields[key] = value
-	}
-	return fields, nil
-}
-
-func jsonRawToFormValue(raw json.RawMessage) (string, error) {
-	trimmed := strings.TrimSpace(string(raw))
-	if trimmed == "" || trimmed == "null" {
-		return "", nil
-	}
-	if strings.HasPrefix(trimmed, "\"") {
-		var value string
-		if err := common.Unmarshal(raw, &value); err != nil {
-			return "", err
-		}
-		return value, nil
-	}
-	return trimmed, nil
-}
-
-func localImageInputFilename(mimeType string) string {
-	switch {
-	case strings.Contains(mimeType, "jpeg"):
-		return "input.jpg"
-	case strings.Contains(mimeType, "webp"):
-		return "input.webp"
-	case strings.Contains(mimeType, "gif"):
-		return "input.gif"
-	default:
-		return "input.png"
-	}
-}
-
-func resolveLocalImageTaskMode(task *model.Task) string {
-	if task == nil {
-		return "generations"
-	}
-	mode := strings.TrimSpace(task.PrivateData.ImageTaskMode)
-	if mode != "" {
-		return mode
-	}
-	if task.Properties.RequestPath == "/v1/images/edits" {
-		return "edits"
-	}
-	return "generations"
 }
 
 func applyLocalImageIdempotencyHeaders(httpReq *http.Request, key string) {

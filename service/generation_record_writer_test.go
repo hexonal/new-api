@@ -48,14 +48,22 @@ func TestBuildTaskFallbackRecordStoresRawResponse(t *testing.T) {
 func TestWriteSyncSuccessStoresTokenAndRawBodies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousEnabled := common.GenerationRecordEnabled.Load()
+	previousDB := model.DB
 	common.GenerationRecordEnabled.Store(true)
 	t.Cleanup(func() {
 		common.GenerationRecordEnabled.Store(previousEnabled)
+		model.DB = previousDB
 	})
 
 	var err error
 	model.DB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := model.DB.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
 	require.NoError(t, model.DB.AutoMigrate(&model.GenerationRecord{}))
 
 	recorder := httptest.NewRecorder()

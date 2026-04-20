@@ -121,7 +121,7 @@ func submitImageTaskForControllerTestWithHeaders(
 	ctx, _ := gin.CreateTestContext(recorder)
 	request := httptest.NewRequest(
 		http.MethodPost,
-		"/v1/images/generations",
+		"/v1/images",
 		strings.NewReader(`{"model":"dall-e-3","prompt":"idempotency test image"}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
