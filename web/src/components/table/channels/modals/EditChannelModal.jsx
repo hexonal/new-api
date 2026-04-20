@@ -2741,6 +2741,26 @@ const EditChannelModal = (props) => {
     </div>
   );
 
+  const routeProviderLabel =
+    CHANNEL_OPTIONS.find((option) => Number(option.value) === Number(inputs.type))
+      ?.label || t('未选择类型');
+  const routeStatusTone =
+    Number(inputs.status) === 1
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
+  const routeStatusLabel = Number(inputs.status) === 1 ? t('Enabled') : t('Disabled');
+  const routeResponseTimeText =
+    Number(inputs.response_time) > 0
+      ? `${Number(inputs.response_time).toFixed(2)}s`
+      : t('未测试');
+  const routeBalanceText =
+    inputs.balance !== undefined &&
+    inputs.balance !== null &&
+    inputs.balance !== '' &&
+    Number.isFinite(Number(inputs.balance))
+      ? `$${Number(inputs.balance).toFixed(2)}`
+      : '--';
+
   const LayoutWrapper = ({ children }) => {
     if (!isRouteMode) {
       return (
@@ -2780,17 +2800,35 @@ const EditChannelModal = (props) => {
                     {isEdit ? t('编辑渠道') : t('新建渠道')}
                   </span>
                 </div>
-                <div className='space-y-3'>
-                  <div className='inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700'>
-                    {isEdit ? t('Aurora Editor') : t('Aurora Creator')}
-                  </div>
-                  <div className='space-y-2'>
-                    <h1 className='font-headline text-3xl font-black tracking-[-0.03em] text-slate-950'>
-                      {isEdit ? t('编辑渠道') : t('新建渠道')}
-                    </h1>
-                    <p className='max-w-3xl text-sm leading-6 text-slate-600'>
-                      {t(
-                        '渠道字段、回填和保存逻辑沿用旧版成熟实现，但路由态页面恢复为 Aurora 工作台样式。',
+                  <div className='space-y-3'>
+                    <div className='inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700'>
+                      {isEdit ? t('Aurora Editor') : t('Aurora Creator')}
+                    </div>
+                    <div className='space-y-2'>
+                      <div className='flex flex-wrap items-center gap-3'>
+                        <h1 className='font-headline text-3xl font-black tracking-[-0.03em] text-slate-950'>
+                          {isEdit ? t('编辑渠道') : t('新建渠道')}
+                        </h1>
+                        <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500'>
+                          {routeProviderLabel}
+                        </span>
+                      </div>
+                      {isEdit ? (
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <span className='text-base font-medium text-slate-700'>
+                            {inputs.name || t('未命名渠道')}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${routeStatusTone}`}
+                          >
+                            <span className='h-2 w-2 rounded-full bg-current opacity-80' />
+                            {routeStatusLabel}
+                          </span>
+                        </div>
+                      ) : null}
+                      <p className='max-w-3xl text-sm leading-6 text-slate-600'>
+                        {t(
+                          '渠道字段、回填和保存逻辑沿用旧版成熟实现，但路由态页面恢复为 Aurora 工作台样式。',
                       )}
                     </p>
                   </div>
@@ -2818,23 +2856,73 @@ const EditChannelModal = (props) => {
               {children}
             </div>
             <div className='space-y-4'>
-              <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] lg:sticky lg:top-6'>
-                <div className='space-y-4 p-5'>
-                  <div>
-                    <Text className='text-base font-semibold text-slate-900'>
-                      {isEdit ? t('编辑导航') : t('创建导航')}
-                    </Text>
-                    <div className='mt-1 text-xs leading-5 text-slate-500'>
-                      {t('这里保留旧版完整字段能力，但不再使用旧版 SideSheet 外壳。')}
+                <Card className='!rounded-[24px] border-slate-200/80 bg-white/94 shadow-[0_24px_90px_-54px_rgba(79,70,229,0.42)] lg:sticky lg:top-6'>
+                  <div className='space-y-4 p-5'>
+                    <div>
+                      <Text className='text-base font-semibold text-slate-900'>
+                        {isEdit ? t('编辑工作台') : t('创建工作台')}
+                      </Text>
+                      <div className='mt-1 text-xs leading-5 text-slate-500'>
+                        {t('右侧保留 Stitch 风格的状态、摘要和操作区。')}
+                      </div>
                     </div>
+
+                    {isEdit ? (
+                      <div className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'>
+                        <div className='flex items-center justify-between'>
+                          <Text className='text-sm font-bold text-slate-900'>
+                            {t('渠道统计')}
+                          </Text>
+                          <span className='text-[10px] font-medium text-slate-400'>
+                            {t('实时')}
+                          </span>
+                        </div>
+                        <div className='mt-4 space-y-3'>
+                          <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
+                            <span className='text-sm text-slate-500'>
+                              {t('响应时间')}
+                            </span>
+                            <span className='text-sm font-bold text-emerald-600'>
+                              {routeResponseTimeText}
+                            </span>
+                          </div>
+                          <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
+                            <span className='text-sm text-slate-500'>
+                              {t('余额')}
+                            </span>
+                            <span className='text-sm font-bold text-slate-900'>
+                              {routeBalanceText}
+                            </span>
+                          </div>
+                          <div className='grid grid-cols-2 gap-3 pt-1'>
+                            <div>
+                              <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
+                                {t('优先级')}
+                              </div>
+                              <div className='mt-1 text-lg font-black text-slate-900'>
+                                {inputs.priority ?? 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div className='text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400'>
+                                {t('权重')}
+                              </div>
+                              <div className='mt-1 text-lg font-black text-slate-900'>
+                                {inputs.weight ?? 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className='rounded-2xl border border-slate-200 bg-white p-4'>
+                      {titleContent}
+                    </div>
+                    {footerContent}
                   </div>
-                  <div className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'>
-                    {titleContent}
-                  </div>
-                  {footerContent}
-                </div>
-              </Card>
-            </div>
+                </Card>
+              </div>
           </div>
         </div>
       </div>
@@ -2852,8 +2940,18 @@ const EditChannelModal = (props) => {
         >
           {() => (
             <Spin spinning={loading}>
-              <div className='p-2 space-y-3' ref={formContainerRef}>
-                <div ref={(el) => (formSectionRefs.current.basicInfo = el)}>
+              <div
+                className={
+                  isRouteMode
+                    ? 'grid items-start gap-5 p-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.9fr)]'
+                    : 'p-2 space-y-3'
+                }
+                ref={formContainerRef}
+              >
+                <div
+                  ref={(el) => (formSectionRefs.current.basicInfo = el)}
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
+                >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Basic Info */}
                     <div className='flex items-center mb-2'>
@@ -3570,7 +3668,10 @@ const EditChannelModal = (props) => {
 
                 {/* API Configuration Card */}
                 {showApiConfigCard && (
-                  <div ref={(el) => (formSectionRefs.current.apiConfig = el)}>
+                  <div
+                    ref={(el) => (formSectionRefs.current.apiConfig = el)}
+                    className={isRouteMode ? 'xl:col-start-1' : undefined}
+                  >
                     <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                       {/* Header: API Config */}
                       <div
@@ -3804,7 +3905,10 @@ const EditChannelModal = (props) => {
                 )}
 
                 {/* Model Configuration Card */}
-                <div ref={(el) => (formSectionRefs.current.modelConfig = el)}>
+                <div
+                  ref={(el) => (formSectionRefs.current.modelConfig = el)}
+                  className={isRouteMode ? 'xl:col-start-1' : undefined}
+                >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Model Config */}
                     <div className='flex items-center mb-2'>
@@ -4034,65 +4138,148 @@ const EditChannelModal = (props) => {
                       </>
                     )}
 
-                    <Form.Input
-                      field='test_model'
-                      label={t('默认测试模型')}
-                      placeholder={t('不填则为模型列表第一个')}
-                      onChange={(value) =>
-                        handleInputChange('test_model', value)
-                      }
-                      showClear
-                    />
+                    {!isRouteMode && (
+                      <>
+                        <Form.Input
+                          field='test_model'
+                          label={t('默认测试模型')}
+                          placeholder={t('不填则为模型列表第一个')}
+                          onChange={(value) =>
+                            handleInputChange('test_model', value)
+                          }
+                          showClear
+                        />
 
-                    <JSONEditor
-                      key={`model_mapping-${isEdit ? channelId : 'new'}`}
-                      field='model_mapping'
-                      label={t('模型重定向')}
-                      placeholder={
-                        t(
-                          '此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，例如：',
-                        ) +
-                        `\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`
-                      }
-                      value={inputs.model_mapping || ''}
-                      onChange={(value) =>
-                        handleInputChange('model_mapping', value)
-                      }
-                      template={MODEL_MAPPING_EXAMPLE}
-                      templateLabel={t('填入模板')}
-                      editorType='keyValue'
-                      formApi={formApiRef.current}
-                      renderStringValueSuffix={({ pairKey, value }) => {
-                        if (!MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type)) {
-                          return null;
-                        }
-                        const disabled = !String(pairKey ?? '').trim();
-                        return (
-                          <Tooltip content={t('选择模型')}>
-                            <Button
-                              type='tertiary'
-                              theme='borderless'
-                              size='small'
-                              icon={<IconSearch size={14} />}
-                              disabled={disabled}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openModelMappingValueModal({ pairKey, value });
-                              }}
-                            />
-                          </Tooltip>
-                        );
-                      }}
-                      extraText={t(
-                        '键为请求中的模型名称，值为要替换的模型名称',
-                      )}
-                    />
+                        <JSONEditor
+                          key={`model_mapping-${isEdit ? channelId : 'new'}`}
+                          field='model_mapping'
+                          label={t('模型重定向')}
+                          placeholder={
+                            t(
+                              '此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，例如：',
+                            ) +
+                            `\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`
+                          }
+                          value={inputs.model_mapping || ''}
+                          onChange={(value) =>
+                            handleInputChange('model_mapping', value)
+                          }
+                          template={MODEL_MAPPING_EXAMPLE}
+                          templateLabel={t('填入模板')}
+                          editorType='keyValue'
+                          formApi={formApiRef.current}
+                          renderStringValueSuffix={({ pairKey, value }) => {
+                            if (!MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type)) {
+                              return null;
+                            }
+                            const disabled = !String(pairKey ?? '').trim();
+                            return (
+                              <Tooltip content={t('选择模型')}>
+                                <Button
+                                  type='tertiary'
+                                  theme='borderless'
+                                  size='small'
+                                  icon={<IconSearch size={14} />}
+                                  disabled={disabled}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openModelMappingValueModal({ pairKey, value });
+                                  }}
+                                />
+                              </Tooltip>
+                            );
+                          }}
+                          extraText={t(
+                            '键为请求中的模型名称，值为要替换的模型名称',
+                          )}
+                        />
+                      </>
+                    )}
                   </Card>
                 </div>
+
+                {isRouteMode ? (
+                  <div className='xl:col-start-2'>
+                    <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                      <div className='flex items-center mb-2'>
+                        <Avatar
+                          size='small'
+                          color='indigo'
+                          className='mr-2 shadow-md'
+                        >
+                          <IconCode size={16} />
+                        </Avatar>
+                        <div>
+                          <Text className='text-lg font-medium'>
+                            {t('模型路由')}
+                          </Text>
+                          <div className='text-xs text-gray-600'>
+                            {t('将测试模型和路由规则单独放到右侧，贴近 Stitch 的信息结构')}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Form.Input
+                        field='test_model'
+                        label={t('默认测试模型')}
+                        placeholder={t('不填则为模型列表第一个')}
+                        onChange={(value) =>
+                          handleInputChange('test_model', value)
+                        }
+                        showClear
+                      />
+
+                      <JSONEditor
+                        key={`route-model_mapping-${isEdit ? channelId : 'new'}`}
+                        field='model_mapping'
+                        label={t('模型重定向')}
+                        placeholder={
+                          t(
+                            '此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，例如：',
+                          ) +
+                          `\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`
+                        }
+                        value={inputs.model_mapping || ''}
+                        onChange={(value) =>
+                          handleInputChange('model_mapping', value)
+                        }
+                        template={MODEL_MAPPING_EXAMPLE}
+                        templateLabel={t('填入模板')}
+                        editorType='keyValue'
+                        formApi={formApiRef.current}
+                        renderStringValueSuffix={({ pairKey, value }) => {
+                          if (!MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type)) {
+                            return null;
+                          }
+                          const disabled = !String(pairKey ?? '').trim();
+                          return (
+                            <Tooltip content={t('选择模型')}>
+                              <Button
+                                type='tertiary'
+                                theme='borderless'
+                                size='small'
+                                icon={<IconSearch size={14} />}
+                                disabled={disabled}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openModelMappingValueModal({ pairKey, value });
+                                }}
+                              />
+                            </Tooltip>
+                          );
+                        }}
+                        extraText={t(
+                          '键为请求中的模型名称，值为要替换的模型名称',
+                        )}
+                      />
+                    </Card>
+                  </div>
+                ) : null}
 
                 {/* Advanced Settings Card */}
                 <div
                   ref={(el) => (formSectionRefs.current.advancedSettings = el)}
+                  className={isRouteMode ? 'xl:col-start-2' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Advanced Settings */}
@@ -4734,6 +4921,7 @@ const EditChannelModal = (props) => {
                   ref={(el) =>
                     (formSectionRefs.current.channelExtraSettings = el)
                   }
+                  className={isRouteMode ? 'xl:col-start-2' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Channel Extra Settings */}
