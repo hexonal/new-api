@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"sync"
@@ -214,6 +215,46 @@ func TestUpdateWithStatus_ConcurrentWinner(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, winCount, "exactly one goroutine should win the CAS")
+}
+
+func TestUpdateWithStatus_PreserveNullIdempotencyKey(t *testing.T) {
+	truncateTables(t)
+
+	first := &Task{
+		TaskID:   "task_null_idem_first",
+		UserId:   1,
+		Status:   TaskStatusNotStart,
+		Progress: "0%",
+		Data:     json.RawMessage(`{}`),
+	}
+	second := &Task{
+		TaskID:   "task_null_idem_second",
+		UserId:   1,
+		Status:   TaskStatusNotStart,
+		Progress: "0%",
+		Data:     json.RawMessage(`{}`),
+	}
+	insertTask(t, first)
+	insertTask(t, second)
+
+	var before sql.NullString
+	require.NoError(t, DB.Raw("SELECT idempotency_key FROM tasks WHERE id = ?", first.ID).Scan(&before).Error)
+	assert.False(t, before.Valid)
+
+	first.Status = TaskStatusSuccess
+	first.Progress = "100%"
+	won, err := first.UpdateWithStatus(TaskStatusNotStart)
+	require.NoError(t, err)
+	assert.True(t, won)
+
+	var reloaded Task
+	require.NoError(t, DB.First(&reloaded, first.ID).Error)
+	assert.EqualValues(t, TaskStatusSuccess, reloaded.Status)
+	assert.Equal(t, "100%", reloaded.Progress)
+
+	var after sql.NullString
+	require.NoError(t, DB.Raw("SELECT idempotency_key FROM tasks WHERE id = ?", first.ID).Scan(&after).Error)
+	assert.False(t, after.Valid)
 }
 
 func TestTaskAutoMigrateClaimAndIdempotencyColumns(t *testing.T) {

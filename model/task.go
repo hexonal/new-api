@@ -494,7 +494,13 @@ func (Task *Task) Update() error {
 // falls back to INSERT ON CONFLICT when the WHERE-guarded UPDATE matches
 // zero rows, which silently bypasses the CAS guard.
 func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
-	result := DB.Model(t).Where("status = ?", fromStatus).Select("*").Updates(t)
+	// idempotency_key may be NULL in DB; omitting it avoids coercing NULL to ""
+	// during CAS updates, which would violate idx_task_idem for legacy tasks.
+	result := DB.Model(t).
+		Where("status = ?", fromStatus).
+		Select("*").
+		Omit("idempotency_key").
+		Updates(t)
 	if result.Error != nil {
 		return false, result.Error
 	}
