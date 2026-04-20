@@ -39,3 +39,4 @@ data/
 .gocache-temp
 .gopath
 .agents/skills/.system
+.omx/

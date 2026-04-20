@@ -298,6 +298,7 @@ var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp 
 	relayconstant.RelayModeSunoFetchByID:  sunoFetchByIDRespBodyBuilder,
 	relayconstant.RelayModeSunoFetch:      sunoFetchRespBodyBuilder,
 	relayconstant.RelayModeVideoFetchByID: videoFetchByIDRespBodyBuilder,
+	relayconstant.RelayModeImageFetchByID: imageTaskFetchByIDRespBodyBuilder,
 }
 
 func RelayTaskFetch(c *gin.Context, relayMode int) (taskResp *dto.TaskError) {
@@ -442,6 +443,101 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
 	return
+}
+
+func imageTaskFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dto.TaskError) {
+	taskId := c.Param("task_id")
+	if taskId == "" {
+		taskId = c.GetString("task_id")
+	}
+	userId := c.GetInt("id")
+
+	originTask, exist, err := model.GetByTaskId(userId, taskId)
+	if err != nil {
+		taskResp = service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
+		return
+	}
+	if !exist {
+		taskResp = service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
+		return
+	}
+
+	publicResp := buildImageTaskFetchResponse(originTask)
+	respBody, err = common.Marshal(publicResp)
+	if err != nil {
+		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
+	}
+	return
+}
+
+func buildImageTaskFetchResponse(task *model.Task) dto.ImageTaskPublicResponse {
+	createdAt := task.CreatedAt
+	if createdAt == 0 {
+		createdAt = task.SubmitTime
+	}
+
+	modelName := strings.TrimSpace(task.Properties.OriginModelName)
+	if modelName == "" {
+		modelName = strings.TrimSpace(task.Properties.UpstreamModelName)
+	}
+
+	resp := dto.ImageTaskPublicResponse{
+		ID:        task.TaskID,
+		Object:    "image",
+		Status:    task.Status.ToVideoStatus(),
+		Model:     modelName,
+		CreatedAt: createdAt,
+	}
+	if task.FinishTime > 0 {
+		resp.CompletedAt = task.FinishTime
+	}
+
+	resultItems := buildImageTaskResultItems(task)
+	if len(resultItems) > 0 {
+		resp.Result = &dto.ImageResult{
+			Data: resultItems,
+		}
+	}
+
+	if task.Status == model.TaskStatusFailure && strings.TrimSpace(task.FailReason) != "" {
+		resp.Error = &dto.ImageError{
+			Code:    "task_failed",
+			Message: strings.TrimSpace(task.FailReason),
+		}
+	}
+	return resp
+}
+
+func buildImageTaskResultItems(task *model.Task) []dto.ImageResultItem {
+	if task == nil {
+		return nil
+	}
+
+	var imageResp dto.ImageResponse
+	if len(task.Data) > 0 && common.Unmarshal(task.Data, &imageResp) == nil && len(imageResp.Data) > 0 {
+		items := make([]dto.ImageResultItem, 0, len(imageResp.Data))
+		for _, data := range imageResp.Data {
+			item := dto.ImageResultItem{
+				URL:     strings.TrimSpace(data.Url),
+				B64JSON: strings.TrimSpace(data.B64Json),
+			}
+			if item.URL == "" && item.B64JSON == "" {
+				continue
+			}
+			items = append(items, item)
+		}
+		if len(items) > 0 {
+			return items
+		}
+	}
+
+	resultURL := strings.TrimSpace(task.GetResultURL())
+	if resultURL == "" {
+		return nil
+	}
+	return []dto.ImageResultItem{{
+		URL: resultURL,
+	}}
 }
 
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。

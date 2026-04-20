@@ -29,6 +29,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
@@ -499,9 +500,22 @@ func RelayTask(c *gin.Context) {
 		})
 		return
 	}
+	runTaskRelaySubmit(c, relayInfo)
+}
 
+func runTaskRelaySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) {
 	if taskErr := relay.ResolveOriginTask(c, relayInfo); taskErr != nil {
 		respondTaskError(c, taskErr)
+		return
+	}
+
+	reservedTask, alreadyExists, reserveErr := reserveIdempotencyTaskRow(c, relayInfo)
+	if reserveErr != nil {
+		respondTaskError(c, service.TaskErrorWrapperLocal(reserveErr, "idempotency_reserve_failed", http.StatusInternalServerError))
+		return
+	}
+	if alreadyExists && reservedTask != nil {
+		c.JSON(http.StatusOK, buildImageTaskSubmitResponse(reservedTask))
 		return
 	}
 
@@ -581,11 +595,6 @@ func RelayTask(c *gin.Context) {
 
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
-		if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
-			common.SysError("settle task billing error: " + settleErr.Error())
-		}
-		service.LogTaskConsumption(c, relayInfo)
-
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 		task.PrivateData.BillingSource = relayInfo.BillingSource
@@ -600,22 +609,152 @@ func RelayTask(c *gin.Context) {
 			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
 		}
 		task.Quota = result.Quota
+		if task.PrivateData.InputRequest == "" {
+			if requestBytes, ok := c.Get("image_input_request"); ok {
+				if raw, ok := requestBytes.([]byte); ok && len(raw) > 0 {
+					task.PrivateData.InputRequest = string(raw)
+				}
+			}
+		}
+		if task.PrivateData.InputImageURL == "" && relayInfo.TaskRelayInfo != nil {
+			task.PrivateData.InputImageURL = strings.TrimSpace(relayInfo.TaskRelayInfo.InputImageURL)
+		}
+		if task.PrivateData.InputMaskURL == "" && relayInfo.TaskRelayInfo != nil {
+			task.PrivateData.InputMaskURL = strings.TrimSpace(relayInfo.TaskRelayInfo.InputMaskURL)
+		}
 		task.Properties.Input = service.BuildTaskLogInputBody(c, relayInfo)
 		if c.Request != nil && c.Request.URL != nil {
 			task.Properties.RequestPath = c.Request.URL.Path
 		}
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
-		if insertErr := task.Insert(); insertErr != nil {
-			common.SysError("insert task error: " + insertErr.Error())
+		if persistErr := persistTaskSubmitRecord(task, reservedTask); persistErr != nil {
+			if existingTask, recovered := recoverImageTaskInsertIdempotencyConflict(result.Platform, relayInfo, task, persistErr); recovered {
+				c.JSON(http.StatusOK, buildImageTaskSubmitResponse(existingTask))
+				return
+			}
+			taskErr = service.TaskErrorWrapperLocal(persistErr, "persist_task_failed", http.StatusConflict)
 		} else {
+			if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
+				common.SysError("settle task billing error: " + settleErr.Error())
+			}
+			service.LogTaskConsumption(c, relayInfo)
 			service.WriteAsyncSubmitted(c, relayInfo, task)
+			if result.Platform == constant.TaskPlatformImage {
+				c.JSON(http.StatusOK, buildImageTaskSubmitResponse(task))
+				return
+			}
 		}
 	}
 
 	if taskErr != nil {
 		respondTaskError(c, taskErr)
 	}
+}
+
+func reserveIdempotencyTaskRow(
+	c *gin.Context,
+	relayInfo *relaycommon.RelayInfo,
+) (*model.Task, bool, error) {
+	if relayInfo == nil || relayInfo.TaskRelayInfo == nil {
+		return nil, false, nil
+	}
+
+	key := strings.TrimSpace(relayInfo.TaskRelayInfo.ClientIdempotencyKey)
+	if key == "" {
+		return nil, false, nil
+	}
+
+	existingTask, err := model.GetTaskByUserAndIdempotencyKey(relayInfo.UserId, key)
+	if err != nil {
+		return nil, false, err
+	}
+	if existingTask != nil {
+		return existingTask, true, nil
+	}
+
+	platform := constant.TaskPlatform(c.GetString("platform"))
+	if platform == "" {
+		platform = relay.GetTaskPlatform(c)
+	}
+
+	properties := model.Properties{}
+	if relayInfo.ChannelMeta != nil && relayInfo.UpstreamModelName != "" {
+		properties.UpstreamModelName = relayInfo.UpstreamModelName
+	}
+	if relayInfo.OriginModelName != "" {
+		properties.OriginModelName = relayInfo.OriginModelName
+	}
+
+	taskID := relayInfo.TaskRelayInfo.PublicTaskID
+	if taskID == "" {
+		taskID = model.GenerateTaskID()
+		relayInfo.TaskRelayInfo.PublicTaskID = taskID
+	}
+
+	placeholder := &model.Task{
+		TaskID:         taskID,
+		UserId:         relayInfo.UserId,
+		Group:          relayInfo.UsingGroup,
+		ChannelId:      common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+		Platform:       platform,
+		Action:         relayInfo.Action,
+		Status:         model.TaskStatusNotStart,
+		SubmitTime:     time.Now().Unix(),
+		Progress:       "0%",
+		Properties:     properties,
+		IdempotencyKey: key,
+		PrivateData: model.TaskPrivateData{
+			InputImageURL:          strings.TrimSpace(relayInfo.TaskRelayInfo.InputImageURL),
+			InputMaskURL:           strings.TrimSpace(relayInfo.TaskRelayInfo.InputMaskURL),
+			ImageTaskMode:          strings.TrimSpace(relayInfo.TaskRelayInfo.Mode),
+			InputRequest:           relayInfo.TaskRelayInfo.InputRequest,
+			UpstreamIdempotencyKey: strings.TrimSpace(relayInfo.TaskRelayInfo.IdempotencyKey),
+		},
+	}
+	if insertErr := placeholder.Insert(); insertErr != nil {
+		if !isTaskInsertIdempotencyConflict(insertErr) {
+			return nil, false, insertErr
+		}
+		existingTask, err = model.GetTaskByUserAndIdempotencyKey(relayInfo.UserId, key)
+		if err != nil {
+			return nil, false, err
+		}
+		if existingTask == nil {
+			return nil, false, fmt.Errorf("idempotency conflict but existing task not found")
+		}
+		return existingTask, true, nil
+	}
+
+	return placeholder, false, nil
+}
+
+func persistTaskSubmitRecord(task *model.Task, reservedTask *model.Task) error {
+	if reservedTask == nil {
+		return task.Insert()
+	}
+
+	reservedTask.TaskID = task.TaskID
+	reservedTask.Platform = task.Platform
+	reservedTask.UserId = task.UserId
+	reservedTask.Group = task.Group
+	reservedTask.ChannelId = task.ChannelId
+	reservedTask.Quota = task.Quota
+	reservedTask.Action = task.Action
+	reservedTask.Status = task.Status
+	reservedTask.FailReason = task.FailReason
+	reservedTask.SubmitTime = task.SubmitTime
+	reservedTask.StartTime = task.StartTime
+	reservedTask.FinishTime = task.FinishTime
+	reservedTask.Progress = task.Progress
+	reservedTask.WorkerID = task.WorkerID
+	reservedTask.HeartbeatAt = task.HeartbeatAt
+	reservedTask.IdempotencyKey = task.IdempotencyKey
+	reservedTask.ReclaimCount = task.ReclaimCount
+	reservedTask.Properties = task.Properties
+	reservedTask.PrivateData = task.PrivateData
+	reservedTask.Data = task.Data
+	return reservedTask.Update()
 }
 
 // respondTaskError 统一输出 Task 错误响应（含 429 限流提示改写）
@@ -681,4 +820,38 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 		return false
 	}
 	return true
+}
+
+func recoverImageTaskInsertIdempotencyConflict(
+	platform constant.TaskPlatform,
+	relayInfo *relaycommon.RelayInfo,
+	task *model.Task,
+	insertErr error,
+) (*model.Task, bool) {
+	if platform != constant.TaskPlatformImage || relayInfo == nil || relayInfo.TaskRelayInfo == nil {
+		return nil, false
+	}
+	if strings.TrimSpace(relayInfo.TaskRelayInfo.ClientIdempotencyKey) == "" || !isTaskInsertIdempotencyConflict(insertErr) {
+		return nil, false
+	}
+
+	existingTask, err := model.GetTaskByUserAndIdempotencyKey(task.UserId, relayInfo.TaskRelayInfo.ClientIdempotencyKey)
+	if err != nil || existingTask == nil {
+		return nil, false
+	}
+	return existingTask, true
+}
+
+func isTaskInsertIdempotencyConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate") ||
+		strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "unique_violation") ||
+		strings.Contains(msg, "error 1062")
 }

@@ -54,6 +54,7 @@ type consumeCallbackPayload struct {
 	AmountUSD        float64 `json:"amount_usd"`
 	Timestamp        int64   `json:"timestamp"`
 	EventPhase       string  `json:"event_phase"`
+	TaskID           string  `json:"task_id,omitempty"`
 }
 
 func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usage ConsumeCallbackUsage) {
@@ -77,16 +78,15 @@ func SendConsumeSettleCallback(relayInfo *relaycommon.RelayInfo, quota int, usag
 		ConsumeCallbackPhaseSettle,
 	)
 	applyJWTHeaderConsumeCallbackOverrides(relayInfo, &payload)
-	dispatchConsumeCallback(payload)
+	consumeCallbackDispatcher(payload)
 }
 
 func SendConsumeFinalAdjustCallback(task *model.Task, quota int, usage ConsumeCallbackUsage) {
-	// 回退 task/mj 接入：异步任务差额结算不再触发消费回调。
-	// 保留函数以兼容现有调用方，避免影响计费链路。
-	_ = task
-	_ = quota
-	_ = usage
-	return
+	if task == nil {
+		return
+	}
+	payload := newConsumeCallbackPayloadForTask(task, usage, quota, ConsumeCallbackPhaseFinalAdjust)
+	consumeCallbackDispatcher(payload)
 }
 
 func newConsumeCallbackPayload(
@@ -128,6 +128,39 @@ func newConsumeCallbackPayload(
 		Timestamp:        common.GetTimestamp(),
 		EventPhase:       strings.TrimSpace(eventPhase),
 	}
+}
+
+func newConsumeCallbackPayloadForTask(task *model.Task, usage ConsumeCallbackUsage, quota int, phase string) consumeCallbackPayload {
+	userID := maxInt(task.UserId, 0)
+	tokenID := 0
+	billingSource := ""
+	if task.PrivateData.TokenId > 0 {
+		tokenID = task.PrivateData.TokenId
+	}
+	if task.PrivateData.BillingSource != "" {
+		billingSource = task.PrivateData.BillingSource
+	}
+	modelName := ""
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.OriginModelName != "" {
+		modelName = bc.OriginModelName
+	} else {
+		modelName = task.Properties.OriginModelName
+	}
+	payload := newConsumeCallbackPayload(
+		strings.TrimSpace(task.TaskID),
+		userID,
+		tokenID,
+		"",
+		"",
+		modelName,
+		task.ChannelId,
+		billingSource,
+		usage,
+		quota,
+		phase,
+	)
+	payload.TaskID = strings.TrimSpace(task.TaskID)
+	return payload
 }
 
 type consumeCallbackTokenIdentity struct {
@@ -344,6 +377,9 @@ func quotaToAmountUSD(quota int) float64 {
 	amount := float64(quota) / common.QuotaPerUnit
 	return math.Round(amount*1e6) / 1e6
 }
+
+// consumeCallbackDispatcher 是实际发送消费回调的函数入口；测试可替换为 spy
+var consumeCallbackDispatcher = dispatchConsumeCallback
 
 func dispatchConsumeCallback(payload consumeCallbackPayload) {
 	enabled, callbackURL, secret, usernamePrefixFilter := getConsumeCallbackOptions()

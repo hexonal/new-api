@@ -215,3 +215,18 @@ func TestUpdateWithStatus_ConcurrentWinner(t *testing.T) {
 	}
 	assert.Equal(t, 1, winCount, "exactly one goroutine should win the CAS")
 }
+
+func TestTaskAutoMigrateClaimAndIdempotencyColumns(t *testing.T) {
+	columns := []string{
+		"worker_id",
+		"heartbeat_at",
+		"idempotency_key",
+		"reclaim_count",
+	}
+	for _, column := range columns {
+		assert.True(t, DB.Migrator().HasColumn(&Task{}, column), "expected tasks.%s to exist", column)
+	}
+
+	assert.True(t, DB.Migrator().HasIndex(&Task{}, "idx_task_claim"))
+	assert.True(t, DB.Migrator().HasIndex(&Task{}, "idx_task_idem"))
+}

@@ -20,6 +20,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // TaskPollingAdaptor 定义轮询所需的最小适配器接口，避免 service -> relay 的循环依赖
@@ -56,13 +57,45 @@ func sweepTimedOutTasks(ctx context.Context) {
 	timedOutCount := 0
 
 	for _, task := range tasks {
+		if task.Platform == constant.TaskPlatformImage {
+			staleLeaseCutoff := now - getLocalImageLeaseTimeoutSeconds()
+			switch {
+			case task.Status == model.TaskStatusInProgress && task.HeartbeatAt >= staleLeaseCutoff:
+				continue
+			case task.Status == model.TaskStatusInProgress && task.HeartbeatAt > 0 && task.HeartbeatAt < staleLeaseCutoff:
+				if task.ReclaimCount >= constant.MaxLocalImageReclaimCount {
+					task.FailReason = fmt.Sprintf("本地图像任务超时重试 %d 次放弃", task.ReclaimCount)
+					break
+				}
+
+				reclaimResult := model.DB.Model(&model.Task{}).
+					Where("id = ? AND status = ? AND heartbeat_at < ?", task.ID, model.TaskStatusInProgress, staleLeaseCutoff).
+					Updates(map[string]any{
+						"status":        model.TaskStatusSubmitted,
+						"worker_id":     "",
+						"heartbeat_at":  0,
+						"reclaim_count": gorm.Expr("reclaim_count + 1"),
+					})
+				if reclaimResult.Error == nil && reclaimResult.RowsAffected > 0 {
+					logger.LogInfo(ctx, fmt.Sprintf("local_image task %s reclaimed (attempt %d/%d)",
+						task.TaskID, task.ReclaimCount+1, constant.MaxLocalImageReclaimCount))
+					continue
+				}
+				task.FailReason = fmt.Sprintf("本地图像任务租约回收失败：%s", task.Status)
+			default:
+				task.FailReason = fmt.Sprintf("本地图像任务超时未被执行：%s", task.Status)
+			}
+		}
+
 		isLegacy := task.SubmitTime > 0 && task.SubmitTime < legacyTaskCutoff
 
 		oldStatus := task.Status
 		task.Status = model.TaskStatusFailure
 		task.Progress = "100%"
 		task.FinishTime = now
-		if isLegacy {
+		if task.FailReason != "" {
+			// 保留上方 image reclaim 超限时设置的自定义失败原因
+		} else if isLegacy {
 			task.FailReason = legacyReason
 		} else {
 			task.FailReason = reason

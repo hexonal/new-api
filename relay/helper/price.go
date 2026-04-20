@@ -166,6 +166,9 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		}
 
 	}
+	if info != nil && info.TokenCountMeta.ImagePriceRatio != 0 {
+		modelPrice = modelPrice * info.TokenCountMeta.ImagePriceRatio
+	}
 	quota := int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 
 	// 免费模型检测（与 ModelPriceHelper 对齐）

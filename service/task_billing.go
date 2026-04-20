@@ -252,6 +252,9 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Group:     task.Group,
 		Other:     other,
 	})
+	if logType == model.LogTypeConsume {
+		SendConsumeFinalAdjustCallback(task, actualQuota, ConsumeCallbackUsage{})
+	}
 	WriteAsyncBillingPatch(ctx, task, actualQuota)
 	if preConsumedQuota > actualQuota {
 		WriteAsyncRefund(ctx, task, model.RefundStatusDeltaRefund, preConsumedQuota-actualQuota)

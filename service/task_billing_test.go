@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/glebarez/sqlite"
@@ -35,6 +36,8 @@ func TestMain(m *testing.M) {
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	constant.MaxFileDownloadMB = 64
+	model.InitColumnNames()
 
 	if err := db.AutoMigrate(
 		&model.Task{},
@@ -43,6 +46,7 @@ func TestMain(m *testing.M) {
 		&model.Log{},
 		&model.Channel{},
 		&model.UserSubscription{},
+		&model.GenerationRecord{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -711,4 +715,44 @@ func TestSettle_NonPerCall_AdaptorAdjustWorks(t *testing.T) {
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
+}
+
+func TestRecalculateTaskQuota_TriggersCallbackOnSuccess(t *testing.T) {
+	truncate(t)
+	seedUser(t, 1, 1000)
+	seedToken(t, 1, 1, "sk-test", 5000)
+	var captured []consumeCallbackPayload
+	original := consumeCallbackDispatcher
+	consumeCallbackDispatcher = func(p consumeCallbackPayload) {
+		captured = append(captured, p)
+	}
+	t.Cleanup(func() { consumeCallbackDispatcher = original })
+
+	task := &model.Task{UserId: 1, TaskID: "t1", ChannelId: 1, Quota: 100}
+	task.PrivateData.TokenId = 1
+	task.Properties.OriginModelName = "dall-e-3"
+	require.NoError(t, model.DB.Create(task).Error)
+	RecalculateTaskQuota(context.Background(), task, 300, "test")
+
+	require.Len(t, captured, 1)
+	assert.Equal(t, ConsumeCallbackPhaseFinalAdjust, captured[0].EventPhase)
+}
+
+func TestRefundTaskQuota_DoesNotTriggerCallback(t *testing.T) {
+	truncate(t)
+	seedUser(t, 1, 0)
+	seedToken(t, 1, 1, "sk-test", 5000)
+	var captured []consumeCallbackPayload
+	original := consumeCallbackDispatcher
+	consumeCallbackDispatcher = func(p consumeCallbackPayload) {
+		captured = append(captured, p)
+	}
+	t.Cleanup(func() { consumeCallbackDispatcher = original })
+
+	task := &model.Task{UserId: 1, TaskID: "t-fail", ChannelId: 1, Quota: 100}
+	task.PrivateData.TokenId = 1
+	require.NoError(t, model.DB.Create(task).Error)
+	RefundTaskQuota(context.Background(), task, "failed")
+
+	assert.Len(t, captured, 0)
 }

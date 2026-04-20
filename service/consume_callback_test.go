@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeConsumeUsage_DerivesPromptTokens(t *testing.T) {
@@ -401,4 +403,44 @@ func TestBuildEffectiveConsumeCallbackPrefixFilter(t *testing.T) {
 		got := buildEffectiveConsumeCallbackPrefixFilter("", nil)
 		assert.Equal(t, "", got)
 	})
+}
+
+func TestSendConsumeFinalAdjustCallback_TriggersForSuccessfulTask(t *testing.T) {
+	var captured []consumeCallbackPayload
+	original := consumeCallbackDispatcher
+	consumeCallbackDispatcher = func(p consumeCallbackPayload) {
+		captured = append(captured, p)
+	}
+	t.Cleanup(func() { consumeCallbackDispatcher = original })
+
+	task := &model.Task{
+		TaskID:    "task-abc-123",
+		UserId:    42,
+		ChannelId: 7,
+		Group:     "default",
+	}
+	task.Properties.OriginModelName = "dall-e-3"
+	task.PrivateData.TokenId = 99
+
+	SendConsumeFinalAdjustCallback(task, 150, ConsumeCallbackUsage{})
+
+	require.Len(t, captured, 1, "should dispatch exactly once for a non-nil task")
+	assert.Equal(t, "task-abc-123", captured[0].RequestID)
+	assert.Equal(t, 42, captured[0].UserID)
+	assert.Equal(t, "dall-e-3", captured[0].ModelName)
+	assert.Equal(t, 7, captured[0].ChannelID)
+	assert.Equal(t, 150, captured[0].Quota)
+	assert.Equal(t, ConsumeCallbackPhaseFinalAdjust, captured[0].EventPhase)
+}
+
+func TestSendConsumeFinalAdjustCallback_NoopForNilTask(t *testing.T) {
+	var captured []consumeCallbackPayload
+	original := consumeCallbackDispatcher
+	consumeCallbackDispatcher = func(p consumeCallbackPayload) {
+		captured = append(captured, p)
+	}
+	t.Cleanup(func() { consumeCallbackDispatcher = original })
+
+	SendConsumeFinalAdjustCallback(nil, 100, ConsumeCallbackUsage{})
+	assert.Len(t, captured, 0)
 }

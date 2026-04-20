@@ -80,6 +80,7 @@ type ChannelMeta struct {
 type TokenCountMeta struct {
 	//promptTokens int
 	estimatePromptTokens int
+	ImagePriceRatio      float64
 }
 
 type RelayInfo struct {
@@ -565,6 +566,10 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 	case types.RelayFormatMjProxy:
 		info = genBaseRelayInfo(c, nil)
 		info.TaskRelayInfo = &TaskRelayInfo{}
+	case types.RelayFormatImageTask:
+		info = genBaseRelayInfo(c, nil)
+		info.TaskRelayInfo = &TaskRelayInfo{}
+		info.RelayFormat = types.RelayFormatImageTask
 	default:
 		err = errors.New("invalid relay format")
 	}
@@ -659,9 +664,21 @@ func (info *RelayInfo) HasSendResponse() bool {
 type TaskRelayInfo struct {
 	Action       string
 	OriginTaskID string
+	// Mode 标识 image task 的重放模式：generations / edits。
+	Mode string
 	// PublicTaskID 是提交时预生成的 task_xxxx 格式公开 ID，
 	// 供 DoResponse 在返回给客户端时使用（避免暴露上游真实 ID）。
 	PublicTaskID string
+	// InputImageURL 是 /v1/images/edits 的 multipart 图像 S3 归档 URL。
+	InputImageURL string
+	// InputMaskURL 是 /v1/images/edits 的可选 mask 归档 URL。
+	InputMaskURL string
+	// InputRequest 保存可重放的请求快照（当前用于 image task JSON 重放）。
+	InputRequest string
+	// IdempotencyKey 用于 worker 重试时向上游透传幂等键。
+	IdempotencyKey string
+	// ClientIdempotencyKey 是客户端提交的幂等键，用于本地任务去重。
+	ClientIdempotencyKey string
 
 	ConsumeQuota bool
 

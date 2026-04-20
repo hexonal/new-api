@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -136,6 +138,13 @@ func main() {
 		}
 		return a
 	}
+	service.GetChannelAdaptorFunc = func(apiType int) service.ImageChannelAdaptor {
+		a := relay.GetAdaptor(apiType)
+		if a == nil {
+			return nil
+		}
+		return a
+	}
 
 	// Channel upstream model update check task
 	controller.StartChannelUpstreamModelUpdateTask()
@@ -222,10 +231,37 @@ func main() {
 	// Log startup success message
 	common.LogStartupSuccess(startTime, port)
 
-	err = server.Run(":" + port)
-	if err != nil {
+	workerPool := service.NewLocalImageWorkerPool()
+	workerPool.Start(context.Background())
+
+	httpServer := &http.Server{
+		Addr:    ":" + port,
+		Handler: server,
+	}
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+		<-sigCh
+		common.SysLog("[shutdown] signal received, starting graceful shutdown")
+
+		router.MarkDraining()
+		time.Sleep(15 * time.Second)
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		if shutdownErr := workerPool.Shutdown(shutdownCtx); shutdownErr != nil {
+			common.SysError(fmt.Sprintf("[shutdown] worker pool error: %s", shutdownErr.Error()))
+		}
+		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+			common.SysError(fmt.Sprintf("[shutdown] http server error: %s", shutdownErr.Error()))
+		}
+	}()
+
+	if err = httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		common.FatalLog("failed to start HTTP server: " + err.Error())
 	}
+	common.SysLog("[shutdown] http server stopped gracefully")
 }
 
 func InjectUmamiAnalytics() {

@@ -36,3 +36,13 @@ func ResetDefaultForTest() {
 	defaultOnce = sync.Once{}
 	defaultInstance = nil
 }
+
+// SetDefaultForTest 仅用于测试：注入测试专用的 Archiver 单例。
+// 生产代码不得调用。
+func SetDefaultForTest(instance *Archiver) {
+	defaultOnce = sync.Once{}
+	defaultInstance = instance
+	if instance != nil {
+		defaultOnce.Do(func() {})
+	}
+}

@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
+	"gorm.io/gorm"
 )
 
 type TaskStatus string
@@ -42,25 +45,29 @@ const (
 )
 
 type Task struct {
-	ID          int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
-	CreatedAt   int64                 `json:"created_at" gorm:"index"`
-	UpdatedAt   int64                 `json:"updated_at"`
-	TaskID      string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
-	Platform    constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
-	UserId      int                   `json:"user_id" gorm:"index"`
-	Group       string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
-	ChannelId   int                   `json:"channel_id" gorm:"index"`
-	ChannelName string                `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
-	Quota       int                   `json:"quota"`
-	Action      string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
-	Status      TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
-	FailReason  string                `json:"fail_reason"`
-	SubmitTime  int64                 `json:"submit_time" gorm:"index"`
-	StartTime   int64                 `json:"start_time" gorm:"index"`
-	FinishTime  int64                 `json:"finish_time" gorm:"index"`
-	Progress    string                `json:"progress" gorm:"type:varchar(20);index"`
-	Properties  Properties            `json:"properties" gorm:"type:json"`
-	Username    string                `json:"username,omitempty" gorm:"-"`
+	ID             int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
+	CreatedAt      int64                 `json:"created_at" gorm:"index"`
+	UpdatedAt      int64                 `json:"updated_at"`
+	TaskID         string                `json:"task_id" gorm:"type:varchar(191);index"`                                 // 第三方id，不一定有/ song id\ Task id
+	Platform       constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index;index:idx_task_claim,priority:2"` // 平台
+	UserId         int                   `json:"user_id" gorm:"index;uniqueIndex:idx_task_idem,priority:1"`
+	Group          string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
+	ChannelId      int                   `json:"channel_id" gorm:"index"`
+	ChannelName    string                `json:"channel_name,omitempty" gorm:"->;column:channel_name"`
+	Quota          int                   `json:"quota"`
+	Action         string                `json:"action" gorm:"type:varchar(40);index"`                                 // 任务类型, song, lyrics, description-mode
+	Status         TaskStatus            `json:"status" gorm:"type:varchar(20);index;index:idx_task_claim,priority:1"` // 任务状态
+	FailReason     string                `json:"fail_reason"`
+	SubmitTime     int64                 `json:"submit_time" gorm:"index"`
+	StartTime      int64                 `json:"start_time" gorm:"index"`
+	FinishTime     int64                 `json:"finish_time" gorm:"index"`
+	Progress       string                `json:"progress" gorm:"type:varchar(20);index"`
+	WorkerID       string                `json:"worker_id,omitempty" gorm:"type:varchar(64);default:null"`
+	HeartbeatAt    int64                 `json:"heartbeat_at,omitempty" gorm:"default:0;index:idx_task_claim,priority:3"`
+	IdempotencyKey string                `json:"idempotency_key,omitempty" gorm:"type:varchar(64);default:null;uniqueIndex:idx_task_idem,priority:2"`
+	ReclaimCount   int                   `json:"reclaim_count,omitempty" gorm:"default:0"`
+	Properties     Properties            `json:"properties" gorm:"type:json"`
+	Username       string                `json:"username,omitempty" gorm:"-"`
 	// 禁止返回给用户，内部可能包含key等隐私信息
 	PrivateData TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
 	Data        json.RawMessage `json:"data" gorm:"type:json"`
@@ -103,10 +110,17 @@ type TaskPrivateData struct {
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
-	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
-	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
-	TokenId        int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
-	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
+	BillingSource          string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
+	SubscriptionId         int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
+	TokenId                int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
+	BillingContext         *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
+	InputImageURL          string              `json:"input_image_url,omitempty"`
+	InputMaskURL           string              `json:"input_mask_url,omitempty"`
+	ImageTaskMode          string              `json:"image_task_mode,omitempty"`
+	InputRequest           string              `json:"input_request,omitempty"`
+	OutputImageURL         string              `json:"output_image_url,omitempty"`
+	UpstreamIdempotencyKey string              `json:"upstream_idempotency_key,omitempty"`
+	RetryCount             int                 `json:"retry_count,omitempty"`
 }
 
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
@@ -186,6 +200,13 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 			properties.OriginModelName = relayInfo.OriginModelName
 		}
 	}
+	if relayInfo != nil && relayInfo.TaskRelayInfo != nil {
+		privateData.InputImageURL = strings.TrimSpace(relayInfo.TaskRelayInfo.InputImageURL)
+		privateData.InputMaskURL = strings.TrimSpace(relayInfo.TaskRelayInfo.InputMaskURL)
+		privateData.ImageTaskMode = strings.TrimSpace(relayInfo.TaskRelayInfo.Mode)
+		privateData.InputRequest = relayInfo.TaskRelayInfo.InputRequest
+		privateData.UpstreamIdempotencyKey = strings.TrimSpace(relayInfo.TaskRelayInfo.IdempotencyKey)
+	}
 
 	// 使用预生成的公开 ID（如果有），否则新生成
 	taskID := ""
@@ -206,6 +227,9 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 		Platform:    platform,
 		Properties:  properties,
 		PrivateData: privateData,
+	}
+	if relayInfo != nil && relayInfo.TaskRelayInfo != nil {
+		t.IdempotencyKey = strings.TrimSpace(relayInfo.TaskRelayInfo.ClientIdempotencyKey)
 	}
 	return t
 }
@@ -382,6 +406,23 @@ func GetTaskByTaskID(taskID string) *Task {
 		return nil
 	}
 	return &task
+}
+
+func GetTaskByUserAndIdempotencyKey(userID int, key string) (*Task, error) {
+	key = strings.TrimSpace(key)
+	if userID <= 0 || key == "" {
+		return nil, nil
+	}
+
+	var task Task
+	err := DB.Where("user_id = ? AND idempotency_key = ?", userID, key).First(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
 func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {

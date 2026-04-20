@@ -257,6 +257,21 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		if _, ok := c.Get("relay_mode"); !ok {
 			c.Set("relay_mode", relayMode)
 		}
+	} else if isImageTaskRoute(c.Request.URL.Path) {
+		c.Set("platform", string(constant.TaskPlatformImage))
+		relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
+		if c.Request.Method == http.MethodGet {
+			shouldSelectChannel = false
+		} else if c.Request.Method == http.MethodPost {
+			req, err := getModelFromRequest(c)
+			if err != nil {
+				return nil, false, err
+			}
+			if req != nil {
+				modelRequest.Model = req.Model
+			}
+		}
+		c.Set("relay_mode", relayMode)
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
 		// Gemini API 路径处理: /v1beta/models/gemini-2.0-flash:generateContent
 		relayMode := relayconstant.RelayModeGemini
@@ -427,4 +442,16 @@ func extractModelNameFromGeminiPath(path string) string {
 
 	// 返回模型名部分
 	return path[startIndex : startIndex+colonIndex]
+}
+
+func isImageTaskRoute(path string) bool {
+	if path == "/v1/images" {
+		return true
+	}
+	if !strings.HasPrefix(path, "/v1/images/") {
+		return false
+	}
+	return !strings.HasPrefix(path, "/v1/images/generations") &&
+		!strings.HasPrefix(path, "/v1/images/edits") &&
+		!strings.HasPrefix(path, "/v1/images/variations")
 }
