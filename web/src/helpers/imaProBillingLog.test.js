@@ -53,7 +53,7 @@ test('buildImaProBillingLines renders video-specific formula without LLM input/c
   assert.match(text, /SKU 单价：\$7\.000000 \/ 1M tokens/);
   assert.match(
     text,
-    /计费公式：87,300 tokens \* SKU倍率 3\.500000 \* 分组倍率（模型覆盖） 0\.8000 = 244,440 quota；244,440 quota \/ 500,000 quota\/USD = \$0\.488880/,
+    /计费公式：\(87,300 tokens \* SKU倍率 3\.500000 \* 分组倍率（模型覆盖） 0\.8000\) = 244,440 quota；\(244,440 quota \/ 500,000 quota\/USD\) = \$0\.488880/,
   );
   assert.doesNotMatch(text, /87\.3k tokens \/ 1M/);
   assert.doesNotMatch(text, /输入价格/);
@@ -79,7 +79,7 @@ test('buildImaProBillingLines uses exact token count for 1080p sku formula', () 
   assert.match(text, /SKU 单价：\$7\.700000 \/ 1M tokens/);
   assert.match(
     text,
-    /计费公式：245,025 tokens \* SKU倍率 3\.850000 \* 分组倍率（模型覆盖） 0\.8000 = 754,677 quota；754,677 quota \/ 500,000 quota\/USD = \$1\.509354/,
+    /计费公式：\(245,025 tokens \* SKU倍率 3\.850000 \* 分组倍率（模型覆盖） 0\.8000\) = 754,677 quota；\(754,677 quota \/ 500,000 quota\/USD\) = \$1\.509354/,
   );
   assert.doesNotMatch(text, /245\.0k/);
 });

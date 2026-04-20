@@ -829,7 +829,7 @@ export const useLogsData = () => {
               ? [
                   t('延迟结算（提交阶段）'),
                   toPositiveNumber(other?.estimated_quota) > 0
-                    ? t('预估扣费：{{cost}}', {
+                    ? t('预估金额（未扣费）：{{cost}}', {
                         cost: renderQuota(other.estimated_quota, 6),
                       })
                     : null,
@@ -1157,7 +1157,7 @@ export const useLogsData = () => {
                 <p>{t('延迟结算（提交阶段）')}</p>
                 {toPositiveNumber(other?.estimated_quota) > 0 && (
                   <p>
-                    {t('预估扣费：{{cost}}', {
+                    {t('预估金额（未扣费）：{{cost}}', {
                       cost: renderQuota(other.estimated_quota, 6),
                     })}
                   </p>

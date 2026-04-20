@@ -117,7 +117,7 @@ export function buildImaProBillingLines({
       Math.trunc(totalTokens * info.modelRatio * info.groupRatio);
     const quotaUnit = toPositiveNumber(quotaPerUnit) || 500000;
     lines.push(
-      `${labels.formula || '计费公式'}：${formatInteger(totalTokens)} tokens * SKU倍率 ${info.modelRatio.toFixed(6)} * ${labels.groupRatio || '分组倍率（模型覆盖）'} ${info.groupRatio.toFixed(4)} = ${formatInteger(quotaValue)} quota；${formatInteger(quotaValue)} quota / ${formatInteger(quotaUnit)} quota/USD = ${finalCostText}`,
+      `${labels.formula || '计费公式'}：(${formatInteger(totalTokens)} tokens * SKU倍率 ${info.modelRatio.toFixed(6)} * ${labels.groupRatio || '分组倍率（模型覆盖）'} ${info.groupRatio.toFixed(4)}) = ${formatInteger(quotaValue)} quota；(${formatInteger(quotaValue)} quota / ${formatInteger(quotaUnit)} quota/USD) = ${finalCostText}`,
     );
   }
 

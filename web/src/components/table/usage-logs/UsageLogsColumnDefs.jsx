@@ -1007,7 +1007,7 @@ export const getLogsColumns = ({
           const est = toTokenNumber(other?.estimated_quota);
           const tip =
             est > 0
-              ? t('预估 {{cost}}，以任务完成后结算为准', {
+              ? t('提交阶段估算 {{cost}}，未扣费；以任务终态结算为准', {
                   cost: renderQuota(est, 6),
                 })
               : t('等待任务完成后结算');
@@ -1017,13 +1017,13 @@ export const getLogsColumns = ({
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 <Tag color='orange' size='small'>
-                  {t('待结算')}
+                  {t('提交估算')}
                 </Tag>
                 <span
                   style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
                 >
                   {est > 0
-                    ? `${t('预估费用')} ${renderQuota(est, 6)}`
+                    ? `${t('未扣费')} ${renderQuota(est, 6)}`
                     : t('等待结算')}
                 </span>
               </span>
@@ -1306,7 +1306,7 @@ export const getLogsColumns = ({
           const summary = [
             t('延迟结算（提交阶段）'),
             toTokenNumber(other?.estimated_quota) > 0
-              ? `${t('预估扣费')}：${renderQuota(other.estimated_quota, 6)}`
+              ? `${t('预估金额（未扣费）')}：${renderQuota(other.estimated_quota, 6)}`
               : null,
             pendingFormula,
             `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
