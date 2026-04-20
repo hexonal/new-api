@@ -152,6 +152,156 @@ func appendImaProAuditFieldsForRelay(c *gin.Context, info *relaycommon.RelayInfo
 	applyImaProAuditFields(other, info.OriginModelName, variantKey, getImaProQuotaResultFromGin(c))
 }
 
+func resolveImaProTaskVariantKey(task *model.Task, modelName string) string {
+	if task == nil {
+		return strings.TrimSpace(modelName)
+	}
+	if sku := strings.TrimSpace(task.Properties.BillingSku); sku != "" {
+		return sku
+	}
+	if sku := strings.TrimSpace(task.PrivateData.ConsumedModel); sku != "" {
+		return sku
+	}
+	if bc := task.PrivateData.BillingContext; bc != nil {
+		if sku := strings.TrimSpace(bc.BillingSku); sku != "" {
+			return sku
+		}
+	}
+	if sku := findImaProBillingSKUFromPreviousLogs(task.TaskID); sku != "" {
+		return sku
+	}
+	if sku := inferConfiguredImaProBillingSKUFromTaskData(task, modelName); sku != "" {
+		return sku
+	}
+	return strings.TrimSpace(modelName)
+}
+
+func findImaProBillingSKUFromPreviousLogs(taskID string) string {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" || model.LOG_DB == nil {
+		return ""
+	}
+	var logs []model.Log
+	err := model.LOG_DB.
+		Where("request_id = ? AND type = ?", taskID, model.LogTypeConsume).
+		Order("id ASC").
+		Find(&logs).Error
+	if err != nil {
+		return ""
+	}
+	for _, log := range logs {
+		other, err := common.StrToMap(log.Other)
+		if err != nil || other == nil {
+			continue
+		}
+		if sku, ok := other["billing_sku"].(string); ok && strings.TrimSpace(sku) != "" {
+			return strings.TrimSpace(sku)
+		}
+	}
+	return ""
+}
+
+func inferConfiguredImaProBillingSKUFromTaskData(task *model.Task, modelName string) string {
+	if task == nil || len(task.Data) == 0 || strings.TrimSpace(modelName) == "" {
+		return ""
+	}
+	params := readImaProTaskRequestParameters(task.Data)
+	if len(params) == 0 {
+		return ""
+	}
+	resolution := stringFromMap(params, "resolution")
+	size := stringFromMap(params, "size")
+	bucket := ratio_setting.NormalizeResolutionBucket(size, resolution)
+	if bucket == "" {
+		bucket = inferImaProResolutionBucketFromResults(task.Data)
+	}
+	if bucket == "" {
+		return ""
+	}
+	inputMode := "novideo"
+	if ratio_setting.HasVideoInput(params) || taskParametersContentHasVideo(params["content"]) {
+		inputMode = "withvideo"
+	}
+	variantKey := ratio_setting.ResolveVariantKey(modelName, inputMode, bucket)
+	if _, ok := ratio_setting.GetModelRatioExact(variantKey); !ok {
+		return ""
+	}
+	return variantKey
+}
+
+func readImaProTaskRequestParameters(data []byte) map[string]interface{} {
+	paths := []string{
+		"data.request_info.parameters",
+		"request_info.parameters",
+		"parameters",
+	}
+	for _, path := range paths {
+		raw := gjson.GetBytes(data, path)
+		if !raw.Exists() || !raw.IsObject() {
+			continue
+		}
+		params := make(map[string]interface{})
+		if err := common.Unmarshal([]byte(raw.Raw), &params); err == nil {
+			return params
+		}
+	}
+	return nil
+}
+
+func stringFromMap(m map[string]interface{}, key string) string {
+	if m == nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	switch val := v.(type) {
+	case string:
+		return strings.TrimSpace(val)
+	default:
+		return strings.TrimSpace(fmt.Sprint(val))
+	}
+}
+
+func taskParametersContentHasVideo(content interface{}) bool {
+	items, ok := content.([]interface{})
+	if !ok {
+		return false
+	}
+	for _, item := range items {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		contentType := strings.ToLower(strings.TrimSpace(stringFromMap(m, "type")))
+		if strings.Contains(contentType, "video") {
+			return true
+		}
+		if stringFromMap(m, "video_url") != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func inferImaProResolutionBucketFromResults(data []byte) string {
+	paths := []string{
+		"data.results.0.height",
+		"results.0.height",
+	}
+	for _, path := range paths {
+		height := int(gjson.GetBytes(data, path).Int())
+		switch {
+		case height >= 1080:
+			return "1080p"
+		case height >= 480:
+			return "720p"
+		}
+	}
+	return ""
+}
+
 func loadImaProTaskChannel(task *model.Task, modelName string) (*model.Channel, bool) {
 	if task == nil || task.ChannelId == 0 {
 		return nil, false
@@ -179,22 +329,28 @@ func loadImaProTaskChannel(task *model.Task, modelName string) (*model.Channel, 
 	return dbChannel, true
 }
 
+func imaProPricingAppliesForTask(task *model.Task, modelName string) bool {
+	if task == nil {
+		return false
+	}
+	if channel, ok := loadImaProTaskChannel(task, modelName); ok && channel != nil {
+		return ratio_setting.ImaProPricingApplies(channel.Type, modelName)
+	}
+	if platformType, err := strconv.Atoi(string(task.Platform)); err == nil {
+		return ratio_setting.ImaProPricingApplies(platformType, modelName)
+	}
+	return false
+}
+
 func calculateImaProQuotaResult(ctx context.Context, task *model.Task, modelName string, totalTokens int) (*ratio_setting.QuotaResult, bool) {
 	if task == nil || totalTokens <= 0 {
 		return nil, false
 	}
-	channel, ok := loadImaProTaskChannel(task, modelName)
-	if !ok || channel == nil {
-		return nil, false
-	}
-	if !ratio_setting.ImaProPricingApplies(channel.Type, modelName) {
+	if !imaProPricingAppliesForTask(task, modelName) {
 		return nil, false
 	}
 
-	variantKey := strings.TrimSpace(task.Properties.BillingSku)
-	if variantKey == "" {
-		variantKey = modelName
-	}
+	variantKey := resolveImaProTaskVariantKey(task, modelName)
 	groupRatio := resolveTaskFinalGroupRatio(task, modelName)
 	result, err := ratio_setting.CalculateQuota(ctx, ratio_setting.CalculateQuotaParams{
 		OriginModelName: modelName,
@@ -445,6 +601,9 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 		}
 		if strings.TrimSpace(bc.GroupRatioSource) != "" {
 			other["group_ratio_source"] = bc.GroupRatioSource
+		}
+		if strings.TrimSpace(bc.BillingSku) != "" {
+			other["billing_sku"] = strings.TrimSpace(bc.BillingSku)
 		}
 		if len(bc.OtherRatios) > 0 {
 			for k, v := range bc.OtherRatios {
@@ -916,7 +1075,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 			}
 		}
 		if imaProResult != nil {
-			applyImaProAuditFields(other, modelName, task.Properties.BillingSku, imaProResult)
+			applyImaProAuditFields(other, modelName, resolveImaProTaskVariantKey(task, modelName), imaProResult)
 		} else {
 			modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
 			completionRatio := ratio_setting.GetCompletionRatio(modelName)

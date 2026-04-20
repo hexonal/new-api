@@ -615,13 +615,17 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
-		task.PrivateData.ConsumedModel = result.ConsumedModel
+		consumedModel := strings.TrimSpace(result.ConsumedModel)
+		if consumedModel == "" && relayInfo.TaskRelayInfo != nil {
+			consumedModel = strings.TrimSpace(relayInfo.TaskRelayInfo.ConsumedModel)
+		}
+		task.PrivateData.ConsumedModel = consumedModel
 		// Submit to upstream already succeeded, so persisted state should not stay NOT_START.
 		// Keep terminal transition handled by polling/callback loop as before.
 		task.Status = model.TaskStatusSubmitted
 		if req, reqErr := relaycommon.GetTaskRequest(c); reqErr == nil {
 			task.Properties.Input = relaycommon.DescribeTaskInputType(req)
-			task.Properties.BillingSku = result.ConsumedModel
+			task.Properties.BillingSku = consumedModel
 			if !constant.IsImaProChannelType(relayInfo.ChannelType) {
 				if callbackURL := strings.TrimSpace(req.GetCallbackURL()); callbackURL != "" {
 					task.PrivateData.CallbackURL = callbackURL
@@ -641,6 +645,7 @@ func RelayTask(c *gin.Context) {
 			RequestPath:       requestMeta.RequestPath,
 			RequestConversion: requestMeta.RequestConversion,
 			OriginModelName:   relayInfo.OriginModelName,
+			BillingSku:        consumedModel,
 			PerCallBilling:    result.PerCallBilling,
 			DeferredSettle:    result.DeferredSettle,
 			EstimatedQuota:    result.EstimatedQuota,

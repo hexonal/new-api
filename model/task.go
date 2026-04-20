@@ -126,6 +126,7 @@ type TaskBillingContext struct {
 	RequestPath       string             `json:"request_path,omitempty"`       // 请求路径快照（用于终态日志展示）
 	RequestConversion []string           `json:"request_conversion,omitempty"` // 请求转换链快照（用于终态日志展示）
 	OriginModelName   string             `json:"origin_model_name,omitempty"`  // 模型名称，必须为OriginModelName
+	BillingSku        string             `json:"billing_sku,omitempty"`        // IMA Pro/Seedance 2.0 计费变体快照
 	PerCallBilling    bool               `json:"per_call_billing,omitempty"`   // 按次计费：跳过轮询阶段的差额结算
 	DeferredSettle    bool               `json:"deferred_settle,omitempty"`    // 延迟结算：提交阶段不扣费，终态成功时再扣费
 	EstimatedQuota    int                `json:"estimated_quota,omitempty"`    // 提交阶段估算额度，终态无 usage 时作为兜底
