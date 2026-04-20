@@ -92,3 +92,52 @@ func TestUpdateModelMetaSortOnlyTouchesSortOrder(t *testing.T) {
 	require.Equal(t, 1, reloaded.Status)
 	require.Equal(t, 12, reloaded.SortOrder)
 }
+
+func TestUpdateModelMetaKeepsNonFormFieldsWhenEditPayloadOmitsThem(t *testing.T) {
+	db := setupModelMetaControllerTestDB(t)
+	original := &model.Model{
+		Id:           601,
+		ModelName:    "seedance-pro",
+		Description:  "before edit",
+		Icon:         "ByteDance",
+		Tags:         "video,seedance",
+		VendorID:     7,
+		SortOrder:    88,
+		Endpoints:    `["video"]`,
+		Status:       1,
+		SyncOfficial: 1,
+		NameRule:     model.NameRulePrefix,
+		CreatedTime:  1000,
+		UpdatedTime:  1000,
+	}
+	require.NoError(t, db.Create(original).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(
+		http.MethodPut,
+		"/api/models/",
+		bytes.NewBufferString(`{"id":601,"model_name":"seedance-pro","description":"after edit","tags":"video,seedance","vendor_id":7,"status":1,"endpoints":"[\"video\"]","sync_official":1}`),
+	)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	UpdateModelMeta(ctx)
+
+	var response struct {
+		Success bool        `json:"success"`
+		Message string      `json:"message"`
+		Data    model.Model `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Empty(t, response.Message)
+
+	var reloaded model.Model
+	require.NoError(t, db.First(&reloaded, 601).Error)
+	require.Equal(t, "after edit", reloaded.Description)
+	require.Equal(t, "ByteDance", reloaded.Icon)
+	require.Equal(t, model.NameRulePrefix, reloaded.NameRule)
+	require.Equal(t, 88, reloaded.SortOrder)
+	require.Equal(t, 7, reloaded.VendorID)
+	require.Equal(t, `["video"]`, reloaded.Endpoints)
+}

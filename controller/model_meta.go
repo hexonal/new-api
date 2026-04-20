@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -116,8 +117,14 @@ func UpdateModelMeta(c *gin.Context) {
 	statusOnly := c.Query("status_only") == "true"
 	sortOnly := c.Query("sort_only") == "true"
 
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
 	var m model.Model
-	if err := c.ShouldBindJSON(&m); err != nil {
+	if err := common.Unmarshal(body, &m); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -139,8 +146,47 @@ func UpdateModelMeta(c *gin.Context) {
 			return
 		}
 	} else {
+		var fieldSet map[string]json.RawMessage
+		if err := common.Unmarshal(body, &fieldSet); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+
+		var current model.Model
+		if err := model.DB.First(&current, m.Id).Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if _, ok := fieldSet["model_name"]; ok {
+			current.ModelName = m.ModelName
+		}
+		if _, ok := fieldSet["description"]; ok {
+			current.Description = m.Description
+		}
+		if _, ok := fieldSet["icon"]; ok {
+			current.Icon = m.Icon
+		}
+		if _, ok := fieldSet["tags"]; ok {
+			current.Tags = m.Tags
+		}
+		if _, ok := fieldSet["vendor_id"]; ok {
+			current.VendorID = m.VendorID
+		}
+		if _, ok := fieldSet["endpoints"]; ok {
+			current.Endpoints = m.Endpoints
+		}
+		if _, ok := fieldSet["status"]; ok {
+			current.Status = m.Status
+		}
+		if _, ok := fieldSet["sync_official"]; ok {
+			current.SyncOfficial = m.SyncOfficial
+		}
+		if _, ok := fieldSet["name_rule"]; ok {
+			current.NameRule = m.NameRule
+		}
+
 		// 名称冲突检查
-		if dup, err := model.IsModelNameDuplicated(m.Id, m.ModelName); err != nil {
+		if dup, err := model.IsModelNameDuplicated(current.Id, current.ModelName); err != nil {
 			common.ApiError(c, err)
 			return
 		} else if dup {
@@ -148,10 +194,11 @@ func UpdateModelMeta(c *gin.Context) {
 			return
 		}
 
-		if err := m.Update(); err != nil {
+		if err := current.Update(); err != nil {
 			common.ApiError(c, err)
 			return
 		}
+		m = current
 	}
 	if !sortOnly {
 		model.RefreshPricing()
