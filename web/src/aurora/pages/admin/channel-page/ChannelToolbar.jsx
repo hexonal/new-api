@@ -19,8 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import {
+  BadgePlus,
   ChevronDown,
   Columns3,
+  Layers3,
   Plus,
   RefreshCw,
   Search,
@@ -118,28 +120,46 @@ export default function ChannelToolbar(props) {
   });
 
   return (
-    <div className='space-y-5'>
-      <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
-        <div>
-          <h1 className='text-3xl font-black tracking-[-0.05em] text-slate-900'>
-            {t('渠道管理')}
-          </h1>
-          <p className='mt-1 text-sm font-medium text-slate-500'>
-            {t('Manage upstream AI provider configurations')}
-          </p>
+    <div className='space-y-6'>
+      <div className='grid gap-4 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-start'>
+        <div className='space-y-3'>
+          <div className='inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-600'>
+            <Layers3 className='h-3.5 w-3.5' />
+            {t('渠道工作区')}
+          </div>
+          <div className='space-y-2'>
+            <h1 className='text-3xl font-black tracking-[-0.05em] text-slate-900 md:text-4xl'>
+              {t('渠道管理')}
+            </h1>
+            <p className='max-w-3xl text-sm font-medium leading-6 text-slate-500 md:text-[15px]'>
+              {t('channels.description')}
+            </p>
+          </div>
         </div>
-        <div className='flex flex-wrap items-center gap-3'>
-          <Button variant='outline' onClick={onRefresh}>
+
+        <div className='flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end'>
+          <Button
+            variant='outline'
+            className='justify-start border-slate-200 bg-white text-slate-600 sm:justify-center'
+            onClick={onRefresh}
+          >
             <RefreshCw className='mr-2 h-4 w-4' />
             {t('刷新能力')}
           </Button>
-          <Button variant='outline' onClick={onOpenColumnSelector}>
+          <Button
+            variant='outline'
+            className='justify-start border-slate-200 bg-white text-slate-600 sm:justify-center'
+            onClick={onOpenColumnSelector}
+          >
             <Columns3 className='mr-2 h-4 w-4' />
             {t('列设置')}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant='outline'>
+              <Button
+                variant='outline'
+                className='justify-start border-slate-200 bg-white text-slate-600 sm:justify-center'
+              >
                 <Settings2 className='mr-2 h-4 w-4' />
                 {t('批量操作')}
                 <ChevronDown className='ml-2 h-4 w-4' />
@@ -163,100 +183,144 @@ export default function ChannelToolbar(props) {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={onCreate}>
+          <Button
+            className='justify-start rounded-xl px-5 shadow-[0_12px_28px_-16px_rgba(79,70,229,0.65)] sm:justify-center'
+            onClick={onCreate}
+          >
             <Plus className='mr-2 h-4 w-4' />
             {t('添加渠道')}
           </Button>
         </div>
       </div>
 
-      <Tabs value={activeTypeKey} onValueChange={onTypeChange}>
-        <TabsList className='h-auto w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 text-slate-500'>
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.key}
-              value={tab.key}
-              className='rounded-none border-b-2 border-transparent px-5 py-3 text-sm font-bold data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600'
-            >
-              <span>{tab.label}</span>
-              <span className='ml-1.5 text-xs'>{tab.count}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className='rounded-[26px] border border-slate-200/90 bg-white/95 p-4 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)] md:p-5'>
+        <div className='flex flex-col gap-4'>
+          <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+            <div className='space-y-1'>
+              <p className='text-xs font-semibold uppercase tracking-[0.22em] text-slate-400'>
+                {t('渠道类型')}
+              </p>
+              <p className='text-sm text-slate-500'>
+                {t('按提供商快速切换列表，减少筛选时的横向拥挤。')}
+              </p>
+            </div>
+            <div className='inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500 lg:self-auto'>
+              <BadgePlus className='h-3.5 w-3.5 text-slate-400' />
+              {t('共 {{count}} 个类型分组', { count: tabs.length })}
+            </div>
+          </div>
 
-      <div className='grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_14px_40px_-30px_rgba(15,23,42,0.35)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_180px_auto]'>
-        <Input
-          icon={<Search className='h-4 w-4' />}
-          value={filters.searchKeyword}
-          placeholder={t('渠道ID，名称，密钥，API地址')}
-          onChange={(event) =>
-            setFilters((current) => ({
-              ...current,
-              searchKeyword: event.target.value,
-            }))
-          }
-        />
-        <Input
-          icon={<Search className='h-4 w-4' />}
-          value={filters.searchModel}
-          placeholder={t('模型关键字')}
-          onChange={(event) =>
-            setFilters((current) => ({
-              ...current,
-              searchModel: event.target.value,
-            }))
-          }
-        />
-        <Select
-          value={filters.searchGroup || '__all__'}
-          onValueChange={(value) =>
-            setFilters((current) => ({
-              ...current,
-              searchGroup: value === '__all__' ? '' : value,
-            }))
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={t('选择分组')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='__all__'>{t('选择分组')}</SelectItem>
-            {groupOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger>
-            <SelectValue placeholder={t('状态筛选')} />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {t(option.label)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className='flex items-center gap-2'>
-          <Button
-            variant='outline'
-            className='flex-1'
-            onClick={onReset}
-            disabled={loading || searching}
-          >
-            {t('重置')}
-          </Button>
-          <Button
-            className='flex-1'
-            onClick={onSearch}
-            loading={loading || searching}
-          >
-            {t('查询')}
-          </Button>
+          <Tabs value={activeTypeKey} onValueChange={onTypeChange}>
+            <TabsList className='flex h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/80 p-2 text-slate-500'>
+              {tabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  className='shrink-0 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold data-[state=active]:border-indigo-100 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-[0_10px_20px_-18px_rgba(79,70,229,0.7)]'
+                >
+                  <span>{tab.label}</span>
+                  <span className='ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600'>
+                    {tab.count}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+
+      <div className='rounded-[26px] border border-slate-200/90 bg-white p-4 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)] md:p-5'>
+        <div className='flex flex-col gap-5'>
+          <div className='space-y-1'>
+            <p className='text-xs font-semibold uppercase tracking-[0.22em] text-slate-400'>
+              {t('筛选与搜索')}
+            </p>
+            <p className='text-sm text-slate-500'>
+              {t(
+                '优先使用搜索框，再配合分组和状态缩小范围，避免控件全部挤在一行。',
+              )}
+            </p>
+          </div>
+
+          <div className='grid gap-3 xl:grid-cols-2'>
+            <Input
+              icon={<Search className='h-4 w-4' />}
+              className='h-11 rounded-xl border-slate-200 bg-white'
+              value={filters.searchKeyword}
+              placeholder={t('渠道ID，名称，密钥，API地址')}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  searchKeyword: event.target.value,
+                }))
+              }
+            />
+            <Input
+              icon={<Search className='h-4 w-4' />}
+              className='h-11 rounded-xl border-slate-200 bg-white'
+              value={filters.searchModel}
+              placeholder={t('模型关键字')}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  searchModel: event.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div className='grid gap-3 lg:grid-cols-[220px_180px_minmax(0,1fr)]'>
+            <Select
+              value={filters.searchGroup || '__all__'}
+              onValueChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  searchGroup: value === '__all__' ? '' : value,
+                }))
+              }
+            >
+              <SelectTrigger className='h-11 rounded-xl border-slate-200 bg-white'>
+                <SelectValue placeholder={t('选择分组')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='__all__'>{t('选择分组')}</SelectItem>
+                {groupOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger className='h-11 rounded-xl border-slate-200 bg-white'>
+                <SelectValue placeholder={t('状态筛选')} />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className='flex flex-col gap-2 sm:flex-row sm:justify-end'>
+              <Button
+                variant='outline'
+                className='h-11 rounded-xl border-slate-200 px-5 text-slate-600'
+                onClick={onReset}
+                disabled={loading || searching}
+              >
+                {t('重置')}
+              </Button>
+              <Button
+                className='h-11 rounded-xl px-5 shadow-[0_12px_28px_-16px_rgba(79,70,229,0.65)]'
+                onClick={onSearch}
+                loading={loading || searching}
+              >
+                {t('查询')}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

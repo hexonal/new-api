@@ -63,27 +63,29 @@ export default function ChannelSummaryCards({ channels, t }) {
         return (
           <Card
             key={card.id}
-            className='rounded-2xl border-slate-200 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.35)]'
+            className='rounded-[24px] border-slate-200/90 bg-white shadow-[0_22px_60px_-38px_rgba(15,23,42,0.35)]'
           >
-            <CardContent className='p-6'>
-              <div className='flex items-start justify-between gap-3'>
+            <CardContent className='p-5 md:p-6'>
+              <div className='flex items-start justify-between gap-4'>
                 <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-2xl ${meta.iconClassName}`}
+                  className={`flex h-12 w-12 items-center justify-center rounded-[18px] ${meta.iconClassName}`}
                 >
                   <Icon className='h-5 w-5' />
                 </div>
-                <div className='rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500'>
-                  {meta.title}
+                <div className='rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500'>
+                  {t('概览')}
                 </div>
               </div>
-              <div className='mt-5 space-y-1.5'>
+              <div className='mt-5 space-y-2'>
                 <p className='text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400'>
                   {meta.title}
                 </p>
-                <p className='text-3xl font-black tracking-[-0.04em] text-slate-900'>
+                <p className='text-3xl font-black tracking-[-0.05em] text-slate-900 md:text-[2rem]'>
                   {card.value}
                 </p>
-                <p className='text-sm text-slate-500'>{t(meta.description)}</p>
+                <p className='max-w-[28rem] text-sm leading-6 text-slate-500'>
+                  {t(meta.description)}
+                </p>
               </div>
             </CardContent>
           </Card>

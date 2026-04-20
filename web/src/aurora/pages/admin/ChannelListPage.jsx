@@ -124,7 +124,7 @@ export default function ChannelListPage() {
   };
 
   return (
-    <div className='space-y-6 px-2 pb-8'>
+    <div className='mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-3 pb-10 pt-1 2xl:px-6'>
       <ChannelToolbar
         t={data.t}
         filters={filters}
