@@ -180,7 +180,7 @@ const buildDeferredPendingFormula = (quota, modelRatio, groupRatio, t) => {
   );
   const inputPrice = modelRatioValue * 2;
   return t(
-    '(预估 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
+    '估算公式（未扣费）：(预估 {{tokens}} tokens / 1M tokens * ${{inputPrice}}) * 分组倍率（模型覆盖） {{groupRatio}} = {{cost}}',
     {
       tokens: renderNumber(estimatedTokens),
       inputPrice: Number(inputPrice).toFixed(6),
@@ -828,8 +828,11 @@ export const useLogsData = () => {
             : deferredPendingSubmit
               ? [
                   t('延迟结算（提交阶段）'),
+                  t('实际扣费：{{cost}}', {
+                    cost: renderQuota(logs[i]?.quota || 0, 6),
+                  }),
                   toPositiveNumber(other?.estimated_quota) > 0
-                    ? t('预估金额（未扣费）：{{cost}}', {
+                    ? t('估算参考（未扣费）：{{cost}}', {
                         cost: renderQuota(other.estimated_quota, 6),
                       })
                     : null,
@@ -1155,9 +1158,14 @@ export const useLogsData = () => {
             content = (
               <article>
                 <p>{t('延迟结算（提交阶段）')}</p>
+                <p>
+                  {t('实际扣费：{{cost}}', {
+                    cost: renderQuota(logs[i]?.quota || 0, 6),
+                  })}
+                </p>
                 {toPositiveNumber(other?.estimated_quota) > 0 && (
                   <p>
-                    {t('预估金额（未扣费）：{{cost}}', {
+                    {t('估算参考（未扣费）：{{cost}}', {
                       cost: renderQuota(other.estimated_quota, 6),
                     })}
                   </p>

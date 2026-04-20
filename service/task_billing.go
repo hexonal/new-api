@@ -497,7 +497,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, estimatedQuota int, taskID string) {
 	tokenName := c.GetString("token_name")
 	logContent := fmt.Sprintf(
-		"操作 %s，延迟结算(提交阶段)：model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
+		"操作 %s，延迟结算(提交阶段，未扣费)：actual_quota=0, model_ratio=%.6f, completion_ratio=%.6f, group_ratio=%.2f",
 		info.Action,
 		info.PriceData.ModelRatio,
 		info.PriceData.CompletionRatio,
@@ -540,6 +540,8 @@ func LogDeferredTaskSubmission(c *gin.Context, info *relaycommon.RelayInfo, esti
 	}
 	other["deferred_settle"] = true
 	other["terminal_charge_state"] = TaskTerminalChargeStatePending
+	other["actual_quota"] = 0
+	other["submit_stage_charged"] = false
 	if estimatedQuota > 0 {
 		other["estimated_quota"] = estimatedQuota
 	}
