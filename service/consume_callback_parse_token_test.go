@@ -8,3 +8,10 @@ func TestParseTokenNameUsesEnvFirstFormat(t *testing.T) {
 		t.Fatalf("expected env-first token name parsing, got appID=%q userID=%q env=%q", appID, userID, env)
 	}
 }
+
+func TestParseTokenNameSupportsHyphenatedAppID(t *testing.T) {
+	appID, userID, env := parseTokenName("dev_vid-craft_30")
+	if appID != "vid-craft" || userID != "30" || env != "dev" {
+		t.Fatalf("expected hyphenated app id parsing, got appID=%q userID=%q env=%q", appID, userID, env)
+	}
+}

@@ -76,17 +76,18 @@ type CallbackEvent struct {
 }
 
 type CallbackEventQueryParams struct {
-	Source         string
-	SinkType       string
-	EventType      string
-	Status         string
-	RequestID      string
-	EventID        string
-	Username       string
-	UserID         int
-	TokenID        int
-	StartTimestamp int64
-	EndTimestamp   int64
+	Source             string
+	SinkType           string
+	EventType          string
+	ExcludeFinalAdjust bool
+	Status             string
+	RequestID          string
+	EventID            string
+	Username           string
+	UserID             int
+	TokenID            int
+	StartTimestamp     int64
+	EndTimestamp       int64
 }
 
 func (e *CallbackEvent) BeforeCreate(tx *gorm.DB) error {
@@ -281,6 +282,9 @@ func GetAllCallbackEvents(startIdx int, num int, queryParams CallbackEventQueryP
 	}
 	if queryParams.EventType != "" {
 		tx = tx.Where("event_type = ?", queryParams.EventType)
+	}
+	if queryParams.ExcludeFinalAdjust {
+		tx = tx.Where("event_type <> ?", "consume.final_adjust")
 	}
 	if queryParams.Status != "" {
 		tx = tx.Where("status = ?", queryParams.Status)

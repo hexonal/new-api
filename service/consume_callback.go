@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -159,6 +158,7 @@ func newConsumeCallbackPayloadForTask(task *model.Task, usage ConsumeCallbackUsa
 		quota,
 		phase,
 	)
+	applyTaskConsumeCallbackOverrides(task, &payload)
 	payload.TaskID = strings.TrimSpace(task.TaskID)
 	return payload
 }
@@ -205,17 +205,19 @@ func buildConsumeCallbackSK(tokenKey string, fallbackSK string, tokenAuthPrefix 
 // parseTokenName extracts appID, userID, env from token name format: {env}_{appID}_{userID}
 func parseTokenName(name string) (appID string, userID string, env string) {
 	value := strings.TrimSpace(name)
-	if !consumeCallbackTokenNamePattern.MatchString(value) {
+	firstUnderscore := strings.IndexByte(value, '_')
+	lastUnderscore := strings.LastIndexByte(value, '_')
+	if firstUnderscore <= 0 || lastUnderscore <= firstUnderscore || lastUnderscore >= len(value)-1 {
 		return "", "", ""
 	}
-	parts := strings.SplitN(value, "_", 3)
-	if len(parts) >= 3 {
-		return parts[1], parts[2], parts[0]
+	env = strings.TrimSpace(value[:firstUnderscore])
+	appID = strings.TrimSpace(value[firstUnderscore+1 : lastUnderscore])
+	userID = strings.TrimSpace(value[lastUnderscore+1:])
+	if env == "" || appID == "" || userID == "" {
+		return "", "", ""
 	}
-	return "", "", ""
+	return appID, userID, env
 }
-
-var consumeCallbackTokenNamePattern = regexp.MustCompile(`^[a-zA-Z0-9-]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+$`)
 
 func baseConsumeCallbackTokenKey(raw string) string {
 	key := strings.TrimSpace(raw)
@@ -267,6 +269,21 @@ func applyJWTHeaderConsumeCallbackOverrides(relayInfo *relaycommon.RelayInfo, pa
 	}
 	if headerUserID := consumeCallbackHeaderValue(relayInfo.RequestHeaders, "x-user-id"); headerUserID != "" {
 		payload.BusinessUserID = headerUserID
+	}
+}
+
+func applyTaskConsumeCallbackOverrides(task *model.Task, payload *consumeCallbackPayload) {
+	if task == nil || payload == nil {
+		return
+	}
+	if appID := strings.TrimSpace(task.PrivateData.AppID); appID != "" {
+		payload.AppID = appID
+	}
+	if env := strings.TrimSpace(task.PrivateData.Env); env != "" {
+		payload.Env = env
+	}
+	if businessUserID := strings.TrimSpace(task.PrivateData.BusinessUserID); businessUserID != "" {
+		payload.BusinessUserID = businessUserID
 	}
 }
 

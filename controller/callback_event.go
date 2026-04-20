@@ -73,17 +73,18 @@ func GetAllCallbackEvents(c *gin.Context) {
 	tokenID, _ := strconv.Atoi(c.Query("token_id"))
 
 	queryParams := model.CallbackEventQueryParams{
-		Source:         strings.TrimSpace(c.Query("source")),
-		SinkType:       strings.TrimSpace(c.Query("sink_type")),
-		EventType:      strings.TrimSpace(c.Query("event_type")),
-		Status:         strings.TrimSpace(c.Query("status")),
-		RequestID:      strings.TrimSpace(c.Query("request_id")),
-		EventID:        strings.TrimSpace(c.Query("event_id")),
-		Username:       strings.TrimSpace(c.Query("username")),
-		UserID:         userID,
-		TokenID:        tokenID,
-		StartTimestamp: startTimestamp,
-		EndTimestamp:   endTimestamp,
+		Source:             strings.TrimSpace(c.Query("source")),
+		SinkType:           strings.TrimSpace(c.Query("sink_type")),
+		EventType:          strings.TrimSpace(c.Query("event_type")),
+		ExcludeFinalAdjust: strings.EqualFold(strings.TrimSpace(c.Query("exclude_final_adjust")), "true"),
+		Status:             strings.TrimSpace(c.Query("status")),
+		RequestID:          strings.TrimSpace(c.Query("request_id")),
+		EventID:            strings.TrimSpace(c.Query("event_id")),
+		Username:           strings.TrimSpace(c.Query("username")),
+		UserID:             userID,
+		TokenID:            tokenID,
+		StartTimestamp:     startTimestamp,
+		EndTimestamp:       endTimestamp,
 	}
 
 	events, total, err := model.GetAllCallbackEvents(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)

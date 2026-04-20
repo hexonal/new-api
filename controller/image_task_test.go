@@ -107,6 +107,14 @@ func submitImageTaskForControllerTest(
 	t *testing.T,
 	idempotencyKey string,
 ) (*httptest.ResponseRecorder, imageTaskSubmitResponseBody) {
+	return submitImageTaskForControllerTestWithHeaders(t, idempotencyKey, map[string]string{})
+}
+
+func submitImageTaskForControllerTestWithHeaders(
+	t *testing.T,
+	idempotencyKey string,
+	headers map[string]string,
+) (*httptest.ResponseRecorder, imageTaskSubmitResponseBody) {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
@@ -119,6 +127,9 @@ func submitImageTaskForControllerTest(
 	request.Header.Set("Content-Type", "application/json")
 	if idempotencyKey != "" {
 		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	for key, value := range headers {
+		request.Header.Set(key, value)
 	}
 	ctx.Request = request
 
@@ -139,6 +150,9 @@ func submitImageTaskForControllerTest(
 	common.SetContextKey(ctx, constant.ContextKeyChannelName, "image-task-channel")
 	common.SetContextKey(ctx, constant.ContextKeyChannelKey, "sk-channel")
 	common.SetContextKey(ctx, constant.ContextKeyChannelBaseUrl, "https://example.invalid")
+	for key, value := range headers {
+		ctx.Set(key, value)
+	}
 
 	RelayImageTaskSubmit(ctx)
 
@@ -190,6 +204,25 @@ func TestImageTaskSubmit_PersistsImageAction(t *testing.T) {
 	var task model.Task
 	require.NoError(t, db.Where("task_id = ?", response.TaskID).First(&task).Error)
 	assert.Equal(t, constant.TaskActionImageGenerate, task.Action)
+}
+
+func TestImageTaskSubmit_PersistsConsumeCallbackMetadata(t *testing.T) {
+	db := setupImageTaskControllerTestDB(t)
+	seedImageTaskSubmitFixtures(t, db)
+
+	headers := map[string]string{
+		"x-app-id":  "vid-craft",
+		"x-env":     "dev",
+		"x-user-id": "30",
+	}
+
+	_, response := submitImageTaskForControllerTestWithHeaders(t, "callback-meta-key", headers)
+
+	var task model.Task
+	require.NoError(t, db.Where("task_id = ?", response.TaskID).First(&task).Error)
+	assert.Equal(t, "vid-craft", task.PrivateData.AppID)
+	assert.Equal(t, "dev", task.PrivateData.Env)
+	assert.Equal(t, "30", task.PrivateData.BusinessUserID)
 }
 
 func TestImageTaskFetch_NotStartReturnsQueuedStatus(t *testing.T) {

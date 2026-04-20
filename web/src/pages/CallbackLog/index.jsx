@@ -62,6 +62,8 @@ const FILTER_INIT_VALUES = {
   username: '',
 };
 
+const HIDDEN_EVENT_TYPES = new Set(['consume.final_adjust']);
+
 const STATUS_META = {
   pending: { color: 'grey', label: '待处理' },
   processing: { color: 'blue', label: '处理中' },
@@ -184,6 +186,7 @@ const CallbackLog = () => {
       const params = {
         p: page,
         page_size: size,
+        exclude_final_adjust: true,
       };
 
       if (filters.status) {
@@ -206,7 +209,11 @@ const CallbackLog = () => {
         return;
       }
 
-      const items = Array.isArray(data?.items) ? data.items : [];
+      const items = Array.isArray(data?.items)
+        ? data.items.filter(
+            (item) => !HIDDEN_EVENT_TYPES.has(String(item?.event_type || '').trim()),
+          )
+        : [];
       setEvents(
         items.map((item) => ({
           ...item,

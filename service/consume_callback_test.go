@@ -433,6 +433,32 @@ func TestSendConsumeFinalAdjustCallback_TriggersForSuccessfulTask(t *testing.T) 
 	assert.Equal(t, ConsumeCallbackPhaseFinalAdjust, captured[0].EventPhase)
 }
 
+func TestSendConsumeFinalAdjustCallback_UsesPersistedCallbackIdentity(t *testing.T) {
+	var captured []consumeCallbackPayload
+	original := consumeCallbackDispatcher
+	consumeCallbackDispatcher = func(p consumeCallbackPayload) {
+		captured = append(captured, p)
+	}
+	t.Cleanup(func() { consumeCallbackDispatcher = original })
+
+	task := &model.Task{
+		TaskID:    "task-persisted-identity",
+		UserId:    42,
+		ChannelId: 7,
+	}
+	task.PrivateData.TokenId = 99
+	task.PrivateData.AppID = "vid-craft"
+	task.PrivateData.Env = "dev"
+	task.PrivateData.BusinessUserID = "30"
+
+	SendConsumeFinalAdjustCallback(task, 150, ConsumeCallbackUsage{})
+
+	require.Len(t, captured, 1)
+	assert.Equal(t, "vid-craft", captured[0].AppID)
+	assert.Equal(t, "dev", captured[0].Env)
+	assert.Equal(t, "30", captured[0].BusinessUserID)
+}
+
 func TestSendConsumeFinalAdjustCallback_NoopForNilTask(t *testing.T) {
 	var captured []consumeCallbackPayload
 	original := consumeCallbackDispatcher

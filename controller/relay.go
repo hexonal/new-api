@@ -596,6 +596,7 @@ func runTaskRelaySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) {
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
 		task := model.InitTask(result.Platform, relayInfo)
+		applyTaskConsumeCallbackIdentity(c, &task.PrivateData)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 		task.PrivateData.BillingSource = relayInfo.BillingSource
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
@@ -728,6 +729,15 @@ func reserveIdempotencyTaskRow(
 	}
 
 	return placeholder, false, nil
+}
+
+func applyTaskConsumeCallbackIdentity(c *gin.Context, privateData *model.TaskPrivateData) {
+	if c == nil || privateData == nil {
+		return
+	}
+	privateData.AppID = strings.TrimSpace(c.GetString("x-app-id"))
+	privateData.Env = strings.TrimSpace(c.GetString("x-env"))
+	privateData.BusinessUserID = strings.TrimSpace(c.GetString("x-user-id"))
 }
 
 func persistTaskSubmitRecord(task *model.Task, reservedTask *model.Task) error {
