@@ -4345,7 +4345,7 @@ const EditChannelModal = (props) => {
                 {/* Advanced Settings Card */}
                 <div
                   ref={(el) => (formSectionRefs.current.advancedSettings = el)}
-                  className={isRouteMode ? 'xl:col-start-1' : undefined}
+                  className={isRouteMode ? 'xl:col-start-2' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Advanced Settings */}
@@ -4987,7 +4987,7 @@ const EditChannelModal = (props) => {
                   ref={(el) =>
                     (formSectionRefs.current.channelExtraSettings = el)
                   }
-                  className={isRouteMode ? 'xl:col-start-1' : undefined}
+                  className={isRouteMode ? 'xl:col-start-2' : undefined}
                 >
                   <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
                     {/* Header: Channel Extra Settings */}
