@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { Toast, Pagination } from '@douyinfe/semi-ui';
+import { Pagination } from '@douyinfe/semi-ui';
 import { toastConstants } from '../constants';
 import React from 'react';
 import { toast } from 'react-toastify';
@@ -132,42 +132,42 @@ export function showError(error) {
           window.location.href = '/login?expired=true';
           break;
         case 429:
-          Toast.error('错误：请求次数过多，请稍后再试！');
+          toast.error('错误：请求次数过多，请稍后再试！', showErrorOptions);
           break;
         case 500:
-          Toast.error('错误：服务器内部错误，请联系管理员！');
+          toast.error('错误：服务器内部错误，请联系管理员！', showErrorOptions);
           break;
         case 405:
-          Toast.info('本站仅作演示之用，无服务端！');
+          toast.info('本站仅作演示之用，无服务端！', showInfoOptions);
           break;
         default:
-          Toast.error('错误：' + error.message);
+          toast.error('错误：' + error.message, showErrorOptions);
       }
       return;
     }
-    Toast.error('错误：' + error.message);
+    toast.error('错误：' + error.message, showErrorOptions);
   } else {
-    Toast.error('错误：' + error);
+    toast.error('错误：' + error, showErrorOptions);
   }
 }
 
 export function showWarning(message) {
-  Toast.warning(message);
+  toast.warn(message, showWarningOptions);
 }
 
 export function showSuccess(message) {
-  Toast.success(message);
+  toast.success(message, showSuccessOptions);
 }
 
 export function showInfo(message) {
-  Toast.info(message);
+  toast.info(message, showInfoOptions);
 }
 
 export function showNotice(message, isHTML = false) {
   if (isHTML) {
     toast(<HTMLToastContent htmlContent={message} />, showNoticeOptions);
   } else {
-    Toast.info(message);
+    toast.info(message, showNoticeOptions);
   }
 }
 

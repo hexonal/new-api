@@ -37,6 +37,7 @@ const buildCategoryCountMap = (modelRows) => {
   const countMap = Object.fromEntries(
     CATEGORY_PILLS.map((item) => [item.key, 0]),
   );
+  countMap.all = modelRows.length;
   modelRows.forEach((model) => {
     CATEGORY_PILLS.forEach((category) => {
       if (model.modalities.has(category.key)) {
@@ -101,7 +102,7 @@ const useExplorerSelections = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('list');
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('all');
 
   const toggleModality = (key) => {
     const next = toggleArrayItem(selectedModalities, key);
@@ -111,7 +112,7 @@ const useExplorerSelections = () => {
       return;
     }
     if (activeCategory === key) {
-      setActiveCategory(next[0] || null);
+      setActiveCategory('all');
     }
   };
 
@@ -227,7 +228,11 @@ const modelPassesFilters = ({
   ) {
     return false;
   }
-  if (activeCategory && !model.modalities.has(activeCategory)) {
+  if (
+    activeCategory &&
+    activeCategory !== 'all' &&
+    !model.modalities.has(activeCategory)
+  ) {
     return false;
   }
   if (selectedSeriesSet.size > 0 && !selectedSeriesSet.has(model.series)) {
@@ -278,7 +283,9 @@ const filterModels = ({
   const selectedProviderSet = new Set(selectedProviders);
   const shouldApplyBaseModalityFilter =
     selectedModalitySet.size > 0 &&
-    (!activeCategory || BASE_MODALITY_KEYS.includes(activeCategory));
+    (!activeCategory ||
+      activeCategory === 'all' ||
+      BASE_MODALITY_KEYS.includes(activeCategory));
 
   const results = modelRows.filter((model) => {
     const passesFilters = modelPassesFilters({
@@ -542,54 +549,6 @@ const useExplorerFilteredState = ({ modelRows, selections }) =>
     sortBy: selections.sortBy,
   });
 
-const useExplorerAutoCategory = ({ modelRows, selections }) => {
-  const discoverableModels = useMemo(
-    () =>
-      filterModels({
-        activeCategory: null,
-        modelRows,
-        searchKeyword: selections.searchKeyword,
-        selectedModalities: selections.selectedModalities,
-        selectedProviders: selections.selectedProviders,
-        selectedSeries: selections.selectedSeries,
-        sortBy: selections.sortBy,
-      }),
-    [
-      modelRows,
-      selections.searchKeyword,
-      selections.selectedModalities,
-      selections.selectedProviders,
-      selections.selectedSeries,
-      selections.sortBy,
-    ],
-  );
-
-  useEffect(() => {
-    if (discoverableModels.length === 0) {
-      return;
-    }
-
-    const hasActiveCategory = selections.activeCategory
-      ? discoverableModels.some((model) =>
-          model.modalities.has(selections.activeCategory),
-        )
-      : false;
-
-    if (hasActiveCategory) {
-      return;
-    }
-
-    const nextCategory = discoverableModels[0]?.primaryModality || 'text';
-    if (nextCategory && nextCategory !== selections.activeCategory) {
-      selections.setActiveCategory(nextCategory);
-    }
-  }, [
-    discoverableModels,
-    selections.activeCategory,
-    selections.setActiveCategory,
-  ]);
-};
-
 const useExplorerPricingAndDetailState = ({
   filteredModels,
   modelRows,
@@ -631,10 +590,6 @@ export const useModelsExplorerPageState = ({ language, t }) => {
   useInjectExplorerFonts();
 
   const baseState = useExplorerBaseState({ language, t });
-  useExplorerAutoCategory({
-    modelRows: baseState.modelRows,
-    selections: baseState.selections,
-  });
   const filteredModels = useExplorerFilteredState({
     modelRows: baseState.modelRows,
     selections: baseState.selections,

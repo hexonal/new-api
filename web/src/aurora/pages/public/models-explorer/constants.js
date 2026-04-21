@@ -27,15 +27,22 @@ export const MODALITY_OPTIONS = [
 ];
 
 export const CATEGORY_PILLS = [
-  { key: 'text', labelKey: '文本' },
-  { key: 'image', labelKey: '图片' },
+  { key: 'all', labelKey: '全部' },
   { key: 'video', labelKey: '视频' },
+  { key: 'image', labelKey: '图片' },
+  { key: 'text', labelKey: '文本' },
   { key: 'audio', labelKey: '音频' },
   { key: 'embeddings', labelKey: '向量' },
   { key: 'rerank', labelKey: '重排' },
 ];
 
-export const PRICE_KEY_ORDER = ['input', 'completion', 'thought', 'fixed', 'starting'];
+export const PRICE_KEY_ORDER = [
+  'input',
+  'completion',
+  'thought',
+  'fixed',
+  'starting',
+];
 
 export const CONTEXT_BADGE_COLOR = {
   text: 'bg-indigo-50 text-indigo-700',

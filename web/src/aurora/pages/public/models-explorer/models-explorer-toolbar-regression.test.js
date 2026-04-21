@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const readSource = (file) => readFileSync(join(import.meta.dir, file), 'utf8');
+const readConstants = () => readSource('constants.js');
 
 describe('models explorer toolbar regression', () => {
   test('uses aurora tabs primitives for category switching', () => {
@@ -30,7 +31,9 @@ describe('models explorer toolbar regression', () => {
     expect(source).toContain(
       "import { Tabs, TabsList, TabsTrigger } from '../../../primitives/tabs';",
     );
-    expect(source).toContain("<Tabs value={activeCategory} onValueChange={onCategoryClick}>");
+    expect(source).toContain(
+      '<Tabs value={activeCategory} onValueChange={onCategoryClick}>',
+    );
     expect(source).toContain("aria-label={t('模型类别')}");
   });
 
@@ -43,5 +46,18 @@ describe('models explorer toolbar regression', () => {
     expect(source).toContain(
       "className='shrink-0 rounded-full border border-slate-200 bg-white/95 px-5 py-2.5 text-sm font-semibold text-slate-600",
     );
+  });
+
+  test('places all first and video immediately after it in the category pills', () => {
+    const source = readConstants();
+    const categoryBlock = source.match(
+      /export const CATEGORY_PILLS = \[(.*?)\];/s,
+    )?.[1];
+
+    expect(categoryBlock).toContain("{ key: 'all', labelKey: '全部' }");
+    expect(categoryBlock).toContain("{ key: 'video', labelKey: '视频' }");
+    expect(
+      categoryBlock.indexOf("{ key: 'all', labelKey: '全部' }"),
+    ).toBeLessThan(categoryBlock.indexOf("{ key: 'video', labelKey: '视频' }"));
   });
 });
