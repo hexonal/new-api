@@ -694,6 +694,17 @@ export const calculateModelPrice = ({
     // 按量计费
     const isTokensDisplay = quotaDisplayType === 'TOKENS';
     const inputRatioPriceUSD = record.model_ratio * 2 * usedGroupRatio;
+    const variantPrices = Array.isArray(record.variant_prices)
+      ? record.variant_prices.filter((item) => {
+          const ratePerM = Number(item?.rate_per_m);
+          return (
+            typeof item?.key === 'string' &&
+            item.key &&
+            Number.isFinite(ratePerM) &&
+            ratePerM > 0
+          );
+        })
+      : [];
     const unitDivisor = tokenUnit === 'K' ? 1000 : 1;
     const unitLabel = tokenUnit === 'K' ? 'K' : 'M';
     const hasRatioValue = (value) =>
@@ -748,6 +759,28 @@ export const calculateModelPrice = ({
     };
 
     const inputPrice = formatTokenPrice(inputRatioPriceUSD);
+    const variantRows = variantPrices.map((item) => {
+      const ratePerM = Number(item.rate_per_m);
+      const finalPriceUSD = ratePerM * usedGroupRatio;
+      return {
+        ...item,
+        finalPriceUSD,
+        finalPrice: formatTokenPrice(finalPriceUSD),
+      };
+    });
+    const variantPriceRange =
+      variantRows.length > 0
+        ? (() => {
+            const prices = variantRows.map((item) => item.finalPriceUSD);
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            const minDisplay = formatTokenPrice(minPrice);
+            const maxDisplay = formatTokenPrice(maxPrice);
+            return minDisplay === maxDisplay
+              ? minDisplay
+              : `${minDisplay} - ${maxDisplay}`;
+          })()
+        : null;
     const thoughtRatio = GEMINI_THOUGHT_RATIO_MAP[recordModelName] ?? null;
     const audioInputPrice = hasRatioValue(record.audio_ratio)
       ? formatTokenPrice(inputRatioPriceUSD * Number(record.audio_ratio))
@@ -773,6 +806,8 @@ export const calculateModelPrice = ({
       imagePrice: hasRatioValue(record.image_ratio)
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.image_ratio))
         : null,
+      variantPriceRange,
+      variantRows,
       audioInputPrice,
       audioOutputPrice:
         audioInputPrice && hasRatioValue(record.audio_completion_ratio)
@@ -887,6 +922,22 @@ export const getModelPriceItems = (priceData, t, quotaDisplayType = 'USD') => {
     }
 
     const unitSuffix = ` / 1${priceData.unitLabel} Tokens`;
+    if (
+      priceData.variantPriceRange &&
+      Array.isArray(priceData.variantRows) &&
+      priceData.variantRows.length > 0
+    ) {
+      return [
+        {
+          key: 'variant-range',
+          label: t('价格区间'),
+          value: priceData.variantPriceRange,
+          suffix: unitSuffix,
+          variantRows: priceData.variantRows,
+          unitLabel: priceData.unitLabel,
+        },
+      ];
+    }
     return [
       {
         key: 'input',

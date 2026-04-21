@@ -56,6 +56,7 @@ import {
   formatDirectPerCallPrice,
   derivePerCallUnitPriceFromQuota,
 } from '../../../helpers/dynamicPerCall';
+import { buildImaProBillingLines } from '../../../helpers/imaProBillingLog';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
 
@@ -85,6 +86,51 @@ function formatRatio(ratio) {
     return ratio.toFixed(4);
   }
   return String(ratio);
+}
+
+function buildImaProBillingSummary(other, t) {
+  const lines = buildImaProBillingLines({
+    other,
+    labels: buildImaProBillingLabels(t),
+  });
+  if (lines.length === 0) {
+    return '';
+  }
+  return [t('IMA Pro 计费明细'), ...lines].join('\n');
+}
+
+function buildImaProBillingLabels(t) {
+  return {
+    sku: t('计费 SKU'),
+    tier: t('计费档位'),
+    tokens: t('计费 Tokens'),
+    rate: t('SKU 单价'),
+    groupRatio: t('分组倍率（模型覆盖）'),
+    formula: t('计费公式'),
+    model: t('计费模型'),
+    candidateSku: t('候选 SKU（未配置）'),
+    novideo: t('无参考视频'),
+    withvideo: t('含参考视频'),
+    fallback: t('计费提示：SKU 未配置，已按计费模型基础价格结算'),
+  };
+}
+
+function buildImaProSettlementSummary(record, other, billedQuota, t) {
+  const tokenTotal = resolveDeferredTotalTokens(
+    record,
+    other,
+    record?.prompt_tokens,
+    record?.completion_tokens,
+  );
+  const lines = buildImaProBillingLines({
+    other,
+    totalTokens: tokenTotal,
+    billedQuota,
+    quotaPerUnit: getQuotaPerUnit(),
+    finalCostText: renderQuota(billedQuota, 6),
+    labels: buildImaProBillingLabels(t),
+  });
+  return lines.join('\n');
 }
 
 function buildChannelAffinityTooltip(affinity, t) {
@@ -500,7 +546,7 @@ function buildDeferredPendingFormulaPreview(other, t) {
   }
   const estimatedTokens = Math.round(quota / (modelRatio * groupRatio));
   const inputPrice = modelRatio * 2;
-  return `(${t('预扣')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
+  return `${t('估算参考公式（未扣费，不计入花费）')}：(${t('预估')} ${formatTokenCount(estimatedTokens)} tokens / 1M tokens * $${inputPrice.toFixed(6)}) * ${t('分组倍率（模型覆盖）')} ${groupRatio.toFixed(4)} = ${renderQuota(quota, 6)}`;
 }
 
 function getPromptCacheSummary(other) {
@@ -955,7 +1001,7 @@ export const getLogsColumns = ({
             </Tooltip>
           );
         }
-        // Deferred settle pending: clearly show not yet charged
+        // Deferred settle pending: show submit-stage estimate only; no money is charged yet.
         if (
           other?.deferred_settle &&
           other?.terminal_charge_state === 'pending'
@@ -963,9 +1009,13 @@ export const getLogsColumns = ({
           const est = toTokenNumber(other?.estimated_quota);
           const tip =
             est > 0
-              ? t('预估 {{cost}}，以任务完成后结算为准', {
-                  cost: renderQuota(est, 6),
-                })
+              ? t(
+                  '实际扣费 {{actual}}；提交阶段估算参考 {{estimate}}，未扣费且不计入花费；以任务终态结算为准',
+                  {
+                    actual: renderQuota(record?.quota || 0, 6),
+                    estimate: renderQuota(est, 6),
+                  },
+                )
               : t('等待任务完成后结算');
           return (
             <Tooltip content={tip}>
@@ -973,12 +1023,12 @@ export const getLogsColumns = ({
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 <Tag color='orange' size='small'>
-                  {t('待结算')}
+                  {t('提交估算')}
                 </Tag>
                 <span
                   style={{ color: 'var(--semi-color-text-2)', fontSize: 12 }}
                 >
-                  {t('未扣费')}
+                  {`${t('实际扣费')} ${renderQuota(record?.quota || 0, 6)}`}
                 </span>
               </span>
             </Tooltip>
@@ -1134,7 +1184,8 @@ export const getLogsColumns = ({
           Number(other?.actual_quota || record?.quota || 0) > 0
         ) {
           const billedQuota = Number(other?.actual_quota || record?.quota || 0);
-          const reason = other?.terminal_charge_reason || record?.content || '-';
+          const reason =
+            other?.terminal_charge_reason || record?.content || '-';
           const isAdaptorAdjust = String(reason).includes('adaptor_adjust');
           const credits = toTokenNumber(other?.upstream_credits);
           const isCreditSettle = other?.settlement_type === 'credits';
@@ -1165,9 +1216,7 @@ export const getLogsColumns = ({
               isCreditSettle
                 ? t('结算方式：上游实际消耗结算（按 credits）')
                 : t('结算方式：上游实际消耗结算'),
-              isCreditSettle &&
-              credits > 0 &&
-              Number.isFinite(creditsUnitPrice)
+              isCreditSettle && credits > 0 && Number.isFinite(creditsUnitPrice)
                 ? t('credits 单价：{{price}} / credit', {
                     price: formatDirectPerCallPrice(creditsUnitPrice),
                   })
@@ -1199,30 +1248,37 @@ export const getLogsColumns = ({
             record?.prompt_tokens,
             record?.completion_tokens,
           );
-          const billingSummary = renderLogContent(
-            other?.model_ratio,
-            other?.completion_ratio,
-            other?.model_price,
-            other?.group_ratio,
-            other?.user_group_ratio,
-            other?.cache_ratio || 1.0,
-            false,
-            1.0,
-            false,
-            0,
-            false,
-            0,
-            billingDisplayMode,
-            other?.group_ratio_source,
-            other,
-          );
-          const formulaPreview = buildDeferredTokenFormulaPreview(
+          const imaProSettlementSummary = buildImaProSettlementSummary(
             record,
             other,
+            billedQuota,
             t,
           );
+          const billingSummary = imaProSettlementSummary
+            ? null
+            : renderLogContent(
+                other?.model_ratio,
+                other?.completion_ratio,
+                other?.model_price,
+                other?.group_ratio,
+                other?.user_group_ratio,
+                other?.cache_ratio || 1.0,
+                false,
+                1.0,
+                false,
+                0,
+                false,
+                0,
+                billingDisplayMode,
+                other?.group_ratio_source,
+                other,
+              );
+          const formulaPreview = imaProSettlementSummary
+            ? null
+            : buildDeferredTokenFormulaPreview(record, other, t);
           const summary = [
             t('终态重算扣费') + `：${renderQuota(billedQuota, 6)}`,
+            imaProSettlementSummary,
             billingSummary,
             formulaPreview,
             `${t('结算原因')}：${reason}`,
@@ -1253,8 +1309,9 @@ export const getLogsColumns = ({
           const pendingFormula = buildDeferredPendingFormulaPreview(other, t);
           const summary = [
             t('延迟结算（提交阶段）'),
+            `${t('实际扣费')}：${renderQuota(record?.quota || 0, 6)}`,
             toTokenNumber(other?.estimated_quota) > 0
-              ? `${t('预估扣费')}：${renderQuota(other.estimated_quota, 6)}`
+              ? `${t('估算参考（未扣费，不计入花费）')}：${renderQuota(other.estimated_quota, 6)}`
               : null,
             pendingFormula,
             `${t('结算状态')}：${other?.terminal_charge_state || 'pending'}`,
@@ -1395,10 +1452,17 @@ export const getLogsColumns = ({
             modelPrice,
             groupRatio,
           });
+          const skuLine = billingSKU
+            ? `${t('计费SKU')}：${billingSKU}${
+                other?.input_mode
+                  ? ` (${other.input_mode}${other?.resolution_bucket ? `/${other.resolution_bucket}` : ''})`
+                  : ''
+              }`
+            : '';
           const summary = fixedPrice
             ? [
                 t('按次计费'),
-                `${t('计费SKU')}：${billingSKU}`,
+                skuLine,
                 `${t('SKU单价')}：$${fixedPrice.unitPrice.toFixed(6)} / ${t('次')}`,
                 `${t('分组倍率（模型覆盖）')}：${Number.isFinite(groupRatio) ? groupRatio.toFixed(4) : '-'}`,
                 buildFixedPerCallFormula({
@@ -1446,9 +1510,8 @@ export const getLogsColumns = ({
             groupRatio: safeRatio,
             quotaPerUnit,
           });
-          const derivedModelPriceText = formatDirectPerCallPrice(
-            derivedModelPrice,
-          );
+          const derivedModelPriceText =
+            formatDirectPerCallPrice(derivedModelPrice);
           const summary = [
             t('按次计费（根据实际扣费反推）'),
             `${t('模型单价')}：${derivedModelPriceText} / ${t('次')}`,
@@ -1583,6 +1646,7 @@ export const getLogsColumns = ({
             cacheSummary += ` | ${t('缓存未命中提示（本地）')}：${localHint}`;
           }
         }
+        const imaProSummary = buildImaProBillingSummary(other, t);
         return (
           <Typography.Paragraph
             ellipsis={
@@ -1602,7 +1666,9 @@ export const getLogsColumns = ({
               wordBreak: 'break-word',
             }}
           >
-            {[tokenSummary, cacheSummary, content].filter(Boolean).join('\n')}
+            {[imaProSummary, tokenSummary, cacheSummary, content]
+              .filter(Boolean)
+              .join('\n')}
           </Typography.Paragraph>
         );
       },

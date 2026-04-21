@@ -49,4 +49,8 @@ var ChannelName = "openai"
 var IMAProModelList = []string{
 	"ima-pro",
 	"ima-pro-fast",
+	"seedance-2.0",
+	"seedance-2.0-fast",
+	"seedance-2.0-cn",
+	"seedance-2.0-fast-cn",
 }

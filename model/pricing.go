@@ -35,6 +35,7 @@ type Pricing struct {
 	EnableGroup            []string                `json:"enable_groups"`
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	SKUPrices              []PricingSKU            `json:"sku_prices,omitempty"`
+	VariantPrices          []PricingVariant        `json:"variant_prices,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -348,6 +349,9 @@ func updatePricing() {
 		}
 		if skuPrices := GetModelSKUPrices(model, hailuoPriceMap); len(skuPrices) > 0 {
 			pricing.SKUPrices = skuPrices
+		}
+		if variantPrices := GetIMAProVariantPrices(model); len(variantPrices) > 0 {
+			pricing.VariantPrices = variantPrices
 		}
 		pricingMap = append(pricingMap, pricing)
 	}

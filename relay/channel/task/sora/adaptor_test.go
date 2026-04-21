@@ -9,12 +9,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
+
+func newSoraTaskTestContext(body string) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(body))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	return ctx
+}
 
 func TestConvertToOpenAIVideo_ExposeUsageAndResults(t *testing.T) {
 	adaptor := &TaskAdaptor{}
@@ -72,6 +82,88 @@ func TestConvertToOpenAIVideo_ExposeUsageAndResults(t *testing.T) {
 	}
 	if r0["url"] != "https://cdn.example.com/final.mp4" {
 		t.Fatalf("results[0].url = %v, want https://cdn.example.com/final.mp4", r0["url"])
+	}
+}
+
+func TestConvertToOpenAIVideo_ExposeAmountUSDForImaPro(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_amount",
+		Status: model.TaskStatusSuccess,
+		Quota:  1,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+		Data: json.RawMessage(`{"amount_usd":0.48888,"usage":{"completion_tokens":87300,"total_tokens":87300}}`),
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	want := 0.48888
+	if got["amount_usd"] != want {
+		t.Fatalf("amount_usd = %v, want %v", got["amount_usd"], want)
+	}
+}
+
+func TestConvertToOpenAIVideo_FallsBackToQuotaAmountForOldImaProTask(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_amount_old",
+		Status: model.TaskStatusSuccess,
+		Quota:  244440,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+		Data: json.RawMessage(`{"usage":{"completion_tokens":87300,"total_tokens":87300}}`),
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	want := float64(244440) / common.QuotaPerUnit
+	if got["amount_usd"] != want {
+		t.Fatalf("amount_usd = %v, want %v", got["amount_usd"], want)
+	}
+}
+
+func TestConvertToOpenAIVideo_OmitsAmountUSDUntilImaProCompletes(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	task := &model.Task{
+		TaskID: "task_public_pending",
+		Status: model.TaskStatusInProgress,
+		Quota:  244440,
+		Properties: model.Properties{
+			OriginModelName: "ima-pro",
+		},
+	}
+
+	body, err := adaptor.ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo returned error: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	if _, ok := got["amount_usd"]; ok {
+		t.Fatalf("amount_usd should be omitted before completion, got %v", got["amount_usd"])
 	}
 }
 
@@ -826,6 +918,129 @@ func TestGetModelList_ImaProContainsFastModel(t *testing.T) {
 		if !found {
 			t.Fatalf("missing model %q in model list: %#v", modelName, models)
 		}
+	}
+}
+
+func TestValidateRequestAndSetAction_RejectsImaProFast1080pEarly(t *testing.T) {
+	ctx := newSoraTaskTestContext(`{
+		"model":"ima-pro-fast",
+		"prompt":"generate a cinematic clip",
+		"size":"1920x1080",
+		"metadata":{"resolution":"1080p"}
+	}`)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro-fast",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
+	if taskErr == nil {
+		t.Fatalf("ValidateRequestAndSetAction should reject fast+1080p")
+	}
+	if taskErr.Code != "unsupported_resolution_for_fast_variant" {
+		t.Fatalf("taskErr.Code = %q, want unsupported_resolution_for_fast_variant", taskErr.Code)
+	}
+	if taskErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("taskErr.StatusCode = %d, want %d", taskErr.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func TestValidateRequestAndSetAction_RejectsImaProFastMetadataSize1080pEarly(t *testing.T) {
+	ctx := newSoraTaskTestContext(`{
+		"model":"ima-pro-fast",
+		"prompt":"generate a cinematic clip",
+		"metadata":{"size":"1920×1080"}
+	}`)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro-fast",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeImaPro,
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
+	if taskErr == nil {
+		t.Fatalf("ValidateRequestAndSetAction should reject fast+metadata.size 1080p")
+	}
+	if taskErr.Code != "unsupported_resolution_for_fast_variant" {
+		t.Fatalf("taskErr.Code = %q, want unsupported_resolution_for_fast_variant", taskErr.Code)
+	}
+}
+
+func TestEstimateBilling_ImaProWritesConsumedModelAndSkipsRatios(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: "ima-pro",
+		Size:  "1920x1080",
+		Metadata: map[string]any{
+			"reference_video_url": "https://example.com/ref.mp4",
+		},
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-withvideo-1080p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-withvideo-1080p", info.TaskRelayInfo.ConsumedModel)
+	}
+}
+
+func TestEstimateBilling_ImaProUsesMetadataSizeAndPreserves480p(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: "ima-pro",
+		Metadata: map[string]any{
+			"size": "854x480",
+		},
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-novideo-480p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-novideo-480p", info.TaskRelayInfo.ConsumedModel)
+	}
+}
+
+func TestEstimateBilling_ImaProDefaultsConsumedModelTo720p(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model:  "ima-pro",
+		Prompt: "generate a cinematic clip",
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "ima-pro",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	adaptor := &TaskAdaptor{ChannelType: constant.ChannelTypeImaPro}
+
+	ratios := adaptor.EstimateBilling(ctx, info)
+	if len(ratios) != 0 {
+		t.Fatalf("ratios = %#v, want empty map", ratios)
+	}
+	if info.TaskRelayInfo.ConsumedModel != "ima-pro-novideo-720p" {
+		t.Fatalf("ConsumedModel = %q, want ima-pro-novideo-720p", info.TaskRelayInfo.ConsumedModel)
 	}
 }
 

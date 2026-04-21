@@ -176,6 +176,28 @@ const ModelPricingTable = ({
                 ))}
               </div>
             )}
+          {Array.isArray(items?.[0]?.variantRows) &&
+            items[0].variantRows.length > 0 && (
+              <div className='pt-2 space-y-2'>
+                {items[0].variantRows.map((row) => (
+                  <div
+                    key={row.key}
+                    className='rounded-lg border border-gray-200 px-3 py-2'
+                  >
+                    <div className='font-medium text-gray-900'>{row.key}</div>
+                    <div className='mt-1 text-xs text-gray-500'>
+                      {`${t('输入模式')} ${row.input_mode} · ${t('分辨率档')} ${row.resolution_bucket}`}
+                    </div>
+                    <div className='mt-1 text-xs text-gray-600'>
+                      {`${t('费率 ($/M)')} ${Number(row.rate_per_m).toFixed(4)}`}
+                    </div>
+                    <div className='text-xs text-gray-600'>
+                      {`${t('当前分组价格')} ${row.finalPrice} / 1${items[0].unitLabel} Tokens · ${t('倍率')} ${record.ratio}x`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       ),
     });

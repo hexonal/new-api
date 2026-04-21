@@ -75,6 +75,42 @@ func TestGetLogByTokenIdAmountUSDFallsBackToQuotaWhenOtherIsInvalid(t *testing.T
 	require.Equal(t, float64(100)/common.QuotaPerUnit, logs[0].AmountUSD)
 }
 
+func TestGetLogByTokenIdAmountUSDIgnoresEstimatedQuotaForPendingDeferredSettle(t *testing.T) {
+	resetLogQueryTestTables(t)
+
+	seedLogForTokenQuery(t, &Log{
+		TokenId:   11,
+		RequestId: "task_target",
+		CreatedAt: 1001,
+		Type:      LogTypeConsume,
+		Quota:     0,
+		Other:     `{"deferred_settle":true,"terminal_charge_state":"pending","estimated_quota":1400}`,
+	})
+
+	logs, err := GetLogByTokenId(11, "task_target")
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, float64(0), logs[0].AmountUSD)
+}
+
+func TestGetLogByTokenIdAmountUSDUsesActualQuotaOverEstimatedQuota(t *testing.T) {
+	resetLogQueryTestTables(t)
+
+	seedLogForTokenQuery(t, &Log{
+		TokenId:   11,
+		RequestId: "task_target",
+		CreatedAt: 1001,
+		Type:      LogTypeConsume,
+		Quota:     0,
+		Other:     `{"deferred_settle":true,"terminal_charge_state":"applied","estimated_quota":1400,"actual_quota":2400}`,
+	})
+
+	logs, err := GetLogByTokenId(11, "task_target")
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Equal(t, float64(2400)/common.QuotaPerUnit, logs[0].AmountUSD)
+}
+
 func TestGetLogByTokenIdWithoutRequestIdKeepsTokenOnlyBehavior(t *testing.T) {
 	resetLogQueryTestTables(t)
 

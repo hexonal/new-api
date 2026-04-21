@@ -254,6 +254,9 @@ paths:
 
         - 音频开关：`metadata.audio`（版权风险场景建议先置为 `false`，即无背景音乐）
 
+        - 尺寸：`size` 可传 `WxH`，但必须能归一化为支持的精确比例；例如 `854x480` 会归一化为 `427:240`，不是精确
+          `16:9`，会被拒绝为 `ratio is invalid: 427:240`。480p 16:9 建议使用 `848x480` 或直接传 `metadata.resolution=480p`。
+
 
         **重要说明：按生成方式选择示例**
 
@@ -349,6 +352,17 @@ paths:
                   duration: 5
                   metadata:
                     resolution: 1080p
+              C01c_invalid_size_854x480:
+                summary: C01c 无效尺寸比例（854x480）
+                description: '`854x480` 会归一化为 `427:240`，不是精确 `16:9`，预期提交失败：`ratio
+                  is invalid: 427:240`。如需 480p 16:9，请使用 `848x480` 或 `metadata.resolution=480p`。'
+                value:
+                  model: ima-pro
+                  prompt: 清晨城市延时摄影，暖色调，电影感。
+                  duration: 4
+                  size: 854x480
+                  metadata:
+                    audio: false
               C02_text_image_pro:
                 summary: C02 文本+图片(1图)（ima-pro）
                 value:
@@ -813,6 +827,7 @@ paths:
                     model: ima-pro
                     status: completed
                     progress: 100
+                    amount_usd: 2.2743
                     created_at: 1773395498
                     completed_at: 1773395600
                     results:
@@ -836,6 +851,7 @@ paths:
                     model: ima-pro
                     status: completed
                     progress: 100
+                    amount_usd: 2.2743
                     created_at: 1773561120
                     completed_at: 1773562786
                     metadata:
@@ -864,6 +880,7 @@ paths:
                     model: ima-pro-fast
                     status: completed
                     progress: 100
+                    amount_usd: 1.13715
                     created_at: 1773666000
                     completed_at: 1773666120
                     results:
@@ -890,6 +907,7 @@ paths:
                     model: ima-pro-fast
                     status: completed
                     progress: 100
+                    amount_usd: 1.13715
                     created_at: 1773667000
                     completed_at: 1773667130
                     results:
@@ -3323,7 +3341,14 @@ components:
           description: 字符串形式时长（秒），允许范围：`"4"` ~ `"15"`。
         size:
           type: string
-          description: 尺寸（如 `1280x720`），用于推导比例与分辨率。
+          description: '尺寸（如 `1280x720`），用于推导比例与分辨率。
+
+            约束：`WxH` 必须能归一化为支持的精确比例（如 `16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`）。
+
+            注意：`854x480` 会归一化为 `427:240`，不是精确 `16:9`，会被拒绝为 `ratio is invalid:
+            427:240`。480p 16:9 建议使用 `848x480` 或直接传 `metadata.resolution=480p`。
+
+            '
         metadata:
           type: object
           additionalProperties: true
@@ -3751,6 +3776,11 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+        amount_usd:
+          type: number
+          format: double
+          minimum: 0
+          description: 实际扣费美元金额。仅在任务成功完成后返回，按最终实际扣减 quota 折算；排队、处理中、失败或尚未完成终态结算时不返回。
         created_at:
           type: integer
           format: int64

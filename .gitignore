@@ -38,3 +38,4 @@ data/
 .codex/skills/.system/**
 !.codex/prompts/
 !.codex/prompts/**
+openapi-ima-pro/runs

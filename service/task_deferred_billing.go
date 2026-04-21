@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
+// Deprecated: kept for historical reference. Model matching now uses ratio_setting.IsIMAProModel.
 const taskDeferredMinBalanceModelImaPro = "ima-pro"
 
 // ValidateDeferredTaskBilling validates submit-time eligibility for deferred task billing.
@@ -190,8 +191,7 @@ func resolveImaProMinBalanceRequiredQuota(relayInfo *relaycommon.RelayInfo) (int
 	if relayInfo == nil {
 		return 0, false
 	}
-	modelName := strings.ToLower(strings.TrimSpace(relayInfo.OriginModelName))
-	if modelName != taskDeferredMinBalanceModelImaPro {
+	if !ratio_setting.IsIMAProModel(relayInfo.OriginModelName) {
 		return 0, false
 	}
 	cfg := operation_setting.GetPaymentSetting()

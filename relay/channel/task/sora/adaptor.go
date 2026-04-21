@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -22,6 +23,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
@@ -210,6 +212,18 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			}
 		}
 	}
+	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
+		metadata := metadataMapFromReq(req.Metadata)
+		effectiveResolution := ratio_setting.ResolveIMAProResolution(
+			req.Size,
+			pickString(metadata, "size"),
+			pickString(metadata, "resolution"),
+		)
+		bucket := effectiveResolution.Resolution
+		if err := ratio_setting.ValidateIMAProRequest(info.OriginModelName, bucket); err != nil {
+			return service.TaskErrorWrapperLocal(err, "unsupported_resolution_for_fast_variant", http.StatusBadRequest)
+		}
+	}
 	return nil
 }
 
@@ -223,6 +237,24 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil
+	}
+	if a.isImaProFamily() && ratio_setting.IsIMAProModel(info.OriginModelName) {
+		metadata := metadataMapFromReq(req.Metadata)
+		effectiveResolution := ratio_setting.ResolveIMAProResolution(
+			req.Size,
+			pickString(metadata, "size"),
+			pickString(metadata, "resolution"),
+		)
+		bucket := effectiveResolution.Resolution
+		mode := "novideo"
+		if ratio_setting.HasVideoInput(metadata) {
+			mode = "withvideo"
+		}
+		variantKey := ratio_setting.ResolveVariantKey(info.OriginModelName, mode, bucket)
+		if info.TaskRelayInfo != nil {
+			info.TaskRelayInfo.ConsumedModel = variantKey
+		}
+		return map[string]float64{}
 	}
 
 	seconds, _ := strconv.Atoi(req.Seconds)
@@ -246,6 +278,25 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		ratios["size"] = 1.666667
 	}
 	return ratios
+}
+
+func pickStringFromMetadata(meta map[string]interface{}, key string) string {
+	if meta == nil {
+		return ""
+	}
+	value, ok := meta[key]
+	if !ok {
+		return ""
+	}
+	str, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(str)
+}
+
+func metadataMapFromReq(meta map[string]interface{}) map[string]interface{} {
+	return meta
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -401,8 +452,8 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		return nil, err
 	}
 	parameters := imaProPayloadParam{
-		Audio:       resolveImaProAudioFlag(metadata),
-		MCPList:     resolveImaProMCPList(metadata),
+		Audio:   resolveImaProAudioFlag(metadata),
+		MCPList: resolveImaProMCPList(metadata),
 	}
 	if isImageModel {
 		size, aspectRatio, err := validateImaGeminiImageParams(req, metadata, upstreamModelVersion)
@@ -428,12 +479,12 @@ func buildImaProPayload(c *gin.Context, req *relaycommon.TaskSubmitReq, info *re
 		parameters.Duration = duration
 	}
 	payload := &imaProPayload{
-		IDTask:       resolveImaProTraceTaskID(info),
-		TenantID:     resolveImaProTenantID(info, metadata),
-		UserID:       resolveImaProUserID(c, info, metadata),
-		AppID:        resolveImaProAppID(info, metadata),
-		AppKind:      resolveImaProAppKind(info, metadata),
-		TaskID:       resolveImaProTraceTaskID(info),
+		IDTask:   resolveImaProTraceTaskID(info),
+		TenantID: resolveImaProTenantID(info, metadata),
+		UserID:   resolveImaProUserID(c, info, metadata),
+		AppID:    resolveImaProAppID(info, metadata),
+		AppKind:  resolveImaProAppKind(info, metadata),
+		TaskID:   resolveImaProTraceTaskID(info),
 		AigcCategory: pickStringWithDefault(
 			metadata,
 			resolveImaProCategory(req, upstreamModelVersion),
@@ -709,19 +760,18 @@ func resolveTaskDurationSeconds(req *relaycommon.TaskSubmitReq, metadata map[str
 }
 
 func resolveResolutionAndAspectRatio(req *relaycommon.TaskSubmitReq, metadata map[string]any) (string, string) {
-	size := strings.TrimSpace(req.Size)
-	if size == "" {
-		size = pickString(metadata, "size")
-	}
-	if size != "" {
-		if w, h, ok := parseWidthHeight(size); ok {
-			return fmt.Sprintf("%dp", minInt(w, h)), toAspectRatio(w, h)
-		}
+	effectiveResolution := ratio_setting.ResolveIMAProResolution(
+		req.Size,
+		pickString(metadata, "size"),
+		pickString(metadata, "resolution"),
+	)
+	if effectiveResolution.Source == ratio_setting.IMAProResolutionSourceRequestSize ||
+		effectiveResolution.Source == ratio_setting.IMAProResolutionSourceMetadataSize {
+		return effectiveResolution.Resolution, effectiveResolution.AspectRatio
 	}
 
-	resolution := pickStringWithDefault(metadata, "720p", "resolution")
 	aspectRatio := pickStringWithDefault(metadata, "16:9", "aspect_ratio", "aspectRatio")
-	return resolution, aspectRatio
+	return effectiveResolution.Resolution, aspectRatio
 }
 
 func parseWidthHeight(size string) (int, int, bool) {
@@ -1488,8 +1538,56 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	if len(results) > 0 {
 		out["results"] = results
 	}
+	a.appendImaProAmountUSD(out, task)
 
 	return common.Marshal(out)
+}
+
+func (a *TaskAdaptor) appendImaProAmountUSD(out map[string]any, task *model.Task) {
+	if out == nil || task == nil {
+		return
+	}
+	if task.Status != model.TaskStatusSuccess {
+		return
+	}
+	modelName := taskcommon.DefaultString(task.Properties.OriginModelName, task.Properties.UpstreamModelName)
+	if !a.isImaProFamily() && !ratio_setting.IsIMAProModel(modelName) {
+		return
+	}
+	amountUSD := amountUSDFromTaskData(task.Data)
+	if amountUSD <= 0 {
+		amountUSD = quotaToOpenAIVideoAmountUSD(task.Quota)
+	}
+	if amountUSD > 0 {
+		out["amount_usd"] = amountUSD
+	}
+}
+
+func quotaToOpenAIVideoAmountUSD(quota int) float64 {
+	if quota <= 0 || common.QuotaPerUnit <= 0 {
+		return 0
+	}
+	return math.Round((float64(quota)/common.QuotaPerUnit)*1e6) / 1e6
+}
+
+func amountUSDFromTaskData(data []byte) float64 {
+	if len(data) == 0 {
+		return 0
+	}
+	value := gjson.GetBytes(data, "amount_usd")
+	if !value.Exists() {
+		return 0
+	}
+	if value.Type == gjson.Number {
+		return value.Float()
+	}
+	if value.Type == gjson.String {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(value.String()), 64)
+		if err == nil {
+			return amount
+		}
+	}
+	return 0
 }
 
 func extractFirstJSONObject(respBody []byte, paths ...string) map[string]any {
