@@ -424,172 +424,216 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 	}
 }
 
-func TokenAuth() func(c *gin.Context) {
-	return func(c *gin.Context) {
-		// 先检测是否为ws
-		if c.Request.Header.Get("Sec-WebSocket-Protocol") != "" {
-			// Sec-WebSocket-Protocol: realtime, openai-insecure-api-key.sk-xxx, openai-beta.realtime-v1
-			// read sk from Sec-WebSocket-Protocol
-			key := c.Request.Header.Get("Sec-WebSocket-Protocol")
-			parts := strings.Split(key, ",")
-			for _, part := range parts {
-				part = strings.TrimSpace(part)
-				if strings.HasPrefix(part, "openai-insecure-api-key") {
-					key = strings.TrimPrefix(part, "openai-insecure-api-key.")
-					break
-				}
-			}
-			c.Request.Header.Set("Authorization", "Bearer "+key)
-		}
-		// 检查path包含/v1/messages 或 /v1/models
-		if strings.Contains(c.Request.URL.Path, "/v1/messages") || strings.Contains(c.Request.URL.Path, "/v1/models") {
-			anthropicKey := c.Request.Header.Get("x-api-key")
-			if anthropicKey != "" {
-				c.Request.Header.Set("Authorization", "Bearer "+anthropicKey)
+const contextKeyTokenAuthErrorCode = "_token_auth_error_code"
+
+func authenticateToken(c *gin.Context) (statusCode int, errMsg string) {
+	// 先检测是否为ws
+	if c.Request.Header.Get("Sec-WebSocket-Protocol") != "" {
+		// Sec-WebSocket-Protocol: realtime, openai-insecure-api-key.sk-xxx, openai-beta.realtime-v1
+		// read sk from Sec-WebSocket-Protocol
+		key := c.Request.Header.Get("Sec-WebSocket-Protocol")
+		parts := strings.Split(key, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if strings.HasPrefix(part, "openai-insecure-api-key") {
+				key = strings.TrimPrefix(part, "openai-insecure-api-key.")
+				break
 			}
 		}
-		// gemini api 从query中获取key
-		if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models") ||
-			strings.HasPrefix(c.Request.URL.Path, "/v1beta/openai/models") ||
-			strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
-			skKey := c.Query("key")
-			if skKey != "" {
-				c.Request.Header.Set("Authorization", "Bearer "+skKey)
-			}
-			// 从x-goog-api-key header中获取key
-			xGoogKey := c.Request.Header.Get("x-goog-api-key")
-			if xGoogKey != "" {
-				c.Request.Header.Set("Authorization", "Bearer "+xGoogKey)
-			}
+		c.Request.Header.Set("Authorization", "Bearer "+key)
+	}
+	// 检查path包含/v1/messages 或 /v1/models
+	if strings.Contains(c.Request.URL.Path, "/v1/messages") || strings.Contains(c.Request.URL.Path, "/v1/models") {
+		anthropicKey := c.Request.Header.Get("x-api-key")
+		if anthropicKey != "" {
+			c.Request.Header.Set("Authorization", "Bearer "+anthropicKey)
 		}
-		key := c.Request.Header.Get("Authorization")
-		parts := make([]string, 0)
-		tokenAuthPrefix := ""
+	}
+	// gemini api 从query中获取key
+	if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models") ||
+		strings.HasPrefix(c.Request.URL.Path, "/v1beta/openai/models") ||
+		strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
+		skKey := c.Query("key")
+		if skKey != "" {
+			c.Request.Header.Set("Authorization", "Bearer "+skKey)
+		}
+		// 从x-goog-api-key header中获取key
+		xGoogKey := c.Request.Header.Get("x-goog-api-key")
+		if xGoogKey != "" {
+			c.Request.Header.Set("Authorization", "Bearer "+xGoogKey)
+		}
+	}
+	key := c.Request.Header.Get("Authorization")
+	parts := make([]string, 0)
+	tokenAuthPrefix := ""
+	if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
+		key = strings.TrimSpace(key[7:])
+	}
+	tokenAuthPrefix = detectTokenAuthPrefix(key)
+	if key == "" || key == "midjourney-proxy" {
+		key = c.Request.Header.Get("mj-api-secret")
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
 		tokenAuthPrefix = detectTokenAuthPrefix(key)
-		if key == "" || key == "midjourney-proxy" {
-			key = c.Request.Header.Get("mj-api-secret")
-			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
-				key = strings.TrimSpace(key[7:])
-			}
-			tokenAuthPrefix = detectTokenAuthPrefix(key)
-			key, parts = extractTokenKeyAndParts(key)
-		} else {
-			key, parts = extractTokenKeyAndParts(key)
-		}
-		var token *model.Token
-		var err error
-		rawAuthorization := strings.TrimSpace(c.Request.Header.Get("Authorization"))
-		if tokenFromHeader, ok := tryJWTHeaderAuth(c, rawAuthorization); ok {
+		key, parts = extractTokenKeyAndParts(key)
+	} else {
+		key, parts = extractTokenKeyAndParts(key)
+	}
+	var token *model.Token
+	var err error
+	rawAuthorization := strings.TrimSpace(c.Request.Header.Get("Authorization"))
+	if tokenFromHeader, ok := tryJWTHeaderAuth(c, rawAuthorization); ok {
+		token = tokenFromHeader
+		key = token.Key
+		parts = []string{token.Key}
+		tokenAuthPrefix = ""
+	} else if key != "" && tokenAuthPrefix == "" && isLikelyJWTToken(key) {
+		if tokenFromHeader, ok := tryJWTHeaderAuth(c, key); ok {
 			token = tokenFromHeader
 			key = token.Key
 			parts = []string{token.Key}
 			tokenAuthPrefix = ""
-		} else if key != "" && tokenAuthPrefix == "" && isLikelyJWTToken(key) {
-			if tokenFromHeader, ok := tryJWTHeaderAuth(c, key); ok {
-				token = tokenFromHeader
-				key = token.Key
-				parts = []string{token.Key}
-				tokenAuthPrefix = ""
+		}
+	}
+	if token == nil {
+		token, err = model.ValidateUserToken(key)
+	}
+	if err != nil {
+		if keyWithSuffix, keyPartsWithSuffix, ok := splitTokenKeyAndSuffix(key); ok {
+			legacyToken, legacyErr := model.ValidateUserToken(keyWithSuffix)
+			if legacyErr == nil {
+				token = legacyToken
+				err = nil
+				key = keyWithSuffix
+				parts = keyPartsWithSuffix
 			}
 		}
-		if token == nil {
-			token, err = model.ValidateUserToken(key)
+	}
+	if token != nil {
+		id := c.GetInt("id")
+		if id == 0 {
+			c.Set("id", token.UserId)
 		}
-		if err != nil {
-			if keyWithSuffix, keyPartsWithSuffix, ok := splitTokenKeyAndSuffix(key); ok {
-				legacyToken, legacyErr := model.ValidateUserToken(keyWithSuffix)
-				if legacyErr == nil {
-					token = legacyToken
-					err = nil
-					key = keyWithSuffix
-					parts = keyPartsWithSuffix
-				}
-			}
-		}
-		if token != nil {
-			id := c.GetInt("id")
-			if id == 0 {
-				c.Set("id", token.UserId)
-			}
-			c.Set("token_id", token.Id)
-			c.Set("token_key", token.Key)
-			common.SetContextKey(c, constant.ContextKeyTokenAuthPrefix, tokenAuthPrefix)
-			c.Set("token_name", token.Name)
-		}
-		if err != nil {
-			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())
-			return
-		}
+		c.Set("token_id", token.Id)
+		c.Set("token_key", token.Key)
+		common.SetContextKey(c, constant.ContextKeyTokenAuthPrefix, tokenAuthPrefix)
+		c.Set("token_name", token.Name)
+	}
+	if err != nil {
+		return http.StatusUnauthorized, err.Error()
+	}
 
-		allowIps := token.GetIpLimits()
-		if len(allowIps) > 0 {
-			clientIp := c.ClientIP()
-			logger.LogDebug(c, "Token has IP restrictions, checking client IP %s", clientIp)
-			ip := net.ParseIP(clientIp)
-			if ip == nil {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "failed to parse client IP address")
-				return
-			}
-			if common.IsIpInCIDRList(ip, allowIps) == false {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "your IP address is not allowed for this token", types.ErrorCodeAccessDenied)
-				return
-			}
-			logger.LogDebug(c, "Client IP %s passed the token IP restrictions check", clientIp)
+	allowIps := token.GetIpLimits()
+	if len(allowIps) > 0 {
+		clientIp := c.ClientIP()
+		logger.LogDebug(c, "Token has IP restrictions, checking client IP %s", clientIp)
+		ip := net.ParseIP(clientIp)
+		if ip == nil {
+			return http.StatusForbidden, "failed to parse client IP address"
 		}
-
-		userCache, err := model.GetUserCache(token.UserId)
-		if err != nil {
-			abortWithOpenAiMessage(c, http.StatusInternalServerError, err.Error())
-			return
+		if common.IsIpInCIDRList(ip, allowIps) == false {
+			c.Set(contextKeyTokenAuthErrorCode, types.ErrorCodeAccessDenied)
+			return http.StatusForbidden, "your IP address is not allowed for this token"
 		}
-		userEnabled := userCache.Status == common.UserStatusEnabled
-		if !userEnabled {
-			abortWithOpenAiMessage(c, http.StatusForbidden, "user is banned")
-			return
+		logger.LogDebug(c, "Client IP %s passed the token IP restrictions check", clientIp)
+	}
+
+	userCache, err := model.GetUserCache(token.UserId)
+	if err != nil {
+		return http.StatusInternalServerError, err.Error()
+	}
+	userEnabled := userCache.Status == common.UserStatusEnabled
+	if !userEnabled {
+		return http.StatusForbidden, "user is banned"
+	}
+
+	userCache.WriteContext(c)
+
+	userGroup := userCache.Group
+	tokenGroup := token.Group
+	if tokenGroup != "" {
+		// check common.UserUsableGroups[userGroup]
+		if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+			return http.StatusForbidden, fmt.Sprintf("access to group %s is not allowed", tokenGroup)
 		}
-
-		userCache.WriteContext(c)
-
-		userGroup := userCache.Group
-		tokenGroup := token.Group
-		if tokenGroup != "" {
-			// check common.UserUsableGroups[userGroup]
-			if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("access to group %s is not allowed", tokenGroup))
-				return
+		// check group in common.GroupRatio
+		if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+			if tokenGroup != "auto" {
+				return http.StatusForbidden, fmt.Sprintf("group %s has been deprecated", tokenGroup)
 			}
-			// check group in common.GroupRatio
-			if !ratio_setting.ContainsGroupRatio(tokenGroup) {
-				if tokenGroup != "auto" {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("group %s has been deprecated", tokenGroup))
+		}
+		userGroup = tokenGroup
+	}
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+
+	if len(parts) > 1 && !model.IsAdmin(token.UserId) {
+		c.Header("specific_channel_version", "701e3ae1dc3f7975556d354e0675168d004891c8")
+		return http.StatusForbidden, "specifying a channel is not supported for regular users"
+	}
+	err = SetupContextForToken(c, token, parts...)
+	if err != nil {
+		return http.StatusInternalServerError, err.Error()
+	}
+	// Extensible post-auth hook chain:
+	// run extra business guards after token/user/group context is fully prepared.
+	// Any returned error aborts request with OpenAI-compatible error body.
+	if behaviorErr := service.RunPostTokenBehaviors(c, token); behaviorErr != nil {
+		code := behaviorErr.GetErrorCode()
+		if code != "" {
+			c.Set(contextKeyTokenAuthErrorCode, code)
+		}
+		return behaviorErr.StatusCode, behaviorErr.Error()
+	}
+	return 0, ""
+}
+
+func TokenAuth() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		if status, msg := authenticateToken(c); status != 0 {
+			if code, ok := c.Get(contextKeyTokenAuthErrorCode); ok {
+				if errorCode, ok := code.(types.ErrorCode); ok {
+					abortWithOpenAiMessage(c, status, msg, errorCode)
 					return
 				}
 			}
-			userGroup = tokenGroup
-		}
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
-
-		err = SetupContextForToken(c, token, parts...)
-		if err != nil {
-			return
-		}
-		// Extensible post-auth hook chain:
-		// run extra business guards after token/user/group context is fully prepared.
-		// Any returned error aborts request with OpenAI-compatible error body.
-		if behaviorErr := service.RunPostTokenBehaviors(c, token); behaviorErr != nil {
-			code := behaviorErr.GetErrorCode()
-			if code != "" {
-				abortWithOpenAiMessage(c, behaviorErr.StatusCode, behaviorErr.Error(), code)
-			} else {
-				abortWithOpenAiMessage(c, behaviorErr.StatusCode, behaviorErr.Error())
-			}
+			abortWithOpenAiMessage(c, status, msg)
 			return
 		}
 		c.Next()
 	}
+}
+
+// TokenAuthSoftForModels 专供 GET /v1/models（list）使用。
+// 鉴权失败时不返回 4xx，改为 200 + 空模型列表；成功则 c.Next() 与 TokenAuth 一致。
+func TokenAuthSoftForModels() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		if status, _ := authenticateToken(c); status != 0 {
+			writeEmptyModelsResponse(c)
+			return
+		}
+		c.Next()
+	}
+}
+
+func writeEmptyModelsResponse(c *gin.Context) {
+	switch {
+	case c.GetHeader("x-api-key") != "" && c.GetHeader("anthropic-version") != "":
+		c.JSON(http.StatusOK, gin.H{
+			"data":     []any{},
+			"first_id": "",
+			"has_more": false,
+			"last_id":  "",
+		})
+	case c.GetHeader("x-goog-api-key") != "" || c.Query("key") != "":
+		c.JSON(http.StatusOK, gin.H{"data": []any{}})
+	default:
+		c.JSON(http.StatusOK, gin.H{
+			"data":   []any{},
+			"object": "list",
+		})
+	}
+	c.Abort()
 }
 
 func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) error {

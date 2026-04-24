@@ -23,6 +23,7 @@ func setupJWTHeaderAuthTestDB(t *testing.T) *gorm.DB {
 	common.UsingMySQL = false
 	common.UsingPostgreSQL = false
 	common.RedisEnabled = false
+	model.InitColumnNames()
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
@@ -257,4 +258,136 @@ func TestTryJWTHeaderAuthSetsJWTHeaderAuthContextFlag(t *testing.T) {
 	if !common.GetContextKeyBool(ctx, constant.ContextKeyJWTHeaderAuth) {
 		t.Fatalf("expected jwt header auth context flag to be set")
 	}
+}
+
+func TestTokenAuthSoftForModelsReturnsEmptyOnAuthFailure(t *testing.T) {
+	setupJWTHeaderAuthTestDB(t)
+
+	t.Run("openai compatible empty response", func(t *testing.T) {
+		recorder := performSoftModelsRequest(t, "/v1/models", nil)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", recorder.Code)
+		}
+
+		var body struct {
+			Data    []any  `json:"data"`
+			Object  string `json:"object"`
+			Success *bool  `json:"success"`
+		}
+		if err := common.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to decode response body: %v", err)
+		}
+		if len(body.Data) != 0 || body.Object != "list" || body.Success != nil {
+			t.Fatalf("unexpected openai empty response: %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("anthropic empty response", func(t *testing.T) {
+		recorder := performSoftModelsRequest(t, "/v1/models", map[string]string{
+			"Authorization":     "Bearer invalid",
+			"x-api-key":         "xxx",
+			"anthropic-version": "2023-06-01",
+		})
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", recorder.Code)
+		}
+
+		var body struct {
+			Data    []any  `json:"data"`
+			FirstID string `json:"first_id"`
+			HasMore bool   `json:"has_more"`
+			LastID  string `json:"last_id"`
+		}
+		if err := common.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to decode response body: %v", err)
+		}
+		if len(body.Data) != 0 || body.FirstID != "" || body.HasMore || body.LastID != "" {
+			t.Fatalf("unexpected anthropic empty response: %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("gemini empty response", func(t *testing.T) {
+		recorder := performSoftModelsRequest(t, "/v1/models", map[string]string{
+			"x-goog-api-key": "invalid",
+		})
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", recorder.Code)
+		}
+
+		var body struct {
+			Data   []any  `json:"data"`
+			Object string `json:"object"`
+		}
+		if err := common.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to decode response body: %v", err)
+		}
+		if len(body.Data) != 0 || body.Object != "" {
+			t.Fatalf("unexpected gemini empty response: %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("valid auth passes through", func(t *testing.T) {
+		db := setupJWTHeaderAuthTestDB(t)
+		seedJWTHeaderRootUser(t, db, 2)
+		token := &model.Token{
+			UserId:         2,
+			Name:           "soft_auth_valid",
+			Key:            "soft-auth-valid-key",
+			Status:         common.TokenStatusEnabled,
+			CreatedTime:    1,
+			AccessedTime:   1,
+			ExpiredTime:    -1,
+			RemainQuota:    100,
+			UnlimitedQuota: true,
+		}
+		if err := db.Create(token).Error; err != nil {
+			t.Fatalf("failed to create soft auth token: %v", err)
+		}
+
+		called := false
+		recorder := performSoftModelsRequestWithHandler(t, "/v1/models", map[string]string{
+			"Authorization": "Bearer soft-auth-valid-key",
+		}, func(c *gin.Context) {
+			called = true
+			c.JSON(http.StatusOK, gin.H{"passed": true})
+		})
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", recorder.Code)
+		}
+		if !called {
+			t.Fatalf("expected soft auth to call the next handler")
+		}
+	})
+}
+
+func performSoftModelsRequest(t *testing.T, target string, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return performSoftModelsRequestWithHandler(t, target, headers, func(c *gin.Context) {
+		t.Fatalf("expected auth failure to abort before next handler")
+	})
+}
+
+func performSoftModelsRequestWithHandler(
+	t *testing.T,
+	target string,
+	headers map[string]string,
+	handler gin.HandlerFunc,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	router := gin.New()
+	router.GET("/v1/models", TokenAuthSoftForModels(), handler)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	for key, value := range headers {
+		request.Header.Set(key, value)
+	}
+	router.ServeHTTP(recorder, request)
+	return recorder
 }

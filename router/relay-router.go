@@ -18,9 +18,8 @@ func SetRelayRouter(router *gin.Engine) {
 	// https://platform.openai.com/docs/api-reference/introduction
 	modelsRouter := router.Group("/v1/models")
 	modelsRouter.Use(middleware.RouteTag("relay"))
-	modelsRouter.Use(middleware.TokenAuth())
 	{
-		modelsRouter.GET("", func(c *gin.Context) {
+		modelsRouter.GET("", middleware.TokenAuthSoftForModels(), func(c *gin.Context) {
 			switch {
 			case c.GetHeader("x-api-key") != "" && c.GetHeader("anthropic-version") != "":
 				controller.ListModels(c, constant.ChannelTypeAnthropic)
@@ -31,7 +30,7 @@ func SetRelayRouter(router *gin.Engine) {
 			}
 		})
 
-		modelsRouter.GET("/:model", func(c *gin.Context) {
+		modelsRouter.GET("/:model", middleware.TokenAuth(), func(c *gin.Context) {
 			switch {
 			case c.GetHeader("x-api-key") != "" && c.GetHeader("anthropic-version") != "":
 				controller.RetrieveModel(c, constant.ChannelTypeAnthropic)
