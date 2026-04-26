@@ -86,3 +86,29 @@ func TestParseCapabilitySpecPreservesExplicitSDKMethod(t *testing.T) {
 		t.Fatalf("unexpected stream sdk method: %s", spec.StreamSDKMethod)
 	}
 }
+
+func TestImageToImageUnifiedGenerationsPreservesSyncContract(t *testing.T) {
+	raw := json.RawMessage(`{
+		"supported": true,
+		"path": "/v1/images/generations",
+		"method": "POST",
+		"provider_style": "openai-image",
+		"request_format": "json",
+		"sdk_method": "aiApi.imageGenerations",
+		"parameters": {}
+	}`)
+
+	spec, ok := parseCapabilitySpec("image_to_image", raw)
+	if !ok {
+		t.Fatal("expected image_to_image capability to parse")
+	}
+	if spec.Path != "/v1/images/generations" {
+		t.Fatalf("unexpected image_to_image path: %s", spec.Path)
+	}
+	if spec.RequestFormat != "json" {
+		t.Fatalf("unexpected image_to_image request format: %s", spec.RequestFormat)
+	}
+	if spec.SDKMethod != "aiApi.imageGenerations" {
+		t.Fatalf("unexpected image_to_image sdk method: %s", spec.SDKMethod)
+	}
+}

@@ -64,7 +64,7 @@ type Task struct {
 	Progress       string                `json:"progress" gorm:"type:varchar(20);index"`
 	WorkerID       string                `json:"worker_id,omitempty" gorm:"type:varchar(64);default:null"`
 	HeartbeatAt    int64                 `json:"heartbeat_at,omitempty" gorm:"default:0;index:idx_task_claim,priority:3"`
-	IdempotencyKey string                `json:"idempotency_key,omitempty" gorm:"type:varchar(64);default:null;uniqueIndex:idx_task_idem,priority:2"`
+	IdempotencyKey string                `json:"idempotency_key,omitempty" gorm:"type:varchar(256);default:null;uniqueIndex:idx_task_idem,priority:2"`
 	ReclaimCount   int                   `json:"reclaim_count,omitempty" gorm:"default:0"`
 	Properties     Properties            `json:"properties" gorm:"type:json"`
 	Username       string                `json:"username,omitempty" gorm:"-"`

@@ -181,7 +181,13 @@ func capabilityParameterSchemaFromLegacy(typeName string, enumValues []string) C
 
 func inferRequestFormat(capabilityKey string, path string, method string, providerStyle string) string {
 	trimmedPath := strings.TrimSpace(path)
-	if capabilityKey == "image_to_image" || strings.Contains(trimmedPath, "/edits") ||
+	if capabilityKey == "image_to_image" && trimmedPath == "/v1/images/generations" {
+		return "json"
+	}
+	if capabilityKey == "image_to_image" && trimmedPath == "/v1/images" {
+		return "multipart"
+	}
+	if strings.Contains(trimmedPath, "/edits") ||
 		providerStyle == "openai-image" && strings.Contains(trimmedPath, "/images/edits") {
 		return "multipart"
 	}
@@ -296,6 +302,9 @@ func inferSDKMethod(capabilityKey string, path string, providerStyle string) str
 		}
 		return "aiApi.imageGenerations"
 	case "image_to_image":
+		if strings.TrimSpace(path) == "/v1/images/generations" {
+			return "aiApi.imageGenerations"
+		}
 		if strings.TrimSpace(path) == "/v1/images" {
 			return "aiApi.imageTasks"
 		}
