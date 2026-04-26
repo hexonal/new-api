@@ -379,24 +379,39 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 			c.Abort()
 			return
 		}
+		rawAuthorization := strings.TrimSpace(key)
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
+		tokenAuthPrefix := detectTokenAuthPrefix(key)
 		key, _ = extractTokenKeyAndParts(key)
 
-		token, err := model.GetTokenByKey(key, false)
-		if err != nil {
-			if keyWithSuffix, _, ok := splitTokenKeyAndSuffix(key); ok {
-				token, err = model.GetTokenByKey(keyWithSuffix, false)
+		var token *model.Token
+		var err error
+
+		if tokenFromJWT, ok := tryJWTHeaderAuth(c, rawAuthorization); ok {
+			token = tokenFromJWT
+		} else if key != "" && tokenAuthPrefix == "" && isLikelyJWTToken(key) {
+			if tokenFromJWT, ok := tryJWTHeaderAuth(c, key); ok {
+				token = tokenFromJWT
 			}
 		}
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "无效的令牌",
-			})
-			c.Abort()
-			return
+
+		if token == nil {
+			token, err = model.GetTokenByKey(key, false)
+			if err != nil {
+				if keyWithSuffix, _, ok := splitTokenKeyAndSuffix(key); ok {
+					token, err = model.GetTokenByKey(keyWithSuffix, false)
+				}
+			}
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success": false,
+					"message": "无效的令牌",
+				})
+				c.Abort()
+				return
+			}
 		}
 
 		userCache, err := model.GetUserCache(token.UserId)

@@ -102,6 +102,23 @@ func newJWTHeaderAuthContext(headers map[string]string) *gin.Context {
 	return ctx
 }
 
+func performTokenAuthReadOnlyRequest(t *testing.T, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	ctx, router := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/log/token/generations", strings.NewReader(`{}`))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		ctx.Request.Header.Set(key, value)
+	}
+	router.POST("/api/log/token/generations", TokenAuthReadOnly(), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+	router.HandleContext(ctx)
+	return recorder
+}
+
 func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 	db := setupJWTHeaderAuthTestDB(t)
 	seedJWTHeaderRootUser(t, db, 1)
@@ -163,6 +180,50 @@ func TestTryJWTHeaderAuthRejectsExpiredAndExhaustedTokens(t *testing.T) {
 				t.Fatalf("expected jwt header auth to reject token %q", tc.tokenName)
 			}
 		})
+	}
+}
+
+func TestTokenAuthReadOnlyAcceptsSKToken(t *testing.T) {
+	db := setupJWTHeaderAuthTestDB(t)
+	user := seedJWTHeaderRootUser(t, db, 11)
+	token := seedJWTHeaderToken(t, db, user.Id, "readonly-sk", -1, 100, true)
+
+	recorder := performTokenAuthReadOnlyRequest(t, map[string]string{
+		"Authorization": "Bearer " + token.Key,
+	})
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected sk token request to pass, got status %d body %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestTokenAuthReadOnlyAcceptsJWTHeaderFallback(t *testing.T) {
+	db := setupJWTHeaderAuthTestDB(t)
+	user := seedJWTHeaderRootUser(t, db, 12)
+	seedJWTHeaderToken(t, db, user.Id, "prod_babyblend_user-123", -1, 100, true)
+
+	recorder := performTokenAuthReadOnlyRequest(t, map[string]string{
+		"Authorization": "Bearer eyJ.test.token",
+		"x-app-id":      "babyblend",
+		"x-user-id":     "user-123",
+		"x-env":         "prod",
+	})
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected jwt fallback request to pass, got status %d body %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestTokenAuthReadOnlyRejectsInvalidToken(t *testing.T) {
+	db := setupJWTHeaderAuthTestDB(t)
+	seedJWTHeaderRootUser(t, db, 13)
+
+	recorder := performTokenAuthReadOnlyRequest(t, map[string]string{
+		"Authorization": "Bearer invalid-token",
+	})
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected invalid token request to be rejected, got status %d body %s", recorder.Code, recorder.Body.String())
 	}
 }
 
