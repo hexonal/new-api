@@ -90,9 +90,11 @@ func QueryUserTasksByToken(c *gin.Context) {
 	} else if pageSize > 100 {
 		pageSize = 100
 	}
-	params := model.SyncTaskQueryParams{TaskID: req.TaskID, Action: req.Action, Status: req.Status, ChannelID: req.ChannelID, StartTimestamp: req.StartTimestamp, EndTimestamp: req.EndTimestamp}
-	if req.Platform != "" {
-		params.Platform = constant.TaskPlatform(req.Platform)
+	params := model.SyncTaskQueryParams{
+		TaskID:         req.TaskID,
+		Status:         req.Status,
+		StartTimestamp: req.StartTimestamp,
+		EndTimestamp:   req.EndTimestamp,
 	}
 	userID := c.GetInt("id")
 	items := model.TaskGetAllUserTask(userID, (page-1)*pageSize, pageSize, params)
