@@ -56,3 +56,15 @@ type TaskDto struct {
 type FetchReq struct {
 	IDs []string `json:"ids"`
 }
+
+type TaskSelfPageReq struct {
+	Page           int    `json:"page"`
+	PageSize       int    `json:"page_size"`
+	TaskID         string `json:"task_id,omitempty"`
+	Platform       string `json:"platform,omitempty"`
+	Action         string `json:"action,omitempty"`
+	Status         string `json:"status,omitempty"`
+	ChannelID      string `json:"channel_id,omitempty"`
+	StartTimestamp int64  `json:"start_timestamp,omitempty"`
+	EndTimestamp   int64  `json:"end_timestamp,omitempty"`
+}

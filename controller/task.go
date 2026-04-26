@@ -66,6 +66,45 @@ func GetUserTask(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func QueryUserTasksByToken(c *gin.Context) {
+	var req dto.TaskSelfPageReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if req.Page > 100 {
+		common.ApiErrorI18n(c, "task.self_page.page_exceeds_limit")
+		return
+	}
+	if req.StartTimestamp > 0 && req.EndTimestamp > 0 && req.StartTimestamp > req.EndTimestamp {
+		common.ApiErrorI18n(c, "task.self_page.timestamp_invalid")
+		return
+	}
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 {
+		pageSize = common.ItemsPerPage
+	} else if pageSize > 100 {
+		pageSize = 100
+	}
+	params := model.SyncTaskQueryParams{TaskID: req.TaskID, Action: req.Action, Status: req.Status, ChannelID: req.ChannelID, StartTimestamp: req.StartTimestamp, EndTimestamp: req.EndTimestamp}
+	if req.Platform != "" {
+		params.Platform = constant.TaskPlatform(req.Platform)
+	}
+	userID := c.GetInt("id")
+	items := model.TaskGetAllUserTask(userID, (page-1)*pageSize, pageSize, params)
+	total := model.TaskCountAllUserTask(userID, params)
+	common.ApiSuccess(c, &common.PageInfo{
+		Page:     page,
+		PageSize: pageSize,
+		Total:    int(total),
+		Items:    tasksToDto(items, false),
+	})
+}
+
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 	var userIdMap map[int]*model.UserBase
 	if fillUser {
