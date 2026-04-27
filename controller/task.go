@@ -91,6 +91,7 @@ func QueryUserTasksByToken(c *gin.Context) {
 		pageSize = 100
 	}
 	params := model.SyncTaskQueryParams{
+		TokenID:        c.GetInt("token_id"),
 		TaskID:         req.TaskID,
 		Status:         req.Status,
 		StartTimestamp: req.StartTimestamp,

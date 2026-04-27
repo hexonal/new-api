@@ -25,7 +25,7 @@ func TestTaskGetAllUserTask_Filters(t *testing.T) {
 	t.Run("分页", func(t *testing.T) {
 		clearTaskQueryTables(t)
 		for i := 0; i < 5; i++ {
-			createTaskQueryTask(t, int64(i+1), 1, TaskStatusSuccess, int64(100+i), 1)
+			createTaskQueryTask(t, int64(i+1), 1, TaskStatusSuccess, int64(100+i), 1, 1)
 		}
 
 		items := TaskGetAllUserTask(1, 0, 2, SyncTaskQueryParams{})
@@ -38,9 +38,9 @@ func TestTaskGetAllUserTask_Filters(t *testing.T) {
 
 	t.Run("Status 过滤", func(t *testing.T) {
 		clearTaskQueryTables(t)
-		createTaskQueryTask(t, 1, 1, TaskStatusSuccess, 100, 1)
-		createTaskQueryTask(t, 2, 1, TaskStatusFailure, 101, 1)
-		createTaskQueryTask(t, 3, 1, TaskStatusFailure, 102, 1)
+		createTaskQueryTask(t, 1, 1, TaskStatusSuccess, 100, 1, 1)
+		createTaskQueryTask(t, 2, 1, TaskStatusFailure, 101, 1, 1)
+		createTaskQueryTask(t, 3, 1, TaskStatusFailure, 102, 1, 1)
 
 		params := SyncTaskQueryParams{
 			Status: string(TaskStatusFailure),
@@ -56,14 +56,31 @@ func TestTaskGetAllUserTask_Filters(t *testing.T) {
 
 	t.Run("越权", func(t *testing.T) {
 		clearTaskQueryTables(t)
-		createTaskQueryTask(t, 1, 1, TaskStatusSuccess, 100, 1)
-		createTaskQueryTask(t, 2, 2, TaskStatusSuccess, 101, 1)
+		createTaskQueryTask(t, 1, 1, TaskStatusSuccess, 100, 1, 1)
+		createTaskQueryTask(t, 2, 2, TaskStatusSuccess, 101, 1, 1)
 
 		items := TaskGetAllUserTask(1, 0, 10, SyncTaskQueryParams{})
 		total := TaskCountAllUserTask(1, SyncTaskQueryParams{})
 		require.Len(t, items, 1)
 		assert.EqualValues(t, 1, total)
 		assert.Equal(t, 1, items[0].UserId)
+	})
+
+	t.Run("TokenID 过滤", func(t *testing.T) {
+		clearTaskQueryTables(t)
+		createTaskQueryTask(t, 1, 1, TaskStatusSuccess, 100, 1, 101)
+		createTaskQueryTask(t, 2, 1, TaskStatusSuccess, 101, 1, 202)
+		createTaskQueryTask(t, 3, 1, TaskStatusFailure, 102, 1, 101)
+
+		params := SyncTaskQueryParams{TokenID: 101}
+		items := TaskGetAllUserTask(1, 0, 10, params)
+		total := TaskCountAllUserTask(1, params)
+		require.Len(t, items, 2)
+		assert.EqualValues(t, 2, total)
+		for _, item := range items {
+			assert.EqualValues(t, 1, item.UserId)
+			assert.EqualValues(t, 101, item.PrivateData.TokenId)
+		}
 	})
 }
 
@@ -110,6 +127,7 @@ func createTaskQueryTask(
 	status TaskStatus,
 	submitTime int64,
 	channelID int,
+	tokenID int,
 ) {
 	t.Helper()
 
@@ -126,6 +144,9 @@ func createTaskQueryTask(
 		UpdatedAt:  time.Now().Unix(),
 		Properties: Properties{
 			Input: "test",
+		},
+		PrivateData: TaskPrivateData{
+			TokenId: tokenID,
 		},
 	}
 

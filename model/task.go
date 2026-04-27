@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -179,6 +180,7 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 type SyncTaskQueryParams struct {
 	Platform       constant.TaskPlatform
 	ChannelID      string
+	TokenID        int
 	TaskID         string
 	UserID         string
 	Action         string
@@ -243,6 +245,7 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 
 	// 初始化查询构建器
 	query := DB.Where("user_id = ?", userId)
+	query = applyTaskTokenIDFilter(query, queryParams.TokenID)
 
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
@@ -565,6 +568,7 @@ func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	var total int64
 	query := DB.Model(&Task{}).Where("user_id = ?", userId)
+	query = applyTaskTokenIDFilter(query, queryParams.TokenID)
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
 	}
@@ -586,6 +590,23 @@ func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	_ = query.Count(&total).Error
 	return total
 }
+
+func applyTaskTokenIDFilter(query *gorm.DB, tokenID int) *gorm.DB {
+	if query == nil || tokenID <= 0 {
+		return query
+	}
+	switch {
+	case common.UsingPostgreSQL:
+		return query.Where("CAST(private_data->>'token_id' AS INTEGER) = ?", tokenID)
+	case common.UsingMySQL:
+		return query.Where("CAST(JSON_UNQUOTE(JSON_EXTRACT(private_data, '$.token_id')) AS UNSIGNED) = ?", tokenID)
+	default:
+		tokenPrefix := fmt.Sprintf("%%\"token_id\":%d,%%", tokenID)
+		tokenSuffix := fmt.Sprintf("%%\"token_id\":%d}%%", tokenID)
+		return query.Where("private_data LIKE ? OR private_data LIKE ?", tokenPrefix, tokenSuffix)
+	}
+}
+
 func (t *Task) ToOpenAIVideo() *dto.OpenAIVideo {
 	openAIVideo := dto.NewOpenAIVideo()
 	openAIVideo.ID = t.TaskID
