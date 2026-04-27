@@ -145,13 +145,17 @@ func TestExtractConsumeCallbackPresentedToken(t *testing.T) {
 func TestIsConsumeCallbackRelayFormatSupported(t *testing.T) {
 	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAI))
 	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatClaude))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatGemini))
 	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIResponses))
 	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIResponsesCompaction))
-
-	assert.False(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIAudio))
-	assert.False(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIImage))
-	assert.False(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatTask))
-	assert.False(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatMjProxy))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIAudio))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIImage))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatOpenAIRealtime))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatRerank))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatEmbedding))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatTask))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatMjProxy))
+	assert.True(t, isConsumeCallbackRelayFormatSupported(types.RelayFormatImageTask))
 	assert.False(t, isConsumeCallbackRelayFormatSupported(types.RelayFormat("")))
 }
 
@@ -160,11 +164,12 @@ func TestIsConsumeCallbackRelayModeSupported(t *testing.T) {
 	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeCompletions))
 	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeResponses))
 	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeResponsesCompact))
+	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeEmbeddings))
+	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeAudioSpeech))
+	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeMidjourneyImagine))
+	assert.True(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeGemini))
 
 	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeUnknown))
-	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeEmbeddings))
-	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeAudioSpeech))
-	assert.False(t, isConsumeCallbackRelayModeSupported(relayconstant.RelayModeMidjourneyImagine))
 }
 
 func TestParseConsumeCallbackUserPrefixFilter(t *testing.T) {

@@ -679,8 +679,17 @@ func isConsumeCallbackRelayFormatSupported(format types.RelayFormat) bool {
 	switch format {
 	case types.RelayFormatOpenAI,
 		types.RelayFormatClaude,
+		types.RelayFormatGemini,
 		types.RelayFormatOpenAIResponses,
-		types.RelayFormatOpenAIResponsesCompaction:
+		types.RelayFormatOpenAIResponsesCompaction,
+		types.RelayFormatOpenAIAudio,
+		types.RelayFormatOpenAIImage,
+		types.RelayFormatOpenAIRealtime,
+		types.RelayFormatRerank,
+		types.RelayFormatEmbedding,
+		types.RelayFormatTask,
+		types.RelayFormatMjProxy,
+		types.RelayFormatImageTask:
 		return true
 	default:
 		return false
@@ -692,7 +701,36 @@ func isConsumeCallbackRelayModeSupported(relayMode int) bool {
 	case relayconstant.RelayModeChatCompletions,
 		relayconstant.RelayModeCompletions,
 		relayconstant.RelayModeResponses,
-		relayconstant.RelayModeResponsesCompact:
+		relayconstant.RelayModeResponsesCompact,
+		relayconstant.RelayModeEmbeddings,
+		relayconstant.RelayModeModerations,
+		relayconstant.RelayModeImagesGenerations,
+		relayconstant.RelayModeImagesEdits,
+		relayconstant.RelayModeImageSubmit,
+		relayconstant.RelayModeImageFetchByID,
+		relayconstant.RelayModeAudioSpeech,
+		relayconstant.RelayModeAudioTranscription,
+		relayconstant.RelayModeAudioTranslation,
+		relayconstant.RelayModeSunoSubmit,
+		relayconstant.RelayModeSunoFetch,
+		relayconstant.RelayModeSunoFetchByID,
+		relayconstant.RelayModeVideoSubmit,
+		relayconstant.RelayModeVideoFetchByID,
+		relayconstant.RelayModeMidjourneyImagine,
+		relayconstant.RelayModeMidjourneyDescribe,
+		relayconstant.RelayModeMidjourneyBlend,
+		relayconstant.RelayModeMidjourneyChange,
+		relayconstant.RelayModeMidjourneySimpleChange,
+		relayconstant.RelayModeMidjourneyAction,
+		relayconstant.RelayModeMidjourneyModal,
+		relayconstant.RelayModeMidjourneyShorten,
+		relayconstant.RelayModeSwapFace,
+		relayconstant.RelayModeMidjourneyUpload,
+		relayconstant.RelayModeMidjourneyVideo,
+		relayconstant.RelayModeMidjourneyEdits,
+		relayconstant.RelayModeRerank,
+		relayconstant.RelayModeRealtime,
+		relayconstant.RelayModeGemini:
 		return true
 	default:
 		return false
