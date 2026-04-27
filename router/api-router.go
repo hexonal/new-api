@@ -331,7 +331,7 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 
 			tokenTaskRoute := taskRoute.Group("")
-			tokenTaskRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
+			tokenTaskRoute.Use(middleware.CORS())
 			{
 				tokenTaskRoute.POST("/self/page", middleware.TokenAuth(), controller.QueryUserTasksByToken)
 			}
