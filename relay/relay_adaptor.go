@@ -37,6 +37,7 @@ import (
 	taskjimeng "github.com/QuantumNous/new-api/relay/channel/task/jimeng"
 	"github.com/QuantumNous/new-api/relay/channel/task/kling"
 	local_image "github.com/QuantumNous/new-api/relay/channel/task/local_image"
+	openai_image_task "github.com/QuantumNous/new-api/relay/channel/task/openai_image_task"
 	taskPixVerse "github.com/QuantumNous/new-api/relay/channel/task/pixverse"
 	tasksora "github.com/QuantumNous/new-api/relay/channel/task/sora"
 	"github.com/QuantumNous/new-api/relay/channel/task/suno"
@@ -168,6 +169,8 @@ func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
 			return &taskYouchuan.TaskAdaptor{}
 		case constant.ChannelTypePixVerse:
 			return &taskPixVerse.TaskAdaptor{}
+		case constant.ChannelTypeOpenAIImageTask:
+			return &openai_image_task.TaskAdaptor{}
 		}
 	}
 	return nil
