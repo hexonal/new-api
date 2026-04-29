@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
 )
@@ -64,5 +65,36 @@ func TestDoResponse_ExtractsUpstreamTaskID(t *testing.T) {
 	}
 	if taskID != "task_abc" {
 		t.Fatalf("got upstream id %q, want task_abc", taskID)
+	}
+}
+
+func TestParseTaskResult_StatusMapping(t *testing.T) {
+	a := &TaskAdaptor{}
+	cases := []struct {
+		name     string
+		body     string
+		wantStat model.TaskStatus
+		wantURL  string
+	}{
+		{"queued", `{"code":"success","data":{"status":"queued"}}`, model.TaskStatusQueued, ""},
+		{"running", `{"code":"success","data":{"status":"running"}}`, model.TaskStatusInProgress, ""},
+		{"succeeded", `{"code":"success","data":{"status":"succeeded","url":"https://x/y.png"}}`, model.TaskStatusSuccess, "https://x/y.png"},
+		{"failed", `{"code":"success","data":{"status":"failed","error":"upstream timeout"}}`, model.TaskStatusFailure, ""},
+		{"cancelled", `{"code":"success","data":{"status":"cancelled","error":"cancelled by user"}}`, model.TaskStatusFailure, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			info, err := a.ParseTaskResult([]byte(tc.body))
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			if info.Status != string(tc.wantStat) {
+				t.Fatalf("status got %s, want %s", info.Status, tc.wantStat)
+			}
+			if info.Url != tc.wantURL {
+				t.Fatalf("url got %q, want %q", info.Url, tc.wantURL)
+			}
+		})
 	}
 }

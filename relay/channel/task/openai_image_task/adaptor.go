@@ -1,6 +1,7 @@
 package openai_image_task
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -117,11 +118,51 @@ func (a *TaskAdaptor) GetChannelName() string {
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
-	return nil, fmt.Errorf("not implemented")
+	taskID, ok := body["task_id"].(string)
+	if !ok || strings.TrimSpace(taskID) == "" {
+		return nil, fmt.Errorf("invalid task_id")
+	}
+
+	uri := fmt.Sprintf("%s/v1/images/%s", strings.TrimRight(baseUrl, "/"), strings.TrimSpace(taskID))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+
+	client, err := service.GetHttpClientWithProxy(proxy)
+	if err != nil {
+		return nil, fmt.Errorf("new proxy http client failed: %w", err)
+	}
+	return client.Do(req)
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
-	return nil, fmt.Errorf("not implemented")
+	var parsed fetchResponse
+	if err := common.Unmarshal(respBody, &parsed); err != nil {
+		return nil, errors.Wrap(err, "unmarshal task result failed")
+	}
+
+	info := &relaycommon.TaskInfo{
+		Code: 0,
+	}
+	switch parsed.Data.Status {
+	case statusQueued:
+		info.Status = string(model.TaskStatusQueued)
+	case statusProcessing, statusInProgress, statusRunning:
+		info.Status = string(model.TaskStatusInProgress)
+	case statusSucceeded, statusCompleted:
+		info.Status = string(model.TaskStatusSuccess)
+		info.Url = strings.TrimSpace(parsed.Data.URL)
+	case statusFailed, statusCancelled:
+		info.Status = string(model.TaskStatusFailure)
+		if parsed.Data.Error != nil {
+			info.Reason = strings.TrimSpace(*parsed.Data.Error)
+		}
+	default:
+		info.Status = string(model.TaskStatusUnknown)
+	}
+	return info, nil
 }
 
 var _ channel.TaskAdaptor = (*TaskAdaptor)(nil)
