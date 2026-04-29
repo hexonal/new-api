@@ -59,6 +59,9 @@ type ChannelOtherSettings struct {
 	BreakerHalfOpenProbeCount             int           `json:"breaker_half_open_probe_count,omitempty"`
 	BreakerRecoverySuccessCount           int           `json:"breaker_recovery_success_count,omitempty"`
 	BreakerErrorTypes                     []string      `json:"breaker_error_types,omitempty"`
+	// ImageTaskRequestPath 覆盖 channel.type=1 异步图像 submit 上游路径
+	// 默认 /v1/images/generations；ai-router 等自定义协议网关可设 /v1/images
+	ImageTaskRequestPath string `json:"image_task_request_path,omitempty"`
 }
 
 var defaultChannelBreakerErrorTypes = []string{

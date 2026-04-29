@@ -161,7 +161,7 @@ func buildLocalImageGenerationsGinContext(
 		task,
 		ch,
 		imageReq,
-		"/v1/images/generations",
+		ch.GetImageTaskRequestPath(),
 		requestBody,
 		"application/json",
 	)

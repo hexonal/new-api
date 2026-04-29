@@ -870,6 +870,23 @@ func (channel *Channel) GetSetting() dto.ChannelSettings {
 	return setting
 }
 
+// GetImageTaskRequestPath 返回该 channel 异步图像 submit 上游路径
+// 读 OtherSettings.ImageTaskRequestPath；为空 / 解析失败时回退 /v1/images/generations
+func (channel *Channel) GetImageTaskRequestPath() string {
+	const defaultPath = "/v1/images/generations"
+	if channel == nil || strings.TrimSpace(channel.OtherSettings) == "" {
+		return defaultPath
+	}
+	var setting dto.ChannelOtherSettings
+	if err := common.Unmarshal([]byte(channel.OtherSettings), &setting); err != nil {
+		return defaultPath
+	}
+	if path := strings.TrimSpace(setting.ImageTaskRequestPath); path != "" {
+		return path
+	}
+	return defaultPath
+}
+
 func (channel *Channel) SetSetting(setting dto.ChannelSettings) {
 	settingBytes, err := common.Marshal(setting)
 	if err != nil {
