@@ -12,8 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // TaskAdaptor implements the async image task channel backed by POST /v1/images
@@ -74,11 +76,36 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (*http.Response, error) {
-	return nil, fmt.Errorf("not implemented")
+	return channel.DoTaskApiRequest(a, c, info, requestBody)
 }
 
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
-	return "", nil, nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
+	}
+	_ = resp.Body.Close()
+
+	var parsed submitResponse
+	if err := common.Unmarshal(body, &parsed); err != nil {
+		return "", nil, service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", body), "unmarshal_response_body_failed", http.StatusInternalServerError)
+	}
+
+	upstreamID := strings.TrimSpace(parsed.TaskID)
+	if upstreamID == "" {
+		upstreamID = strings.TrimSpace(parsed.ID)
+	}
+	if upstreamID == "" {
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+	}
+
+	if info != nil && info.TaskRelayInfo != nil && strings.TrimSpace(info.TaskRelayInfo.PublicTaskID) != "" {
+		publicID := strings.TrimSpace(info.TaskRelayInfo.PublicTaskID)
+		parsed.ID = publicID
+		parsed.TaskID = publicID
+	}
+	c.JSON(http.StatusOK, parsed)
+	return upstreamID, body, nil
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
