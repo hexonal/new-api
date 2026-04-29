@@ -152,6 +152,7 @@ func buildLocalImageGenerationsGinContext(
 	ch *model.Channel,
 	imageReq *dto.ImageRequest,
 ) (*gin.Context, error) {
+	imageReq.N = nil
 	requestBody, err := common.Marshal(imageReq)
 	if err != nil {
 		return nil, err
