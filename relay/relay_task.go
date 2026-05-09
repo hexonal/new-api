@@ -150,6 +150,13 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if platform == "" {
 		platform = GetTaskPlatform(c)
 	}
+	// channel.type=60 (ChannelTypeOpenAIImageTask) 特例：
+	// distributor 层会把 /v1/images 路径的 platform 硬编码成 TaskPlatformImage，
+	// 但 type=60 channel 必须走 openai_image_task adaptor (真实 HTTP forward 到 ai-router)，
+	// 不能落到 local_image worker pool。这里如果检测到 channel_type=60 就强制用 channel_type 路由。
+	if channelType := c.GetInt("channel_type"); channelType == constant.ChannelTypeOpenAIImageTask {
+		platform = constant.TaskPlatform(strconv.Itoa(channelType))
+	}
 	adaptor := GetTaskAdaptor(platform)
 	if adaptor == nil {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("invalid api platform: %s", platform), "invalid_api_platform", http.StatusBadRequest)
