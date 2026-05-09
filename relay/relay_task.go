@@ -3,6 +3,7 @@ package relay
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -522,22 +523,11 @@ func buildImageTaskResultItems(task *model.Task) []dto.ImageResultItem {
 		return nil
 	}
 
-	var imageResp dto.ImageResponse
-	if len(task.Data) > 0 && common.Unmarshal(task.Data, &imageResp) == nil && len(imageResp.Data) > 0 {
-		items := make([]dto.ImageResultItem, 0, len(imageResp.Data))
-		for _, data := range imageResp.Data {
-			item := dto.ImageResultItem{
-				URL:     strings.TrimSpace(data.Url),
-				B64JSON: strings.TrimSpace(data.B64Json),
-			}
-			if item.URL == "" && item.B64JSON == "" {
-				continue
-			}
-			items = append(items, item)
-		}
-		if len(items) > 0 {
-			return items
-		}
+	if items := extractFromImageResponse(task.Data); len(items) > 0 {
+		return items
+	}
+	if items := extractFromAiRouterEnvelope(task.Data); len(items) > 0 {
+		return items
 	}
 
 	resultURL := strings.TrimSpace(task.GetResultURL())
@@ -547,6 +537,55 @@ func buildImageTaskResultItems(task *model.Task) []dto.ImageResultItem {
 	return []dto.ImageResultItem{{
 		URL: resultURL,
 	}}
+}
+
+func extractFromImageResponse(raw json.RawMessage) []dto.ImageResultItem {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	var imageResp dto.ImageResponse
+	if err := common.Unmarshal(raw, &imageResp); err != nil || len(imageResp.Data) == 0 {
+		return nil
+	}
+
+	items := make([]dto.ImageResultItem, 0, len(imageResp.Data))
+	for _, data := range imageResp.Data {
+		item := dto.ImageResultItem{
+			URL:     strings.TrimSpace(data.Url),
+			B64JSON: strings.TrimSpace(data.B64Json),
+		}
+		if item.URL == "" && item.B64JSON == "" {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func extractFromAiRouterEnvelope(raw json.RawMessage) []dto.ImageResultItem {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	var envelope struct {
+		Data struct {
+			URL     string `json:"url"`
+			B64JSON string `json:"b64_json"`
+		} `json:"data"`
+	}
+	if err := common.Unmarshal(raw, &envelope); err != nil {
+		return nil
+	}
+
+	item := dto.ImageResultItem{
+		URL:     strings.TrimSpace(envelope.Data.URL),
+		B64JSON: strings.TrimSpace(envelope.Data.B64JSON),
+	}
+	if item.URL == "" && item.B64JSON == "" {
+		return nil
+	}
+	return []dto.ImageResultItem{item}
 }
 
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
