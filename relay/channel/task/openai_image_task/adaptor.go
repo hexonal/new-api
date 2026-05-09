@@ -17,11 +17,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 )
 
-// TaskAdaptor implements the async image task channel backed by POST /v1/images
-// and GET /v1/images/{task_id}.
+// TaskAdaptor 处理 OpenAI 兼容异步图片和视频任务。
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
 	baseURL string
@@ -56,9 +54,14 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if a.baseURL == "" {
 		return "", fmt.Errorf("base url is empty")
 	}
-	return a.baseURL + resolveUpstreamPath(info.RequestURLPath), nil
+	rawPath := ""
+	if info != nil {
+		rawPath = info.RequestURLPath
+	}
+	return a.baseURL + resolveUpstreamPath(rawPath), nil
 }
 
+// resolveUpstreamPath 从请求路径提取 ai-router 上游路径。
 func resolveUpstreamPath(rawPath string) string {
 	pathOnly := rawPath
 	if idx := strings.Index(rawPath, "?"); idx >= 0 {
@@ -150,25 +153,67 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	return client.Do(req)
 }
 
+// resolveFetchPath 根据任务上下文决定轮询上游 GET 路径。
 func resolveFetchPath(body map[string]any) string {
+	if requestPath, ok := body["request_path"].(string); ok && strings.TrimSpace(requestPath) != "" {
+		return resolveUpstreamPath(requestPath)
+	}
 	if action, ok := body["action"].(string); ok && strings.Contains(strings.ToLower(action), "video") {
 		return "/v1/videos"
 	}
 	return "/v1/images"
 }
 
-func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
-	data := task.Data
-	var err error
-	if data, err = sjson.SetBytes(data, "id", task.TaskID); err != nil {
-		return nil, errors.Wrap(err, "set id failed")
+func convertToOpenAIVideoStatus(status string) string {
+	switch status {
+	case statusQueued:
+		return statusQueued
+	case statusProcessing, statusInProgress, statusRunning:
+		return statusInProgress
+	case statusSucceeded, statusCompleted:
+		return statusCompleted
+	case statusFailed, statusCancelled:
+		return statusFailed
+	default:
+		return statusQueued
 	}
+}
+
+func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
+	type openAIVideoEnvelope struct {
+		Code string `json:"code"`
+		Data struct {
+			Status string `json:"status"`
+			URL    string `json:"url"`
+		} `json:"data"`
+	}
+
+	response := map[string]any{
+		"id":     task.TaskID,
+		"status": statusQueued,
+	}
+	if task.CreatedAt != 0 {
+		response["created_at"] = task.CreatedAt
+	}
+	if modelName := strings.TrimSpace(task.Properties.OriginModelName); modelName != "" {
+		response["model"] = modelName
+	}
+
+	var parsed openAIVideoEnvelope
+	parseErr := common.Unmarshal(task.Data, &parsed)
+	if parseErr == nil {
+		response["status"] = convertToOpenAIVideoStatus(parsed.Data.Status)
+	}
+
 	if url := strings.TrimSpace(task.GetResultURL()); url != "" {
-		if data, err = sjson.SetBytes(data, "video_url", url); err != nil {
-			return nil, errors.Wrap(err, "set video_url failed")
+		response["video_url"] = url
+	} else if parseErr == nil {
+		if url := strings.TrimSpace(parsed.Data.URL); url != "" {
+			response["video_url"] = url
 		}
 	}
-	return data, nil
+
+	return common.Marshal(response)
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {

@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -40,6 +40,23 @@ func TestBuildRequestURL_AppendsImagesPath(t *testing.T) {
 	}
 }
 
+func TestBuildRequestURL_UsesIncomingVideosPath(t *testing.T) {
+	a := &TaskAdaptor{}
+	info := &relaycommon.RelayInfo{RequestURLPath: "/v1/videos?model=wan2.6-t2v"}
+	a.Init(info)
+	a.baseURL = "http://ai-router.internal:8080"
+
+	got, err := a.BuildRequestURL(info)
+	if err != nil {
+		t.Fatalf("BuildRequestURL err: %v", err)
+	}
+
+	want := "http://ai-router.internal:8080/v1/videos"
+	if got != want {
+		t.Fatalf("got %s, want %s", got, want)
+	}
+}
+
 func TestResolveUpstreamPath(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -47,6 +64,7 @@ func TestResolveUpstreamPath(t *testing.T) {
 		want    string
 	}{
 		{name: "images", rawPath: "/v1/images", want: "/v1/images"},
+		{name: "images with query", rawPath: "/v1/images?x=1", want: "/v1/images"},
 		{name: "videos", rawPath: "/v1/videos", want: "/v1/videos"},
 		{name: "videos with query", rawPath: "/v1/videos?x=1", want: "/v1/videos"},
 		{name: "unknown", rawPath: "/foo", want: "/v1/images"},
@@ -67,6 +85,10 @@ func TestResolveFetchPath(t *testing.T) {
 		body map[string]any
 		want string
 	}{
+		{name: "image request path", body: map[string]any{"request_path": "/v1/images?x=1"}, want: "/v1/images"},
+		{name: "video request path", body: map[string]any{"request_path": "/v1/videos"}, want: "/v1/videos"},
+		{name: "video request path with query", body: map[string]any{"request_path": "/v1/videos?x=1", "action": "generate"}, want: "/v1/videos"},
+		{name: "request path priority", body: map[string]any{"request_path": "/v1/images", "action": "videoGenerate"}, want: "/v1/images"},
 		{name: "image action", body: map[string]any{"action": "imageGenerate"}, want: "/v1/images"},
 		{name: "video action", body: map[string]any{"action": "videoGenerate"}, want: "/v1/videos"},
 		{name: "default", body: map[string]any{}, want: "/v1/images"},
@@ -141,23 +163,85 @@ func TestParseTaskResult_StatusMapping(t *testing.T) {
 	}
 }
 
+type openAIVideoResponseForTest struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"`
+	VideoURL  string `json:"video_url"`
+	CreatedAt int64  `json:"created_at"`
+	Model     string `json:"model"`
+	Code      string `json:"code"`
+	Data      *struct {
+		Status string `json:"status"`
+		URL    string `json:"url"`
+	} `json:"data"`
+}
+
 func TestConvertToOpenAIVideo(t *testing.T) {
 	task := &model.Task{
-		TaskID: "task_xxx",
-		Data:   []byte(`{"code":"success","data":{"url":"https://oss/abc.mp4","status":"succeeded","task_id":"task_xxx"}}`),
+		TaskID:    "task_xxx",
+		CreatedAt: 1731000000,
+		Properties: model.Properties{
+			OriginModelName: "wan2.6-t2v",
+		},
+		Data: []byte(`{"code":"success","data":{"url":"https://oss/abc.mp4","status":"succeeded","task_id":"task_xxx"}}`),
 		PrivateData: model.TaskPrivateData{
-			ResultURL: "https://oss/abc.mp4",
+			ResultURL: "https://oss/preferred.mp4",
 		},
 	}
 	body, err := (&TaskAdaptor{}).ConvertToOpenAIVideo(task)
 	if err != nil {
 		t.Fatalf("ConvertToOpenAIVideo err: %v", err)
 	}
-	got := string(body)
-	if !strings.Contains(got, `"id":"task_xxx"`) {
-		t.Fatalf("missing id, body=%s", got)
+	var got openAIVideoResponseForTest
+	if err := common.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal body err: %v, body=%s", err, string(body))
 	}
-	if !strings.Contains(got, `"video_url":"https://oss/abc.mp4"`) {
-		t.Fatalf("missing video_url, body=%s", got)
+	if got.ID != "task_xxx" {
+		t.Fatalf("unexpected id, got=%s body=%s", got.ID, string(body))
+	}
+	if got.Status != statusCompleted {
+		t.Fatalf("unexpected status, got=%s body=%s", got.Status, string(body))
+	}
+	if got.VideoURL != "https://oss/preferred.mp4" {
+		t.Fatalf("unexpected video_url, got=%s body=%s", got.VideoURL, string(body))
+	}
+	if got.CreatedAt != 1731000000 {
+		t.Fatalf("unexpected created_at, got=%d body=%s", got.CreatedAt, string(body))
+	}
+	if got.Model != "wan2.6-t2v" {
+		t.Fatalf("unexpected model, got=%s body=%s", got.Model, string(body))
+	}
+	if got.Code != "" || got.Data != nil {
+		t.Fatalf("response should not preserve ai-router envelope, body=%s", string(body))
+	}
+}
+
+func TestConvertToOpenAIVideoFallbackOnInvalidEnvelope(t *testing.T) {
+	task := &model.Task{
+		TaskID: "task_bad",
+		Data:   []byte(`{`),
+		PrivateData: model.TaskPrivateData{
+			ResultURL: "https://oss/fallback.mp4",
+		},
+	}
+	body, err := (&TaskAdaptor{}).ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo err: %v", err)
+	}
+	var got openAIVideoResponseForTest
+	if err := common.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal body err: %v, body=%s", err, string(body))
+	}
+	if got.ID != "task_bad" {
+		t.Fatalf("unexpected id, got=%s body=%s", got.ID, string(body))
+	}
+	if got.Status != statusQueued {
+		t.Fatalf("unexpected fallback status, got=%s body=%s", got.Status, string(body))
+	}
+	if got.VideoURL != "https://oss/fallback.mp4" {
+		t.Fatalf("unexpected fallback video_url, got=%s body=%s", got.VideoURL, string(body))
+	}
+	if got.Code != "" || got.Data != nil {
+		t.Fatalf("fallback response should not preserve ai-router envelope, body=%s", string(body))
 	}
 }
