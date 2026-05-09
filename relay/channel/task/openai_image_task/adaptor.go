@@ -179,6 +179,15 @@ func convertToOpenAIVideoStatus(status string) string {
 	}
 }
 
+func pickURL(candidates ...string) string {
+	for _, u := range candidates {
+		if v := strings.TrimSpace(u); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	type openAIVideoEnvelope struct {
 		Code string `json:"code"`
@@ -201,16 +210,21 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 
 	var parsed openAIVideoEnvelope
 	parseErr := common.Unmarshal(task.Data, &parsed)
-	if parseErr == nil {
+	if parseErr == nil && parsed.Data.Status != "" {
 		response["status"] = convertToOpenAIVideoStatus(parsed.Data.Status)
+	} else {
+		var flat fetchFlatResponse
+		if err := common.Unmarshal(task.Data, &flat); err == nil && flat.Status != "" {
+			response["status"] = convertToOpenAIVideoStatus(flat.Status)
+			if url := pickURL(task.GetResultURL(), flat.VideoURL, flat.URL, flat.Metadata.URL, parsed.Data.URL); url != "" {
+				response["video_url"] = url
+			}
+			return common.Marshal(response)
+		}
 	}
 
-	if url := strings.TrimSpace(task.GetResultURL()); url != "" {
+	if url := pickURL(task.GetResultURL(), parsed.Data.URL); url != "" {
 		response["video_url"] = url
-	} else if parseErr == nil {
-		if url := strings.TrimSpace(parsed.Data.URL); url != "" {
-			response["video_url"] = url
-		}
 	}
 
 	return common.Marshal(response)
@@ -225,6 +239,29 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	info := &relaycommon.TaskInfo{
 		Code: 0,
 	}
+	if parsed.Data.Status == "" {
+		var flat fetchFlatResponse
+		if err := common.Unmarshal(respBody, &flat); err == nil && flat.Status != "" {
+			switch flat.Status {
+			case statusQueued:
+				info.Status = string(model.TaskStatusQueued)
+			case statusProcessing, statusInProgress, statusRunning:
+				info.Status = string(model.TaskStatusInProgress)
+			case statusSucceeded, statusCompleted:
+				info.Status = string(model.TaskStatusSuccess)
+				info.Url = pickURL(flat.URL, flat.VideoURL, flat.Metadata.URL)
+			case statusFailed, statusCancelled:
+				info.Status = string(model.TaskStatusFailure)
+				if flat.Error != nil {
+					info.Reason = strings.TrimSpace(*flat.Error)
+				}
+			default:
+				info.Status = string(model.TaskStatusUnknown)
+			}
+			return info, nil
+		}
+	}
+
 	switch parsed.Data.Status {
 	case statusQueued:
 		info.Status = string(model.TaskStatusQueued)
@@ -232,7 +269,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		info.Status = string(model.TaskStatusInProgress)
 	case statusSucceeded, statusCompleted:
 		info.Status = string(model.TaskStatusSuccess)
-		info.Url = strings.TrimSpace(parsed.Data.URL)
+		info.Url = pickURL(parsed.Data.URL)
 	case statusFailed, statusCancelled:
 		info.Status = string(model.TaskStatusFailure)
 		if parsed.Data.Error != nil {

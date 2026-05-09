@@ -26,3 +26,17 @@ type fetchResponse struct {
 	Message string    `json:"message,omitempty"`
 	Data    fetchData `json:"data,omitempty"`
 }
+
+// fetchFlatResponse is the OpenAI-compatible flat response shape returned by /v1/videos/{id}.
+type fetchFlatResponse struct {
+	ID          string `json:"id"`
+	Status      string `json:"status"`
+	URL         string `json:"url"`
+	VideoURL    string `json:"video_url"`
+	CreatedAt   int64  `json:"created_at"`
+	CompletedAt int64  `json:"completed_at"`
+	Metadata    struct {
+		URL string `json:"url"`
+	} `json:"metadata"`
+	Error *string `json:"error"`
+}
