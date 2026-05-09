@@ -137,6 +137,18 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	return nil
 }
 
+func getTaskSubmitPlatform(c *gin.Context) constant.TaskPlatform {
+	platform := constant.TaskPlatform(c.GetString("platform"))
+	channelTypePlatform := GetTaskPlatform(c)
+	if channelType, err := strconv.ParseInt(string(channelTypePlatform), 10, 64); err == nil && channelType == int64(constant.ChannelTypeOpenAIImageTask) {
+		return channelTypePlatform
+	}
+	if platform != "" {
+		return platform
+	}
+	return channelTypePlatform
+}
+
 // RelayTaskSubmit 完成 task 提交的全部流程（每次尝试调用一次）：
 // 刷新渠道元数据 → 确定 platform/adaptor → 验证请求 →
 // 估算计费(EstimateBilling) → 计算价格 → 预扣费（仅首次）→
@@ -146,17 +158,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	info.InitChannelMeta(c)
 
 	// 1. 确定 platform → 创建适配器 → 验证请求
-	platform := constant.TaskPlatform(c.GetString("platform"))
-	if platform == "" {
-		platform = GetTaskPlatform(c)
-	}
-	// channel.type=60 (ChannelTypeOpenAIImageTask) 特例：
-	// distributor 层会把 /v1/images 路径的 platform 硬编码成 TaskPlatformImage，
-	// 但 type=60 channel 必须走 openai_image_task adaptor (真实 HTTP forward 到 ai-router)，
-	// 不能落到 local_image worker pool。这里如果检测到 channel_type=60 就强制用 channel_type 路由。
-	if channelType := c.GetInt("channel_type"); channelType == constant.ChannelTypeOpenAIImageTask {
-		platform = constant.TaskPlatform(strconv.Itoa(channelType))
-	}
+	platform := getTaskSubmitPlatform(c)
 	adaptor := GetTaskAdaptor(platform)
 	if adaptor == nil {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("invalid api platform: %s", platform), "invalid_api_platform", http.StatusBadRequest)

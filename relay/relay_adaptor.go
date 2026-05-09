@@ -137,9 +137,9 @@ func GetTaskPlatform(c *gin.Context) constant.TaskPlatform {
 }
 
 func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
-	// channel.type 优先：当 platform 是数字字符串（来自 channel_type）时，先按 channel_type 路由。
-	// 这样 channel.type=60 (ChannelTypeOpenAIImageTask) 走真实 HTTP forward 到 ai-router，
-	// 而不是被 distributor 层硬编码的 TaskPlatformImage 兜底成 local_image worker pool。
+	// 特例：channel.type=60 (ChannelTypeOpenAIImageTask) 必须优先匹配，
+	// 因为 distributor 层会把 /v1/images 路径标成 TaskPlatformImage。
+	// type=60 channel 需要走真实 HTTP forward，不能落到 local_image worker pool。
 	if channelType, err := strconv.ParseInt(string(platform), 10, 64); err == nil {
 		switch channelType {
 		case constant.ChannelTypeOpenAIImageTask:

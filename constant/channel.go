@@ -123,6 +123,7 @@ var ChannelBaseURLs = []string{
 	"https://chatgpt.com",                       //57
 	"https://ali.youchuan.cn",                   //58
 	"https://app-api.pixverse.ai",               //59
+	"",                                          //60 ChannelTypeOpenAIImageTask: base_url 来自 channel 配置
 }
 
 var ChannelTypeNames = map[int]string{
