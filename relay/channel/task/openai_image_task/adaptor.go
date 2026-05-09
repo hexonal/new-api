@@ -55,7 +55,18 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if a.baseURL == "" {
 		return "", fmt.Errorf("base url is empty")
 	}
-	return a.baseURL + "/v1/images", nil
+	return a.baseURL + resolveUpstreamPath(info.RequestURLPath), nil
+}
+
+func resolveUpstreamPath(rawPath string) string {
+	pathOnly := rawPath
+	if idx := strings.Index(rawPath, "?"); idx >= 0 {
+		pathOnly = rawPath[:idx]
+	}
+	if strings.HasPrefix(pathOnly, "/v1/videos") {
+		return "/v1/videos"
+	}
+	return "/v1/images"
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
@@ -123,7 +134,8 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s/v1/images/%s", strings.TrimRight(baseUrl, "/"), strings.TrimSpace(taskID))
+	upstreamPath := resolveFetchPath(body)
+	uri := fmt.Sprintf("%s%s/%s", strings.TrimRight(baseUrl, "/"), upstreamPath, strings.TrimSpace(taskID))
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, err
@@ -135,6 +147,13 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
 	}
 	return client.Do(req)
+}
+
+func resolveFetchPath(body map[string]any) string {
+	if action, ok := body["action"].(string); ok && strings.Contains(strings.ToLower(action), "video") {
+		return "/v1/videos"
+	}
+	return "/v1/images"
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {

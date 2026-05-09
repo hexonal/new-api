@@ -39,6 +39,47 @@ func TestBuildRequestURL_AppendsImagesPath(t *testing.T) {
 	}
 }
 
+func TestResolveUpstreamPath(t *testing.T) {
+	cases := []struct {
+		name    string
+		rawPath string
+		want    string
+	}{
+		{name: "images", rawPath: "/v1/images", want: "/v1/images"},
+		{name: "videos", rawPath: "/v1/videos", want: "/v1/videos"},
+		{name: "videos with query", rawPath: "/v1/videos?x=1", want: "/v1/videos"},
+		{name: "unknown", rawPath: "/foo", want: "/v1/images"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveUpstreamPath(tc.rawPath); got != tc.want {
+				t.Fatalf("resolveUpstreamPath(%q) = %q, want %q", tc.rawPath, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolveFetchPath(t *testing.T) {
+	cases := []struct {
+		name string
+		body map[string]any
+		want string
+	}{
+		{name: "image action", body: map[string]any{"action": "imageGenerate"}, want: "/v1/images"},
+		{name: "video action", body: map[string]any{"action": "videoGenerate"}, want: "/v1/videos"},
+		{name: "default", body: map[string]any{}, want: "/v1/images"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveFetchPath(tc.body); got != tc.want {
+				t.Fatalf("resolveFetchPath(%v) = %q, want %q", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDoResponse_ExtractsUpstreamTaskID(t *testing.T) {
 	a := &TaskAdaptor{}
 	body := []byte(`{"id":"task_abc","task_id":"task_abc","object":"image","model":"wan2.6-t2i","status":"queued","created_at":1}`)
