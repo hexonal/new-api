@@ -17,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/tidwall/sjson"
 )
 
 // TaskAdaptor implements the async image task channel backed by POST /v1/images
@@ -156,6 +157,20 @@ func resolveFetchPath(body map[string]any) string {
 	return "/v1/images"
 }
 
+func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
+	data := task.Data
+	var err error
+	if data, err = sjson.SetBytes(data, "id", task.TaskID); err != nil {
+		return nil, errors.Wrap(err, "set id failed")
+	}
+	if url := strings.TrimSpace(task.GetResultURL()); url != "" {
+		if data, err = sjson.SetBytes(data, "video_url", url); err != nil {
+			return nil, errors.Wrap(err, "set video_url failed")
+		}
+	}
+	return data, nil
+}
+
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
 	var parsed fetchResponse
 	if err := common.Unmarshal(respBody, &parsed); err != nil {
@@ -185,3 +200,4 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 }
 
 var _ channel.TaskAdaptor = (*TaskAdaptor)(nil)
+var _ channel.OpenAIVideoConverter = (*TaskAdaptor)(nil)

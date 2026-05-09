@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -137,5 +138,26 @@ func TestParseTaskResult_StatusMapping(t *testing.T) {
 				t.Fatalf("url got %q, want %q", info.Url, tc.wantURL)
 			}
 		})
+	}
+}
+
+func TestConvertToOpenAIVideo(t *testing.T) {
+	task := &model.Task{
+		TaskID: "task_xxx",
+		Data:   []byte(`{"code":"success","data":{"url":"https://oss/abc.mp4","status":"succeeded","task_id":"task_xxx"}}`),
+		PrivateData: model.TaskPrivateData{
+			ResultURL: "https://oss/abc.mp4",
+		},
+	}
+	body, err := (&TaskAdaptor{}).ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatalf("ConvertToOpenAIVideo err: %v", err)
+	}
+	got := string(body)
+	if !strings.Contains(got, `"id":"task_xxx"`) {
+		t.Fatalf("missing id, body=%s", got)
+	}
+	if !strings.Contains(got, `"video_url":"https://oss/abc.mp4"`) {
+		t.Fatalf("missing video_url, body=%s", got)
 	}
 }
