@@ -199,6 +199,11 @@ export const CHANNEL_OPTIONS = [
     color: 'purple',
     label: 'PixVerse',
   },
+  {
+    value: 60,
+    color: 'green',
+    label: 'OpenAI Image Task',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.

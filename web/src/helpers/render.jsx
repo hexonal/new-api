@@ -333,6 +333,7 @@ export function getChannelIcon(channelType) {
     case 1: // OpenAI
     case 3: // Azure OpenAI
     case 57: // Codex
+    case 60: // OpenAI Image Task
       return <OpenAI size={iconSize} />;
     case 2: // Midjourney Proxy
     case 5: // Midjourney Proxy Plus
@@ -428,6 +429,10 @@ export function getLobeHubIcon(iconName, size = 14) {
   // 如果没有图标名称，返回 Avatar
   if (!iconName) {
     return <Avatar size='extra-extra-small'>?</Avatar>;
+  }
+
+  if (/^https?:\/\//i.test(iconName)) {
+    return <img src={iconName} alt='' width={size} height={size} className='rounded object-contain' />;
   }
 
   // 解析组件路径与点号链式属性
