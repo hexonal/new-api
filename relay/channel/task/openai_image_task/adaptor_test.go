@@ -163,6 +163,20 @@ func TestParseTaskResult_StatusMapping(t *testing.T) {
 	}
 }
 
+func TestParseTaskResultFlatShape(t *testing.T) {
+	body := []byte(`{"id":"task_a","status":"completed","metadata":{"url":"https://x/y.mp4"},"completed_at":123}`)
+	info, err := (&TaskAdaptor{}).ParseTaskResult(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Status != string(model.TaskStatusSuccess) {
+		t.Fatalf("status=%s", info.Status)
+	}
+	if info.Url != "https://x/y.mp4" {
+		t.Fatalf("url=%s", info.Url)
+	}
+}
+
 type openAIVideoResponseForTest struct {
 	ID        string `json:"id"`
 	Status    string `json:"status"`
@@ -213,6 +227,27 @@ func TestConvertToOpenAIVideo(t *testing.T) {
 	}
 	if got.Code != "" || got.Data != nil {
 		t.Fatalf("response should not preserve ai-router envelope, body=%s", string(body))
+	}
+}
+
+func TestConvertToOpenAIVideoFlatShape(t *testing.T) {
+	task := &model.Task{
+		TaskID: "task_xxx",
+		Data:   []byte(`{"id":"task_a","status":"completed","metadata":{"url":"https://x/y.mp4"},"completed_at":123}`),
+	}
+	body, err := (&TaskAdaptor{}).ConvertToOpenAIVideo(task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got openAIVideoResponseForTest
+	if err := common.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != statusCompleted {
+		t.Fatalf("status=%s", got.Status)
+	}
+	if got.VideoURL != "https://x/y.mp4" {
+		t.Fatalf("url=%s", got.VideoURL)
 	}
 }
 
