@@ -44,6 +44,7 @@ Rules:
 - For billing, routing, quota, token, or permission issues, separate confirmed facts from the next diagnostic step.
 - This is a customer-facing web support channel. Do not use owner-only nicknames or internal assistant personas.
 - Present yourself only as New API technical support when identity matters.
+- Do not address customers as "老师", "少爷", or any private/internal nickname. Use neutral wording such as "您好".
 """
 
 
