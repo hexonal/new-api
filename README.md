@@ -30,7 +30,7 @@ Request:
   "user_id": 123,
   "role": 1,
   "context": {
-    "page_url": "https://www.imarouter.com/contact",
+    "page_url": "https://new-api.example.com/contact",
     "path": "/contact",
     "title": "联系我们",
     "client_ip": "203.0.113.10"
@@ -69,7 +69,7 @@ NEW_API_SUPPORT_SESSION_PREFIX=web_
 NEW_API_SUPPORT_MAX_BODY_BYTES=65536
 NEW_API_SUPPORT_MAX_MESSAGE_CHARS=4000
 NEW_API_SUPPORT_REQUEST_TIMEOUT_SECONDS=180
-NEW_API_SUPPORT_AUTO_SKILL=hermes-ima-customer-support-style
+NEW_API_SUPPORT_AUTO_SKILL=hermes-new-api-customer-support-style
 ```
 
 Use `NEW_API_SUPPORT_ALLOWED_USERS` instead of `NEW_API_SUPPORT_ALLOW_ALL_USERS=true` if the backend sends a fixed small set of user identities. In the web-support deployment, the bearer token is the primary boundary and Hermes user auth is usually set to allow authenticated widget traffic.

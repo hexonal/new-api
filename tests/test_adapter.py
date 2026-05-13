@@ -201,7 +201,7 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
         StubPlatformConfig(
             extra={
                 "token": "secret",
-                "auto_skill": "hermes-ima-customer-support-style",
+                "auto_skill": "hermes-new-api-customer-support-style",
                 "request_timeout_seconds": 5,
                 "allowed_sources": ["new-api-web"],
             }
@@ -225,7 +225,7 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
                 "user_id": 123,
                 "role": 1,
                 "context": {
-                    "page_url": "https://www.imarouter.com/contact",
+                    "page_url": "https://new-api.example.com/contact",
                     "path": "/contact",
                     "title": "联系我们",
                     "client_ip": "203.0.113.10",
@@ -239,10 +239,10 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
     assert body == {"session_id": "web_abc", "reply": "请把 request_id 发我，我来查。"}
     event = captured["event"]
     assert event.text == "接口 403 怎么办？"
-    assert event.auto_skill == "hermes-ima-customer-support-style"
+    assert event.auto_skill == "hermes-new-api-customer-support-style"
     assert event.source.chat_id == "web_abc"
     assert event.source.user_id == "new-api-web:123"
-    assert "page_url=https://www.imarouter.com/contact" in event.channel_prompt
+    assert "page_url=https://new-api.example.com/contact" in event.channel_prompt
     assert "Do not invent backend query results" in event.channel_prompt
     assert "Do not use owner-only nicknames" in event.channel_prompt
     assert 'Do not address customers as "老师"' in event.channel_prompt
