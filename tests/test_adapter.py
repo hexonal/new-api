@@ -244,6 +244,7 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
     assert event.source.user_id == "new-api-web:123"
     assert "page_url=https://new-api.example.com/contact" in event.channel_prompt
     assert "Do not invent backend query results" in event.channel_prompt
+    assert "If the user already provided a task_id" in event.channel_prompt
     assert "Do not use owner-only nicknames" in event.channel_prompt
     assert "fixed brand or personal assistant identity" in event.channel_prompt
     assert 'Do not address customers as "老师"' in event.channel_prompt
@@ -301,6 +302,122 @@ async def _test_channel_prompt_uses_english_for_english_message(adapter_module):
 
 def test_channel_prompt_uses_english_for_english_message(adapter_module):
     asyncio.run(_test_channel_prompt_uses_english_for_english_message(adapter_module))
+
+
+async def _test_channel_prompt_tells_agent_to_use_existing_task_id(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(StubPlatformConfig(extra={"token": "secret"}))
+    event = adapter._build_event(
+        {
+            "session_id": "web_task",
+            "message": "帮我分析 task_guard_123 的进度",
+            "source": "new-api-web",
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_task",
+                "message": "帮我分析 task_guard_123 的进度",
+            },
+        ),
+    )
+
+    assert "The user already provided a task_id or request_id" in event.channel_prompt
+    assert "Do not ask the user to resend that identifier" in event.channel_prompt
+    assert "First run available read-only diagnostics" in event.channel_prompt
+
+
+def test_channel_prompt_tells_agent_to_use_existing_task_id(adapter_module):
+    asyncio.run(_test_channel_prompt_tells_agent_to_use_existing_task_id(adapter_module))
+
+
+async def _test_task_id_message_auto_loads_diagnostic_skill(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(StubPlatformConfig(extra={"token": "secret"}))
+    event = adapter._build_event(
+        {
+            "session_id": "web_task_skill",
+            "message": "请分析 task_guard_123 的进度",
+            "source": "new-api-web",
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_task_skill",
+                "message": "请分析 task_guard_123 的进度",
+            },
+        ),
+    )
+
+    assert event.auto_skill == "hermes-new-api-task-diagnostic"
+
+
+def test_task_id_message_auto_loads_diagnostic_skill(adapter_module):
+    asyncio.run(_test_task_id_message_auto_loads_diagnostic_skill(adapter_module))
+
+
+async def _test_task_id_message_preserves_configured_auto_skill(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(
+        StubPlatformConfig(extra={"token": "secret", "auto_skill": "support-style"})
+    )
+    event = adapter._build_event(
+        {
+            "session_id": "web_task_skill_combo",
+            "message": "请分析 request_guard_123 的进度",
+            "source": "new-api-web",
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_task_skill_combo",
+                "message": "请分析 request_guard_123 的进度",
+            },
+        ),
+    )
+
+    assert event.auto_skill == ["support-style", "hermes-new-api-task-diagnostic"]
+
+
+def test_task_id_message_preserves_configured_auto_skill(adapter_module):
+    asyncio.run(_test_task_id_message_preserves_configured_auto_skill(adapter_module))
+
+
+async def _test_diagnostic_context_persists_for_followup(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(StubPlatformConfig(extra={"token": "secret"}))
+    adapter._build_event(
+        {
+            "session_id": "web_task_follow",
+            "message": "task_guard_123 帮我查下进度",
+            "source": "new-api-web",
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_task_follow",
+                "message": "task_guard_123 帮我查下进度",
+            },
+        ),
+    )
+
+    followup = adapter._build_event(
+        {
+            "session_id": "web_task_follow",
+            "message": "你自己去分析",
+            "source": "new-api-web",
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_task_follow",
+                "message": "你自己去分析",
+            },
+        ),
+    )
+
+    assert followup.auto_skill == "hermes-new-api-task-diagnostic"
+    assert "The user already provided a task_id or request_id" in followup.channel_prompt
+
+
+def test_diagnostic_context_persists_for_followup(adapter_module):
+    asyncio.run(_test_diagnostic_context_persists_for_followup(adapter_module))
 
 
 async def _test_send_collects_fallback_reply(adapter_module):

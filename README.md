@@ -76,14 +76,52 @@ Use `NEW_API_SUPPORT_ALLOWED_USERS` instead of `NEW_API_SUPPORT_ALLOW_ALL_USERS=
 
 ## Hermes Config
 
-Restrict the support platform toolset in `/root/.hermes/config.yaml`:
+Restrict the support platform toolset in `/root/.hermes/config.yaml` to the
+read-only diagnostic tools the support bot needs. Do not use `no_mcp` for this
+platform, otherwise the bot can only ask the user for more information and
+cannot analyze an existing `task_id` / `request_id` itself.
 
 ```yaml
 platform_toolsets:
-  new_api_support: [web, memory, no_mcp]
+  new_api_support:
+    - web
+    - skills
+    - sls_haiwai_work
+    - sls_haiwai_master
+    - sls_guonei_work
+    - sls_guonei_api
+    - nexus_haiwai_mcp
+    - nexus_guonei_mcp
 ```
 
-This keeps the customer support widget from inheriting the broader CLI tool surface.
+Also restrict each diagnostic MCP server to read-only query tools:
+
+```yaml
+mcp_servers:
+  sls_haiwai_work:
+    tools:
+      include: [sls_execute_sql, sls_execute_spl, sls_log_explore, sls_get_context_logs]
+  sls_haiwai_master:
+    tools:
+      include: [sls_execute_sql, sls_execute_spl, sls_log_explore, sls_get_context_logs]
+  sls_guonei_work:
+    tools:
+      include: [sls_execute_sql, sls_execute_spl, sls_log_explore, sls_get_context_logs]
+  sls_guonei_api:
+    tools:
+      include: [sls_execute_sql, sls_execute_spl, sls_log_explore, sls_get_context_logs]
+  nexus_haiwai_mcp:
+    tools:
+      include: [find_documents, find_one_document, count_documents, aggregate_pipeline]
+  nexus_guonei_mcp:
+    tools:
+      include: [find_documents, find_one_document, count_documents, aggregate_pipeline]
+```
+
+This lets the customer support widget perform internal read-only diagnostics
+while the adapter and prompt guardrails prevent internal tool, MCP, log, project,
+logstore, database, collection, region, IP, and query-path details from being
+returned to the user.
 
 ## Install
 
