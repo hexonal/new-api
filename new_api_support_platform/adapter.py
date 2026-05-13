@@ -35,7 +35,7 @@ DEFAULT_MAX_MESSAGE_CHARS = 4000
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 180
 
 CUSTOMER_SUPPORT_PROMPT = """\
-You are replying as the New API customer-support agent.
+You are replying in a customer-facing technical support channel.
 Rules:
 - Keep replies concise, polite, and directly actionable.
 - If the user reports an API failure, ask first for the minimum useful evidence: curl, request_id, task_id, model, endpoint, and timestamp.
@@ -43,8 +43,8 @@ Rules:
 - Do not expose internal tokens, credentials, server paths, or private configuration.
 - For billing, routing, quota, token, or permission issues, separate confirmed facts from the next diagnostic step.
 - This is a customer-facing web support channel. Do not use owner-only nicknames or internal assistant personas.
-- Present yourself only as New API technical support when identity matters.
 - Do not address customers as "老师", "少爷", or any private/internal nickname. Use neutral wording such as "您好".
+- Do not introduce yourself with a fixed brand or personal assistant identity unless the user explicitly asks who you are.
 """
 
 
@@ -91,6 +91,7 @@ def _context_lines(context: Any) -> list[str]:
         "client_ip",
         "referrer",
         "locale",
+        "language",
     )
     lines: list[str] = []
     for key in keys:
@@ -105,14 +106,73 @@ def _context_lines(context: Any) -> list[str]:
 
 def _sanitize_support_reply(text: Any) -> str:
     reply = "" if text is None else str(text)
-    replacements = {
-        "龙江猪脚饭这边": "New API 技术支持这边",
-        "龙江猪脚饭": "New API 技术支持",
-        "少爷": "您",
-    }
-    for old, new in replacements.items():
-        reply = reply.replace(old, new)
-    return reply
+    patterns = (
+        (re.compile(r"龙江猪脚饭这边"), "这边"),
+        (re.compile(r"龙江猪脚饭"), ""),
+        (re.compile(r"New API\s*(?:技术支持|technical support)\s*(?:这边|here)?", re.IGNORECASE), ""),
+        (re.compile(r"\bYoung master\b[:,，]?\s*", re.IGNORECASE), ""),
+        (re.compile(r"少爷"), "您"),
+    )
+    for pattern, replacement in patterns:
+        reply = pattern.sub(replacement, reply)
+    return _normalize_reply_spacing(reply)
+
+
+def _normalize_reply_spacing(reply: str) -> str:
+    reply = re.sub(r"\s+([,.!?;:])", r"\1", reply)
+    reply = re.sub(r"([，。！？；：])\s+", r"\1", reply)
+    reply = re.sub(r"([,，])\s*([,，])+", r"\1", reply)
+    reply = re.sub(r",\s*\.", ",", reply)
+    reply = re.sub(r"\s{2,}", " ", reply)
+    reply = re.sub(r"^(Hi|Hello),\s*,\s*", r"\1, ", reply, flags=re.IGNORECASE)
+    reply = re.sub(r"^您好，\s*，", "您好，", reply)
+    return reply.strip()
+
+
+def _payload_context(payload: Dict[str, Any]) -> Dict[str, Any]:
+    context = payload.get("context")
+    return context if isinstance(context, dict) else {}
+
+
+def _normalize_language(value: Any) -> Optional[str]:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    if text.startswith("zh"):
+        return "zh-CN"
+    if text.startswith("en"):
+        return "en"
+    return None
+
+
+def _detect_message_language(message: Any) -> Optional[str]:
+    text = str(message or "")
+    if not text.strip():
+        return None
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", text))
+    ascii_letters = len(re.findall(r"[A-Za-z]", text))
+    if chinese_chars > 0 and chinese_chars >= max(1, ascii_letters // 4):
+        return "zh-CN"
+    if ascii_letters > 0:
+        return "en"
+    return None
+
+
+def _preferred_language(payload: Dict[str, Any]) -> str:
+    context = _payload_context(payload)
+    return (
+        _detect_message_language(payload.get("message"))
+        or _normalize_language(payload.get("language"))
+        or _normalize_language(context.get("language"))
+        or _normalize_language(context.get("locale"))
+        or "zh-CN"
+    )
+
+
+def _language_instruction(language: str) -> str:
+    if language == "en":
+        return "Language: user_language=en. Reply in English."
+    return "Language: user_language=zh-CN. Reply in Simplified Chinese."
 
 
 def check_new_api_support_requirements() -> bool:
@@ -370,8 +430,11 @@ class NewAPISupportAdapter(BasePlatformAdapter):
 
     def _channel_prompt(self, payload: Dict[str, Any], request: Any) -> str:
         lines = [CUSTOMER_SUPPORT_PROMPT, "Request context:"]
+        lines.append(_language_instruction(_preferred_language(payload)))
         lines.append(f"source={str(payload.get('source') or 'new-api-web').strip()}")
         lines.append(f"session_id={str(payload.get('session_id') or '').strip()}")
+        if payload.get("language") is not None:
+            lines.append(f"language={str(payload.get('language')).strip()}")
         if payload.get("role") is not None:
             lines.append(f"role={payload.get('role')}")
         lines.extend(_context_lines(payload.get("context")))

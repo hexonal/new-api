@@ -245,11 +245,60 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
     assert "page_url=https://new-api.example.com/contact" in event.channel_prompt
     assert "Do not invent backend query results" in event.channel_prompt
     assert "Do not use owner-only nicknames" in event.channel_prompt
+    assert "fixed brand or personal assistant identity" in event.channel_prompt
     assert 'Do not address customers as "老师"' in event.channel_prompt
 
 
 def test_builds_message_event_and_returns_agent_reply(adapter_module):
     asyncio.run(_test_builds_message_event_and_returns_agent_reply(adapter_module))
+
+
+async def _test_channel_prompt_uses_chinese_for_chinese_message(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(StubPlatformConfig(extra={"token": "secret"}))
+    event = adapter._build_event(
+        {
+            "session_id": "web_zh",
+            "message": "接口 403 了，需要提供什么？",
+            "source": "new-api-web",
+            "context": {"locale": "en-US"},
+        },
+        make_request(adapter_module, {"session_id": "web_zh", "message": "接口 403 了，需要提供什么？"}),
+    )
+
+    assert "Reply in Simplified Chinese" in event.channel_prompt
+    assert "user_language=zh-CN" in event.channel_prompt
+
+
+def test_channel_prompt_uses_chinese_for_chinese_message(adapter_module):
+    asyncio.run(_test_channel_prompt_uses_chinese_for_chinese_message(adapter_module))
+
+
+async def _test_channel_prompt_uses_english_for_english_message(adapter_module):
+    adapter = adapter_module.NewAPISupportAdapter(StubPlatformConfig(extra={"token": "secret"}))
+    event = adapter._build_event(
+        {
+            "session_id": "web_en",
+            "message": "My API call returns 403. What details should I provide?",
+            "source": "new-api-web",
+            "language": "en",
+            "context": {"locale": "zh-CN"},
+        },
+        make_request(
+            adapter_module,
+            {
+                "session_id": "web_en",
+                "message": "My API call returns 403. What details should I provide?",
+            },
+        ),
+    )
+
+    assert "Reply in English" in event.channel_prompt
+    assert "user_language=en" in event.channel_prompt
+    assert "language=en" in event.channel_prompt
+
+
+def test_channel_prompt_uses_english_for_english_message(adapter_module):
+    asyncio.run(_test_channel_prompt_uses_english_for_english_message(adapter_module))
 
 
 async def _test_send_collects_fallback_reply(adapter_module):
@@ -270,5 +319,12 @@ def test_send_collects_fallback_reply(adapter_module):
 def test_sanitizes_internal_persona_from_support_reply(adapter_module):
     assert (
         adapter_module._sanitize_support_reply("您好，龙江猪脚饭这边先帮少爷排查。")
-        == "您好，New API 技术支持这边先帮您排查。"
+        == "您好，这边先帮您排查。"
+    )
+
+
+def test_sanitizes_english_private_persona_from_support_reply(adapter_module):
+    assert (
+        adapter_module._sanitize_support_reply("Hi, New API technical support here. Young master, I will check it.")
+        == "Hi, I will check it."
     )
