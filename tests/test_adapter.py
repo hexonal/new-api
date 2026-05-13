@@ -244,6 +244,7 @@ async def _test_builds_message_event_and_returns_agent_reply(adapter_module):
     assert event.source.user_id == "new-api-web:123"
     assert "page_url=https://www.imarouter.com/contact" in event.channel_prompt
     assert "Do not invent backend query results" in event.channel_prompt
+    assert "Do not use owner-only nicknames" in event.channel_prompt
 
 
 def test_builds_message_event_and_returns_agent_reply(adapter_module):
