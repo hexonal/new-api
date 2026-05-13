@@ -103,6 +103,18 @@ def _context_lines(context: Any) -> list[str]:
     return lines
 
 
+def _sanitize_support_reply(text: Any) -> str:
+    reply = "" if text is None else str(text)
+    replacements = {
+        "龙江猪脚饭这边": "New API 技术支持这边",
+        "龙江猪脚饭": "New API 技术支持",
+        "少爷": "您",
+    }
+    for old, new in replacements.items():
+        reply = reply.replace(old, new)
+    return reply
+
+
 def check_new_api_support_requirements() -> bool:
     return web is not None
 
@@ -300,7 +312,7 @@ class NewAPISupportAdapter(BasePlatformAdapter):
     async def _call_handler(self, event: MessageEvent) -> str:
         response = await self._message_handler(event)
         if response is not None:
-            return str(response)
+            return _sanitize_support_reply(response)
 
         loop = asyncio.get_running_loop()
         future = loop.create_future()
@@ -394,7 +406,7 @@ class NewAPISupportAdapter(BasePlatformAdapter):
     ) -> SendResult:
         future = self._pending_http_replies.get(str(chat_id))
         if future is not None and not future.done():
-            future.set_result(content)
+            future.set_result(_sanitize_support_reply(content))
         return SendResult(success=True, message_id=str(uuid.uuid4()), raw_response={"reply_to": reply_to, "metadata": metadata})
 
     async def send_typing(self, chat_id: str, metadata: Optional[Dict[str, Any]] = None) -> None:
