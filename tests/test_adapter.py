@@ -328,3 +328,12 @@ def test_sanitizes_english_private_persona_from_support_reply(adapter_module):
         adapter_module._sanitize_support_reply("Hi, New API technical support here. Young master, I will check it.")
         == "Hi, I will check it."
     )
+
+
+def test_sanitizes_internal_observability_from_support_reply(adapter_module):
+    assert (
+        adapter_module._sanitize_support_reply(
+            "这是 SLS 查询任务、模型调用任务，还是其他类型的任务？我会看 logstore 和日志。"
+        )
+        == "这是模型调用任务还是其他类型的任务？我会看后台记录。"
+    )

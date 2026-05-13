@@ -41,6 +41,8 @@ Rules:
 - If the user reports an API failure, ask first for the minimum useful evidence: curl, request_id, task_id, model, endpoint, and timestamp.
 - Do not invent backend query results. If the evidence is missing, ask for it before claiming a root cause.
 - Do not expose internal tokens, credentials, server paths, or private configuration.
+- Do not expose internal observability, logging, task-location, MCP, project, logstore, SLS, database, region, IP, or vendor details to users.
+- If the user provides a task_id, ask for task_id, request time, endpoint, model, and error text. Do not mention internal log systems or internal task lookup systems.
 - For billing, routing, quota, token, or permission issues, separate confirmed facts from the next diagnostic step.
 - This is a customer-facing web support channel. Do not use owner-only nicknames or internal assistant personas.
 - Do not address customers as "老师", "少爷", or any private/internal nickname. Use neutral wording such as "您好".
@@ -109,6 +111,13 @@ def _sanitize_support_reply(text: Any) -> str:
     patterns = (
         (re.compile(r"龙江猪脚饭这边"), "这边"),
         (re.compile(r"龙江猪脚饭"), ""),
+        (re.compile(r"SLS\s*查询任务[、,， ]*", re.IGNORECASE), ""),
+        (re.compile(r"\bSLS\b", re.IGNORECASE), "后台"),
+        (re.compile(r"\bproject/logstore\b", re.IGNORECASE), "后台定位信息"),
+        (re.compile(r"\blogstore\b", re.IGNORECASE), "后台记录"),
+        (re.compile(r"\bMCP\b", re.IGNORECASE), "后台工具"),
+        (re.compile(r"日志(?:平台|查询系统)?"), "后台记录"),
+        (re.compile(r"这是\s*模型调用任务[、,， ]*还是其他类型的任务"), "这是模型调用任务还是其他类型的任务"),
         (re.compile(r"New API\s*(?:技术支持|technical support)\s*(?:这边|here)?", re.IGNORECASE), ""),
         (re.compile(r"\bYoung master\b[:,，]?\s*", re.IGNORECASE), ""),
         (re.compile(r"少爷"), "您"),
@@ -121,8 +130,10 @@ def _sanitize_support_reply(text: Any) -> str:
 def _normalize_reply_spacing(reply: str) -> str:
     reply = re.sub(r"\s+([,.!?;:])", r"\1", reply)
     reply = re.sub(r"([，。！？；：])\s+", r"\1", reply)
+    reply = re.sub(r"([\u4e00-\u9fff])\s+([\u4e00-\u9fff])", r"\1\2", reply)
     reply = re.sub(r"([,，])\s*([,，])+", r"\1", reply)
     reply = re.sub(r",\s*\.", ",", reply)
+    reply = re.sub(r"(后台记录)(?:[和、,，]\s*\1)+", r"\1", reply)
     reply = re.sub(r"\s{2,}", " ", reply)
     reply = re.sub(r"^(Hi|Hello),\s*,\s*", r"\1, ", reply, flags=re.IGNORECASE)
     reply = re.sub(r"^您好，\s*，", "您好，", reply)
@@ -173,6 +184,17 @@ def _language_instruction(language: str) -> str:
     if language == "en":
         return "Language: user_language=en. Reply in English."
     return "Language: user_language=zh-CN. Reply in Simplified Chinese."
+
+
+def _public_support_guardrail() -> str:
+    return (
+        "Public support privacy guardrail: Never mention internal observability, "
+        "logging platforms, task-location systems, MCP tools, project names, "
+        "logstore names, SLS, database names, regions, IPs, server paths, vendors, "
+        "or tool names. If a user provides a task_id, ask only for task_id, request "
+        "time, endpoint, model, and error text; do not say you will check logs or "
+        "use internal systems."
+    )
 
 
 def check_new_api_support_requirements() -> bool:
@@ -430,6 +452,7 @@ class NewAPISupportAdapter(BasePlatformAdapter):
 
     def _channel_prompt(self, payload: Dict[str, Any], request: Any) -> str:
         lines = [CUSTOMER_SUPPORT_PROMPT, "Request context:"]
+        lines.append(_public_support_guardrail())
         lines.append(_language_instruction(_preferred_language(payload)))
         lines.append(f"source={str(payload.get('source') or 'new-api-web').strip()}")
         lines.append(f"session_id={str(payload.get('session_id') or '').strip()}")
@@ -503,6 +526,8 @@ def register(ctx: Any) -> None:
             "You are chatting with a customer through a New API website support widget. "
             "Use concise customer-support language. Ask for request_id, task_id, curl, "
             "endpoint, model, and timestamp when diagnosing API issues. Do not claim "
-            "you checked backend systems unless a tool result confirms it."
+            "you checked backend systems unless a tool result confirms it. Never expose "
+            "internal observability, logging, SLS, MCP, logstore, project, database, "
+            "region, IP, vendor, or tool names to users."
         ),
     )
