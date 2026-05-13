@@ -383,7 +383,7 @@ func TestE2E_ImageTaskBilling_SuccessSettles(t *testing.T) {
 	var updated model.Task
 	require.NoError(t, model.DB.First(&updated, submitted.ID).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
-	assert.Equal(t, "https://result.example/img.png", updated.PrivateData.ResultURL)
+	assert.Equal(t, "http://localhost:3000/v1/videos/"+submitted.TaskID+"/content", updated.PrivateData.ResultURL)
 	record := getGenerationRecordByTaskID(t, submitted.TaskID)
 	assert.Equal(t, model.GenerationKindImage, record.Kind)
 	assert.Equal(t, model.GenerationStatusSuccess, record.Status)

@@ -83,7 +83,7 @@ func TestLocalImageWorkerPool_Shutdown_PreservesInflightUntilCompletion(t *testi
 			return false
 		}
 		return updated.Status == model.TaskStatusSuccess &&
-			updated.PrivateData.ResultURL == "https://example.com/shutdown.png"
+			updated.PrivateData.ResultURL == "http://localhost:3000/v1/videos/"+task.TaskID+"/content"
 	}, 7*time.Second, 100*time.Millisecond)
 
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))

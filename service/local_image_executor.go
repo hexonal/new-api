@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/gin-gonic/gin"
@@ -76,7 +77,7 @@ func ExecuteLocalImageTask(ctx context.Context, workerID string, task *model.Tas
 		return failLocalImageTask(persistCtx, workerID, task, err.Error(), err)
 	}
 
-	storedResultURL := resultURL
+	storedResultURL := taskcommon.BuildProxyURL(task.TaskID)
 	storedResultBody := append([]byte(nil), responseBody...)
 	if archivedURL, ok := MaybeArchiveTaskResult(persistCtx, task, resultURL, responseBody); ok {
 		storedResultURL = archivedURL

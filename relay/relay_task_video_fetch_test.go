@@ -3,7 +3,6 @@ package relay
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -123,11 +122,12 @@ func TestVideoFetchByIDRealtimeFetchesLatestUpstreamStatus(t *testing.T) {
 	require.Nil(t, taskErr)
 
 	body := string(respBody)
+	wantProxyURL := "http://localhost:3000/v1/videos/task_public_1/content"
 	assert.Contains(t, body, `"status":"completed"`)
-	assert.Contains(t, body, `"video_url":"https://example.com/video.mp4"`)
+	assert.Contains(t, body, `"video_url":"`+wantProxyURL+`"`)
 
 	var updated model.Task
 	require.NoError(t, db.Where("task_id = ?", "task_public_1").First(&updated).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
-	assert.Equal(t, "https://example.com/video.mp4", strings.TrimSpace(updated.GetResultURL()))
+	assert.Equal(t, wantProxyURL, updated.GetResultURL())
 }

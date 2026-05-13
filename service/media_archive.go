@@ -21,7 +21,8 @@ import (
 
 const (
 	// mediaArchiveTimeout 控制整个归档链路的最大耗时。
-	mediaArchiveTimeout = 2 * time.Minute
+	mediaArchiveTimeout             = 2 * time.Minute
+	mediaArchivePhaseConfigNotReady = "archive_skipped_config_not_ready"
 )
 
 var (
@@ -44,6 +45,7 @@ func MaybeArchiveImageResponse(ctx context.Context, info *relaycommon.RelayInfo,
 	}
 	cfg := media_archive_setting.GetConfig()
 	if !cfg.IsReady() {
+		reportMediaArchiveConfigNotReady(ctx, mediaArchiveMetaFromInfo(info, archiver.KindImage, 0))
 		return
 	}
 	a := archiver.GetDefault()
@@ -125,6 +127,7 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 	}
 	cfg := media_archive_setting.GetConfig()
 	if !cfg.IsReady() {
+		reportMediaArchiveConfigNotReady(ctx, mediaArchiveTaskMeta(task, taskArchiveKind(task)))
 		return "", false
 	}
 	a := archiver.GetDefault()
@@ -132,13 +135,7 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 	defer cancel()
 
 	kind := taskArchiveKind(task)
-	meta := archiver.Meta{
-		Kind:      kind,
-		Model:     firstNonEmpty(strings.TrimSpace(task.Properties.OriginModelName), strings.TrimSpace(task.Properties.UpstreamModelName)),
-		TaskID:    strings.TrimSpace(task.TaskID),
-		ChannelID: task.ChannelId,
-		UserID:    task.UserId,
-	}
+	meta := mediaArchiveTaskMeta(task, kind)
 
 	ref := strings.TrimSpace(sourceURL)
 	if ref != "" {
@@ -163,6 +160,11 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 // MaybeArchiveTaskStoredResult 从 task.Data 提取媒体链接并归档。
 func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string, bool) {
 	if task == nil || len(task.Data) == 0 {
+		return "", false
+	}
+	cfg := media_archive_setting.GetConfig()
+	if !cfg.IsReady() {
+		reportMediaArchiveConfigNotReady(ctx, mediaArchiveTaskMeta(task, taskArchiveKind(task)))
 		return "", false
 	}
 	sourceURL := extractTaskPayloadMediaURL(task.Data, taskArchiveKind(task))
@@ -491,6 +493,44 @@ func reportMediaArchiveFinalFailure(ctx context.Context, phase string, ref strin
 	}
 	logMediaArchiveFinalFailure(ctx, phase, ref, err)
 	NotifyMonitorMediaArchiveError(phase, ref, err.Error(), mediaArchiveMetaToAlertData(meta))
+}
+
+func reportMediaArchiveConfigNotReady(ctx context.Context, meta archiver.Meta) {
+	cooldownKey := "media_archive:" + mediaArchivePhaseConfigNotReady + ":log"
+	if !allowMonitorAlertByCooldown(cooldownKey, time.Now(), 1) {
+		return
+	}
+	taskID := firstNonEmpty(meta.TaskID, meta.RequestID, "-")
+	modelName := firstNonEmpty(meta.Model, "-")
+	msg := fmt.Sprintf(
+		"[media_archive] disabled or misconfigured, returning ephemeral upstream URL (task=%s model=%s)",
+		taskID,
+		modelName,
+	)
+	if ctx == nil {
+		common.SysError(msg)
+	} else {
+		logger.LogError(ctx, msg)
+	}
+	NotifyMonitorMediaArchiveError(
+		mediaArchivePhaseConfigNotReady,
+		taskID,
+		"media archive disabled or misconfigured",
+		mediaArchiveMetaToAlertData(meta),
+	)
+}
+
+func mediaArchiveTaskMeta(task *model.Task, kind archiver.Kind) archiver.Meta {
+	if task == nil {
+		return archiver.Meta{Kind: kind}
+	}
+	return archiver.Meta{
+		Kind:      kind,
+		Model:     firstNonEmpty(strings.TrimSpace(task.Properties.OriginModelName), strings.TrimSpace(task.Properties.UpstreamModelName)),
+		TaskID:    strings.TrimSpace(task.TaskID),
+		ChannelID: task.ChannelId,
+		UserID:    task.UserId,
+	}
 }
 
 func mediaArchiveMetaToAlertData(meta archiver.Meta) map[string]interface{} {

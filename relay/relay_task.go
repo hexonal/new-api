@@ -407,13 +407,15 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	if isOpenAIVideoAPI {
 		if resultURL := strings.TrimSpace(originTask.GetResultURL()); resultURL == "" || strings.Contains(resultURL, "/v1/videos/"+originTask.TaskID+"/content") {
+			snap := originTask.Snapshot()
+			storedURL := taskcommon.BuildProxyURL(originTask.TaskID)
 			if archivedURL, ok := service.MaybeArchiveTaskStoredResult(context.Background(), originTask); ok {
-				snap := originTask.Snapshot()
-				originTask.PrivateData.ResultURL = archivedURL
-				_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), originTask.TaskID, archivedURL)
-				if !snap.Equal(originTask.Snapshot()) {
-					_, _ = originTask.UpdateWithStatus(snap.Status)
-				}
+				storedURL = archivedURL
+			}
+			originTask.PrivateData.ResultURL = storedURL
+			_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), originTask.TaskID, storedURL)
+			if !snap.Equal(originTask.Snapshot()) {
+				_, _ = originTask.UpdateWithStatus(snap.Status)
 			}
 		}
 	}
@@ -651,14 +653,10 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		task.PrivateData.ResultURL = archivedURL
 		task.Data = service.RewriteTaskResultData(body, archivedURL)
 		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, archivedURL)
-	} else if strings.HasPrefix(resultURL, "data:") {
-		// data: URI — kept in Data, not ResultURL
-	} else if resultURL != "" {
-		task.PrivateData.ResultURL = resultURL
-		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, resultURL)
 	} else if task.Status == model.TaskStatusSuccess {
-		// No URL from adaptor — construct proxy URL using public task ID
-		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+		proxyURL := taskcommon.BuildProxyURL(task.TaskID)
+		task.PrivateData.ResultURL = proxyURL
+		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, proxyURL)
 	}
 
 	if !snap.Equal(task.Snapshot()) {

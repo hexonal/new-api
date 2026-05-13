@@ -195,7 +195,7 @@ func TestExecute_Success(t *testing.T) {
 	var updated model.Task
 	require.NoError(t, model.DB.First(&updated, task.ID).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
-	assert.Equal(t, "https://example.com/result.png", updated.PrivateData.ResultURL)
+	assert.Equal(t, "http://localhost:3000/v1/videos/"+task.TaskID+"/content", updated.PrivateData.ResultURL)
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))
 	assert.Equal(t, 100, getUserQuota(t, 1))
 }
@@ -417,7 +417,7 @@ func TestExecute_Edits_Success(t *testing.T) {
 	var updated model.Task
 	require.NoError(t, model.DB.First(&updated, task.ID).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
-	assert.Equal(t, "https://example.com/edited.png", updated.PrivateData.ResultURL)
+	assert.Equal(t, "http://localhost:3000/v1/videos/"+task.TaskID+"/content", updated.PrivateData.ResultURL)
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))
 }
 
@@ -507,7 +507,7 @@ func TestExecute_Edits_WithMask_Success(t *testing.T) {
 	var updated model.Task
 	require.NoError(t, model.DB.First(&updated, task.ID).Error)
 	assert.EqualValues(t, model.TaskStatusSuccess, updated.Status)
-	assert.Equal(t, "https://example.com/masked.png", updated.PrivateData.ResultURL)
+	assert.Equal(t, "http://localhost:3000/v1/videos/"+task.TaskID+"/content", updated.PrivateData.ResultURL)
 	assert.EqualValues(t, 1, atomic.LoadInt32(&attempts))
 }
 

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -488,16 +487,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			task.PrivateData.ResultURL = archivedURL
 			task.Data = RewriteTaskResultData(responseBody, archivedURL)
 			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, archivedURL)
-		} else if strings.HasPrefix(resultURL, "data:") {
-			// data: URI (e.g. Vertex base64 encoded video) — keep in Data, not in ResultURL
-			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-		} else if resultURL != "" {
-			// Direct upstream URL (e.g. Kling, Ali, Doubao, etc.)
-			task.PrivateData.ResultURL = resultURL
-			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, resultURL)
 		} else {
-			// No URL from adaptor — construct proxy URL using public task ID
-			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+			proxyURL := taskcommon.BuildProxyURL(task.TaskID)
+			task.PrivateData.ResultURL = proxyURL
+			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, proxyURL)
 		}
 		shouldSettle = true
 	case model.TaskStatusFailure:
