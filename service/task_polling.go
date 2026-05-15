@@ -483,9 +483,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			task.FinishTime = now
 		}
 		resultURL := firstNonEmpty(taskResult.Url, taskResult.RemoteUrl)
-		if archivedURL, ok := MaybeArchiveTaskResult(ctx, task, resultURL, responseBody); ok {
+		if archivedURL, archivedBody, ok := MaybeArchiveTaskResult(ctx, task, resultURL, responseBody); ok {
 			task.PrivateData.ResultURL = archivedURL
-			task.Data = RewriteTaskResultData(responseBody, archivedURL)
+			task.Data = archivedBody
 			_ = model.PatchLatestConsumeLogOutputByTaskID(ctx, task.TaskID, archivedURL)
 		} else {
 			proxyURL := taskcommon.BuildProxyURL(task.TaskID)

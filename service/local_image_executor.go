@@ -79,9 +79,9 @@ func ExecuteLocalImageTask(ctx context.Context, workerID string, task *model.Tas
 
 	storedResultURL := taskcommon.BuildProxyURL(task.TaskID)
 	storedResultBody := append([]byte(nil), responseBody...)
-	if archivedURL, ok := MaybeArchiveTaskResult(persistCtx, task, resultURL, responseBody); ok {
+	if archivedURL, archivedBody, ok := MaybeArchiveTaskResult(persistCtx, task, resultURL, responseBody); ok {
 		storedResultURL = archivedURL
-		storedResultBody = RewriteTaskResultData(responseBody, archivedURL)
+		storedResultBody = archivedBody
 	}
 
 	if err = FinalizeLocalImageSuccess(

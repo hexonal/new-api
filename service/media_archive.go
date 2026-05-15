@@ -30,6 +30,16 @@ var (
 	rawURLPattern            = regexp.MustCompile(`https?://[^\s<>"')]+`)
 )
 
+type textMediaArchiveState struct {
+	ctx       context.Context
+	cfg       media_archive_setting.Config
+	archiver  *archiver.Archiver
+	seen      map[string]string
+	nextIndex int
+	proxy     string
+	baseMeta  archiver.Meta
+}
+
 // init 向 archiver 注入依赖，避免 archiver 反向 import service 导致循环。
 func init() {
 	archiver.SetHTTPClientProvider(GetHttpClientWithProxy)
@@ -121,14 +131,14 @@ func MaybeArchiveStreamResponse(ctx context.Context, info *relaycommon.RelayInfo
 }
 
 // MaybeArchiveTaskResult 归档异步任务结果里的媒体链接。
-func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL string, responseBody []byte) (string, bool) {
+func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL string, responseBody []byte) (string, []byte, bool) {
 	if task == nil {
-		return "", false
+		return "", nil, false
 	}
 	cfg := media_archive_setting.GetConfig()
 	if !cfg.IsReady() {
 		reportMediaArchiveConfigNotReady(ctx, mediaArchiveTaskMeta(task, taskArchiveKind(task)))
-		return "", false
+		return "", nil, false
 	}
 	a := archiver.GetDefault()
 	archiveCtx, cancel := newMediaArchiveContext(ctx)
@@ -136,25 +146,17 @@ func MaybeArchiveTaskResult(ctx context.Context, task *model.Task, sourceURL str
 
 	kind := taskArchiveKind(task)
 	meta := mediaArchiveTaskMeta(task, kind)
-
-	ref := strings.TrimSpace(sourceURL)
-	if ref != "" {
-		if url, err := archiveTaskResultReference(archiveCtx, a, ref, kind, meta); err == nil {
-			return url, true
-		} else {
-			reportMediaArchiveFinalFailure(archiveCtx, "archive_task", ref, err, meta)
-		}
+	refs := collectTaskPayloadMediaRefs(responseBody, kind, sourceURL)
+	if len(refs) == 0 {
+		return "", nil, false
 	}
-	payloadURL := extractTaskPayloadMediaURL(responseBody, kind)
-	if payloadURL == "" {
-		return "", false
+	archivedByRef := archiveTaskResultRefs(archiveCtx, a, refs, kind, meta)
+	primaryURL := firstArchivedTaskResultURL(refs, archivedByRef)
+	if primaryURL == "" {
+		return "", nil, false
 	}
-	url, err := archiveTaskResultReference(archiveCtx, a, payloadURL, kind, meta)
-	if err != nil {
-		reportMediaArchiveFinalFailure(archiveCtx, "archive_task", payloadURL, err, meta)
-		return "", false
-	}
-	return url, true
+	rewritten := rewriteTaskResultDataByURL(responseBody, archivedByRef, kind, primaryURL)
+	return primaryURL, rewritten, true
 }
 
 // MaybeArchiveTaskStoredResult 从 task.Data 提取媒体链接并归档。
@@ -182,9 +184,9 @@ func MaybeArchiveTaskStoredResult(ctx context.Context, task *model.Task) (string
 	if sourceURL == "" {
 		return "", false
 	}
-	archivedURL, ok := MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
+	archivedURL, rewrittenData, ok := MaybeArchiveTaskResult(ctx, task, sourceURL, task.Data)
 	if ok {
-		task.Data = RewriteTaskResultData(task.Data, archivedURL)
+		task.Data = rewrittenData
 	}
 	return archivedURL, ok
 }
@@ -198,53 +200,63 @@ func rewriteTextMediaReferences(ctx context.Context, info *relaycommon.RelayInfo
 	if !cfg.IsReady() {
 		return text
 	}
-	a := archiver.GetDefault()
 	archiveCtx, cancel := newMediaArchiveContext(ctx)
 	defer cancel()
-
-	seen := make(map[string]string)
-	nextIndex := 0
-	proxy := mediaArchiveProxyFromInfo(info)
-	baseMeta := archiver.Meta{
-		Kind:      archiver.KindImage,
-		Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
-		RequestID: strings.TrimSpace(info.RequestId),
-		ChannelID: info.ChannelId,
-		UserID:    info.UserId,
-	}
-
-	replaceURL := func(raw string) string {
-		if raw == "" || isMediaArchiveURL(raw, cfg) || !looksLikeMediaReference(raw) {
-			return raw
-		}
-		if archived, ok := seen[raw]; ok {
-			return archived
-		}
-		meta := baseMeta
-		meta.Index = nextIndex
-		nextIndex++
-		archived, err := a.Archive(archiveCtx, archiver.Source{URL: raw, Proxy: proxy}, meta)
-		if err != nil || archived == "" {
-			logMediaArchiveFailure(archiveCtx, "archive_text_ref", err)
-			return raw
-		}
-		seen[raw] = archived
-		return archived
-	}
+	state := newTextMediaArchiveState(archiveCtx, cfg, info)
 
 	rewritten := markdownMediaLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
 		parts := markdownMediaLinkPattern.FindStringSubmatch(match)
 		if len(parts) != 3 {
 			return match
 		}
-		return fmt.Sprintf("![%s](%s)", parts[1], replaceURL(parts[2]))
+		return fmt.Sprintf("![%s](%s)", parts[1], state.replaceURL(parts[2]))
 	})
 
 	rewritten = rawURLPattern.ReplaceAllStringFunc(rewritten, func(raw string) string {
-		return replaceURL(raw)
+		return state.replaceURL(raw)
 	})
 
 	return rewritten
+}
+
+func newTextMediaArchiveState(
+	ctx context.Context,
+	cfg media_archive_setting.Config,
+	info *relaycommon.RelayInfo,
+) *textMediaArchiveState {
+	return &textMediaArchiveState{
+		ctx:      ctx,
+		cfg:      cfg,
+		archiver: archiver.GetDefault(),
+		seen:     make(map[string]string),
+		proxy:    mediaArchiveProxyFromInfo(info),
+		baseMeta: archiver.Meta{
+			Kind:      archiver.KindImage,
+			Model:     firstNonEmpty(strings.TrimSpace(info.OriginModelName), strings.TrimSpace(info.UpstreamModelName)),
+			RequestID: strings.TrimSpace(info.RequestId),
+			ChannelID: info.ChannelId,
+			UserID:    info.UserId,
+		},
+	}
+}
+
+func (s *textMediaArchiveState) replaceURL(raw string) string {
+	if raw == "" || isMediaArchiveURL(raw, s.cfg) || !looksLikeMediaReference(raw) {
+		return raw
+	}
+	if archived, ok := s.seen[raw]; ok {
+		return archived
+	}
+	meta := s.baseMeta
+	meta.Index = s.nextIndex
+	s.nextIndex++
+	archived, err := s.archiver.Archive(s.ctx, archiver.Source{URL: raw, Proxy: s.proxy}, meta)
+	if err != nil || archived == "" {
+		logMediaArchiveFailure(s.ctx, "archive_text_ref", err)
+		return raw
+	}
+	s.seen[raw] = archived
+	return archived
 }
 
 // RewriteTaskResultData 将任务结果 JSON 中的媒体链接节点改写为归档 URL。
@@ -266,12 +278,132 @@ func RewriteTaskResultData(body []byte, archivedURL string) []byte {
 	return encoded
 }
 
+func rewriteTaskResultDataByURL(
+	body []byte,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+	primaryURL string,
+) []byte {
+	if len(body) == 0 || len(archivedByRef) == 0 {
+		return body
+	}
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+	if !rewriteTaskPayloadMediaNodeByURL(payload, archivedByRef, kind, primaryURL) {
+		return body
+	}
+	encoded, err := common.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return encoded
+}
+
 // newMediaArchiveContext 为归档链路创建带超时、与父 ctx 取消解耦的上下文。
 func newMediaArchiveContext(parent context.Context) (context.Context, context.CancelFunc) {
 	if parent == nil {
 		return context.WithTimeout(context.Background(), mediaArchiveTimeout)
 	}
 	return context.WithTimeout(context.WithoutCancel(parent), mediaArchiveTimeout)
+}
+
+func collectTaskPayloadMediaRefs(body []byte, kind archiver.Kind, sourceURL string) []string {
+	refs := make([]string, 0)
+	appendTaskMediaRef(&refs, sourceURL)
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err == nil {
+		collectTaskMediaRefsFromNode(payload, kind, &refs)
+	}
+	return dedupeTaskMediaRefs(refs)
+}
+
+func collectTaskMediaRefsFromNode(node any, kind archiver.Kind, refs *[]string) {
+	switch value := node.(type) {
+	case map[string]any:
+		collectTaskMediaRefsFromMap(value, kind, refs)
+	case []any:
+		for _, item := range value {
+			collectTaskMediaRefsFromNode(item, kind, refs)
+		}
+	}
+}
+
+func collectTaskMediaRefsFromMap(payload map[string]any, kind archiver.Kind, refs *[]string) {
+	for _, key := range []string{"url", "video_url", "video"} {
+		if value, ok := payload[key].(string); ok {
+			appendTaskMediaRef(refs, value)
+		}
+	}
+	collectTaskBase64RefsFromMap(payload, kind, refs)
+	for _, value := range payload {
+		collectTaskMediaRefsFromNode(value, kind, refs)
+	}
+}
+
+func collectTaskBase64RefsFromMap(payload map[string]any, kind archiver.Kind, refs *[]string) {
+	if kind == archiver.KindImage {
+		for _, key := range []string{"b64_json", "b64Json"} {
+			if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
+				appendTaskMediaRef(refs, "data:image/png;base64,"+strings.TrimSpace(value))
+			}
+		}
+	}
+	if value, ok := payload["bytesBase64Encoded"].(string); ok && strings.TrimSpace(value) != "" {
+		appendTaskMediaRef(refs, taskBytesDataURL(kind, value))
+	}
+}
+
+func appendTaskMediaRef(refs *[]string, raw string) {
+	ref := strings.TrimSpace(raw)
+	if ref == "" {
+		return
+	}
+	*refs = append(*refs, ref)
+}
+
+func dedupeTaskMediaRefs(refs []string) []string {
+	seen := make(map[string]struct{}, len(refs))
+	result := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if _, ok := seen[ref]; ok {
+			continue
+		}
+		seen[ref] = struct{}{}
+		result = append(result, ref)
+	}
+	return result
+}
+
+func archiveTaskResultRefs(
+	ctx context.Context,
+	a *archiver.Archiver,
+	refs []string,
+	kind archiver.Kind,
+	meta archiver.Meta,
+) map[string]string {
+	archivedByRef := make(map[string]string, len(refs))
+	for i, ref := range refs {
+		itemMeta := meta
+		itemMeta.Index = i
+		url, err := archiveTaskResultReference(ctx, a, ref, kind, itemMeta)
+		if err != nil {
+			reportMediaArchiveFinalFailure(ctx, "archive_task", ref, err, itemMeta)
+			continue
+		}
+		archivedByRef[ref] = url
+	}
+	return archivedByRef
+}
+
+func firstArchivedTaskResultURL(refs []string, archivedByRef map[string]string) string {
+	for _, ref := range refs {
+		if archivedURL := strings.TrimSpace(archivedByRef[ref]); archivedURL != "" {
+			return archivedURL
+		}
+	}
+	return ""
 }
 
 // extractTaskPayloadMediaURL 从任务 JSON 提取主媒体 URL，支持 image/video 链接与内嵌 base64。
@@ -284,9 +416,11 @@ func extractTaskPayloadMediaURL(body []byte, kind archiver.Kind) string {
 		return firstNonEmpty(
 			extractImageBytesDataURL(payload, "response"),
 			extractImageBytesDataURL(payload),
+			extractImageEnvelopeBytesDataURL(payload, "data"),
 			extractImageURL(payload, "response"),
 			extractImageURL(payload),
 			extractMapString(payload, "response", "url"),
+			extractMapString(payload, "data", "url"),
 			extractMapString(payload, "url"),
 		)
 	}
@@ -295,7 +429,31 @@ func extractTaskPayloadMediaURL(body []byte, kind archiver.Kind) string {
 		extractVideoBytesDataURL(payload),
 		extractMapString(payload, "response", "video"),
 		extractMapString(payload, "video"),
+		extractMapString(payload, "data", "video_url"),
+		extractMapString(payload, "data", "url"),
 	)
+}
+
+func extractImageEnvelopeBytesDataURL(payload map[string]any, pathSegments ...string) string {
+	var node any = payload
+	for _, segment := range pathSegments {
+		m, ok := node.(map[string]any)
+		if !ok {
+			return ""
+		}
+		node = m[segment]
+	}
+	root, ok := node.(map[string]any)
+	if !ok {
+		return ""
+	}
+	for _, key := range []string{"b64_json", "b64Json"} {
+		b64, ok := root[key].(string)
+		if ok && strings.TrimSpace(b64) != "" {
+			return "data:image/png;base64," + strings.TrimSpace(b64)
+		}
+	}
+	return ""
 }
 
 func extractVideoBytesDataURL(payload map[string]any, pathSegments ...string) string {
@@ -557,6 +715,133 @@ func mediaArchiveMetaToAlertData(meta archiver.Meta) map[string]interface{} {
 
 // rewriteTaskPayloadMediaNode 递归改写 JSON 中典型的媒体节点为归档 URL。
 func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) bool {
+	changed := rewriteDirectTaskMediaFields(payload, archivedURL)
+	changed = rewriteNestedTaskMediaNode(payload, "response", archivedURL) || changed
+	changed = rewriteNestedTaskMediaNode(payload, "data", archivedURL) || changed
+	changed = rewriteTaskVideoItems(payload, archivedURL) || changed
+	changed = rewriteTaskImageDataItems(payload, archivedURL) || changed
+	if _, exists := payload["bytesBase64Encoded"]; exists {
+		delete(payload, "bytesBase64Encoded")
+		changed = true
+	}
+	if changed {
+		payload["archived_url"] = archivedURL
+	}
+	return changed
+}
+
+func rewriteTaskPayloadMediaNodeByURL(
+	payload map[string]any,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+	primaryURL string,
+) bool {
+	changed := rewriteDirectTaskMediaFieldsByURL(payload, archivedByRef)
+	changed = rewriteTaskBase64FieldsByURL(payload, archivedByRef, kind) || changed
+	for key, value := range payload {
+		if rewriteTaskPayloadChildByURL(value, archivedByRef, kind, primaryURL) {
+			payload[key] = value
+			changed = true
+		}
+	}
+	if changed && strings.TrimSpace(primaryURL) != "" {
+		payload["archived_url"] = strings.TrimSpace(primaryURL)
+	}
+	return changed
+}
+
+func rewriteTaskPayloadChildByURL(
+	node any,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+	primaryURL string,
+) bool {
+	switch value := node.(type) {
+	case map[string]any:
+		return rewriteTaskPayloadMediaNodeByURL(value, archivedByRef, kind, primaryURL)
+	case []any:
+		return rewriteTaskPayloadArrayByURL(value, archivedByRef, kind, primaryURL)
+	default:
+		return false
+	}
+}
+
+func rewriteTaskPayloadArrayByURL(
+	items []any,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+	primaryURL string,
+) bool {
+	changed := false
+	for i, item := range items {
+		if rewriteTaskPayloadChildByURL(item, archivedByRef, kind, primaryURL) {
+			items[i] = item
+			changed = true
+		}
+	}
+	return changed
+}
+
+func rewriteDirectTaskMediaFieldsByURL(payload map[string]any, archivedByRef map[string]string) bool {
+	changed := false
+	for _, key := range []string{"url", "video_url", "video"} {
+		value, ok := payload[key].(string)
+		if !ok {
+			continue
+		}
+		if archivedURL := archivedTaskURLForRef(archivedByRef, value); archivedURL != "" {
+			payload[key] = archivedURL
+			changed = true
+		}
+	}
+	return changed
+}
+
+func rewriteTaskBase64FieldsByURL(
+	payload map[string]any,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+) bool {
+	changed := rewriteImageBase64FieldsByURL(payload, archivedByRef, kind)
+	if value, ok := payload["bytesBase64Encoded"].(string); ok {
+		if archivedURL := archivedTaskURLForRef(archivedByRef, taskBytesDataURL(kind, value)); archivedURL != "" {
+			delete(payload, "bytesBase64Encoded")
+			payload["url"] = archivedURL
+			changed = true
+		}
+	}
+	return changed
+}
+
+func rewriteImageBase64FieldsByURL(
+	payload map[string]any,
+	archivedByRef map[string]string,
+	kind archiver.Kind,
+) bool {
+	if kind != archiver.KindImage {
+		return false
+	}
+	changed := false
+	for _, key := range []string{"b64_json", "b64Json"} {
+		value, ok := payload[key].(string)
+		if !ok {
+			continue
+		}
+		ref := "data:image/png;base64," + strings.TrimSpace(value)
+		if archivedURL := archivedTaskURLForRef(archivedByRef, ref); archivedURL != "" {
+			delete(payload, key)
+			payload["url"] = archivedURL
+			changed = true
+		}
+	}
+	return changed
+}
+
+func archivedTaskURLForRef(archivedByRef map[string]string, raw string) string {
+	return strings.TrimSpace(archivedByRef[strings.TrimSpace(raw)])
+}
+
+func rewriteDirectTaskMediaFields(payload map[string]any, archivedURL string) bool {
 	changed := false
 	if value, ok := payload["video_url"].(string); ok && strings.TrimSpace(value) != "" {
 		payload["video_url"] = archivedURL
@@ -566,12 +851,20 @@ func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) boo
 		payload["url"] = archivedURL
 		changed = true
 	}
-	if response, ok := payload["response"].(map[string]any); ok {
-		if rewriteTaskPayloadMediaNode(response, archivedURL) {
-			payload["response"] = response
-			changed = true
-		}
+	return changed
+}
+
+func rewriteNestedTaskMediaNode(payload map[string]any, key string, archivedURL string) bool {
+	node, ok := payload[key].(map[string]any)
+	if !ok || !rewriteTaskPayloadMediaNode(node, archivedURL) {
+		return false
 	}
+	payload[key] = node
+	return true
+}
+
+func rewriteTaskVideoItems(payload map[string]any, archivedURL string) bool {
+	changed := false
 	if videos, ok := payload["videos"].([]any); ok {
 		for i, item := range videos {
 			videoMap, ok := item.(map[string]any)
@@ -594,6 +887,11 @@ func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) boo
 		}
 		payload["videos"] = videos
 	}
+	return changed
+}
+
+func rewriteTaskImageDataItems(payload map[string]any, archivedURL string) bool {
+	changed := false
 	if dataItems, ok := payload["data"].([]any); ok {
 		for i, item := range dataItems {
 			dataMap, ok := item.(map[string]any)
@@ -615,13 +913,6 @@ func rewriteTaskPayloadMediaNode(payload map[string]any, archivedURL string) boo
 			dataItems[i] = dataMap
 		}
 		payload["data"] = dataItems
-	}
-	if _, exists := payload["bytesBase64Encoded"]; exists {
-		delete(payload, "bytesBase64Encoded")
-		changed = true
-	}
-	if changed {
-		payload["archived_url"] = archivedURL
 	}
 	return changed
 }
@@ -672,10 +963,30 @@ func decodeImageB64(b64 string) []byte {
 }
 
 func taskArchiveKind(task *model.Task) archiver.Kind {
-	if task != nil && task.Platform == constant.TaskPlatformImage {
+	if isImageArchiveTask(task) {
 		return archiver.KindImage
 	}
 	return archiver.KindVideo
+}
+
+func isImageArchiveTask(task *model.Task) bool {
+	if task == nil {
+		return false
+	}
+	path := strings.TrimSpace(task.Properties.RequestPath)
+	if strings.HasPrefix(path, "/v1/images") {
+		return true
+	}
+	if strings.HasPrefix(path, "/v1/videos") {
+		return false
+	}
+	if task.Platform == constant.TaskPlatformImage {
+		return true
+	}
+	if task.Action == constant.TaskActionImageGenerate {
+		return true
+	}
+	return false
 }
 
 func archiveTaskResultReference(
@@ -721,4 +1032,12 @@ func taskResultArchiveSource(ref string, kind archiver.Kind) (archiver.Source, e
 		}
 	}
 	return archiver.Source{URL: ref}, nil
+}
+
+func taskBytesDataURL(kind archiver.Kind, payload string) string {
+	payload = strings.TrimSpace(payload)
+	if kind == archiver.KindImage {
+		return "data:image/png;base64," + payload
+	}
+	return "data:video/mp4;base64," + payload
 }

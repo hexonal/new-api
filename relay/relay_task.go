@@ -649,9 +649,9 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	if resultURL == "" {
 		resultURL = strings.TrimSpace(ti.RemoteUrl)
 	}
-	if archivedURL, ok := service.MaybeArchiveTaskResult(context.Background(), task, resultURL, body); ok {
+	if archivedURL, archivedBody, ok := service.MaybeArchiveTaskResult(context.Background(), task, resultURL, body); ok {
 		task.PrivateData.ResultURL = archivedURL
-		task.Data = service.RewriteTaskResultData(body, archivedURL)
+		task.Data = archivedBody
 		_ = model.PatchLatestConsumeLogOutputByTaskID(context.Background(), task.TaskID, archivedURL)
 	} else if task.Status == model.TaskStatusSuccess {
 		proxyURL := taskcommon.BuildProxyURL(task.TaskID)
