@@ -2944,6 +2944,12 @@
     "如 per-image / per-second / per-1k-tokens，可自定义": "如 per-image / per-second / per-1k-tokens，可自定义",
     "用户自由填写，不限枚举": "用户自由填写，不限枚举",
     "任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价": "任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价",
-    "保存定价失败": "保存定价失败"
+    "保存定价失败": "保存定价失败",
+    "unit": {
+      "per-image": "按张",
+      "per-second": "按秒",
+      "per-1k-tokens": "按千 tokens",
+      "per-call": "按次"
+    }
   }
 }

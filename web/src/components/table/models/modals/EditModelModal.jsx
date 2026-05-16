@@ -131,17 +131,28 @@ const normalizeEndpointsValue = (value) => {
 };
 
 // ===== Model Pricing helpers =====
-// ModelPricing option 是一个大 JSON map：{ [modelName]: { unit, ratios } }
-// 编辑单个模型时必须 merge 写回，避免覆盖其他模型的配置
-const MODEL_PRICING_OPTION_KEY = 'ModelPricing';
-
-const PRICING_UNIT_SUGGESTIONS = [
+// 后端提供单条 patch endpoint /api/model-pricing/:model_name，
+// 避免并发覆盖整张 ModelPricing map。
+const PRICING_UNIT_VALUES = [
   'per-image',
   'per-second',
   'per-1k-tokens',
   'per-call',
-  'per-message',
 ];
+
+const UNIT_LABEL_KEYS = {
+  'per-image': 'unit.per-image',
+  'per-second': 'unit.per-second',
+  'per-1k-tokens': 'unit.per-1k-tokens',
+  'per-call': 'unit.per-call',
+};
+
+// 把 unit 内部值转成 i18n label；非内置值原样返回
+const resolveUnitLabel = (unit, t) => {
+  if (!unit) return '';
+  const key = UNIT_LABEL_KEYS[unit];
+  return key ? t(key) : unit;
+};
 
 const parseRatiosValue = (value) => {
   if (!value || typeof value !== 'string' || !value.trim()) return null;
@@ -214,42 +225,26 @@ const EditModelModal = (props) => {
     }
   };
 
-  // 全局 ModelPricing JSON map 缓存（编辑时用于 merge 写回）
-  const modelPricingMapRef = useRef({});
-
-  // 获取全局 ModelPricing option（一个大 JSON map）
+  // 获取全局 ModelPricing map（专用 endpoint）
   const fetchModelPricing = async () => {
     try {
-      const res = await API.get('/api/option/');
-      if (res?.data?.success) {
-        const items = res.data.data || [];
-        const target = Array.isArray(items)
-          ? items.find((o) => o.key === MODEL_PRICING_OPTION_KEY)
-          : null;
-        let map = {};
-        if (target && target.value) {
-          try {
-            const parsed = JSON.parse(target.value);
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-              map = parsed;
-            }
-          } catch {
-            map = {};
-          }
-        }
-        modelPricingMapRef.current = map;
-        // 回填当前模型的 pricing 字段
-        const modelName =
-          formApiRef.current?.getValue('model_name') ||
-          props.editingModel?.model_name;
-        if (modelName && map[modelName] && formApiRef.current) {
-          const entry = map[modelName] || {};
-          formApiRef.current.setValue('pricing_unit', entry.unit || '');
-          formApiRef.current.setValue(
-            'pricing_ratios',
-            stringifyRatiosValue(entry.ratios),
-          );
-        }
+      const res = await API.get('/api/model-pricing');
+      if (!res?.data?.success) return;
+      const map =
+        res.data.data && typeof res.data.data === 'object'
+          ? res.data.data
+          : {};
+      // 回填当前模型的 pricing 字段
+      const modelName =
+        formApiRef.current?.getValue('model_name') ||
+        props.editingModel?.model_name;
+      if (modelName && map[modelName] && formApiRef.current) {
+        const entry = map[modelName] || {};
+        formApiRef.current.setValue('pricing_unit', entry.unit || '');
+        formApiRef.current.setValue(
+          'pricing_ratios',
+          stringifyRatiosValue(entry.ratios),
+        );
       }
     } catch (error) {
       // ignore
@@ -340,30 +335,20 @@ const EditModelModal = (props) => {
     }
   }, [props.visiable, props.editingModel?.id, props.editingModel?.model_name]);
 
-  // 写回 ModelPricing：合并当前模型的 unit/ratios 到全局 map
+  // 单条 patch ModelPricing：unit + ratios 都空时由后端按 delete 语义处理
   const saveModelPricing = async (modelName, unit, ratiosStr) => {
     if (!modelName) return;
     const trimmedUnit = (unit || '').trim();
     const parsedRatios = parseRatiosValue(ratiosStr);
-    const map = { ...(modelPricingMapRef.current || {}) };
-    if (!trimmedUnit && !parsedRatios) {
-      // 两者都空：删除该模型的 pricing 条目
-      if (map[modelName] === undefined) return;
-      delete map[modelName];
-    } else {
-      map[modelName] = {
-        unit: trimmedUnit,
-        ratios: parsedRatios || {},
-      };
-    }
     try {
-      const res = await API.put('/api/option/', {
-        key: MODEL_PRICING_OPTION_KEY,
-        value: JSON.stringify(map),
-      });
-      if (res?.data?.success) {
-        modelPricingMapRef.current = map;
-      } else {
+      const res = await API.put(
+        `/api/model-pricing/${encodeURIComponent(modelName)}`,
+        {
+          unit: trimmedUnit,
+          ratios: parsedRatios || {},
+        },
+      );
+      if (!res?.data?.success) {
         showError(res?.data?.message || t('保存定价失败'));
       }
     } catch (error) {
@@ -767,7 +752,10 @@ const EditModelModal = (props) => {
                       placeholder={t(
                         '如 per-image / per-second / per-1k-tokens，可自定义',
                       )}
-                      data={PRICING_UNIT_SUGGESTIONS}
+                      data={PRICING_UNIT_VALUES.map((v) => ({
+                        value: v,
+                        label: `${resolveUnitLabel(v, t)} (${v})`,
+                      }))}
                       showClear
                       style={{ width: '100%' }}
                       extraText={t('用户自由填写，不限枚举')}

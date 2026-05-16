@@ -109,25 +109,15 @@ export const useModelsData = () => {
   // ModelPricing 全局 map（key 为 model_name）
   const [pricingMap, setPricingMap] = useState({});
 
-  // Load global ModelPricing option
+  // Load global ModelPricing map via dedicated endpoint
   const loadPricingMap = async () => {
     try {
-      const res = await API.get('/api/option/');
+      const res = await API.get('/api/model-pricing');
       if (res?.data?.success) {
-        const items = res.data.data || [];
-        const target = Array.isArray(items)
-          ? items.find((o) => o.key === 'ModelPricing')
-          : null;
-        if (target && target.value) {
-          try {
-            const parsed = JSON.parse(target.value);
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-              setPricingMap(parsed);
-              return;
-            }
-          } catch (_) {
-            // ignore parse error
-          }
+        const data = res.data.data;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          setPricingMap(data);
+          return;
         }
         setPricingMap({});
       }

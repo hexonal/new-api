@@ -236,6 +236,14 @@ const renderOperations = (
   );
 };
 
+// unit 内部值 → i18n label key（与 EditModelModal 一致）
+const UNIT_LABEL_KEYS = {
+  'per-image': 'unit.per-image',
+  'per-second': 'unit.per-second',
+  'per-1k-tokens': 'unit.per-1k-tokens',
+  'per-call': 'unit.per-call',
+};
+
 // 渲染定价列：从外部传入的 pricingMap 按 model_name 查找
 const renderPricing = (record, pricingMap, t) => {
   const entry =
@@ -248,8 +256,11 @@ const renderPricing = (record, pricingMap, t) => {
     : {};
   const skuCount = Object.keys(ratios).length;
   if (!unit && skuCount === 0) return '-';
-  const label = unit
-    ? `${unit}${skuCount > 0 ? ` · ${skuCount} SKU` : ''}`
+  const unitLabel = unit
+    ? (UNIT_LABEL_KEYS[unit] ? t(UNIT_LABEL_KEYS[unit]) : unit)
+    : '';
+  const label = unitLabel
+    ? `${unitLabel}${skuCount > 0 ? ` · ${skuCount} SKU` : ''}`
     : `${skuCount} SKU`;
   const tooltip =
     skuCount > 0

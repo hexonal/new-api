@@ -355,6 +355,13 @@ func SetApiRouter(router *gin.Engine) {
 			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
 		}
 
+		modelPricingRoute := apiRouter.Group("/model-pricing")
+		modelPricingRoute.Use(middleware.AdminAuth())
+		{
+			modelPricingRoute.GET("", controller.GetModelPricingMap)
+			modelPricingRoute.PUT("/:model_name", controller.PatchModelPricing)
+		}
+
 		modelsRoute := apiRouter.Group("/models")
 		modelsRoute.Use(middleware.AdminAuth())
 		{

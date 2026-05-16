@@ -3326,6 +3326,12 @@
     "如 per-image / per-second / per-1k-tokens，可自定义": "e.g. per-image / per-second / per-1k-tokens, customizable",
     "用户自由填写，不限枚举": "Free-form input, not restricted to suggestions",
     "任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价": "Arbitrary JSON object; keys are variants (e.g. resolution/tier), values are ratios or unit prices",
-    "保存定价失败": "Failed to save pricing"
+    "保存定价失败": "Failed to save pricing",
+    "unit": {
+      "per-image": "per-image",
+      "per-second": "per-second",
+      "per-1k-tokens": "per-1k-tokens",
+      "per-call": "per-call"
+    }
   }
 }
