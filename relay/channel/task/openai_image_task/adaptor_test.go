@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,56 @@ func TestBuildRequestURL_UsesIncomingVideosPath(t *testing.T) {
 	if got != want {
 		t.Fatalf("got %s, want %s", got, want)
 	}
+}
+
+func TestBuildRequestHeaderSendsAIRouterUpstreamBaseURL(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "Bearer sk-dev",
+			ChannelOtherSettings: dto.ChannelOtherSettings{
+				AIRouterUpstreamBaseURL: "https://dev-upstream.example.com/",
+			},
+		},
+	}
+	a := &TaskAdaptor{}
+	a.Init(info)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images", nil)
+
+	if err := a.BuildRequestHeader(nil, req, info); err != nil {
+		t.Fatalf("BuildRequestHeader err: %v", err)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer sk-dev" {
+		t.Fatalf("Authorization got %q", got)
+	}
+	if got := req.Header.Get(aiRouterUpstreamBaseURLHeader); got != "https://dev-upstream.example.com" {
+		t.Fatalf("%s got %q", aiRouterUpstreamBaseURLHeader, got)
+	}
+}
+
+func TestFetchTaskSendsAIRouterUpstreamBaseURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/images/task_abc" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-dev" {
+			t.Fatalf("Authorization got %q", got)
+		}
+		if got := r.Header.Get(aiRouterUpstreamBaseURLHeader); got != "https://dev-upstream.example.com" {
+			t.Fatalf("%s got %q", aiRouterUpstreamBaseURLHeader, got)
+		}
+		_, _ = w.Write([]byte(`{"code":"success","data":{"status":"succeeded"}}`))
+	}))
+	defer server.Close()
+
+	resp, err := (&TaskAdaptor{}).FetchTask(server.URL, "sk-dev", map[string]any{
+		"task_id":                  "task_abc",
+		aiRouterUpstreamBaseURLKey: "https://dev-upstream.example.com/",
+		"request_path":             "/v1/images",
+	}, "")
+	if err != nil {
+		t.Fatalf("FetchTask err: %v", err)
+	}
+	_ = resp.Body.Close()
 }
 
 func TestResolveUpstreamPath(t *testing.T) {

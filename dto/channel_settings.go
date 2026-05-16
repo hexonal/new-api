@@ -62,6 +62,8 @@ type ChannelOtherSettings struct {
 	// ImageTaskRequestPath 覆盖 channel.type=1 异步图像 submit 上游路径
 	// 默认 /v1/images/generations；ai-router 等自定义协议网关可设 /v1/images
 	ImageTaskRequestPath string `json:"image_task_request_path,omitempty"`
+	// AIRouterUpstreamBaseURL 是 channel.type=60 透传给 ai-router 的真实上游地址
+	AIRouterUpstreamBaseURL string `json:"ai_router_upstream_base_url,omitempty"`
 }
 
 var defaultChannelBreakerErrorTypes = []string{

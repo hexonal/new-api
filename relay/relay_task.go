@@ -100,11 +100,16 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 		common.SetContextKey(c, constant.ContextKeyChannelType, ch.Type)
 		common.SetContextKey(c, constant.ContextKeyChannelBaseUrl, ch.GetBaseURL())
 		common.SetContextKey(c, constant.ContextKeyChannelId, originTask.ChannelId)
+		otherSettings := ch.GetOtherSettings()
+		common.SetContextKey(c, constant.ContextKeyChannelOtherSetting, otherSettings)
 
 		info.ChannelBaseUrl = ch.GetBaseURL()
 		info.ChannelId = originTask.ChannelId
 		info.ChannelType = ch.Type
 		info.ApiKey = key
+		if info.ChannelMeta != nil {
+			info.ChannelOtherSettings = otherSettings
+		}
 	}
 
 	// 提取 remix 参数（时长、分辨率 → OtherRatios）
@@ -616,11 +621,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
-		"task_id":      task.GetUpstreamTaskID(),
-		"action":       task.Action,
-		"request_path": task.Properties.RequestPath,
-	}, proxy)
+	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, buildRealtimeFetchBody(task, channelModel), proxy)
 	if err != nil || resp == nil {
 		return nil
 	}
@@ -697,6 +698,22 @@ func shouldRealtimeFetchTask(task *model.Task) bool {
 		return false
 	}
 	return task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure
+}
+
+func buildRealtimeFetchBody(task *model.Task, ch *model.Channel) map[string]any {
+	body := map[string]any{
+		"task_id":      task.GetUpstreamTaskID(),
+		"action":       task.Action,
+		"request_path": task.Properties.RequestPath,
+	}
+	if ch == nil {
+		return body
+	}
+	settings := ch.GetOtherSettings()
+	if settings.AIRouterUpstreamBaseURL != "" {
+		body["ai_router_upstream_base_url"] = settings.AIRouterUpstreamBaseURL
+	}
+	return body
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

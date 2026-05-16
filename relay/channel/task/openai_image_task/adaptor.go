@@ -22,9 +22,15 @@ import (
 // TaskAdaptor 处理 OpenAI 兼容异步图片和视频任务。
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
-	baseURL string
-	apiKey  string
+	baseURL         string
+	apiKey          string
+	upstreamBaseURL string
 }
+
+const (
+	aiRouterUpstreamBaseURLHeader = "X-Upstream-Base-URL"
+	aiRouterUpstreamBaseURLKey    = "ai_router_upstream_base_url"
+)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	if info == nil || info.ChannelMeta == nil {
@@ -32,6 +38,7 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	}
 	a.baseURL = strings.TrimRight(info.ChannelBaseUrl, "/")
 	a.apiKey = info.ApiKey
+	a.upstreamBaseURL = normalizeOptionalURL(info.ChannelOtherSettings.AIRouterUpstreamBaseURL)
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
@@ -74,7 +81,10 @@ func resolveUpstreamPath(rawPath string) string {
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
-	req.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if auth := formatBearerAuthorization(a.apiKey); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	setAIRouterUpstreamBaseURLHeader(req, a.upstreamBaseURL)
 	if c != nil && c.Request != nil {
 		if contentType := c.Request.Header.Get("Content-Type"); contentType != "" {
 			req.Header.Set("Content-Type", contentType)
@@ -144,13 +154,49 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+key)
+	if auth := formatBearerAuthorization(key); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	setAIRouterUpstreamBaseURLHeader(req, aiRouterUpstreamBaseURLFromBody(body))
 
 	client, err := service.GetHttpClientWithProxy(proxy)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
 	}
 	return client.Do(req)
+}
+
+func formatBearerAuthorization(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(key), "bearer ") {
+		return key
+	}
+	return "Bearer " + key
+}
+
+func normalizeOptionalURL(value string) string {
+	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+func setAIRouterUpstreamBaseURLHeader(req *http.Request, value string) {
+	value = normalizeOptionalURL(value)
+	if req == nil || value == "" {
+		return
+	}
+	req.Header.Set(aiRouterUpstreamBaseURLHeader, value)
+}
+
+func aiRouterUpstreamBaseURLFromBody(body map[string]any) string {
+	if body == nil {
+		return ""
+	}
+	if value, ok := body[aiRouterUpstreamBaseURLKey].(string); ok {
+		return value
+	}
+	return ""
 }
 
 // resolveFetchPath 根据任务上下文决定轮询上游 GET 路径。

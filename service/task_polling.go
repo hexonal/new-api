@@ -401,11 +401,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	if privateData.Key != "" {
 		key = privateData.Key
 	}
-	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
-		"task_id":      task.GetUpstreamTaskID(),
-		"action":       task.Action,
-		"request_path": task.Properties.RequestPath,
-	}, proxy)
+	resp, err := adaptor.FetchTask(baseURL, key, buildTaskFetchBody(task, ch), proxy)
 	if err != nil {
 		return fmt.Errorf("fetchTask failed for task %s: %w", taskId, err)
 	}
@@ -546,6 +542,22 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 
 	return nil
+}
+
+func buildTaskFetchBody(task *model.Task, ch *model.Channel) map[string]any {
+	body := map[string]any{
+		"task_id":      task.GetUpstreamTaskID(),
+		"action":       task.Action,
+		"request_path": task.Properties.RequestPath,
+	}
+	if ch == nil {
+		return body
+	}
+	settings := ch.GetOtherSettings()
+	if settings.AIRouterUpstreamBaseURL != "" {
+		body["ai_router_upstream_base_url"] = settings.AIRouterUpstreamBaseURL
+	}
+	return body
 }
 
 func redactVideoResponseBody(body []byte) []byte {
