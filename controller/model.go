@@ -225,6 +225,12 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
+	for i := range userOpenAiModels {
+		if pricing, ok := ratio_setting.GetModelPricing(userOpenAiModels[i].Id); ok {
+			userOpenAiModels[i].Pricing = pricing
+		}
+	}
+
 	switch modelType {
 	case constant.ChannelTypeAnthropic:
 		useranthropicModels := make([]dto.AnthropicModel, len(userOpenAiModels))

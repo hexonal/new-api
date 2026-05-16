@@ -236,6 +236,40 @@ const renderOperations = (
   );
 };
 
+// 渲染定价列：从外部传入的 pricingMap 按 model_name 查找
+const renderPricing = (record, pricingMap, t) => {
+  const entry =
+    record?.pricing ||
+    (pricingMap && record?.model_name ? pricingMap[record.model_name] : null);
+  if (!entry || typeof entry !== 'object') return '-';
+  const unit = entry.unit || '';
+  const ratios = entry.ratios && typeof entry.ratios === 'object'
+    ? entry.ratios
+    : {};
+  const skuCount = Object.keys(ratios).length;
+  if (!unit && skuCount === 0) return '-';
+  const label = unit
+    ? `${unit}${skuCount > 0 ? ` · ${skuCount} SKU` : ''}`
+    : `${skuCount} SKU`;
+  const tooltip =
+    skuCount > 0
+      ? Object.entries(ratios)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('\n')
+      : null;
+  const tag = (
+    <Tag size='small' shape='circle' color='amber'>
+      {label}
+    </Tag>
+  );
+  if (!tooltip) return tag;
+  return (
+    <Tooltip content={<pre className='m-0'>{tooltip}</pre>} showArrow>
+      {tag}
+    </Tooltip>
+  );
+};
+
 // 名称匹配类型渲染（带匹配数量 Tooltip）
 const renderNameRule = (rule, record, t) => {
   const map = {
@@ -280,6 +314,7 @@ export const getModelsColumns = ({
   setShowEdit,
   refresh,
   vendorMap,
+  pricingMap = {},
 }) => {
   return [
     {
@@ -331,6 +366,11 @@ export const getModelsColumns = ({
       title: t('端点'),
       dataIndex: 'endpoints',
       render: renderEndpoints,
+    },
+    {
+      title: t('定价'),
+      dataIndex: 'pricing',
+      render: (_, record) => renderPricing(record, pricingMap, t),
     },
     {
       title: t('已绑定渠道'),

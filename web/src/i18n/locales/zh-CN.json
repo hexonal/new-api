@@ -2936,6 +2936,14 @@
     "5m缓存创建：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 5m缓存创建倍率 {{cacheCreationRatio5m}} * {{ratioType}} {{ratio}} = {{amount}}": "5m缓存创建：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 5m缓存创建倍率 {{cacheCreationRatio5m}} * {{ratioType}} {{ratio}} = {{amount}}",
     "1h缓存创建：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 1h缓存创建倍率 {{cacheCreationRatio1h}} * {{ratioType}} {{ratio}} = {{amount}}": "1h缓存创建：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 1h缓存创建倍率 {{cacheCreationRatio1h}} * {{ratioType}} {{ratio}} = {{amount}}",
     "输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 输出倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}": "输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 输出倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}",
-    "空": "空"
+    "空": "空",
+    "定价": "定价",
+    "计价单位": "计价单位",
+    "子规格倍率(JSON)": "子规格倍率(JSON)",
+    "配置该模型对外暴露的计价单位与子规格倍率（写入全局 ModelPricing）": "配置该模型对外暴露的计价单位与子规格倍率（写入全局 ModelPricing）",
+    "如 per-image / per-second / per-1k-tokens，可自定义": "如 per-image / per-second / per-1k-tokens，可自定义",
+    "用户自由填写，不限枚举": "用户自由填写，不限枚举",
+    "任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价": "任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价",
+    "保存定价失败": "保存定价失败"
   }
 }

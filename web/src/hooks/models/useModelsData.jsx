@@ -106,6 +106,36 @@ export const useModelsData = () => {
     return map;
   }, [vendors]);
 
+  // ModelPricing 全局 map（key 为 model_name）
+  const [pricingMap, setPricingMap] = useState({});
+
+  // Load global ModelPricing option
+  const loadPricingMap = async () => {
+    try {
+      const res = await API.get('/api/option/');
+      if (res?.data?.success) {
+        const items = res.data.data || [];
+        const target = Array.isArray(items)
+          ? items.find((o) => o.key === 'ModelPricing')
+          : null;
+        if (target && target.value) {
+          try {
+            const parsed = JSON.parse(target.value);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              setPricingMap(parsed);
+              return;
+            }
+          } catch (_) {
+            // ignore parse error
+          }
+        }
+        setPricingMap({});
+      }
+    } catch (_) {
+      // ignore
+    }
+  };
+
   // Load vendor list
   const loadVendors = async () => {
     try {
@@ -423,6 +453,7 @@ export const useModelsData = () => {
   useEffect(() => {
     (async () => {
       await loadVendors();
+      await loadPricingMap();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -473,6 +504,8 @@ export const useModelsData = () => {
     // Vendor data
     vendors,
     vendorMap,
+    pricingMap,
+    loadPricingMap,
     vendorCounts,
     activeVendorKey,
     setActiveVendorKey,

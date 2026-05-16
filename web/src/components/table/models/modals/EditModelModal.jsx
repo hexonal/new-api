@@ -33,7 +33,7 @@ import {
   Col,
   Row,
 } from '@douyinfe/semi-ui';
-import { Save, X, FileText } from 'lucide-react';
+import { Save, X, FileText, DollarSign } from 'lucide-react';
 import { IconAlertTriangle, IconLink } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../../helpers';
 import { useTranslation } from 'react-i18next';
@@ -130,6 +130,37 @@ const normalizeEndpointsValue = (value) => {
   return stringifyEndpointsValue(parseEndpointsValue(value));
 };
 
+// ===== Model Pricing helpers =====
+// ModelPricing option 是一个大 JSON map：{ [modelName]: { unit, ratios } }
+// 编辑单个模型时必须 merge 写回，避免覆盖其他模型的配置
+const MODEL_PRICING_OPTION_KEY = 'ModelPricing';
+
+const PRICING_UNIT_SUGGESTIONS = [
+  'per-image',
+  'per-second',
+  'per-1k-tokens',
+  'per-call',
+  'per-message',
+];
+
+const parseRatiosValue = (value) => {
+  if (!value || typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const stringifyRatiosValue = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  return Object.keys(value).length === 0 ? '' : JSON.stringify(value, null, 2);
+};
+
 const nameRuleOptions = [
   { label: '精确名称匹配', value: 0 },
   { label: '前缀名称匹配', value: 1 },
@@ -183,10 +214,53 @@ const EditModelModal = (props) => {
     }
   };
 
+  // 全局 ModelPricing JSON map 缓存（编辑时用于 merge 写回）
+  const modelPricingMapRef = useRef({});
+
+  // 获取全局 ModelPricing option（一个大 JSON map）
+  const fetchModelPricing = async () => {
+    try {
+      const res = await API.get('/api/option/');
+      if (res?.data?.success) {
+        const items = res.data.data || [];
+        const target = Array.isArray(items)
+          ? items.find((o) => o.key === MODEL_PRICING_OPTION_KEY)
+          : null;
+        let map = {};
+        if (target && target.value) {
+          try {
+            const parsed = JSON.parse(target.value);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              map = parsed;
+            }
+          } catch {
+            map = {};
+          }
+        }
+        modelPricingMapRef.current = map;
+        // 回填当前模型的 pricing 字段
+        const modelName =
+          formApiRef.current?.getValue('model_name') ||
+          props.editingModel?.model_name;
+        if (modelName && map[modelName] && formApiRef.current) {
+          const entry = map[modelName] || {};
+          formApiRef.current.setValue('pricing_unit', entry.unit || '');
+          formApiRef.current.setValue(
+            'pricing_ratios',
+            stringifyRatiosValue(entry.ratios),
+          );
+        }
+      }
+    } catch (error) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     if (props.visiable) {
       fetchVendors();
       fetchPrefillGroups();
+      fetchModelPricing();
     }
   }, [props.visiable]);
 
@@ -202,6 +276,8 @@ const EditModelModal = (props) => {
     name_rule: props.editingModel?.model_name ? 0 : undefined, // 通过未配置模型过来的固定为精确匹配
     status: true,
     sync_official: true,
+    pricing_unit: '',
+    pricing_ratios: '',
   });
 
   const handleCancel = () => {
@@ -264,6 +340,37 @@ const EditModelModal = (props) => {
     }
   }, [props.visiable, props.editingModel?.id, props.editingModel?.model_name]);
 
+  // 写回 ModelPricing：合并当前模型的 unit/ratios 到全局 map
+  const saveModelPricing = async (modelName, unit, ratiosStr) => {
+    if (!modelName) return;
+    const trimmedUnit = (unit || '').trim();
+    const parsedRatios = parseRatiosValue(ratiosStr);
+    const map = { ...(modelPricingMapRef.current || {}) };
+    if (!trimmedUnit && !parsedRatios) {
+      // 两者都空：删除该模型的 pricing 条目
+      if (map[modelName] === undefined) return;
+      delete map[modelName];
+    } else {
+      map[modelName] = {
+        unit: trimmedUnit,
+        ratios: parsedRatios || {},
+      };
+    }
+    try {
+      const res = await API.put('/api/option/', {
+        key: MODEL_PRICING_OPTION_KEY,
+        value: JSON.stringify(map),
+      });
+      if (res?.data?.success) {
+        modelPricingMapRef.current = map;
+      } else {
+        showError(res?.data?.message || t('保存定价失败'));
+      }
+    } catch (error) {
+      showError(t('保存定价失败'));
+    }
+  };
+
   const submit = async (values) => {
     setLoading(true);
     try {
@@ -274,12 +381,20 @@ const EditModelModal = (props) => {
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
       };
+      // pricing 字段不属于模型表，提交模型前剥离
+      delete submitData.pricing_unit;
+      delete submitData.pricing_ratios;
 
       if (isEdit) {
         submitData.id = props.editingModel.id;
         const res = await API.put('/api/models/', submitData);
         const { success, message } = res.data;
         if (success) {
+          await saveModelPricing(
+            values.model_name,
+            values.pricing_unit,
+            values.pricing_ratios,
+          );
           showSuccess(t('模型更新成功！'));
           props.refresh();
           props.handleClose();
@@ -290,6 +405,11 @@ const EditModelModal = (props) => {
         const res = await API.post('/api/models/', submitData);
         const { success, message } = res.data;
         if (success) {
+          await saveModelPricing(
+            values.model_name,
+            values.pricing_unit,
+            values.pricing_ratios,
+          );
           showSuccess(t('模型创建成功！'));
           props.refresh();
           props.handleClose();
@@ -619,6 +739,55 @@ const EditModelModal = (props) => {
                       field='status'
                       label={t('状态')}
                       size='large'
+                    />
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* 模型定价 */}
+              <Card className='!rounded-2xl shadow-sm border-0 mt-3'>
+                <div className='flex items-center mb-2'>
+                  <Avatar size='small' color='orange' className='mr-2 shadow-md'>
+                    <DollarSign size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('定价')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t(
+                        '配置该模型对外暴露的计价单位与子规格倍率（写入全局 ModelPricing）',
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Row gutter={12}>
+                  <Col span={24}>
+                    <Form.AutoComplete
+                      field='pricing_unit'
+                      label={t('计价单位')}
+                      placeholder={t(
+                        '如 per-image / per-second / per-1k-tokens，可自定义',
+                      )}
+                      data={PRICING_UNIT_SUGGESTIONS}
+                      showClear
+                      style={{ width: '100%' }}
+                      extraText={t('用户自由填写，不限枚举')}
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <JSONEditor
+                      field='pricing_ratios'
+                      label={t('子规格倍率(JSON)')}
+                      placeholder={
+                        '{\n  "1024x1024": 0.04,\n  "1792x1024": 0.08\n}'
+                      }
+                      value={values.pricing_ratios}
+                      onChange={(val) =>
+                        formApiRef.current?.setValue('pricing_ratios', val)
+                      }
+                      formApi={formApiRef.current}
+                      extraText={t(
+                        '任意 JSON 对象，键为子规格（如分辨率/档位），值为倍率或单价',
+                      )}
                     />
                   </Col>
                 </Row>

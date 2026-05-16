@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"encoding/json"
+
 	"github.com/QuantumNous/new-api/constant"
 )
 
@@ -17,6 +19,7 @@ type OpenAIModels struct {
 	FunctionCalling        bool                    `json:"function_calling"`
 	NSFW                   bool                    `json:"nsfw"`
 	Capabilities           CapabilityMap           `json:"capabilities"`
+	Pricing                json.RawMessage         `json:"pricing,omitempty"`
 }
 
 type AnthropicModel struct {
