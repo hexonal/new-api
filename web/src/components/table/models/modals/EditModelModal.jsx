@@ -754,7 +754,7 @@ const EditModelModal = (props) => {
                       )}
                       data={PRICING_UNIT_VALUES.map((v) => ({
                         value: v,
-                        label: `${resolveUnitLabel(v, t)} (${v})`,
+                        label: resolveUnitLabel(v, t),
                       }))}
                       showClear
                       style={{ width: '100%' }}
