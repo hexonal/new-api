@@ -203,16 +203,22 @@ def _is_internal_details_request(text: Any) -> bool:
     return FORBIDDEN_REQUEST_PATTERN.search(message) is not None
 
 
-def _internal_details_refusal(language: str) -> str:
+def _internal_details_refusal(language: str = "zh-CN") -> str:
+    """对客 fallback 文案。
+
+    原版直接复述 system prompt 内部约束（"internal system / configuration /
+    credential / path / diagnostic details"），对客户毫无价值且暴露内部约定。
+    改成正面引导，给客户下一步行动。
+    """
     if language == "en":
         return (
-            "I can't provide internal system or diagnostic details. "
-            "Please share the public troubleshooting details instead: request_id or task_id, "
-            "request time, endpoint, model, and the exact error message."
+            "I can help with task troubleshooting, model/API questions, or "
+            "connect you to a human agent. Could you share more context — a "
+            "task_id, an error message, or what you're trying to do?"
         )
     return (
-        "这些属于内部系统和内部排障信息，我不能对外提供。"
-        "请提供可公开排查的信息：request_id 或 task_id、请求时间、endpoint、模型和完整报错内容。"
+        "我可以帮您排查任务、回答模型 / API 接入相关问题，或为您安排人工。"
+        "方便发一下 task_id、报错信息或您想做什么吗？"
     )
 
 
