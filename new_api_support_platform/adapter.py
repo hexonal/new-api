@@ -253,11 +253,16 @@ def _detect_message_language(message: Any) -> Optional[str]:
 
 def _preferred_language(payload: Dict[str, Any]) -> str:
     context = _payload_context(payload)
+    # Explicit frontend signal (locale / language at payload root or inside
+    # context) takes precedence over message-content detection — short
+    # greetings like "hi" should not be coerced to Chinese when the user
+    # picked English in the dashboard.
     return (
-        _detect_message_language(payload.get("message"))
+        _normalize_language(payload.get("locale"))
         or _normalize_language(payload.get("language"))
-        or _normalize_language(context.get("language"))
         or _normalize_language(context.get("locale"))
+        or _normalize_language(context.get("language"))
+        or _detect_message_language(payload.get("message"))
         or "zh-CN"
     )
 
